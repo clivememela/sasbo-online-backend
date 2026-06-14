@@ -36,3 +36,4 @@ out/
 ### VS Code ###
 .vscode/
 /.refact
+.DS_Store
