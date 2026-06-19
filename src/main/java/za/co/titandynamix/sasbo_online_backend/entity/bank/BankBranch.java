@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.entity.bank;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 
@@ -18,7 +19,8 @@ public class BankBranch {
     @Id @GeneratedValue @Column(name = "id")
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "bank_id", nullable = false)
     private Bank bank; // Relationship link
 
