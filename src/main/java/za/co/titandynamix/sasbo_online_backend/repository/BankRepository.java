@@ -6,4 +6,5 @@ import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 
 @Repository
 public interface BankRepository extends JpaRepository<Bank, Integer> {
+    java.util.Optional<Bank> findByNameIgnoreCase(String name);
 }

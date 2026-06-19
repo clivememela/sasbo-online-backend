@@ -5,7 +5,7 @@ public enum AddressType {
     ALTERNATE(2, "Alternate"),
     WORK(3, "Work");
 
-    private final int accountTypeCode;;
+    private final int accountTypeCode;
     private final String addressType;
 
     AddressType(int accountTypeCode,String addressType) {

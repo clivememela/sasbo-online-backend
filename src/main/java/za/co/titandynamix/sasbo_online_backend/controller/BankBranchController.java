@@ -24,9 +24,9 @@ public class BankBranchController {
     ) {
         return branchRepository.findAll().stream()
                 .filter(b -> bankName.isBlank() || b.getBankName().toLowerCase().contains(bankName.toLowerCase()))
-                .filter(b -> branch.isBlank() || b.getBranch().toLowerCase().contains(branch.toLowerCase()))
+                .filter(b -> branch.isBlank() || (b.getBranchName() != null && b.getBranchName().toLowerCase().contains(branch.toLowerCase())))
                 .filter(b -> area.isBlank() || (b.getArea() != null && b.getArea().toLowerCase().contains(area.toLowerCase())))
                 .filter(b -> randomAccessNumber.isBlank() || (b.getRandomAccessNumber() != null && b.getRandomAccessNumber().toLowerCase().contains(randomAccessNumber.toLowerCase())))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

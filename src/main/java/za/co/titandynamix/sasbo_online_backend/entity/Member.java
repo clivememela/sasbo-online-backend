@@ -105,7 +105,7 @@ public class Member {
 
     // One-to-One shared primary key or foreign key relationship with User
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @JoinColumn(name = "user_id", nullable = true, unique = true)
+    @JoinColumn(name = "user_id", unique = true)
     private User user;
 
     // Entity lifecycle hooks to automatically track updates

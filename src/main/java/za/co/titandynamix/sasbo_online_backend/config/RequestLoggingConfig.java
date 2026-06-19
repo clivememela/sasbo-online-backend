@@ -1,4 +1,4 @@
-package za.co.titandynamix.sasbo_online_backend;
+package za.co.titandynamix.sasbo_online_backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

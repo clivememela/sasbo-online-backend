@@ -1,12 +1,10 @@
-package za.co.titandynamix.sasbo_online_backend.entity;
+package za.co.titandynamix.sasbo_online_backend.entity.bank;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
-import za.co.titandynamix.sasbo_online_backend.entity.bank.Branch;
 import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
 
 // This is the Banking Details Entity in the PostgreSQL database

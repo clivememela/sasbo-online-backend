@@ -8,6 +8,7 @@ public class BankBranchDto {
     private String bankName;
     private String bankAbbreviation;
     private String branch;
+    private String branchCode;
     private String area;
     private String randomAccessNumber;
     private String phoneNumber;

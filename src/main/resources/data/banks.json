@@ -2,7 +2,6 @@
   {
     "bankName": "Absa Bank Limited",
     "bankAbbreviation": "ABS",
-    "branch": "Head Office",
     "area": "Johannesburg",
     "randomAccessNumber": "RAN-001",
     "phoneNumber": "011 350 5347",
@@ -23,14 +22,20 @@
     "bankDepartmentCode": "DEPT-HQ",
     "subsValueBranch": 150000,
     "tableCode": 1,
-    "physicalAddress": "170 Main St, Johannesburg",
+    "physicalAddress": {
+      "streetNumber": "170",
+      "streetName": "Main St",
+      "provinceName": "Gauteng",
+      "cityName": "Johannesburg"
+    },
     "postalAddress": "P.O. Box 7735, Johannesburg, 2000",
-    "id": 1
+    "id": 1,
+    "branchName": "Head Office",
+    "branchCode": "632005"
   },
   {
     "bankName": "Standard Bank South Africa",
     "bankAbbreviation": "SBSA",
-    "branch": "Rosebank",
     "area": "Johannesburg",
     "randomAccessNumber": "RAN-002",
     "phoneNumber": "011 721 9000",
@@ -51,14 +56,20 @@
     "bankDepartmentCode": "DEPT-RB",
     "subsValueBranch": 75000,
     "tableCode": 2,
-    "physicalAddress": "30 Baker St, Rosebank",
+    "physicalAddress": {
+      "streetNumber": "30",
+      "streetName": "Baker St",
+      "provinceName": "Gauteng",
+      "cityName": "Rosebank"
+    },
     "postalAddress": "P.O. Box 61690, Marshalltown, 2107",
-    "id": 2
+    "id": 2,
+    "branchName": "Rosebank",
+    "branchCode": "051001"
   },
   {
     "bankName": "African Bank Limited",
     "bankAbbreviation": "AFB",
-    "branch": "Head Office",
     "area": "Midrand",
     "randomAccessNumber": "RAN-003",
     "phoneNumber": "011 256 9514",
@@ -79,14 +90,20 @@
     "bankDepartmentCode": "DEPT-HQ",
     "subsValueBranch": 45000,
     "tableCode": 3,
-    "physicalAddress": "59 16th Rd, Midrand",
+    "physicalAddress": {
+      "streetNumber": "59",
+      "streetName": "16th Rd",
+      "provinceName": "Gauteng",
+      "cityName": "Midrand"
+    },
     "postalAddress": "P.O. Box 800, Midrand, 1685",
-    "id": 3
+    "id": 3,
+    "branchName": "Head Office",
+    "branchCode": "430000"
   },
   {
     "bankName": "Bidvest Bank Limited",
     "bankAbbreviation": "BVB",
-    "branch": "Head Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-004",
     "phoneNumber": "011 407 3165",
@@ -107,14 +124,20 @@
     "bankDepartmentCode": "DEPT-HQ",
     "subsValueBranch": 37500,
     "tableCode": 4,
-    "physicalAddress": "188 Rivonia Rd, Morningside",
+    "physicalAddress": {
+      "streetNumber": "188",
+      "streetName": "Rivonia Rd",
+      "provinceName": "Gauteng",
+      "cityName": "Morningside"
+    },
     "postalAddress": "P.O. Box 1852, Wierda Valley, 2146",
-    "id": 4
+    "id": 4,
+    "branchName": "Head Office",
+    "branchCode": "462005"
   },
   {
     "bankName": "Capitec Bank Limited",
     "bankAbbreviation": "CBL",
-    "branch": "Head Office",
     "area": "Stellenbosch",
     "randomAccessNumber": "RAN-005",
     "phoneNumber": "021 809 5900",
@@ -135,14 +158,20 @@
     "bankDepartmentCode": "DEPT-HQ",
     "subsValueBranch": 375000,
     "tableCode": 5,
-    "physicalAddress": "1 Quantum St, Stellenbosch",
+    "physicalAddress": {
+      "streetNumber": "1",
+      "streetName": "Quantum St",
+      "provinceName": "Western Cape",
+      "cityName": "Stellenbosch"
+    },
     "postalAddress": "P.O. Box 12451, Die Boord, 7613",
-    "id": 5
+    "id": 5,
+    "branchName": "Head Office",
+    "branchCode": "470010"
   },
   {
     "bankName": "Discovery Bank Limited",
     "bankAbbreviation": "DBL",
-    "branch": "Head Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-006",
     "phoneNumber": "011 529 0077",
@@ -163,14 +192,20 @@
     "bankDepartmentCode": "DEPT-HQ",
     "subsValueBranch": 120000,
     "tableCode": 6,
-    "physicalAddress": "1 Discovery Place, Sandton",
+    "physicalAddress": {
+      "streetNumber": "1",
+      "streetName": "Discovery Place",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 786722, Sandton, 2146",
-    "id": 6
+    "id": 6,
+    "branchName": "Head Office",
+    "branchCode": "679000"
   },
   {
     "bankName": "FirstRand Limited",
     "bankAbbreviation": "FRL",
-    "branch": "Head Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-007",
     "phoneNumber": "011 282 8132",
@@ -191,14 +226,20 @@
     "bankDepartmentCode": "DEPT-HQ",
     "subsValueBranch": 825000,
     "tableCode": 7,
-    "physicalAddress": "4 Merchant Place, Sandton",
+    "physicalAddress": {
+      "streetNumber": "4",
+      "streetName": "Merchant Place",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 650149, Benmore, 2010",
-    "id": 7
+    "id": 7,
+    "branchName": "Head Office",
+    "branchCode": "250655"
   },
   {
     "bankName": "Investec Bank Limited",
     "bankAbbreviation": "IBL",
-    "branch": "Head Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-008",
     "phoneNumber": "011 286 7203",
@@ -219,13 +260,19 @@
     "bankDepartmentCode": "DEPT-HQ",
     "subsValueBranch": 165000,
     "tableCode": 8,
-    "physicalAddress": "100 Grayston Dr, Sandton",
+    "physicalAddress": {
+      "streetNumber": "100",
+      "streetName": "Grayston Dr",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 785700, Sandton, 2146",
-    "id": 8
+    "id": 8,
+    "branchName": "Head Office",
+    "branchCode": "580105"
   },
   {
     "bankName": "OM Bank Limited",
-    "branch": "Head Office",
     "area": "Pinelands",
     "randomAccessNumber": "RAN-009",
     "phoneNumber": "0860 662 265 / 021 137 5871",
@@ -247,13 +294,19 @@
     "bankDepartmentCode": "DEPT-009",
     "subsValueBranch": 15260,
     "tableCode": 10,
-    "physicalAddress": "109 Main Street, Pinelands",
+    "physicalAddress": {
+      "streetNumber": "109",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Pinelands"
+    },
     "postalAddress": "P.O. Box 5009, Pinelands, 2000",
-    "id": 9
+    "id": 9,
+    "branchName": "Head Office",
+    "branchCode": "585001"
   },
   {
     "bankName": "Nedbank Limited",
-    "branch": "Head Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-010",
     "phoneNumber": "010 214 8032",
@@ -275,13 +328,19 @@
     "bankDepartmentCode": "DEPT-010",
     "subsValueBranch": 16500,
     "tableCode": 11,
-    "physicalAddress": "110 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "110",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5010, Sandton, 2000",
-    "id": 10
+    "id": 10,
+    "branchName": "Head Office",
+    "branchCode": "198765"
   },
   {
     "bankName": "Sasfin Bank Limited",
-    "branch": "Head Office",
     "area": "Johannesburg",
     "randomAccessNumber": "RAN-011",
     "phoneNumber": "011 809 7523",
@@ -303,13 +362,19 @@
     "bankDepartmentCode": "DEPT-011",
     "subsValueBranch": 17760,
     "tableCode": 12,
-    "physicalAddress": "111 Main Street, Johannesburg",
+    "physicalAddress": {
+      "streetNumber": "111",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Johannesburg"
+    },
     "postalAddress": "P.O. Box 5011, Johannesburg, 2000",
-    "id": 11
+    "id": 11,
+    "branchName": "Head Office",
+    "branchCode": "683000"
   },
   {
     "bankName": "The Standard Bank of South Africa Limited",
-    "branch": "Head Office",
     "area": "Johannesburg",
     "randomAccessNumber": "RAN-012",
     "phoneNumber": "011 636 6316",
@@ -331,13 +396,19 @@
     "bankDepartmentCode": "DEPT-012",
     "subsValueBranch": 19040,
     "tableCode": 13,
-    "physicalAddress": "112 Main Street, Johannesburg",
+    "physicalAddress": {
+      "streetNumber": "112",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Johannesburg"
+    },
     "postalAddress": "P.O. Box 5012, Johannesburg, 2000",
-    "id": 12
+    "id": 12,
+    "branchName": "Head Office",
+    "branchCode": "051001"
   },
   {
     "bankName": "GoTyme Bank Limited",
-    "branch": "Head Office",
     "area": "Johannesburg",
     "randomAccessNumber": "RAN-013",
     "phoneNumber": "0860 999 119",
@@ -359,13 +430,19 @@
     "bankDepartmentCode": "DEPT-013",
     "subsValueBranch": 20340,
     "tableCode": 14,
-    "physicalAddress": "113 Main Street, Johannesburg",
+    "physicalAddress": {
+      "streetNumber": "113",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Johannesburg"
+    },
     "postalAddress": "P.O. Box 5013, Johannesburg, 2000",
-    "id": 13
+    "id": 13,
+    "branchName": "Head Office",
+    "branchCode": "678910"
   },
   {
     "bankName": "Ubank (under curatorship)",
-    "branch": "Head Office",
     "area": "",
     "randomAccessNumber": "RAN-014",
     "phoneNumber": "",
@@ -387,13 +464,19 @@
     "bankDepartmentCode": "DEPT-014",
     "subsValueBranch": 21660,
     "tableCode": 15,
-    "physicalAddress": "114 Main Street, Johannesburg",
+    "physicalAddress": {
+      "streetNumber": "114",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Johannesburg"
+    },
     "postalAddress": "P.O. Box 5014, Johannesburg, 2000",
-    "id": 14
+    "id": 14,
+    "branchName": "Head Office",
+    "branchCode": "431010"
   },
   {
     "bankName": "Access Bank (South Africa) Limited",
-    "branch": "Head Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-015",
     "phoneNumber": "011 634 4300",
@@ -415,13 +498,19 @@
     "bankDepartmentCode": "DEPT-015",
     "subsValueBranch": 23000,
     "tableCode": 16,
-    "physicalAddress": "115 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "115",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5015, Sandton, 2000",
-    "id": 15
+    "id": 15,
+    "branchName": "Head Office",
+    "branchCode": "410506"
   },
   {
     "bankName": "Albaraka Bank Limited",
-    "branch": "Head Office",
     "area": "Durban",
     "randomAccessNumber": "RAN-016",
     "phoneNumber": "031 364 9002 / 082 490 5673",
@@ -443,13 +532,19 @@
     "bankDepartmentCode": "DEPT-016",
     "subsValueBranch": 24360,
     "tableCode": 17,
-    "physicalAddress": "116 Main Street, Durban",
+    "physicalAddress": {
+      "streetNumber": "116",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Durban"
+    },
     "postalAddress": "P.O. Box 5016, Durban, 2000",
-    "id": 16
+    "id": 16,
+    "branchName": "Head Office",
+    "branchCode": "800000"
   },
   {
     "bankName": "HBZ Bank Limited",
-    "branch": "Head Office",
     "area": "Umhlanga Ridge",
     "randomAccessNumber": "RAN-017",
     "phoneNumber": "031 270 2600",
@@ -471,13 +566,19 @@
     "bankDepartmentCode": "DEPT-017",
     "subsValueBranch": 25740,
     "tableCode": 18,
-    "physicalAddress": "117 Main Street, Umhlanga Ridge",
+    "physicalAddress": {
+      "streetNumber": "117",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Umhlanga Ridge"
+    },
     "postalAddress": "P.O. Box 5017, Umhlanga Ridge, 2000",
-    "id": 17
+    "id": 17,
+    "branchName": "Head Office",
+    "branchCode": "570100"
   },
   {
     "bankName": "Bank Of China Limited",
-    "branch": "Johannesburg Branch",
     "area": "Sandton",
     "randomAccessNumber": "RAN-018",
     "phoneNumber": "011 520 9600",
@@ -499,13 +600,19 @@
     "bankDepartmentCode": "DEPT-018",
     "subsValueBranch": 27140,
     "tableCode": 19,
-    "physicalAddress": "118 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "118",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5018, Sandton, 2000",
-    "id": 18
+    "id": 18,
+    "branchName": "Johannesburg Branch",
+    "branchCode": "586666"
   },
   {
     "bankName": "Bank Of Communication Co., Ltd",
-    "branch": "Johannesburg Branch",
     "area": "Sandton",
     "randomAccessNumber": "RAN-019",
     "phoneNumber": "010 288 5885",
@@ -527,13 +634,19 @@
     "bankDepartmentCode": "DEPT-019",
     "subsValueBranch": 28560,
     "tableCode": 20,
-    "physicalAddress": "119 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "119",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5019, Sandton, 2000",
-    "id": 19
+    "id": 19,
+    "branchName": "Johannesburg Branch",
+    "branchCode": "587000"
   },
   {
     "bankName": "Bank of Taiwan",
-    "branch": "South Africa Branch",
     "area": "Rosebank",
     "randomAccessNumber": "RAN-020",
     "phoneNumber": "011 880 8008",
@@ -555,13 +668,19 @@
     "bankDepartmentCode": "DEPT-020",
     "subsValueBranch": 6000,
     "tableCode": 21,
-    "physicalAddress": "120 Main Street, Rosebank",
+    "physicalAddress": {
+      "streetNumber": "120",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Rosebank"
+    },
     "postalAddress": "P.O. Box 5020, Rosebank, 2000",
-    "id": 20
+    "id": 20,
+    "branchName": "South Africa Branch",
+    "branchCode": "588000"
   },
   {
     "bankName": "Citibank",
-    "branch": "Head Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-021",
     "phoneNumber": "011 944 0800",
@@ -583,13 +702,19 @@
     "bankDepartmentCode": "DEPT-021",
     "subsValueBranch": 7260,
     "tableCode": 22,
-    "physicalAddress": "121 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "121",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5021, Sandton, 2000",
-    "id": 21
+    "id": 21,
+    "branchName": "Head Office",
+    "branchCode": "350005"
   },
   {
     "bankName": "China Construction Bank Corporation",
-    "branch": "Johannesburg Branch",
     "area": "Sandton",
     "randomAccessNumber": "RAN-022",
     "phoneNumber": "011 520 9400",
@@ -611,13 +736,19 @@
     "bankDepartmentCode": "DEPT-022",
     "subsValueBranch": 8540,
     "tableCode": 23,
-    "physicalAddress": "122 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "122",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5022, Sandton, 2000",
-    "id": 22
+    "id": 22,
+    "branchName": "Johannesburg Branch",
+    "branchCode": "589000"
   },
   {
     "bankName": "Deutsche Bank AG",
-    "branch": "Head Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-023",
     "phoneNumber": "011 775 7000",
@@ -639,13 +770,19 @@
     "bankDepartmentCode": "DEPT-023",
     "subsValueBranch": 9840,
     "tableCode": 24,
-    "physicalAddress": "123 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "123",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5023, Sandton, 2000",
-    "id": 23
+    "id": 23,
+    "branchName": "Head Office",
+    "branchCode": "370500"
   },
   {
     "bankName": "Goldman Sachs International Bank",
-    "branch": "Johannesburg Branch",
     "area": "Sandton",
     "randomAccessNumber": "RAN-024",
     "phoneNumber": "011 303 2700",
@@ -667,13 +804,19 @@
     "bankDepartmentCode": "DEPT-024",
     "subsValueBranch": 11160,
     "tableCode": 25,
-    "physicalAddress": "124 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "124",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5024, Sandton, 2000",
-    "id": 24
+    "id": 24,
+    "branchName": "Johannesburg Branch",
+    "branchCode": "371000"
   },
   {
     "bankName": "HSBC Bank Plc",
-    "branch": "Johannesburg Branch",
     "area": "Sandton",
     "randomAccessNumber": "RAN-025",
     "phoneNumber": "011 676 4200",
@@ -695,13 +838,19 @@
     "bankDepartmentCode": "DEPT-025",
     "subsValueBranch": 12500,
     "tableCode": 26,
-    "physicalAddress": "125 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "125",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5025, Sandton, 2000",
-    "id": 25
+    "id": 25,
+    "branchName": "Johannesburg Branch",
+    "branchCode": "587000"
   },
   {
     "bankName": "JPMorgan Chase Bank, N.A.",
-    "branch": "Johannesburg Branch",
     "area": "Illovo",
     "randomAccessNumber": "RAN-026",
     "phoneNumber": "011 507 0764",
@@ -723,13 +872,19 @@
     "bankDepartmentCode": "DEPT-026",
     "subsValueBranch": 13860,
     "tableCode": 27,
-    "physicalAddress": "126 Main Street, Illovo",
+    "physicalAddress": {
+      "streetNumber": "126",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Illovo"
+    },
     "postalAddress": "P.O. Box 5026, Illovo, 2000",
-    "id": 26
+    "id": 26,
+    "branchName": "Johannesburg Branch",
+    "branchCode": "432000"
   },
   {
     "bankName": "Standard Chartered Bank",
-    "branch": "Johannesburg Branch",
     "area": "Sandton",
     "randomAccessNumber": "RAN-027",
     "phoneNumber": "011 217 6642",
@@ -751,13 +906,19 @@
     "bankDepartmentCode": "DEPT-027",
     "subsValueBranch": 15240,
     "tableCode": 28,
-    "physicalAddress": "127 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "127",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5027, Sandton, 2000",
-    "id": 27
+    "id": 27,
+    "branchName": "Johannesburg Branch",
+    "branchCode": "730020"
   },
   {
     "bankName": "State Bank of India",
-    "branch": "Head Office",
     "area": "Rosebank",
     "randomAccessNumber": "RAN-028",
     "phoneNumber": "011 778 4501",
@@ -779,13 +940,19 @@
     "bankDepartmentCode": "DEPT-028",
     "subsValueBranch": 16640,
     "tableCode": 29,
-    "physicalAddress": "128 Main Street, Rosebank",
+    "physicalAddress": {
+      "streetNumber": "128",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Rosebank"
+    },
     "postalAddress": "P.O. Box 5028, Rosebank, 2000",
-    "id": 28
+    "id": 28,
+    "branchName": "Head Office",
+    "branchCode": "801000"
   },
   {
     "bankName": "Bank Zero Mutual Bank",
-    "branch": "Head Office",
     "area": "Bryanston",
     "randomAccessNumber": "RAN-029",
     "phoneNumber": "011 367 8100",
@@ -807,13 +974,19 @@
     "bankDepartmentCode": "DEPT-029",
     "subsValueBranch": 18060,
     "tableCode": 30,
-    "physicalAddress": "129 Main Street, Bryanston",
+    "physicalAddress": {
+      "streetNumber": "129",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Bryanston"
+    },
     "postalAddress": "P.O. Box 5029, Bryanston, 2000",
-    "id": 29
+    "id": 29,
+    "branchName": "Head Office",
+    "branchCode": "888000"
   },
   {
     "bankName": "eNL Mutual Bank",
-    "branch": "Head Office",
     "area": "Edenvale",
     "randomAccessNumber": "RAN-030",
     "phoneNumber": "087 550 3212",
@@ -835,13 +1008,19 @@
     "bankDepartmentCode": "DEPT-030",
     "subsValueBranch": 19500,
     "tableCode": 31,
-    "physicalAddress": "130 Main Street, Edenvale",
+    "physicalAddress": {
+      "streetNumber": "130",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Edenvale"
+    },
     "postalAddress": "P.O. Box 5030, Edenvale, 2000",
-    "id": 30
+    "id": 30,
+    "branchName": "Head Office",
+    "branchCode": "889000"
   },
   {
     "bankName": "Finbond Mutual Bank",
-    "branch": "Head Office",
     "area": "Pretoria",
     "randomAccessNumber": "RAN-031",
     "phoneNumber": "012 460 7288",
@@ -863,13 +1042,19 @@
     "bankDepartmentCode": "DEPT-031",
     "subsValueBranch": 20960,
     "tableCode": 32,
-    "physicalAddress": "131 Main Street, Pretoria",
+    "physicalAddress": {
+      "streetNumber": "131",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Pretoria"
+    },
     "postalAddress": "P.O. Box 5031, Pretoria, 2000",
-    "id": 31
+    "id": 31,
+    "branchName": "Head Office",
+    "branchCode": "589000"
   },
   {
     "bankName": "GBS Mutual Bank",
-    "branch": "Head Office",
     "area": "Grahamstown",
     "randomAccessNumber": "RAN-032",
     "phoneNumber": "046 622 7109",
@@ -891,13 +1076,19 @@
     "bankDepartmentCode": "DEPT-032",
     "subsValueBranch": 22440,
     "tableCode": 33,
-    "physicalAddress": "132 Main Street, Grahamstown",
+    "physicalAddress": {
+      "streetNumber": "132",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Grahamstown"
+    },
     "postalAddress": "P.O. Box 5032, Grahamstown, 2000",
-    "id": 32
+    "id": 32,
+    "branchName": "Head Office",
+    "branchCode": "580000"
   },
   {
     "bankName": "Ditsobotla Primary Savings and Credit Co-operative Bank",
-    "branch": "Head Office",
     "area": "Lichtenburg",
     "randomAccessNumber": "2001/000005/24",
     "phoneNumber": "018 632 5575 / 082 428 7691",
@@ -919,13 +1110,19 @@
     "bankDepartmentCode": "DEPT-033",
     "subsValueBranch": 23940,
     "tableCode": 34,
-    "physicalAddress": "133 Main Street, Lichtenburg",
+    "physicalAddress": {
+      "streetNumber": "133",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Lichtenburg"
+    },
     "postalAddress": "P.O. Box 5033, Lichtenburg, 2000",
-    "id": 33
+    "id": 33,
+    "branchName": "Head Office",
+    "branchCode": "900001"
   },
   {
     "bankName": "OSK Kooperatiewe Bank Beperk",
-    "branch": "Head Office",
     "area": "Orania",
     "randomAccessNumber": "2002/00019/24",
     "phoneNumber": "053 207 0010",
@@ -947,13 +1144,19 @@
     "bankDepartmentCode": "DEPT-034",
     "subsValueBranch": 25460,
     "tableCode": 35,
-    "physicalAddress": "134 Main Street, Orania",
+    "physicalAddress": {
+      "streetNumber": "134",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Orania"
+    },
     "postalAddress": "P.O. Box 5034, Orania, 2000",
-    "id": 34
+    "id": 34,
+    "branchName": "Head Office",
+    "branchCode": "900002"
   },
   {
     "bankName": "Ziphakamise Savings and Credit Co-operative Bank",
-    "branch": "Head Office",
     "area": "Richards Bay",
     "randomAccessNumber": "2008/001512/24",
     "phoneNumber": "035 797 5175",
@@ -975,13 +1178,19 @@
     "bankDepartmentCode": "DEPT-035",
     "subsValueBranch": 27000,
     "tableCode": 36,
-    "physicalAddress": "135 Main Street, Richards Bay",
+    "physicalAddress": {
+      "streetNumber": "135",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Richards Bay"
+    },
     "postalAddress": "P.O. Box 5035, Richards Bay, 2000",
-    "id": 35
+    "id": 35,
+    "branchName": "Head Office",
+    "branchCode": "900003"
   },
   {
     "bankName": "KSK Kooperatiewe Bank Beperk",
-    "branch": "Head Office",
     "area": "Cullinan",
     "randomAccessNumber": "2004/000032/24",
     "phoneNumber": "012 802 1413 / 082 349 7658",
@@ -1003,13 +1212,19 @@
     "bankDepartmentCode": "DEPT-036",
     "subsValueBranch": 28560,
     "tableCode": 37,
-    "physicalAddress": "136 Main Street, Cullinan",
+    "physicalAddress": {
+      "streetNumber": "136",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Cullinan"
+    },
     "postalAddress": "P.O. Box 5036, Cullinan, 2000",
-    "id": 36
+    "id": 36,
+    "branchName": "Head Office",
+    "branchCode": "900004"
   },
   {
     "bankName": "GIG Co-operative Bank",
-    "branch": "Head Office",
     "area": "Johannesburg",
     "randomAccessNumber": "2015/002508/24",
     "phoneNumber": "",
@@ -1031,13 +1246,19 @@
     "bankDepartmentCode": "DEPT-037",
     "subsValueBranch": 30140,
     "tableCode": 38,
-    "physicalAddress": "137 Main Street, Johannesburg",
+    "physicalAddress": {
+      "streetNumber": "137",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Johannesburg"
+    },
     "postalAddress": "P.O. Box 5037, Johannesburg, 2000",
-    "id": 37
+    "id": 37,
+    "branchName": "Head Office",
+    "branchCode": "900005"
   },
   {
     "bankName": "AfrAsia Bank Limited",
-    "branch": "Representative Office",
     "area": "Sandhurst",
     "randomAccessNumber": "RAN-038",
     "phoneNumber": "+27 11 268 5780",
@@ -1059,13 +1280,19 @@
     "bankDepartmentCode": "DEPT-038",
     "subsValueBranch": 31740,
     "tableCode": 39,
-    "physicalAddress": "138 Main Street, Sandhurst",
+    "physicalAddress": {
+      "streetNumber": "138",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandhurst"
+    },
     "postalAddress": "P.O. Box 5038, Sandhurst, 2000",
-    "id": 38
+    "id": 38,
+    "branchName": "Representative Office",
+    "branchCode": "910001"
   },
   {
     "bankName": "Banco Internacional de Credito",
-    "branch": "Representative Office",
     "area": "Bruma",
     "randomAccessNumber": "RAN-039",
     "phoneNumber": "+27 11 616 1726",
@@ -1087,13 +1314,19 @@
     "bankDepartmentCode": "DEPT-039",
     "subsValueBranch": 33360,
     "tableCode": 40,
-    "physicalAddress": "139 Main Street, Bruma",
+    "physicalAddress": {
+      "streetNumber": "139",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Bruma"
+    },
     "postalAddress": "P.O. Box 5039, Bruma, 2000",
-    "id": 39
+    "id": 39,
+    "branchName": "Representative Office",
+    "branchCode": "910002"
   },
   {
     "bankName": "Bank Julius Baer & Co. Ltd",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-040",
     "phoneNumber": "+27 10 133 0402",
@@ -1115,13 +1348,19 @@
     "bankDepartmentCode": "DEPT-040",
     "subsValueBranch": 7000,
     "tableCode": 41,
-    "physicalAddress": "140 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "140",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5040, Sandton, 2000",
-    "id": 40
+    "id": 40,
+    "branchName": "Representative Office",
+    "branchCode": "910003"
   },
   {
     "bankName": "Bank Lombard Odier & Co Limited",
-    "branch": "Representative Office",
     "area": "Pretoria",
     "randomAccessNumber": "RAN-041",
     "phoneNumber": "+27 12 492 5617",
@@ -1143,13 +1382,19 @@
     "bankDepartmentCode": "DEPT-041",
     "subsValueBranch": 8460,
     "tableCode": 42,
-    "physicalAddress": "141 Main Street, Pretoria",
+    "physicalAddress": {
+      "streetNumber": "141",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Pretoria"
+    },
     "postalAddress": "P.O. Box 5041, Pretoria, 2000",
-    "id": 41
+    "id": 41,
+    "branchName": "Representative Office",
+    "branchCode": "910004"
   },
   {
     "bankName": "Bank of America N.A.",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-042",
     "phoneNumber": "+27 11 305 5820",
@@ -1171,13 +1416,19 @@
     "bankDepartmentCode": "DEPT-042",
     "subsValueBranch": 9940,
     "tableCode": 43,
-    "physicalAddress": "142 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "142",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5042, Sandton, 2000",
-    "id": 42
+    "id": 42,
+    "branchName": "Representative Office",
+    "branchCode": "910005"
   },
   {
     "bankName": "Bank Vontobel AG",
-    "branch": "Representative Office",
     "area": "Parkwood",
     "randomAccessNumber": "RAN-043",
     "phoneNumber": "+27 10 110 0669",
@@ -1199,13 +1450,19 @@
     "bankDepartmentCode": "DEPT-043",
     "subsValueBranch": 11440,
     "tableCode": 44,
-    "physicalAddress": "143 Main Street, Parkwood",
+    "physicalAddress": {
+      "streetNumber": "143",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Parkwood"
+    },
     "postalAddress": "P.O. Box 5043, Parkwood, 2000",
-    "id": 43
+    "id": 43,
+    "branchName": "Representative Office",
+    "branchCode": "910006"
   },
   {
     "bankName": "Banque SYZ SA",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-044",
     "phoneNumber": "+27 10 300 6040",
@@ -1227,13 +1484,19 @@
     "bankDepartmentCode": "DEPT-044",
     "subsValueBranch": 12960,
     "tableCode": 45,
-    "physicalAddress": "144 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "144",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5044, Sandton, 2000",
-    "id": 44
+    "id": 44,
+    "branchName": "Representative Office",
+    "branchCode": "910007"
   },
   {
     "bankName": "Barclays Bank PLC",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-045",
     "phoneNumber": "+27 10 005 1302",
@@ -1255,13 +1518,19 @@
     "bankDepartmentCode": "DEPT-045",
     "subsValueBranch": 14500,
     "tableCode": 46,
-    "physicalAddress": "145 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "145",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5045, Sandton, 2000",
-    "id": 45
+    "id": 45,
+    "branchName": "Representative Office",
+    "branchCode": "910008"
   },
   {
     "bankName": "Caixa Geral de Depositos",
-    "branch": "Representative Office",
     "area": "Bruma",
     "randomAccessNumber": "RAN-046",
     "phoneNumber": "+27 21 795 30 00",
@@ -1283,13 +1552,19 @@
     "bankDepartmentCode": "DEPT-046",
     "subsValueBranch": 16060,
     "tableCode": 47,
-    "physicalAddress": "146 Main Street, Bruma",
+    "physicalAddress": {
+      "streetNumber": "146",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Bruma"
+    },
     "postalAddress": "P.O. Box 5046, Bruma, 2000",
-    "id": 46
+    "id": 46,
+    "branchName": "Representative Office",
+    "branchCode": "910009"
   },
   {
     "bankName": "CaixaBank",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-047",
     "phoneNumber": "+34 681 188 554",
@@ -1311,13 +1586,19 @@
     "bankDepartmentCode": "DEPT-047",
     "subsValueBranch": 17640,
     "tableCode": 48,
-    "physicalAddress": "147 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "147",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5047, Sandton, 2000",
-    "id": 47
+    "id": 47,
+    "branchName": "Representative Office",
+    "branchCode": "910010"
   },
   {
     "bankName": "Capital International Bank Limited",
-    "branch": "Representative Office",
     "area": "Rondebosch",
     "randomAccessNumber": "RAN-048",
     "phoneNumber": "+27 21 201 1070",
@@ -1339,13 +1620,19 @@
     "bankDepartmentCode": "DEPT-048",
     "subsValueBranch": 19240,
     "tableCode": 49,
-    "physicalAddress": "148 Main Street, Rondebosch",
+    "physicalAddress": {
+      "streetNumber": "148",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Rondebosch"
+    },
     "postalAddress": "P.O. Box 5048, Rondebosch, 2000",
-    "id": 48
+    "id": 48,
+    "branchName": "Representative Office",
+    "branchCode": "910011"
   },
   {
     "bankName": "CBZ Bank Limited",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-049",
     "phoneNumber": "012 880 2395",
@@ -1367,13 +1654,19 @@
     "bankDepartmentCode": "DEPT-049",
     "subsValueBranch": 20860,
     "tableCode": 50,
-    "physicalAddress": "149 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "149",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5049, Sandton, 2000",
-    "id": 49
+    "id": 49,
+    "branchName": "Representative Office",
+    "branchCode": "910012"
   },
   {
     "bankName": "Commerzbank AG",
-    "branch": "Representative Office",
     "area": "Rosebank",
     "randomAccessNumber": "RAN-050",
     "phoneNumber": "+27 79 494 6914 / +27 71 133 7088",
@@ -1395,13 +1688,19 @@
     "bankDepartmentCode": "DEPT-050",
     "subsValueBranch": 22500,
     "tableCode": 51,
-    "physicalAddress": "150 Main Street, Rosebank",
+    "physicalAddress": {
+      "streetNumber": "150",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Rosebank"
+    },
     "postalAddress": "P.O. Box 5050, Rosebank, 2000",
-    "id": 50
+    "id": 50,
+    "branchName": "Representative Office",
+    "branchCode": "910013"
   },
   {
     "bankName": "Doha Bank",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-051",
     "phoneNumber": "+27 10 286 1156",
@@ -1423,13 +1722,19 @@
     "bankDepartmentCode": "DEPT-051",
     "subsValueBranch": 24160,
     "tableCode": 52,
-    "physicalAddress": "151 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "151",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5051, Sandton, 2000",
-    "id": 51
+    "id": 51,
+    "branchName": "Representative Office",
+    "branchCode": "910014"
   },
   {
     "bankName": "Deutsche Bank (Suisse) SA",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-052",
     "phoneNumber": "+41 44 224 57 81 / 087 897 6970",
@@ -1451,13 +1756,19 @@
     "bankDepartmentCode": "DEPT-052",
     "subsValueBranch": 25840,
     "tableCode": 53,
-    "physicalAddress": "152 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "152",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5052, Sandton, 2000",
-    "id": 52
+    "id": 52,
+    "branchName": "Representative Office",
+    "branchCode": "910015"
   },
   {
     "bankName": "Ecobank",
-    "branch": "Representative Office",
     "area": "Sandown",
     "randomAccessNumber": "RAN-053",
     "phoneNumber": "+27 11 505 0309",
@@ -1479,13 +1790,19 @@
     "bankDepartmentCode": "DEPT-053",
     "subsValueBranch": 27540,
     "tableCode": 54,
-    "physicalAddress": "153 Main Street, Sandown",
+    "physicalAddress": {
+      "streetNumber": "153",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandown"
+    },
     "postalAddress": "P.O. Box 5053, Sandown, 2000",
-    "id": 53
+    "id": 53,
+    "branchName": "Representative Office",
+    "branchCode": "910016"
   },
   {
     "bankName": "Export Import Bank of India",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-054",
     "phoneNumber": "+27 11 326 5113/103",
@@ -1507,13 +1824,19 @@
     "bankDepartmentCode": "DEPT-054",
     "subsValueBranch": 29260,
     "tableCode": 55,
-    "physicalAddress": "154 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "154",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5054, Sandton, 2000",
-    "id": 54
+    "id": 54,
+    "branchName": "Representative Office",
+    "branchCode": "910017"
   },
   {
     "bankName": "Industrial and Commercial Bank of China",
-    "branch": "Representative Office",
     "area": "Constantia",
     "randomAccessNumber": "RAN-055",
     "phoneNumber": "+27 21 401 3967",
@@ -1535,13 +1858,19 @@
     "bankDepartmentCode": "DEPT-055",
     "subsValueBranch": 31000,
     "tableCode": 56,
-    "physicalAddress": "155 Main Street, Constantia",
+    "physicalAddress": {
+      "streetNumber": "155",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Constantia"
+    },
     "postalAddress": "P.O. Box 5055, Constantia, 2000",
-    "id": 55
+    "id": 55,
+    "branchName": "Representative Office",
+    "branchCode": "910018"
   },
   {
     "bankName": "KfW IPEX-Bank GmbH",
-    "branch": "Representative Office",
     "area": "Johannesburg",
     "randomAccessNumber": "RAN-056",
     "phoneNumber": "+27 11 507 2509",
@@ -1563,13 +1892,19 @@
     "bankDepartmentCode": "DEPT-056",
     "subsValueBranch": 32760,
     "tableCode": 57,
-    "physicalAddress": "156 Main Street, Johannesburg",
+    "physicalAddress": {
+      "streetNumber": "156",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Johannesburg"
+    },
     "postalAddress": "P.O. Box 5056, Johannesburg, 2000",
-    "id": 56
+    "id": 56,
+    "branchName": "Representative Office",
+    "branchCode": "910019"
   },
   {
     "bankName": "Macquarie Bank Limited",
-    "branch": "Representative Office",
     "area": "Rosebank",
     "randomAccessNumber": "RAN-057",
     "phoneNumber": "+44 203 037 4791",
@@ -1591,13 +1926,19 @@
     "bankDepartmentCode": "DEPT-057",
     "subsValueBranch": 34540,
     "tableCode": 58,
-    "physicalAddress": "157 Main Street, Rosebank",
+    "physicalAddress": {
+      "streetNumber": "157",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Rosebank"
+    },
     "postalAddress": "P.O. Box 5057, Rosebank, 2000",
-    "id": 57
+    "id": 57,
+    "branchName": "Representative Office",
+    "branchCode": "910020"
   },
   {
     "bankName": "Metbank Limited",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-058",
     "phoneNumber": "+263 77 693 3098 / +27 11 326 5974",
@@ -1619,13 +1960,19 @@
     "bankDepartmentCode": "DEPT-058",
     "subsValueBranch": 36340,
     "tableCode": 59,
-    "physicalAddress": "158 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "158",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5058, Sandton, 2000",
-    "id": 58
+    "id": 58,
+    "branchName": "Representative Office",
+    "branchCode": "910021"
   },
   {
     "bankName": "Mitsubishi UFJ Financial Group Bank, Ltd.",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-059",
     "phoneNumber": "+27 11 884 4721",
@@ -1647,13 +1994,19 @@
     "bankDepartmentCode": "DEPT-059",
     "subsValueBranch": 38160,
     "tableCode": 60,
-    "physicalAddress": "159 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "159",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5059, Sandton, 2000",
-    "id": 59
+    "id": 59,
+    "branchName": "Representative Office",
+    "branchCode": "910022"
   },
   {
     "bankName": "Mizuho Bank Ltd",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-060",
     "phoneNumber": "+27 11 881 5410",
@@ -1675,13 +2028,19 @@
     "bankDepartmentCode": "DEPT-060",
     "subsValueBranch": 8000,
     "tableCode": 61,
-    "physicalAddress": "160 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "160",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5060, Sandton, 2000",
-    "id": 60
+    "id": 60,
+    "branchName": "Representative Office",
+    "branchCode": "910023"
   },
   {
     "bankName": "National Bank of Egypt",
-    "branch": "Representative Office",
     "area": "Morningside",
     "randomAccessNumber": "RAN-061",
     "phoneNumber": "+27 11 268 0500/1",
@@ -1703,13 +2062,19 @@
     "bankDepartmentCode": "DEPT-061",
     "subsValueBranch": 9660,
     "tableCode": 62,
-    "physicalAddress": "161 Main Street, Morningside",
+    "physicalAddress": {
+      "streetNumber": "161",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Morningside"
+    },
     "postalAddress": "P.O. Box 5061, Morningside, 2000",
-    "id": 61
+    "id": 61,
+    "branchName": "Representative Office",
+    "branchCode": "910024"
   },
   {
     "bankName": "Societe Generale",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-062",
     "phoneNumber": "+27 82 535 6858",
@@ -1731,13 +2096,19 @@
     "bankDepartmentCode": "DEPT-062",
     "subsValueBranch": 11340,
     "tableCode": 63,
-    "physicalAddress": "162 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "162",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5062, Sandton, 2000",
-    "id": 62
+    "id": 62,
+    "branchName": "Representative Office",
+    "branchCode": "910025"
   },
   {
     "bankName": "Sumitomo Mitsui Banking",
-    "branch": "Representative Office",
     "area": "Sandhurst",
     "randomAccessNumber": "RAN-063",
     "phoneNumber": "+27 11 219 5300",
@@ -1759,13 +2130,19 @@
     "bankDepartmentCode": "DEPT-063",
     "subsValueBranch": 13040,
     "tableCode": 64,
-    "physicalAddress": "163 Main Street, Sandhurst",
+    "physicalAddress": {
+      "streetNumber": "163",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandhurst"
+    },
     "postalAddress": "P.O. Box 5063, Sandhurst, 2000",
-    "id": 63
+    "id": 63,
+    "branchName": "Representative Office",
+    "branchCode": "910026"
   },
   {
     "bankName": "The Export & Import Bank of China",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-064",
     "phoneNumber": "+27 10 447 7760",
@@ -1787,13 +2164,19 @@
     "bankDepartmentCode": "DEPT-064",
     "subsValueBranch": 14760,
     "tableCode": 65,
-    "physicalAddress": "164 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "164",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5064, Sandton, 2000",
-    "id": 64
+    "id": 64,
+    "branchName": "Representative Office",
+    "branchCode": "910027"
   },
   {
     "bankName": "The Mauritius Commercial Bank Limited",
-    "branch": "Representative Office",
     "area": "Sandton",
     "randomAccessNumber": "RAN-065",
     "phoneNumber": "+27 11 730 0501",
@@ -1815,13 +2198,19 @@
     "bankDepartmentCode": "DEPT-065",
     "subsValueBranch": 16500,
     "tableCode": 66,
-    "physicalAddress": "165 Main Street, Sandton",
+    "physicalAddress": {
+      "streetNumber": "165",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Sandton"
+    },
     "postalAddress": "P.O. Box 5065, Sandton, 2000",
-    "id": 65
+    "id": 65,
+    "branchName": "Representative Office",
+    "branchCode": "910028"
   },
   {
     "bankName": "Union Bancaire Privee, UBP SA",
-    "branch": "Representative Office",
     "area": "Melrose Arch",
     "randomAccessNumber": "RAN-066",
     "phoneNumber": "+27 10 335 0830 / +27 10 335 0832",
@@ -1843,8 +2232,15 @@
     "bankDepartmentCode": "DEPT-066",
     "subsValueBranch": 18260,
     "tableCode": 67,
-    "physicalAddress": "166 Main Street, Melrose Arch",
+    "physicalAddress": {
+      "streetNumber": "166",
+      "streetName": "Main Street",
+      "provinceName": "Gauteng",
+      "cityName": "Melrose Arch"
+    },
     "postalAddress": "P.O. Box 5066, Melrose Arch, 2000",
-    "id": 66
+    "id": 66,
+    "branchName": "Representative Office",
+    "branchCode": "910029"
   }
 ]
