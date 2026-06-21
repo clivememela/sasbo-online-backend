@@ -145,14 +145,14 @@ npm run lint
 
 ## Critical Files Reference
 
-| File | Purpose |
-|------|---------|
-| `build.gradle` | Gradle dependencies & Java 21 target |
-| `settings.gradle` | Project name |
-| `src/main/resources/application.yaml` | Spring config & DB connection |
-| `src/main/java/.../config/SecurityConfig.java` | CORS & security rules |
-| `src/main/java/.../entity/Member.java` | Core domain model |
-| `src/main/java/.../controller/BankController.java` | REST endpoint example |
+| File                                               | Purpose                              |
+|----------------------------------------------------|--------------------------------------|
+| `build.gradle`                                     | Gradle dependencies & Java 21 target |
+| `settings.gradle`                                  | Project name                         |
+| `src/main/resources/application.yaml`              | Spring config & DB connection        |
+| `src/main/java/.../config/SecurityConfig.java`     | CORS & security rules                |
+| `src/main/java/.../entity/Member.java`             | Core domain model                    |
+| `src/main/java/.../controller/BankController.java` | REST endpoint example                |
 
 ## Known Patterns to Replicate
 
