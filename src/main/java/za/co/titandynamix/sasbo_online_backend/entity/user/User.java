@@ -1,4 +1,4 @@
-package za.co.titandynamix.sasbo_online_backend.entity;
+package za.co.titandynamix.sasbo_online_backend.entity.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -7,6 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.Hibernate;
 import org.hibernate.annotations.UuidGenerator;
+import za.co.titandynamix.sasbo_online_backend.entity.TwoFactorAuthentication;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

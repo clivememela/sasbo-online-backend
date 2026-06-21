@@ -13,7 +13,7 @@ import tools.jackson.databind.json.JsonMapper;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.entity.Member;
-import za.co.titandynamix.sasbo_online_backend.entity.Representative;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;

@@ -2,7 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.enums;
 
 public enum CommunicationType {
     EMAIL(1,"Email"),
-    SMS(2,"Sms"),
+    SMS(2,"sms"),
     WHATSAPP(3,"WhatsApp");
 
     private final int communicationTypeCode;

@@ -6,14 +6,13 @@ import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/branches")
 @RequiredArgsConstructor
 public class BankBranchController {
 
-    private final BankBranchRepository branchRepository;
+    private final BankBranchRepository bankBranchRepository;
 
     @GetMapping
     public List<BankBranch> search(
@@ -22,7 +21,7 @@ public class BankBranchController {
             @RequestParam(defaultValue = "") String area,
             @RequestParam(defaultValue = "") String randomAccessNumber
     ) {
-        return this.branchRepository.findAll().stream()
+        return this.bankBranchRepository.findAll().stream()
                 .filter(b -> bankName.isBlank() || b.getBankName().toLowerCase().contains(bankName.toLowerCase()))
                 .filter(b -> branch.isBlank() || (b.getBranchName() != null && b.getBranchName().toLowerCase().contains(branch.toLowerCase())))
                 .filter(b -> area.isBlank() || (b.getArea() != null && b.getArea().toLowerCase().contains(area.toLowerCase())))

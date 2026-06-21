@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import za.co.titandynamix.sasbo_online_backend.entity.user.User;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

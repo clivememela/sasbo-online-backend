@@ -22,16 +22,16 @@ public class BankController {
 
     @GetMapping
     public List<BankBranch> getAll() {
-        return bankBranchRepository.findAll();
+        return this.bankBranchRepository.findAll();
     }
 
     @PostMapping
     public ResponseEntity<BankBranch> create(@RequestBody BankBranchDto dto) {
-        Bank bank = bankRepository.findByNameIgnoreCase(dto.getBankName()).orElseGet(() -> {
+        Bank bank = this.bankRepository.findByNameIgnoreCase(dto.getBankName()).orElseGet(() -> {
             Bank b = new Bank();
             b.setName(dto.getBankName());
             b.setUniversalBranchCode("");
-            return bankRepository.save(b);
+            return this.bankRepository.save(b);
         });
 
         BankBranch branch = new BankBranch();
@@ -58,6 +58,6 @@ public class BankController {
         branch.setBranchStaffComplement(dto.getBranchStaffComplement());
         branch.setBranchMemberComplement(dto.getBranchMemberComplement());
 
-        return ResponseEntity.ok(bankBranchRepository.save(branch));
+        return ResponseEntity.ok(this.bankBranchRepository.save(branch));
     }
 }
