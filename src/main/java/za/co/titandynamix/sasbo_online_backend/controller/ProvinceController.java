@@ -18,8 +18,8 @@ public class ProvinceController {
 
     @GetMapping
     public List<ProvinceDto> getAll() {
-        return provinceRepository.findAll().stream()
-                .map(provinceMapper::toDto)
+        return this.provinceRepository.findAll().stream()
+                .map(this.provinceMapper::toDto)
                 .toList();
     }
 }

@@ -17,21 +17,21 @@ public class MemberController {
 
     @GetMapping
     public List<Member> getAll() {
-        return memberRepository.findAll();
+        return this.memberRepository.findAll();
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Member> getById(@PathVariable Integer id) {
-        return memberRepository.findById(id)
+        return this.memberRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Member> update(@PathVariable Integer id, @RequestBody Member updated) {
-        return memberRepository.findById(id).map(existing -> {
+        return this.memberRepository.findById(id).map(existing -> {
             updated.setId(id);
-            return ResponseEntity.ok(memberRepository.save(updated));
+            return ResponseEntity.ok(this.memberRepository.save(updated));
         }).orElse(ResponseEntity.notFound().build());
     }
 

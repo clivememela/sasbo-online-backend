@@ -1,7 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.mapper;
 
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
 import za.co.titandynamix.sasbo_online_backend.dto.location.ProvinceDto;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;

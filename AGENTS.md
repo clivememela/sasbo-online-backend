@@ -10,7 +10,7 @@ Two parallel project repos:
 - **Backend** (`sasbo-online-backend`): Gradle-based Spring Boot REST API on port 8080
 - **Frontend** (`sasbo-online`): React + Vite SPA on port 5173
 
-Note: the backend contains a small number of Kotlin sources (for example `src/main/java/.../services/BankBranchService.kt`). Most code is Java 21, but agents should expect mixed Java/Kotlin JVM sources and prefer validating changes with `./gradlew build`.
+Note: The backend is pure Java 21 (Kotlin sources have been migrated). Agents should validate changes with `./gradlew build`.
 
 ### Backend Layers
 
@@ -33,7 +33,6 @@ Note: the backend contains a small number of Kotlin sources (for example `src/ma
    - Controllers commonly delegate business logic to a service layer (`services/`) — e.g. `BankService`, `BankBranchService` (implementations live in `services/impl/`). Some controllers still inject repositories directly; check the controller to determine which pattern is used.
    - All `/api/**` routes publicly accessible (no authentication enforced)
 
-   - Note / gotcha: some controllers contain discoverable issues that agents should watch for before changing endpoints. Example: `src/main/java/.../controller/BankController.java` currently defines two `@GetMapping` methods with the same path — review/consolidate before modifying or adding endpoints.
 
 5. **Config Layer** (`config/`):
    - **SecurityConfig**: CORS for `localhost:5173`; CSRF disabled; all /api/** permitAll()
@@ -142,9 +141,8 @@ npm run lint
 
 ## Debugging & Logs
 
-- **Backend**: SQL logging at TRACE level in `application.yaml`
+- **Backend**: SQL logging at DEBUG level; SQL bind parameters at TRACE level in `application.yaml`
 - **DispatcherServlet logs**: DEBUG level (track request flow)
-- **Hibernate SQL formatting**: Enabled for readability
 - **Request logging**: Enabled via `RequestLoggingConfig` bean
 
 ## Critical Files Reference
@@ -169,5 +167,5 @@ npm run lint
 ✅ **DTOs for public APIs**: Keep entities private; expose via DTO contracts
 
 ---
-*Last updated: June 2026*
+*Last updated: June 21, 2026*
 
