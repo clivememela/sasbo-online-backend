@@ -10,6 +10,8 @@ Two parallel project repos:
 - **Backend** (`sasbo-online-backend`): Gradle-based Spring Boot REST API on port 8080
 - **Frontend** (`sasbo-online`): React + Vite SPA on port 5173
 
+Note: the backend contains a small number of Kotlin sources (for example `src/main/java/.../services/BankBranchService.kt`). Most code is Java 21, but agents should expect mixed Java/Kotlin JVM sources and prefer validating changes with `./gradlew build`.
+
 ### Backend Layers
 
 1. **Entity Layer** (`entity/`): JPA entities with Lombok
@@ -28,8 +30,10 @@ Two parallel project repos:
 
 4. **Controller Layer** (`controller/`): REST endpoints at `/api/**`
    - Example: `BankController` at `/api/banks`
-   - Directly inject repositories; service layer optional
+   - Controllers commonly delegate business logic to a service layer (`services/`) — e.g. `BankService`, `BankBranchService` (implementations live in `services/impl/`). Some controllers still inject repositories directly; check the controller to determine which pattern is used.
    - All `/api/**` routes publicly accessible (no authentication enforced)
+
+   - Note / gotcha: some controllers contain discoverable issues that agents should watch for before changing endpoints. Example: `src/main/java/.../controller/BankController.java` currently defines two `@GetMapping` methods with the same path — review/consolidate before modifying or adding endpoints.
 
 5. **Config Layer** (`config/`):
    - **SecurityConfig**: CORS for `localhost:5173`; CSRF disabled; all /api/** permitAll()

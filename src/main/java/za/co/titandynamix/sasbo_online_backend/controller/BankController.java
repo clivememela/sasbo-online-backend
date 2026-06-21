@@ -7,8 +7,8 @@ import za.co.titandynamix.sasbo_online_backend.dto.bank.BankBranchDto;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
-import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
-import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
+import za.co.titandynamix.sasbo_online_backend.services.BankBranchService;
+import za.co.titandynamix.sasbo_online_backend.services.BankService;
 
 import java.util.List;
 
@@ -17,47 +17,53 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BankController {
 
-    private final BankBranchRepository bankBranchRepository;
-    private final BankRepository bankRepository;
+    private final BankBranchService bankBranchService;
+
+    private final BankService bankService;
 
     @GetMapping
-    public List<BankBranch> getAll() {
-        return this.bankBranchRepository.findAll();
+    public List<Bank> getAllBanks() {
+        return this.bankService.findAll();
     }
 
-    @PostMapping
+    @GetMapping("/branches")
+    public List<BankBranch> getAll() {
+        return this.bankBranchService.findAll();
+    }
+
+    @PostMapping("/branches")
     public ResponseEntity<BankBranch> create(@RequestBody BankBranchDto dto) {
-        Bank bank = this.bankRepository.findByNameIgnoreCase(dto.getBankName()).orElseGet(() -> {
+        Bank bank = this.bankService.findByNameIgnoreCase(dto.getBankName()).orElseGet(() -> {
             Bank b = new Bank();
             b.setName(dto.getBankName());
             b.setUniversalBranchCode("");
-            return this.bankRepository.save(b);
+            return this.bankService.save(b);
         });
 
-        BankBranch branch = new BankBranch();
-        branch.setBank(bank);
-        branch.setBankAbbreviation(dto.getBankAbbreviation());
-        branch.setBranchName(dto.getBranch());
-        branch.setBranchCode(dto.getBranchCode());
-        branch.setArea(dto.getArea());
-        branch.setRandomAccessNumber(dto.getRandomAccessNumber());
-        branch.setPhoneNumber(dto.getPhoneNumber());
-        branch.setManagerName(dto.getManagerName());
-        branch.setFax(dto.getFax());
-        branch.setEmail(dto.getEmail());
-        branch.setPostalAddress(dto.getPostalAddress());
+        BankBranch bankBranch = new BankBranch();
+        bankBranch.setBank(bank);
+        bankBranch.setBankAbbreviation(dto.getBankAbbreviation());
+        bankBranch.setBranchName(dto.getBranch());
+        bankBranch.setBranchCode(dto.getBranchCode());
+        bankBranch.setArea(dto.getArea());
+        bankBranch.setRandomAccessNumber(dto.getRandomAccessNumber());
+        bankBranch.setPhoneNumber(dto.getPhoneNumber());
+        bankBranch.setManagerName(dto.getManagerName());
+        bankBranch.setFax(dto.getFax());
+        bankBranch.setEmail(dto.getEmail());
+        bankBranch.setPostalAddress(dto.getPostalAddress());
         if (dto.getPhysicalAddress() != null) {
-            branch.setPhysicalAddress(new PhysicalAddress(dto.getPhysicalAddress()));
+            bankBranch.setPhysicalAddress(new PhysicalAddress(dto.getPhysicalAddress()));
         }
-        branch.setSasboAreaCode(dto.getSasboAreaCode());
-        branch.setProvinceCommitteeCode(dto.getProvinceCommitteeCode());
-        branch.setProvinceCommitteeName(dto.getProvinceCommitteeName());
-        branch.setBankDepartmentCode(dto.getBankDepartmentCode());
-        branch.setTableCode(dto.getTableCode());
-        branch.setSubsValueBranch(dto.getSubsValueBranch());
-        branch.setBranchStaffComplement(dto.getBranchStaffComplement());
-        branch.setBranchMemberComplement(dto.getBranchMemberComplement());
+        bankBranch.setSasboAreaCode(dto.getSasboAreaCode());
+        bankBranch.setProvinceCommitteeCode(dto.getProvinceCommitteeCode());
+        bankBranch.setProvinceCommitteeName(dto.getProvinceCommitteeName());
+        bankBranch.setBankDepartmentCode(dto.getBankDepartmentCode());
+        bankBranch.setTableCode(dto.getTableCode());
+        bankBranch.setSubsValueBranch(dto.getSubsValueBranch());
+        bankBranch.setBranchStaffComplement(dto.getBranchStaffComplement());
+        bankBranch.setBranchMemberComplement(dto.getBranchMemberComplement());
 
-        return ResponseEntity.ok(this.bankBranchRepository.save(branch));
+        return ResponseEntity.ok((BankBranch) this.bankBranchService.save(bankBranch));
     }
 }
