@@ -167,5 +167,5 @@ npm run lint
 ✅ **DTOs for public APIs**: Keep entities private; expose via DTO contracts
 
 ---
-*Last updated: June 21, 2026*
+*Last updated: June 22, 2026*
 

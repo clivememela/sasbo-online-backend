@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import za.co.titandynamix.sasbo_online_backend.dto.bank.BankBranchDto;
+import za.co.titandynamix.sasbo_online_backend.dto.bank.BankDto;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
@@ -22,8 +23,14 @@ public class BankController {
     private final BankService bankService;
 
     @GetMapping
-    public List<Bank> getAllBanks() {
-        return this.bankService.findAll();
+    public List<BankDto> getAllBanks() {
+        return this.bankService.findAll().stream().map(bank -> {
+            BankDto dto = new BankDto();
+            dto.setId(bank.getId());
+            dto.setName(bank.getName());
+            dto.setUniversalBranchCode(bank.getUniversalBranchCode());
+            return dto;
+        }).toList();
     }
 
     @GetMapping("/branches")
