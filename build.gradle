@@ -6,7 +6,7 @@ plugins {
 
 group = 'za.co.titandynamix'
 version = '0.0.1-SNAPSHOT'
-description = 'Demo project for Spring Boot'
+description = 'Sasbo - Spring Boot backend'
 
 java {
 	toolchain {
