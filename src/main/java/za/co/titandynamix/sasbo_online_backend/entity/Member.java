@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Table(name = "members")
 public class Member {
 
-    @Id @GeneratedValue @Column(name = "id")
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "id")
     private Integer id;
 
     private String membershipNumber;
@@ -100,19 +100,14 @@ public class Member {
     private String homeLoanReducedRateOption;
 
     @Column(nullable = false, updatable = false)
-    @CreationTimestamp private LocalDateTime createdAt= LocalDateTime.now();
-    @Column(nullable = false)
-    @UpdateTimestamp  private LocalDateTime updatedAt = LocalDateTime.now();
+    @CreationTimestamp
+    private LocalDateTime createdAt;
 
-    // One-to-One shared primary key or foreign key relationship with User
+    @Column(nullable = false)
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
+
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", unique = true)
     private User user;
-
-    // Entity lifecycle hooks to automatically track updates
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
 }

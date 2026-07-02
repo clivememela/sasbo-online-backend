@@ -3,7 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.entity.bank;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
 
@@ -12,12 +12,12 @@ import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
 @Getter
 @Setter
 @AllArgsConstructor
-@RequiredArgsConstructor
+@NoArgsConstructor
 @Table(name = "banking_details")
 public class BankingDetails {
     // Define the Primary Key
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Integer id;
 

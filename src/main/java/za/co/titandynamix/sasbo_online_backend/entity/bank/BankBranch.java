@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 })
 public class BankBranch {
 
-    @Id @GeneratedValue @Column(name = "id")
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "id")
     private Integer id;
 
     @JsonIgnore

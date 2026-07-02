@@ -71,6 +71,6 @@ public class BankController {
         bankBranch.setBranchStaffComplement(dto.getBranchStaffComplement());
         bankBranch.setBranchMemberComplement(dto.getBranchMemberComplement());
 
-        return ResponseEntity.ok((BankBranch) this.bankBranchService.save(bankBranch));
+        return ResponseEntity.ok(bankBranchService.save(bankBranch));
     }
 }

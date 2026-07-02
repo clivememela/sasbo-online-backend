@@ -10,7 +10,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 @Table(name = "branches")
 public class Branch {
 
-    @Id @GeneratedValue @Column(name = "id")
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "id")
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

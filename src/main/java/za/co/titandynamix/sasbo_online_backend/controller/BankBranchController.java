@@ -3,7 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
-import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
+import za.co.titandynamix.sasbo_online_backend.services.BankBranchService;
 
 import java.util.List;
 
@@ -12,7 +12,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BankBranchController {
 
-    private final BankBranchRepository bankBranchRepository;
+    private final BankBranchService bankBranchService;
 
     @GetMapping
     public List<BankBranch> search(
@@ -21,7 +21,7 @@ public class BankBranchController {
             @RequestParam(defaultValue = "") String area,
             @RequestParam(defaultValue = "") String randomAccessNumber
     ) {
-        return this.bankBranchRepository.findAll().stream()
+        return bankBranchService.findAll().stream()
                 .filter(b -> bankName.isBlank() || b.getBankName().toLowerCase().contains(bankName.toLowerCase()))
                 .filter(b -> branch.isBlank() || (b.getBranchName() != null && b.getBranchName().toLowerCase().contains(branch.toLowerCase())))
                 .filter(b -> area.isBlank() || (b.getArea() != null && b.getArea().toLowerCase().contains(area.toLowerCase())))
