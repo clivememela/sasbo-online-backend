@@ -8,6 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
+import za.co.titandynamix.sasbo_online_backend.mapper.BankMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.services.BankService;
 
@@ -16,7 +17,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,28 +27,31 @@ class BankServiceImplTest {
     @Mock
     private BankRepository bankRepository;
 
+    @Mock
+    private BankMapper bankMapper;
+
     private BankService bankService;
 
     @BeforeEach
     void setUp() {
-        bankService = new BankServiceImpl(bankRepository);
+        this.bankService = new BankServiceImpl(this.bankRepository, this.bankMapper);
     }
 
     @Test
     @DisplayName("Should return empty list when no banks exist")
     void testFindAllEmpty() {
         // Arrange
-        when(bankRepository.findAll(any(Sort.class))).thenReturn(List.of());
+        when(this.bankRepository.findAll(any(Sort.class))).thenReturn(List.of());
 
         // Act
-        List<Bank> banks = bankService.findAll();
+        List<Bank> banks = this.bankService.findAll();
 
         // Assert
         assertThat(banks)
                 .isNotNull()
                 .isEmpty();
         
-        verify(bankRepository).findAll(any(Sort.class));
+        verify(this.bankRepository).findAll(any(Sort.class));
     }
 
     @Test
@@ -56,10 +59,10 @@ class BankServiceImplTest {
     void testFindAllSingleBank() {
         // Arrange
         Bank bank = new Bank(1, "Standard Bank", null, "050001");
-        when(bankRepository.findAll(any(Sort.class))).thenReturn(List.of(bank));
+        when(this.bankRepository.findAll(any(Sort.class))).thenReturn(List.of(bank));
 
         // Act
-        List<Bank> banks = bankService.findAll();
+        List<Bank> banks = this.bankService.findAll();
 
         // Assert
         assertThat(banks)
@@ -68,7 +71,7 @@ class BankServiceImplTest {
                 .extracting(Bank::getName)
                 .containsExactly("Standard Bank");
         
-        verify(bankRepository).findAll(any(Sort.class));
+        verify(this.bankRepository).findAll(any(Sort.class));
     }
 
     @Test
@@ -79,11 +82,11 @@ class BankServiceImplTest {
         Bank bank2 = new Bank(2, "Middle Bank", null, "050002");
         Bank bank3 = new Bank(3, "Zebra Bank", null, "050003");
 
-        when(bankRepository.findAll(any(Sort.class)))
+        when(this.bankRepository.findAll(any(Sort.class)))
                 .thenReturn(List.of(bank1, bank2, bank3));
 
         // Act
-        List<Bank> banks = bankService.findAll();
+        List<Bank> banks = this.bankService.findAll();
 
         // Assert
         assertThat(banks)
@@ -92,20 +95,20 @@ class BankServiceImplTest {
                 .extracting(Bank::getName)
                 .containsExactly("Apple Bank", "Middle Bank", "Zebra Bank");
         
-        verify(bankRepository).findAll(any(Sort.class));
+        verify(this.bankRepository).findAll(any(Sort.class));
     }
 
     @Test
     @DisplayName("Should call repository.findAll with Sort.ASC on name field")
     void testFindAllCallsRepositoryWithCorrectSort() {
         // Arrange
-        when(bankRepository.findAll(any(Sort.class))).thenReturn(List.of());
+        when(this.bankRepository.findAll(any(Sort.class))).thenReturn(List.of());
 
         // Act
-        bankService.findAll();
+        this.bankService.findAll();
 
         // Assert
-        verify(bankRepository).findAll(any(Sort.class));
+        verify(this.bankRepository).findAll(any(Sort.class));
     }
 
     @Test
@@ -113,34 +116,34 @@ class BankServiceImplTest {
     void testFindByNameIgnoreCase() {
         // Arrange
         Bank bank = new Bank(1, "Standard Bank", null, "050001");
-        when(bankRepository.findByNameIgnoreCase("standard bank"))
+        when(this.bankRepository.findByNameIgnoreCase("standard bank"))
                 .thenReturn(Optional.of(bank));
 
         // Act
-        Optional<Bank> foundBank = bankService.findByNameIgnoreCase("standard bank");
+        Optional<Bank> foundBank = this.bankService.findByNameIgnoreCase("standard bank");
 
         // Assert
         assertThat(foundBank)
                 .isPresent()
                 .hasValueSatisfying(b -> assertThat(b.getName()).isEqualTo("Standard Bank"));
         
-        verify(bankRepository).findByNameIgnoreCase("standard bank");
+        verify(this.bankRepository).findByNameIgnoreCase("standard bank");
     }
 
     @Test
     @DisplayName("Should return empty optional when bank not found by name")
     void testFindByNameIgnoreCaseNotFound() {
         // Arrange
-        when(bankRepository.findByNameIgnoreCase("Non Existent Bank"))
+        when(this.bankRepository.findByNameIgnoreCase("Non Existent Bank"))
                 .thenReturn(Optional.empty());
 
         // Act
-        Optional<Bank> foundBank = bankService.findByNameIgnoreCase("Non Existent Bank");
+        Optional<Bank> foundBank = this.bankService.findByNameIgnoreCase("Non Existent Bank");
 
         // Assert
         assertThat(foundBank).isEmpty();
         
-        verify(bankRepository).findByNameIgnoreCase("Non Existent Bank");
+        verify(this.bankRepository).findByNameIgnoreCase("Non Existent Bank");
     }
 
     @Test
@@ -149,10 +152,10 @@ class BankServiceImplTest {
         // Arrange
         Bank bank = new Bank(null, "New Bank", null, "050001");
         Bank savedBank = new Bank(1, "New Bank", null, "050001");
-        when(bankRepository.save(bank)).thenReturn(savedBank);
+        when(this.bankRepository.save(bank)).thenReturn(savedBank);
 
         // Act
-        Bank result = bankService.save(bank);
+        Bank result = this.bankService.save(bank);
 
         // Assert
         assertThat(result)
@@ -161,7 +164,7 @@ class BankServiceImplTest {
                 .hasFieldOrPropertyWithValue("universalBranchCode", "050001")
                 .hasFieldOrPropertyWithValue("id", 1);
         
-        verify(bankRepository).save(bank);
+        verify(this.bankRepository).save(bank);
     }
 
     @Test
@@ -170,17 +173,17 @@ class BankServiceImplTest {
         // Arrange
         Bank bank = new Bank(1, "Original Bank", null, "050001");
         Bank updatedBank = new Bank(1, "Updated Bank", null, "050001");
-        when(bankRepository.save(bank)).thenReturn(updatedBank);
+        when(this.bankRepository.save(bank)).thenReturn(updatedBank);
 
         // Act
-        Bank result = bankService.save(bank);
+        Bank result = this.bankService.save(bank);
 
         // Assert
         assertThat(result)
                 .hasFieldOrPropertyWithValue("name", "Updated Bank")
                 .hasFieldOrPropertyWithValue("id", 1);
         
-        verify(bankRepository).save(bank);
+        verify(this.bankRepository).save(bank);
     }
 
     @Test
@@ -191,10 +194,10 @@ class BankServiceImplTest {
                 new Bank(1, "Bank A", null, "050001"),
                 new Bank(2, "Bank B", null, "050002")
         );
-        when(bankRepository.findAll(any(Sort.class))).thenReturn(expectedBanks);
+        when(this.bankRepository.findAll(any(Sort.class))).thenReturn(expectedBanks);
 
         // Act
-        List<Bank> actualBanks = bankService.findAll();
+        List<Bank> actualBanks = this.bankService.findAll();
 
         // Assert
         assertThat(actualBanks)
@@ -202,7 +205,7 @@ class BankServiceImplTest {
                 .hasSize(2)
                 .isEqualTo(expectedBanks);
         
-        verify(bankRepository).findAll(any(Sort.class));
+        verify(this.bankRepository).findAll(any(Sort.class));
     }
 }
 

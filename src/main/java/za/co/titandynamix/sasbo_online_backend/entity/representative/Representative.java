@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Table(name = "representatives")
 public class Representative {
 
-    @Id @GeneratedValue @Column(name = "id")
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "id")
     private Integer id;
 
     @Column(nullable = false, unique = true)
@@ -22,12 +22,10 @@ public class Representative {
     private String phone;
 
     @Column(nullable = false, updatable = false)
-    @CreationTimestamp private LocalDateTime createdAt = LocalDateTime.now();
-    @Column(nullable = false)
-    @UpdateTimestamp  private LocalDateTime updatedAt = LocalDateTime.now();
+    @CreationTimestamp
+    private LocalDateTime createdAt;
 
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+    @Column(nullable = false)
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 }

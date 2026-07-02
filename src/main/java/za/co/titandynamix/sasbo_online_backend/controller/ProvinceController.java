@@ -3,8 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import za.co.titandynamix.sasbo_online_backend.dto.location.ProvinceDto;
-import za.co.titandynamix.sasbo_online_backend.mapper.ProvinceMapper;
-import za.co.titandynamix.sasbo_online_backend.repository.ProvinceRepository;
+import za.co.titandynamix.sasbo_online_backend.services.ProvinceService;
 
 import java.util.List;
 
@@ -13,13 +12,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ProvinceController {
 
-    private final ProvinceRepository provinceRepository;
-    private final ProvinceMapper provinceMapper;
+    private final ProvinceService provinceService;
 
     @GetMapping
     public List<ProvinceDto> getAll() {
-        return this.provinceRepository.findAll().stream()
-                .map(this.provinceMapper::toDto)
-                .toList();
+        return this.provinceService.findAll();
     }
 }

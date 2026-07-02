@@ -5,11 +5,6 @@ public enum Gender {
     MALE(1, "Male"),
     FEMALE(2, "Female");
 
-    private final int genderCode;
-    private final String gender;
-
-    Gender(int genderCode,String gender) {
-        this.genderCode = genderCode;
-        this.gender = gender;
+    Gender(int genderCode, String gender) {
     }
 }

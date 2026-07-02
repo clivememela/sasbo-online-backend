@@ -14,7 +14,7 @@ import lombok.Setter;
 @Table(name = "representative_types")
 public class RepresentativeType {
 
-    @Id @GeneratedValue @Column(name = "id")
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "id")
     private Integer id;
 
     @Column(nullable = false, unique = true)

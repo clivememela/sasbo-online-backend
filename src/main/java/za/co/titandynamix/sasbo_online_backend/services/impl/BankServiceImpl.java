@@ -3,7 +3,9 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import za.co.titandynamix.sasbo_online_backend.dto.bank.BankDto;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
+import za.co.titandynamix.sasbo_online_backend.mapper.BankMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.services.BankService;
 
@@ -15,10 +17,16 @@ import java.util.Optional;
 public class BankServiceImpl implements BankService {
 
     private final BankRepository bankRepository;
+    private final BankMapper bankMapper;
+
+    @Override
+    public List<BankDto> findAllDtos() {
+        return this.bankRepository.findAll(Sort.by(Sort.Direction.ASC, "name"))
+                .stream().map(this.bankMapper::toDto).toList();
+    }
 
     @Override
     public List<Bank> findAll() {
-        // Use JPA Sort to order results at the database level (case-insensitive by name)
         return this.bankRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
     }
 

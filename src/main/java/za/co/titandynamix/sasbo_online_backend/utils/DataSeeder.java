@@ -39,26 +39,26 @@ public class DataSeeder implements ApplicationRunner {
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .build();
 
-        if (memberRepository.count() == 0) {
+        if (this.memberRepository.count() == 0) {
             InputStream stream = new ClassPathResource("data/members.json").getInputStream();
             List<Member> members = mapper.readValue(stream, new TypeReference<>() {});
             members.forEach(m -> m.setId(null));
-            memberRepository.saveAll(members);
+            this.memberRepository.saveAll(members);
             log.info("Seeded {} members", members.size());
         }
 
-        if (bankRepository.count() == 0) {
+        if (this.bankRepository.count() == 0) {
             InputStream bankStream = new ClassPathResource("data/banks_master.json").getInputStream();
             List<Bank> banks = mapper.readValue(bankStream, new TypeReference<>() {});
             banks.forEach(b -> b.setId(null));
-            bankRepository.saveAll(banks);
+            this.bankRepository.saveAll(banks);
             log.info("Seeded {} banks", banks.size());
         }
 
-        if (bankBranchRepository.count() == 0) {
+        if (this.bankBranchRepository.count() == 0) {
             InputStream stream = new ClassPathResource("data/banks.json").getInputStream();
             List<BankBranch> branches = mapper.readValue(stream, new TypeReference<>() {});
-            List<Bank> allBanks = bankRepository.findAll();
+            List<Bank> allBanks = this.bankRepository.findAll();
 
             branches.forEach(branch -> {
                 branch.setId(null);
@@ -69,12 +69,12 @@ public class DataSeeder implements ApplicationRunner {
                             .ifPresent(branch::setBank);
                 }
             });
-            bankBranchRepository.saveAll(branches);
+            this.bankBranchRepository.saveAll(branches);
             log.info("Seeded {} bank branches", branches.size());
         }
 
-        if (representativeRepository.count() == 0) {
-            List<Member> allMembers = memberRepository.findAll();
+        if (this.representativeRepository.count() == 0) {
+            List<Member> allMembers = this.memberRepository.findAll();
             List<Representative> reps = allMembers.stream()
                     .map(Member::getAreasRep)
                     .filter(name -> name != null && !name.isBlank())
@@ -83,7 +83,7 @@ public class DataSeeder implements ApplicationRunner {
                     .sorted()
                     .map(name -> { Representative r = new Representative(); r.setName(name); return r; })
                     .toList();
-            representativeRepository.saveAll(reps);
+            this.representativeRepository.saveAll(reps);
             log.info("Seeded {} representatives", reps.size());
         }
     }

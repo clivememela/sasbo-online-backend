@@ -32,18 +32,18 @@ public class PhysicalAddress {
     private String streetName; // e.g., "Rivonia Road"
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "suburb_id", nullable = true)
+    @JoinColumn(name = "suburb_id")
     private Suburb suburb;  // e.g., "Sandton"
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "city_id", nullable = true)
+    @JoinColumn(name = "city_id")
     private City city; // e.g., "Johannesburg"
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "province_id", nullable = true)
+    @JoinColumn(name = "province_id")
     private Province province; // e.g., "Gauteng"
 
-    @Column(name = "postal_code", nullable = true, length = 10)
+    @Column(name = "postal_code", length = 10)
     private String postalCode; // e.g., "2196"
 
     @Transient

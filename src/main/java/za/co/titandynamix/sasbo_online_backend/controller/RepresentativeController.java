@@ -4,8 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import za.co.titandynamix.sasbo_online_backend.dto.representative.RepresentativeDto;
-import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
-import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
+import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
 import java.util.List;
 
@@ -14,60 +13,37 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RepresentativeController {
 
-    private final RepresentativeRepository repository;
+    private final RepresentativeService representativeService;
 
     @GetMapping
     public List<RepresentativeDto> getAll() {
-        return this.repository.findAll().stream()
-                .map(this::toDto)
-                .toList();
+        return this.representativeService.findAll();
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody RepresentativeDto repDto) {
-        if (this.repository.existsByNameIgnoreCase(repDto.getName())) {
-            return ResponseEntity.badRequest().body("A representative with that name already exists.");
+    public ResponseEntity<?> create(@RequestBody RepresentativeDto dto) {
+        try {
+            return ResponseEntity.ok(this.representativeService.create(dto));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-        Representative rep = toEntity(repDto);
-        return ResponseEntity.ok(toDto(this.repository.save(rep)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable Integer id, @RequestBody RepresentativeDto repDto) {
-        return this.repository.findById(id).map(existing -> {
-            if (!existing.getName().equalsIgnoreCase(repDto.getName()) &&
-                        this.repository.existsByNameIgnoreCase(repDto.getName())) {
-                return ResponseEntity.badRequest().body("A representative with that name already exists.");
-            }
-            existing.setName(repDto.getName());
-            existing.setEmail(repDto.getEmail());
-            existing.setPhone(repDto.getPhone());
-            return ResponseEntity.ok(toDto(this.repository.save(existing)));
-        }).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> update(@PathVariable Integer id, @RequestBody RepresentativeDto dto) {
+        try {
+            return this.representativeService.update(id, dto)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
-        if (!this.repository.existsById(id)) return ResponseEntity.notFound().build();
-        this.repository.deleteById(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    private RepresentativeDto toDto(Representative rep) {
-        return RepresentativeDto.builder()
-                .id(rep.getId())
-                .name(rep.getName())
-                .email(rep.getEmail())
-                .phone(rep.getPhone())
-                .build();
-    }
-
-    private Representative toEntity(RepresentativeDto dto) {
-        Representative rep = new Representative();
-        rep.setId(dto.getId());
-        rep.setName(dto.getName());
-        rep.setEmail(dto.getEmail());
-        rep.setPhone(dto.getPhone());
-        return rep;
+        return this.representativeService.delete(id)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 }

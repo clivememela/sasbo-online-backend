@@ -40,6 +40,6 @@ public class BankingDetails {
     private Branch branch;
 
     public String getBranchCode() {
-        return branch != null ? branch.getBranchCode() : null;
+        return this.branch != null ? this.branch.getBranchCode() : null;
     }
 }

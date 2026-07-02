@@ -3,7 +3,6 @@ package za.co.titandynamix.sasbo_online_backend.entity.bank;
 import jakarta.persistence.*;
 import lombok.*;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
-import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 
 @Entity
 @Getter @Setter @AllArgsConstructor @NoArgsConstructor
