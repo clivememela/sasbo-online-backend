@@ -8,7 +8,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.VerificationType;
 @Data
 public class TwoFactorAuthentication {
     @jakarta.persistence.Column(name = "tfa_enabled")
-    private boolean enabled = false;
+    private boolean enabled;
     @Enumerated(EnumType.STRING)
     private VerificationType sendTo;
 
