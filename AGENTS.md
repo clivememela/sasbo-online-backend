@@ -58,7 +58,7 @@ public class ResourceController {
     private final ResourceRepository repo;
     
     @GetMapping
-    public List<Resource> getAll() { return repo.findAll(); }
+    public List<Resource> getAll() { return this.repo.findAll(); }
     
     @PostMapping
     public ResponseEntity<Resource> create(@RequestBody ResourceDto dto) { ... }

@@ -23,7 +23,7 @@ public class RepresentativeServiceImpl implements RepresentativeService {
     }
 
     @Override
-    public RepresentativeDto create(RepresentativeDto dto) {
+    public RepresentativeDto create(final RepresentativeDto dto) {
         if (this.repository.existsByNameIgnoreCase(dto.getName())) {
             throw new IllegalArgumentException("A representative with that name already exists.");
         }
@@ -31,7 +31,7 @@ public class RepresentativeServiceImpl implements RepresentativeService {
     }
 
     @Override
-    public Optional<RepresentativeDto> update(Integer id, RepresentativeDto dto) {
+    public Optional<RepresentativeDto> update(final Integer id, final RepresentativeDto dto) {
         return this.repository.findById(id).map(existing -> {
             if (!existing.getName().equalsIgnoreCase(dto.getName()) &&
                         this.repository.existsByNameIgnoreCase(dto.getName())) {
@@ -45,7 +45,7 @@ public class RepresentativeServiceImpl implements RepresentativeService {
     }
 
     @Override
-    public boolean delete(Integer id) {
+    public boolean delete(final Integer id) {
         if (!this.repository.existsById(id)) return false;
         this.repository.deleteById(id);
         return true;
