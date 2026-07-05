@@ -33,4 +33,9 @@ public class BankController {
     public ResponseEntity<BankBranch> createBranch(@RequestBody BankBranchDto dto) {
         return ResponseEntity.ok(this.bankBranchService.createFromDto(dto));
     }
+
+    @PutMapping("/branches/{id}")
+    public ResponseEntity<BankBranch> updateBranch(@PathVariable Integer id, @RequestBody BankBranchDto dto) {
+        return ResponseEntity.ok(this.bankBranchService.updateFromDto(id, dto));
+    }
 }

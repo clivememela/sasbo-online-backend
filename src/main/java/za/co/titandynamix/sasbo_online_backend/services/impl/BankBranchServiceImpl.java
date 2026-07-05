@@ -71,6 +71,41 @@ public class BankBranchServiceImpl implements BankBranchService {
     }
 
     @Override
+    public BankBranch updateFromDto(Integer id, BankBranchDto dto) {
+        BankBranch branch = this.bankBranchRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("BankBranch not found: " + id));
+        Bank bank = this.bankService.findByNameIgnoreCase(dto.getBankName()).orElseGet(() -> {
+            Bank b = new Bank();
+            b.setName(dto.getBankName());
+            b.setUniversalBranchCode("");
+            return this.bankService.save(b);
+        });
+        branch.setBank(bank);
+        branch.setBankAbbreviation(dto.getBankAbbreviation());
+        branch.setBranchName(dto.getBranch());
+        branch.setBranchCode(dto.getBranchCode());
+        branch.setArea(dto.getArea());
+        branch.setRandomAccessNumber(dto.getRandomAccessNumber());
+        branch.setPhoneNumber(dto.getPhoneNumber());
+        branch.setManagerName(dto.getManagerName());
+        branch.setFax(dto.getFax());
+        branch.setEmail(dto.getEmail());
+        branch.setPostalAddress(dto.getPostalAddress());
+        if (dto.getPhysicalAddress() != null) {
+            branch.setPhysicalAddress(new PhysicalAddress(dto.getPhysicalAddress()));
+        }
+        branch.setSasboAreaCode(dto.getSasboAreaCode());
+        branch.setProvinceCommitteeCode(dto.getProvinceCommitteeCode());
+        branch.setProvinceCommitteeName(dto.getProvinceCommitteeName());
+        branch.setBankDepartmentCode(dto.getBankDepartmentCode());
+        branch.setTableCode(dto.getTableCode());
+        branch.setSubsValueBranch(dto.getSubsValueBranch());
+        branch.setBranchStaffComplement(dto.getBranchStaffComplement());
+        branch.setBranchMemberComplement(dto.getBranchMemberComplement());
+        return this.bankBranchRepository.save(branch);
+    }
+
+    @Override
     public List<BankBranch> search(String bankName, String branch, String area, String randomAccessNumber) {
         return this.bankBranchRepository.findAll().stream()
                 .filter(b -> bankName.isBlank() || b.getBankName().toLowerCase().contains(bankName.toLowerCase()))

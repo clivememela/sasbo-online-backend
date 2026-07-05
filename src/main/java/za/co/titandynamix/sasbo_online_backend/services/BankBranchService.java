@@ -12,4 +12,5 @@ public interface BankBranchService {
     BankBranch save(BankBranch branch);
     BankBranch createFromDto(BankBranchDto dto);
     List<BankBranch> search(String bankName, String branch, String area, String randomAccessNumber);
+    BankBranch updateFromDto(Integer id, BankBranchDto dto);
 }
