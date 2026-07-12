@@ -2,10 +2,13 @@ spring:
   application:
     name: sasbo-online-backend
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/sasbo_membership}
-    username: ${DB_USERNAME:${USER}}
-    password: ${DB_PASSWORD:}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      data-source-properties:
+        sslmode: ${SSL_MODE}
   flyway:
     baseline-on-migrate: true
     baseline-version: 0
@@ -18,7 +21,7 @@ spring:
         format_sql: true
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT}
 
 logging:
   level:
