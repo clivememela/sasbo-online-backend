@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -17,6 +18,9 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Value("${FRONTEND_URL}")
+    private String frontendUrl;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -33,7 +37,6 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        String frontendUrl = System.getenv("FRONTEND_URL");
         List<String> origins = frontendUrl != null && !frontendUrl.isBlank()
                 ? List.of("http://localhost:5173", frontendUrl)
                 : List.of("http://localhost:5173");

@@ -31,3 +31,8 @@ logging:
     org.springframework.web.filter.CommonsRequestLoggingFilter: WARN
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
+    
+front:
+  end:
+    url: ${FRONTEND_URL}
+  
