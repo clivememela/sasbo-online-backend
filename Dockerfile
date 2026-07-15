@@ -10,7 +10,7 @@ RUN chmod +x gradlew && ./gradlew --no-daemon dependencies
 
 # Copy source code and build the JAR, using only cached dependencies (no network)
 COPY src ./src
-RUN ./gradlew build -x test --no-daemon --offline
+RUN ./gradlew build -x test --no-daemon
 
 # Runtime stage: minimal Alpine-based JRE image to keep the final image small
 FROM eclipse-temurin:21-jre-alpine
