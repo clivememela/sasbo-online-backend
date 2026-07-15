@@ -1,5 +1,20 @@
 ALTER TABLE IF EXISTS bank_branch RENAME TO bank_branches;
 
+CREATE TABLE IF NOT EXISTS bank_branches (
+    id          SERIAL PRIMARY KEY,
+    branch_code VARCHAR(50),
+    bank_id     INTEGER,
+    branch_name VARCHAR(255),
+    complex_or_building VARCHAR(100),
+    street_number VARCHAR(20),
+    street_name VARCHAR(100),
+    suburb_id   INTEGER,
+    city_id     INTEGER,
+    province_id INTEGER,
+    postal_code VARCHAR(10),
+    created_at  TIMESTAMP
+);
+
 ALTER TABLE IF EXISTS bank_branches
     ADD COLUMN IF NOT EXISTS bank_id INTEGER,
     ADD COLUMN IF NOT EXISTS branch_name VARCHAR(255),

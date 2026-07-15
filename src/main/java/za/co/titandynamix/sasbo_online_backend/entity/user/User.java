@@ -93,6 +93,7 @@ public class User {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Builder.Default
     @Embedded
     private TwoFactorAuthentication twoFactorAuthentication = new TwoFactorAuthentication();
 
