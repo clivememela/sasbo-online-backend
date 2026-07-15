@@ -1,40 +1,24 @@
-# Use the official Gradle image for the build stage. The image includes Gradle and a matching JDK.
-FROM gradle:8.13-jdk21 AS build
-
-# Use the gradle user's project directory for better defaults and permissions
+# Build stage: uses the official Gradle image matching the project's wrapper version
+FROM gradle:9.5-jdk21 AS build
 WORKDIR /home/gradle/project
 
-# Copy only the files needed to resolve dependencies first so Docker layer cache can be used
-# (adjust filenames if your project uses different names/locations)
-COPY gradle/ gradle/
-COPY gradlew .
-COPY settings.gradle settings.gradle
-COPY gradle/wrapper/gradle-wrapper.properties gradle/wrapper/gradle-wrapper.properties
-COPY build.gradle build.gradle
+# Copy only dependency-related files first to leverage Docker layer caching
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle ./gradle
+# Download all dependencies; this layer is cached until build.gradle changes
+RUN chmod +x gradlew && ./gradlew --no-daemon dependencies
 
-# Ensure the wrapper is executable
-RUN chmod +x ./gradlew
+# Copy source code and build the JAR, using only cached dependencies (no network)
+COPY src ./src
+RUN ./gradlew build -x test --no-daemon --offline
 
-# Download dependencies to leverage build cache. The command is allowed to fail
-# in case the project has additional configuration; it's a best-effort cache warm-up.
-RUN ./gradlew --no-daemon dependencies || true
-
-# Copy the rest of the source and run the build (skip tests to keep image build fast)
-COPY . .
-RUN ./gradlew build -x test --no-daemon
-
-# Final runtime image: use a small official JDK runtime image
-FROM eclipse-temurin:21-jre AS runtime
+# Runtime stage: minimal Alpine-based JRE image to keep the final image small
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-
-# Create and use a non-root user for runtime security
-RUN groupadd --system app && useradd --system --gid app --create-home --home-dir /home/app --shell /usr/sbin/nologin app
-
-# Copy the built jar from the build stage
+# Copy only the built JAR from the build stage
 COPY --from=build /home/gradle/project/build/libs/*.jar app.jar
-RUN chown app:app /app/app.jar
-
+# Run as a non-root user to reduce attack surface
+RUN addgroup -S app && adduser -S app -G app && chown app:app app.jar
 USER app
-
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
