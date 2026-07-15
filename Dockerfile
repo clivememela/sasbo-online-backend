@@ -14,11 +14,12 @@ RUN ./gradlew build -x test --no-daemon --offline
 
 # Runtime stage: minimal Alpine-based JRE image to keep the final image small
 FROM eclipse-temurin:21-jre-alpine
+# Create a non-root user before setting up the working directory
+RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
-# Copy only the built JAR from the build stage
-COPY --from=build /home/gradle/project/build/libs/*.jar app.jar
-# Run as a non-root user to reduce attack surface
-RUN addgroup -S app && adduser -S app -G app && chown app:app app.jar
+# Copy only the built JAR from the build stage and assign ownership to non-root user
+COPY --from=build --chown=app:app /home/gradle/project/build/libs/*.jar app.jar
+# Switch to non-root user to reduce attack surface
 USER app
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
