@@ -14,6 +14,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.entity.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
+import za.co.titandynamix.sasbo_online_backend.entity.recruiter.RecruiterType;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 
@@ -30,6 +31,7 @@ public class DataSeeder implements ApplicationRunner {
     private final BankBranchRepository bankBranchRepository;
     private final RepresentativeRepository representativeRepository;
     private final ProvinceRepository provinceRepository;
+    private final RecruiterTypeRepository recruiterTypeRepository;
 
     @Override
     public void run(@NonNull ApplicationArguments args) throws Exception {
@@ -39,37 +41,42 @@ public class DataSeeder implements ApplicationRunner {
                 .build();
 
         if (this.memberRepository.count() == 0) {
-            InputStream stream = new ClassPathResource("data/members.json").getInputStream();
-            List<Member> members = mapper.readValue(stream, new TypeReference<>() {});
-            members.forEach(m -> m.setId(null));
-            this.memberRepository.saveAll(members);
-            log.info("Seeded {} members", members.size());
+            ClassPathResource membersResource = new ClassPathResource("data/members.json");
+            try (InputStream stream = membersResource.getInputStream()) {
+                List<Member> members = mapper.readValue(stream, new TypeReference<>() {});
+                members.forEach(m -> m.setId(null));
+                this.memberRepository.saveAll(members);
+                log.info("Seeded {} members", members.size());
+            }
         }
 
         if (this.bankRepository.count() == 0) {
-            InputStream bankStream = new ClassPathResource("data/banks_master.json").getInputStream();
-            List<Bank> banks = mapper.readValue(bankStream, new TypeReference<>() {});
-            banks.forEach(b -> b.setId(null));
-            this.bankRepository.saveAll(banks);
-            log.info("Seeded {} banks", banks.size());
+            ClassPathResource banksMasterResource = new ClassPathResource("data/banks_master.json");
+            try (InputStream bankStream = banksMasterResource.getInputStream()) {
+                List<Bank> banks = mapper.readValue(bankStream, new TypeReference<>() {});
+                banks.forEach(b -> b.setId(null));
+                this.bankRepository.saveAll(banks);
+                log.info("Seeded {} banks", banks.size());
+            }
         }
 
         if (this.bankBranchRepository.count() == 0) {
-            InputStream stream = new ClassPathResource("data/banks.json").getInputStream();
-            List<BankBranch> branches = mapper.readValue(stream, new TypeReference<>() {});
-            List<Bank> allBanks = this.bankRepository.findAll();
-
-            branches.forEach(branch -> {
-                branch.setId(null);
-                if (branch.getBankName() != null) {
-                    allBanks.stream()
-                            .filter(b -> b.getName().equalsIgnoreCase(branch.getBankName()))
-                            .findFirst()
-                            .ifPresent(branch::setBank);
-                }
-            });
-            this.bankBranchRepository.saveAll(branches);
-            log.info("Seeded {} bank branches", branches.size());
+            ClassPathResource banksBranchResource = new ClassPathResource("data/banks.json");
+            try (InputStream stream = banksBranchResource.getInputStream()) {
+                List<BankBranch> branches = mapper.readValue(stream, new TypeReference<>() {});
+                List<Bank> allBanks = this.bankRepository.findAll();
+                branches.forEach(branch -> {
+                    branch.setId(null);
+                    if (branch.getBankName() != null) {
+                        allBanks.stream()
+                                .filter(b -> b.getName().equalsIgnoreCase(branch.getBankName()))
+                                .findFirst()
+                                .ifPresent(branch::setBank);
+                    }
+                });
+                this.bankBranchRepository.saveAll(branches);
+                log.info("Seeded {} bank branches", branches.size());
+            }
         }
 
         if (this.representativeRepository.count() == 0) {
@@ -86,12 +93,24 @@ public class DataSeeder implements ApplicationRunner {
             log.info("Seeded {} representatives", reps.size());
         }
 
+        if (this.recruiterTypeRepository.count() == 0) {
+            ClassPathResource recruiterResource = new ClassPathResource("data/recruiter.json");
+            try (InputStream recruiterStream = recruiterResource.getInputStream()) {
+                List<RecruiterType> recruiterTypes = mapper.readValue(recruiterStream, new TypeReference<>() {});
+                recruiterTypes.forEach(r -> r.setId(null));
+                this.recruiterTypeRepository.saveAll(recruiterTypes);
+                log.info("Seeded {} recruiter types", recruiterTypes.size());
+            }
+        }
+
         if (this.provinceRepository.count() == 0) {
-            InputStream provinceStream = new ClassPathResource("data/provinces.json").getInputStream();
-            List<Province> provinces = mapper.readValue(provinceStream, new TypeReference<>() {});
-            provinces.forEach(p -> p.setId(null));
-            this.provinceRepository.saveAll(provinces);
-            log.info("Seeded {} provinces", provinces.size());
+            ClassPathResource provincesResource = new ClassPathResource("data/provinces.json");
+            try (InputStream provinceStream = provincesResource.getInputStream()) {
+                List<Province> provinces = mapper.readValue(provinceStream, new TypeReference<>() {});
+                provinces.forEach(p -> p.setId(null));
+                this.provinceRepository.saveAll(provinces);
+                log.info("Seeded {} provinces", provinces.size());
+            }
         }
 
     }

@@ -11,6 +11,7 @@ import za.co.titandynamix.sasbo_online_backend.services.BankBranchService;
 import za.co.titandynamix.sasbo_online_backend.services.BankService;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -107,11 +108,24 @@ public class BankBranchServiceImpl implements BankBranchService {
 
     @Override
     public List<BankBranch> search(String bankName, String branch, String area, String randomAccessNumber) {
+        // Sanitize inputs: strip characters that have no place in a name/code search
+        // This prevents LDAP injection and XSS from being reflected in error messages
+        String safeBankName = sanitize(bankName);
+        String safeBranch = sanitize(branch);
+        String safeArea = sanitize(area);
+        String safeRan = sanitize(randomAccessNumber);
+
         return this.bankBranchRepository.findAll().stream()
-                .filter(b -> bankName.isBlank() || b.getBankName().toLowerCase().contains(bankName.toLowerCase()))
-                .filter(b -> branch.isBlank() || (b.getBranchName() != null && b.getBranchName().toLowerCase().contains(branch.toLowerCase())))
-                .filter(b -> area.isBlank() || (b.getArea() != null && b.getArea().toLowerCase().contains(area.toLowerCase())))
-                .filter(b -> randomAccessNumber.isBlank() || (b.getRandomAccessNumber() != null && b.getRandomAccessNumber().toLowerCase().contains(randomAccessNumber.toLowerCase())))
+                .filter(b -> safeBankName.isBlank() || b.getBankName().toLowerCase(Locale.ROOT).contains(safeBankName.toLowerCase(Locale.ROOT)))
+                .filter(b -> safeBranch.isBlank() || (b.getBranchName() != null && b.getBranchName().toLowerCase(Locale.ROOT).contains(safeBranch.toLowerCase(Locale.ROOT))))
+                .filter(b -> safeArea.isBlank() || (b.getArea() != null && b.getArea().toLowerCase(Locale.ROOT).contains(safeArea.toLowerCase(Locale.ROOT))))
+                .filter(b -> safeRan.isBlank() || (b.getRandomAccessNumber() != null && b.getRandomAccessNumber().toLowerCase(Locale.ROOT).contains(safeRan.toLowerCase(Locale.ROOT))))
                 .toList();
+    }
+
+    /** Strip characters that are not alphanumeric, spaces, hyphens or dots. */
+    private static String sanitize(String input) {
+        if (input == null) return "";
+        return input.replaceAll("[^\\w\\s.\\-]", "").trim();
     }
 }
