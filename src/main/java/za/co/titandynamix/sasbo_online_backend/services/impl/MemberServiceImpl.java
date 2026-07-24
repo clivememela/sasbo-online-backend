@@ -40,4 +40,20 @@ public class MemberServiceImpl implements MemberService {
             return this.memberRepository.save(existing);
         });
     }
+
+    @Override
+    public Optional<Member> updateBanking(Integer id, Member banking) {
+        return this.memberRepository.findById(id).map(existing -> {
+            existing.setBankName(banking.getBankName());
+            existing.setBankAccountNumber(banking.getBankAccountNumber());
+            existing.setBranch(banking.getBranch());
+            existing.setIbtNo(banking.getIbtNo());
+            existing.setWorkIbtNo(banking.getWorkIbtNo());
+            existing.setBankAddress(banking.getBankAddress());
+            existing.setWorkBankAddress(banking.getWorkBankAddress());
+            existing.setPaymentType(banking.getPaymentType());
+            existing.setDebitDay(banking.getDebitDay());
+            return this.memberRepository.save(existing);
+        });
+    }
 }

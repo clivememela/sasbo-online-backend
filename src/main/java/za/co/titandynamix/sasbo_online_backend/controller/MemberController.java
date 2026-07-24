@@ -38,4 +38,11 @@ public class MemberController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PatchMapping("/{id}/banking")
+    public ResponseEntity<Member> updateBanking(@PathVariable Integer id, @RequestBody Member banking) {
+        return this.memberService.updateBanking(id, banking)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

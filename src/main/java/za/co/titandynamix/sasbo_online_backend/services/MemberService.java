@@ -10,4 +10,5 @@ public interface MemberService {
     Optional<Member> findById(Integer id);
     Member create(Member member);
     Optional<Member> update(Integer id, Member updated);
+    Optional<Member> updateBanking(Integer id, Member banking);
 }
