@@ -52,3 +52,8 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// Enable compiler lint warnings to simulate IDE inspections
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs += ['-Xlint:all','-Xlint:-processing']
+}
