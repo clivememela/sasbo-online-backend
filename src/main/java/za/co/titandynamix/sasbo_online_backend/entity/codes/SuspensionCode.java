@@ -6,7 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.Hibernate;
-import za.co.titandynamix.sasbo_online_backend.entity.location.City;
 
 import java.util.Objects;
 
@@ -24,7 +23,7 @@ public class SuspensionCode {
     private String description;
 
     @Override
-    public final boolean equals(Object o) {
+    public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
         if (Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
@@ -33,7 +32,7 @@ public class SuspensionCode {
     }
 
     @Override
-    public final int hashCode() {
+    public int hashCode() {
         return Objects.hash(Hibernate.getClass(this), getId());
     }
 }

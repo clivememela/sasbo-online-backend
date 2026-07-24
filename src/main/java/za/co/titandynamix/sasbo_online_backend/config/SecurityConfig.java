@@ -18,7 +18,7 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${FRONTEND_URL}")
+    @Value("${FRONTEND_URL:}")
     private String frontendUrl;
 
     @Bean
@@ -37,11 +37,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = frontendUrl != null && !frontendUrl.isBlank()
-                ? List.of("http://localhost:5173", frontendUrl)
+        List<String> origins = this.frontendUrl != null && !this.frontendUrl.isBlank()
+                ? List.of("http://localhost:5173", this.frontendUrl)
                 : List.of("http://localhost:5173");
         config.setAllowedOrigins(origins);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);

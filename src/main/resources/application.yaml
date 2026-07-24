@@ -34,5 +34,5 @@ logging:
     
 front:
   end:
-    url: ${FRONTEND_URL}
+    url: ${FRONTEND_URL:}
   
