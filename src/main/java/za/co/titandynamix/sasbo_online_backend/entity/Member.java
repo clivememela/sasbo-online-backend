@@ -23,6 +23,7 @@ public class Member {
     private String initials;
     private String surname;
     private String firstNames;
+    private String identityType;
     private String identityNumber;
     private String passportNumber;
     private String gender;
