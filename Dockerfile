@@ -9,6 +9,7 @@ COPY gradle ./gradle
 RUN chmod +x gradlew && ./gradlew --no-daemon dependencies
 
 # Copy source code and build the JAR, using only cached dependencies (no network)
+COPY config ./config
 COPY src ./src
 RUN ./gradlew build -x test --no-daemon
 
