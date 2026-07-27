@@ -10,6 +10,7 @@ public record SubscriptionsDto(
         String bankName,
         int acbDebitDay,
         BigDecimal subscriptionAmount,
+        Boolean isCoreBanking,
         SubscriptionsStatus status,
         LocalDateTime registrationDate
 ) {

@@ -33,6 +33,9 @@ public class Subscriptions {
     @Column(name = "subscription_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal subscriptionAmount;
 
+    @Column(name = "core_banking")
+    private Boolean isCoreBanking;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SubscriptionsStatus status; // Tracked status field [1]
