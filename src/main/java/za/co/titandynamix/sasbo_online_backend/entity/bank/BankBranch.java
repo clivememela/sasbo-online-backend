@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 // This entity maps the branch details, includes the 6-digit branch code, and embeds the address
 @Entity
@@ -74,6 +75,6 @@ public class BankBranch {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(ZoneId.of("UTC"));
     }
 }
