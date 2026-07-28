@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface SubscriptionsService {
     
-    List<SubscriptionsDto> findAll();
+    List<SubscriptionsDto> findAll(Long bankId);
     
     Optional<SubscriptionsDto> findById(Long id);
     

@@ -16,6 +16,9 @@ import za.co.titandynamix.sasbo_online_backend.entity.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.entity.recruiter.RecruiterType;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
+import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
+import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
+import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 
 import java.io.InputStream;
@@ -32,6 +35,7 @@ public class DataSeeder implements ApplicationRunner {
     private final RepresentativeRepository representativeRepository;
     private final ProvinceRepository provinceRepository;
     private final RecruiterTypeRepository recruiterTypeRepository;
+    private final SubscriptionsRepository subscriptionsRepository;
 
     @Override
     public void run(@NonNull ApplicationArguments args) throws Exception {
@@ -76,6 +80,37 @@ public class DataSeeder implements ApplicationRunner {
                 });
                 this.bankBranchRepository.saveAll(branches);
                 log.info("Seeded {} bank branches", branches.size());
+            }
+        }
+
+        ClassPathResource subscriptionsResource = new ClassPathResource("data/subscriptions.json");
+        try (InputStream subsStream = subscriptionsResource.getInputStream()) {
+            List<SubscriptionsDto> subsDtos = mapper.readValue(subsStream, new TypeReference<>() {});
+            int desired = subsDtos.size();
+            long existing = this.subscriptionsRepository.count();
+            log.info("subscriptionsRepository.count() = {}, desired seed size = {}", existing, desired);
+            List<Bank> allBanks = this.bankRepository.findAll();
+            if (existing < desired) {
+                List<Subscriptions> subs = subsDtos.stream().map(dto -> {
+                    Subscriptions s = new Subscriptions();
+                    s.setId(null);
+                    if (dto.bankName() != null) {
+                        allBanks.stream()
+                                .filter(b -> b.getName().equalsIgnoreCase(dto.bankName()))
+                                .findFirst()
+                                .ifPresent(s::setBank);
+                    }
+                    s.setAcbDebitDay(dto.acbDebitDay());
+                    s.setSubscriptionAmount(dto.subscriptionAmount());
+                    s.setIsCoreBanking(dto.isCoreBanking());
+                    s.setStatus(dto.status() == null ? SubscriptionsStatus.PENDING : dto.status());
+                    s.setRegistrationDate(dto.registrationDate());
+                    return s;
+                }).toList();
+                this.subscriptionsRepository.saveAll(subs);
+                log.info("Seeded {} subscriptions", subs.size());
+            } else {
+                log.info("Skipping subscriptions seed; existing ({} ) >= desired ({})", existing, desired);
             }
         }
 

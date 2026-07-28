@@ -17,8 +17,9 @@ public class SubscriptionsController {
     private final SubscriptionsService subscriptionsService;
 
     @GetMapping
-    public ResponseEntity<List<SubscriptionsDto>> getAll() {
-        List<SubscriptionsDto> subscriptions = this.subscriptionsService.findAll();
+    public ResponseEntity<List<SubscriptionsDto>> getAll(@RequestParam(value = "bankId", required = false) Long bankId) {
+        Long effectiveBankId = (bankId == null || bankId <= 0) ? null : bankId;
+        List<SubscriptionsDto> subscriptions = this.subscriptionsService.findAll(effectiveBankId);
         return ResponseEntity.ok(subscriptions);
     }
 

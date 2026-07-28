@@ -1,0 +1,17 @@
+[
+  { "bankName": "Absa Bank Limited", "acbDebitDay": 5, "subscriptionAmount": 120.00, "isCoreBanking": false, "status": "ACTIVE" },
+  { "bankName": "First National Bank (FNB)", "acbDebitDay": 10, "subscriptionAmount": 150.50, "isCoreBanking": true, "status": "ACTIVE" },
+  { "bankName": "Nedbank Limited", "acbDebitDay": 20, "subscriptionAmount": 99.99, "isCoreBanking": false, "status": "PENDING" },
+  { "bankName": "Capitec Bank Limited", "acbDebitDay": 1, "subscriptionAmount": 200.00, "isCoreBanking": true, "status": "ACTIVE" },
+  { "bankName": "Standard Bank of South Africa Limited", "acbDebitDay": 15, "subscriptionAmount": 175.25, "isCoreBanking": false, "status": "ACTIVE" },
+  { "bankName": "Investec Bank Limited", "acbDebitDay": 7, "subscriptionAmount": 130.00, "isCoreBanking": false, "status": "ACTIVE" },
+  { "bankName": "Sasfin Bank Limited", "acbDebitDay": 12, "subscriptionAmount": 110.00, "isCoreBanking": true, "status": "PENDING" },
+  { "bankName": "Discovery Bank Limited", "acbDebitDay": 3, "subscriptionAmount": 145.75, "isCoreBanking": false, "status": "ACTIVE" },
+  { "bankName": "TymeBank Limited", "acbDebitDay": 28, "subscriptionAmount": 89.50, "isCoreBanking": false, "status": "CANCELLED" },
+  { "bankName": "African Bank Limited", "acbDebitDay": 17, "subscriptionAmount": 160.00, "isCoreBanking": true, "status": "ACTIVE" },
+  { "bankName": "Goldman Sachs International Bank", "acbDebitDay": 25, "subscriptionAmount": 220.00, "isCoreBanking": false, "status": "ACTIVE" },
+  { "bankName": "JPMorgan Chase Bank, N.A.", "acbDebitDay": 9, "subscriptionAmount": 199.99, "isCoreBanking": true, "status": "PENDING" },
+  { "bankName": "Bank Of China Limited", "acbDebitDay": 11, "subscriptionAmount": 140.00, "isCoreBanking": false, "status": "ACTIVE" },
+  { "bankName": "Barclays Bank PLC", "acbDebitDay": 2, "subscriptionAmount": 155.00, "isCoreBanking": true, "status": "ACTIVE" },
+  { "bankName": "Bank Zero Mutual Bank", "acbDebitDay": 21, "subscriptionAmount": 125.00, "isCoreBanking": false, "status": "PENDING" }
+]
