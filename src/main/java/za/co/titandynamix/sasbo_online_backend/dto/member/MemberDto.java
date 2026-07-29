@@ -1,4 +1,4 @@
-package za.co.titandynamix.sasbo_online_backend.dto;
+package za.co.titandynamix.sasbo_online_backend.dto.member;
 
 import lombok.Data;
 
