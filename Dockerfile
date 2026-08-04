@@ -13,14 +13,20 @@ COPY config ./config
 COPY src ./src
 RUN ./gradlew build -x test --no-daemon
 
-# Runtime stage: minimal Alpine-based JRE image to keep the final image small
+# Extract stage: unpack JAR into layers so dependencies and app code are separate Docker layers
+FROM eclipse-temurin:21-jre-alpine AS extract
+WORKDIR /extract
+COPY --from=build /home/gradle/project/build/libs/*.jar app.jar
+RUN java -Djarmode=layertools -jar app.jar extract
+
+# Runtime stage
 FROM eclipse-temurin:21-jre-alpine
-# Create a non-root user before setting up the working directory
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
-# Copy only the built JAR from the build stage and assign ownership to non-root user
-COPY --from=build --chown=app:app /home/gradle/project/build/libs/*.jar app.jar
-# Switch to non-root user to reduce attack surface
+COPY --from=extract --chown=app:app /extract/dependencies/ ./
+COPY --from=extract --chown=app:app /extract/spring-boot-loader/ ./
+COPY --from=extract --chown=app:app /extract/snapshot-dependencies/ ./
+COPY --from=extract --chown=app:app /extract/application/ ./
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
