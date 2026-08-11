@@ -27,7 +27,6 @@ public class MemberDto {
     private String cellTel;
     private String workTel;
     private String homeTel;
-    private String faxNumber;
     private String address;
 
     private String jobGrade;
@@ -36,12 +35,6 @@ public class MemberDto {
 
     private String monthlySubscription;
     private String subscriptionFrequency;
-    private String deathBenefitSubs;
-    private String deathBenefitPolicyNo;
-    private String endowmentSubs;
-    private String endowmentPolicyNo;
-    private String benevolentSubs;
-    private String benevolentPolicyNo;
 
     private String remarks;
     private String remarks2;

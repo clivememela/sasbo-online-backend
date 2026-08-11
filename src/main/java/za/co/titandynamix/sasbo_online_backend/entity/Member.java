@@ -37,7 +37,6 @@ public class Member {
     private String cellTel;
     private String workTel;
     private String homeTel;
-    private String faxNumber;
     private String address;
 
     // Employment & Bank
@@ -55,15 +54,6 @@ public class Member {
     // Subscriptions
     private String monthlySubscription;
     private String subscriptionFrequency;
-    private String deathBenefitSubs;
-    private String deathBenefitFrequency;
-    private String deathBenefitPolicyNo;
-    private String endowmentSubs;
-    private String endowmentFrequency;
-    private String endowmentPolicyNo;
-    private String benevolentSubs;
-    private String benevolentFrequency;
-    private String benevolentPolicyNo;
 
     // Balances
     private String currentBalance;
