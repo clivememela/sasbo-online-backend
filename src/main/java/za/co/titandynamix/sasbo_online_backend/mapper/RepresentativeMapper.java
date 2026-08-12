@@ -7,9 +7,12 @@ import za.co.titandynamix.sasbo_online_backend.entity.representative.Representat
 
 @Mapper(componentModel = "spring")
 public interface RepresentativeMapper {
+
+    @Mapping(target = "memberId", source = "member.id")
     RepresentativeDto toDto(Representative representative);
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "member", ignore = true)  // set manually in service
     Representative toEntity(RepresentativeDto dto);
 }

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import za.co.titandynamix.sasbo_online_backend.entity.Member;
 
 import java.time.LocalDateTime;
 
@@ -20,6 +21,11 @@ public class Representative {
 
     private String email;
     private String phone;
+
+    /** The SASBO member who holds this representative role. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id")
+    private Member member;
 
     @Column(nullable = false, updatable = false)
     @CreationTimestamp

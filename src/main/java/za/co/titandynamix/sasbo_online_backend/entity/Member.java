@@ -33,6 +33,9 @@ public class Member {
 
     // Contact
     private String email;
+    private String personalEmail;
+    private String workEmail;
+    private String preferredEmail;
     private String phone;
     private String cellTel;
     private String workTel;

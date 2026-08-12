@@ -48,7 +48,15 @@ public class DataSeeder implements ApplicationRunner {
             ClassPathResource membersResource = new ClassPathResource("data/members.json");
             try (InputStream stream = membersResource.getInputStream()) {
                 List<Member> members = mapper.readValue(stream, new TypeReference<>() {});
-                members.forEach(m -> m.setId(null));
+                members.forEach(m -> {
+                    m.setId(null);
+                    if (m.getPersonalEmail() == null || m.getPersonalEmail().isBlank()) {
+                        m.setPersonalEmail(m.getEmail());
+                    }
+                    if (m.getPreferredEmail() == null || m.getPreferredEmail().isBlank()) {
+                        m.setPreferredEmail("personal");
+                    }
+                });
                 this.memberRepository.saveAll(members);
                 log.info("Seeded {} members", members.size());
             }
@@ -116,13 +124,26 @@ public class DataSeeder implements ApplicationRunner {
 
         if (this.representativeRepository.count() == 0) {
             List<Member> allMembers = this.memberRepository.findAll();
+            // Build a name -> member map using "initials surname" pattern
+            java.util.Map<String, Member> memberByName = new java.util.HashMap<>();
+            allMembers.forEach(m -> {
+                String key = ((m.getInitials() != null ? m.getInitials() : "") + " " + (m.getSurname() != null ? m.getSurname() : "")).trim().toLowerCase();
+                if (!key.isBlank()) memberByName.put(key, m);
+            });
             List<Representative> reps = allMembers.stream()
                     .map(Member::getAreasRep)
                     .filter(name -> name != null && !name.isBlank())
                     .map(String::trim)
                     .distinct()
                     .sorted()
-                    .map(name -> { Representative r = new Representative(); r.setName(name); return r; })
+                    .map(name -> {
+                        Representative r = new Representative();
+                        r.setName(name);
+                        // Link to member if name matches
+                        Member linked = memberByName.get(name.toLowerCase());
+                        if (linked != null) r.setMember(linked);
+                        return r;
+                    })
                     .toList();
             this.representativeRepository.saveAll(reps);
             log.info("Seeded {} representatives", reps.size());

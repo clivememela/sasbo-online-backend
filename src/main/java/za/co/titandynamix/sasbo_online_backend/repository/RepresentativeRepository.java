@@ -5,4 +5,5 @@ import za.co.titandynamix.sasbo_online_backend.entity.representative.Representat
 
 public interface RepresentativeRepository extends JpaRepository<Representative, Integer> {
     boolean existsByNameIgnoreCase(String name);
+    boolean existsByMemberId(Integer memberId);
 }

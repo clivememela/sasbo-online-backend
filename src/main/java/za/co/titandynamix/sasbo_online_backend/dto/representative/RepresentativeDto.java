@@ -14,4 +14,5 @@ public class RepresentativeDto {
     private String name;
     private String email;
     private String phone;
+    private Integer memberId;  // the member who is this representative
 }
