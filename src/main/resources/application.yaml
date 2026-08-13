@@ -14,7 +14,8 @@ spring:
     baseline-version: 0
     connect-retries: 10
     # locations: classpath:db/migration do not use in production
-    clean-on-validation-error: true
+    clean-disabled: false
+    validate-on-migrate: false
   jpa:
     hibernate:
       ddl-auto: update

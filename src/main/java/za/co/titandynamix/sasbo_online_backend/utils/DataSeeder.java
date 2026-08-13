@@ -122,31 +122,9 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
+        // Representatives are created manually via API; no seeding needed
         if (this.representativeRepository.count() == 0) {
-            List<Member> allMembers = this.memberRepository.findAll();
-            // Build a name -> member map using "initials surname" pattern
-            java.util.Map<String, Member> memberByName = new java.util.HashMap<>();
-            allMembers.forEach(m -> {
-                String key = ((m.getInitials() != null ? m.getInitials() : "") + " " + (m.getSurname() != null ? m.getSurname() : "")).trim().toLowerCase();
-                if (!key.isBlank()) memberByName.put(key, m);
-            });
-            List<Representative> reps = allMembers.stream()
-                    .map(Member::getAreasRep)
-                    .filter(name -> name != null && !name.isBlank())
-                    .map(String::trim)
-                    .distinct()
-                    .sorted()
-                    .map(name -> {
-                        Representative r = new Representative();
-                        r.setName(name);
-                        // Link to member if name matches
-                        Member linked = memberByName.get(name.toLowerCase());
-                        if (linked != null) r.setMember(linked);
-                        return r;
-                    })
-                    .toList();
-            this.representativeRepository.saveAll(reps);
-            log.info("Seeded {} representatives", reps.size());
+            log.info("No representatives seeded; manage via API");
         }
 
         if (this.recruiterTypeRepository.count() == 0) {

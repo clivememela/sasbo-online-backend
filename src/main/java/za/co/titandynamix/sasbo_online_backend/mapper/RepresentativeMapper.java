@@ -14,5 +14,9 @@ public interface RepresentativeMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "member", ignore = true)  // set manually in service
+    @Mapping(target = "area", ignore = true)
+    @Mapping(target = "repRole", ignore = true)
+    @Mapping(target = "structure", ignore = true)
+    @Mapping(target = "electionDate", ignore = true)
     Representative toEntity(RepresentativeDto dto);
 }
