@@ -32,13 +32,23 @@ public class MemberDto {
     private String homeTel;
     private String address;
 
+    // Employment & Bank
     private String jobGrade;
+    private String bankName;
+    private String bankAccountNumber;
+    private String branch;
+    private String ibtNo;
+    private String workIbtNo;
+    private String bankAddress;
+    private String workBankAddress;
     private String paymentType;
     private Integer debitDay;
 
+    // Subscriptions
     private String monthlySubscription;
     private String subscriptionFrequency;
 
+    // History & Remarks
     private String remarks;
     private String remarks2;
     private String remarks3;

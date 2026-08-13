@@ -45,12 +45,24 @@ public class Member {
 
     // Employment & Bank
     private String bankName;
+    /**
+     * Member's bank account number.
+     * REQUIRED when paymentType = "Debit Order"
+     * OPTIONAL when paymentType = "Payroll Deduction"
+     */
     private String bankAccountNumber;
     private String branch;
     private String ibtNo;
     private String workIbtNo;
     private String bankAddress;
     private String workBankAddress;
+    /**
+     * Payment type for member subscriptions.
+     * Values: "Debit Order" (requires bankAccountNumber)
+     *         "Payroll Deduction" (bankAccountNumber optional)
+     * @see PaymentType
+     * @see MemberValidator#validatePaymentType(Member)
+     */
     private String paymentType;
     private Integer debitDay;
     private String jobGrade;

@@ -6,6 +6,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.Member;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,6 +31,7 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public Member create(Member member) {
         member.setId(null);
+        MemberValidator.validatePaymentType(member);
         return this.memberRepository.save(member);
     }
 
@@ -37,6 +39,7 @@ public class MemberServiceImpl implements MemberService {
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
             this.memberMapper.updateFromMember(updated, existing);
+            MemberValidator.validatePaymentType(existing);
             return this.memberRepository.save(existing);
         });
     }
@@ -53,6 +56,7 @@ public class MemberServiceImpl implements MemberService {
             existing.setWorkBankAddress(banking.getWorkBankAddress());
             existing.setPaymentType(banking.getPaymentType());
             existing.setDebitDay(banking.getDebitDay());
+            MemberValidator.validatePaymentType(existing);
             return this.memberRepository.save(existing);
         });
     }

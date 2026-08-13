@@ -3,9 +3,12 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import za.co.titandynamix.sasbo_online_backend.dto.member.PaymentTypeMetadataDto;
 import za.co.titandynamix.sasbo_online_backend.entity.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -45,4 +48,21 @@ public class MemberController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    /**
+     * Get payment type metadata for UI field visibility logic.
+     * Returns information about each payment type and whether it requires bank account number.
+     */
+    @GetMapping("/metadata/payment-types")
+    public ResponseEntity<List<PaymentTypeMetadataDto>> getPaymentTypeMetadata() {
+        List<PaymentTypeMetadataDto> metadata = Arrays.stream(PaymentType.values())
+                .map(pt -> new PaymentTypeMetadataDto(
+                    pt.name(),
+                    pt.getDisplayName(),
+                    pt.requiresBankAccount()
+                ))
+                .toList();
+        return ResponseEntity.ok(metadata);
+    }
 }
+
