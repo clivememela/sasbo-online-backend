@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
 import za.co.titandynamix.sasbo_online_backend.entity.user.User;
 
 import java.time.LocalDate;
@@ -64,17 +65,18 @@ public class Member {
     private String lastMonthBalance;
     private LocalDate dateLastChanged;
 
-    // Representatives
-    private String recruitmentRep;
-    private String areasRep;
-    private String repElectionDay;
-    private String repElectionMonth;
-    private String repElectionYear;
-    private String electedRep;
-    private String nationalCouncillor;
-    private String branchCommitteeMember;
+    // Representatives (§4.1, §4.2)
+    /** The representative responsible for recruiting this member. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruitment_representative_id")
+    private Representative recruitmentRepresentative;
 
-    // History & flags
+    /** Area this member belongs to. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "area_id")
+    private Area area;
+
+    // History & Remarks (§5 — remarks fields retained pending clarification)
     @Column(length = 1000)
     private String remarks;
     @Column(length = 1000)
@@ -84,14 +86,8 @@ public class Member {
     @Column(length = 1000)
     private String remarks4;
 
-    private String managersCode;
-    private String memnetMember;
-    private String printLabelForPostage;
-    private String suspensionCode;
+    // Use alternate address — retained pending clarification (§6.5)
     private String useAltAddress;
-    private String deductACB;
-    private String printMembershipCards;
-    private String homeLoanReducedRateOption;
 
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
