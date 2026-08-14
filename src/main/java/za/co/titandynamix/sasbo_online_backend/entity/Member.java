@@ -101,6 +101,15 @@ public class Member {
     // Use alternate address — retained pending clarification (§6.5)
     private String useAltAddress;
 
+    // Removed fields per §5 & §6:
+    // - managersCode (§6.1)
+    // - memnetMember (§6.2)
+    // - printLabelForPostage (§6.3)
+    // - suspensionCode (§6.4)
+    // - deductACB (§6.6)
+    // - printMembershipCards (§6.7)
+    // - homeLoanReducedRate (§6.8)
+
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;

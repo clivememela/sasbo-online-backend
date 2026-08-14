@@ -3,9 +3,11 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import za.co.titandynamix.sasbo_online_backend.dto.member.MemberDto;
 import za.co.titandynamix.sasbo_online_backend.dto.member.PaymentTypeMetadataDto;
 import za.co.titandynamix.sasbo_online_backend.entity.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.PaymentType;
+import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 
 import java.util.Arrays;
@@ -17,34 +19,40 @@ import java.util.List;
 public class MemberController {
 
     private final MemberService memberService;
+    private final MemberMapper mapper;
 
     @GetMapping
-    public List<Member> getAll() {
-        return this.memberService.findAll();
+    public List<MemberDto> getAll() {
+        return this.memberService.findAll().stream()
+                .map(this.mapper::toDto)
+                .toList();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Member> getById(@PathVariable Integer id) {
+    public ResponseEntity<MemberDto> getById(@PathVariable Integer id) {
         return this.memberService.findById(id)
+                .map(this.mapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<Member> create(@RequestBody Member member) {
-        return ResponseEntity.ok(this.memberService.create(member));
+    public ResponseEntity<MemberDto> create(@RequestBody Member member) {
+        return ResponseEntity.ok(this.mapper.toDto(this.memberService.create(member)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Member> update(@PathVariable Integer id, @RequestBody Member updated) {
+    public ResponseEntity<MemberDto> update(@PathVariable Integer id, @RequestBody Member updated) {
         return this.memberService.update(id, updated)
+                .map(this.mapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PatchMapping("/{id}/banking")
-    public ResponseEntity<Member> updateBanking(@PathVariable Integer id, @RequestBody Member banking) {
+    public ResponseEntity<MemberDto> updateBanking(@PathVariable Integer id, @RequestBody Member banking) {
         return this.memberService.updateBanking(id, banking)
+                .map(this.mapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -65,4 +73,5 @@ public class MemberController {
         return ResponseEntity.ok(metadata);
     }
 }
+
 
