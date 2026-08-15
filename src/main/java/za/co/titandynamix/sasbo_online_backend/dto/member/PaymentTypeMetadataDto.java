@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaymentTypeMetadataDto {
-    private String value;
+    private String name;
     private String displayName;
     private boolean requiresBankAccount;
 }

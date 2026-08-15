@@ -58,7 +58,7 @@ class MemberControllerTest {
             mockMvc.perform(get("/api/members"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(1)))
-                    .andExpect(jsonPath("$[0].surname").value("Smith")); // Fixed JsonPath for array root
+                    .andExpect(jsonPath("$[0].surname").value("Smith"));
         }
     }
 
@@ -103,7 +103,8 @@ class MemberControllerTest {
             when(memberService.create(any(Member.class))).thenReturn(savedMember);
             when(memberMapper.toDto(any(Member.class))).thenReturn(responseDto);
 
-            String jsonPayload = "{\"surname\": \"NewMember\", \"firstName\": \"John\"}";
+            // Fixed: Changed "firstName" to "firstNames" to match entity
+            String jsonPayload = "{\"surname\": \"NewMember\", \"firstNames\": \"John\"}";
 
             mockMvc.perform(post("/api/members")
                                     .contentType(MediaType.APPLICATION_JSON)
@@ -149,7 +150,8 @@ class MemberControllerTest {
             when(memberService.updateBanking(eq(1), any(Member.class))).thenReturn(Optional.of(member));
             when(memberMapper.toDto(any(Member.class))).thenReturn(dto);
 
-            String json = "{\"bankName\": \"FNB\", \"accountNumber\": \"123456\"}";
+            // Fixed: Changed "accountNumber" to "bankAccountNumber" to match entity
+            String json = "{\"bankName\": \"FNB\", \"bankAccountNumber\": \"123456\"}";
 
             mockMvc.perform(patch("/api/members/1/banking")
                                     .contentType(MediaType.APPLICATION_JSON)
@@ -168,7 +170,7 @@ class MemberControllerTest {
             mockMvc.perform(get("/api/members/metadata/payment-types"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$").isArray())
-                    .andExpect(jsonPath("$[0].name").exists()) // Fixed JsonPath array indexing
+                    .andExpect(jsonPath("$[0].name").exists())
                     .andExpect(jsonPath("$[0].displayName").exists())
                     .andExpect(jsonPath("$[0].requiresBankAccount").exists());
         }
