@@ -5,8 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import za.co.titandynamix.sasbo_online_backend.dto.DeletionCodeCreateDto;
-import za.co.titandynamix.sasbo_online_backend.dto.DeletionCodeResponseDto;
+import za.co.titandynamix.sasbo_online_backend.dto.deletion.DeletionCodeCreateDto;
+import za.co.titandynamix.sasbo_online_backend.dto.deletion.DeletionCodeResponseDto;
 import za.co.titandynamix.sasbo_online_backend.services.DeletionCodeService;
 
 import java.util.List;

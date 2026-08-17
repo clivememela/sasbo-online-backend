@@ -15,7 +15,7 @@ Note: The backend is pure Java 21 (Kotlin sources have been migrated). Agents sh
 ### Backend Layers
 
 1. **Entity Layer** (`entity/`): JPA entities with Lombok
-   - Domain models: `Member`, `User`, `Bank`, `BankBranch`, `Branch`, `Representative`, `Role`
+   - Domain models: `Member`, `User`, `Bank`, `BankBranch`, `Branch`, `Representative`, `UserRole`
    - Embedded value objects: `PhysicalAddress`, `TwoFactorAuthentication`
    - Uses `@Embedded` for composition; `@OneToMany`, `@ManyToOne`, `@ManyToMany` for relationships
 

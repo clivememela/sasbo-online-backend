@@ -13,6 +13,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class RepresentativeDto {
     private Integer id;
+    private String firstNames;
+    private String surname;
+    /** Combined display name (firstNames + surname). Read-only on the API response. */
     private String name;
     private String email;
     private String phone;

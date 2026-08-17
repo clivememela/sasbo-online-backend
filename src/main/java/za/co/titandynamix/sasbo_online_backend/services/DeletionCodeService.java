@@ -1,7 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.services;
 
-import za.co.titandynamix.sasbo_online_backend.dto.DeletionCodeCreateDto;
-import za.co.titandynamix.sasbo_online_backend.dto.DeletionCodeResponseDto;
+import za.co.titandynamix.sasbo_online_backend.dto.deletion.DeletionCodeCreateDto;
+import za.co.titandynamix.sasbo_online_backend.dto.deletion.DeletionCodeResponseDto;
 
 import java.util.List;
 

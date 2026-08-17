@@ -10,7 +10,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepo
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/representative-roles")
+@RequestMapping("/api/representative-userRoles")
 @RequiredArgsConstructor
 public class RepresentativeRoleController {
 
@@ -47,9 +47,9 @@ public class RepresentativeRoleController {
     public ResponseEntity<RepresentativeRoleDto> update(@PathVariable Integer id, @RequestBody RepresentativeRoleDto dto) {
         return this.repository.findById(id).map(existing -> {
             existing.setName(dto.getName());
-            existing.setRequiresStructure(dto.getRequiresStructure());
-            existing.setRequiresElectionDate(dto.getRequiresElectionDate());
             existing.setDescription(dto.getDescription());
+            existing.setRequiresStructure(dto.getRequiresStructure());
+            existing.setIsElectedRole(dto.getIsElectedRole());
             var saved = this.repository.save(existing);
             return ResponseEntity.ok(this.mapper.toDto(saved));
         }).orElse(ResponseEntity.notFound().build());

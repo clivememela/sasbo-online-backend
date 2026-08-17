@@ -11,8 +11,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import za.co.titandynamix.sasbo_online_backend.dto.DeletionCodeCreateDto;
-import za.co.titandynamix.sasbo_online_backend.dto.DeletionCodeResponseDto;
+import za.co.titandynamix.sasbo_online_backend.dto.deletion.DeletionCodeCreateDto;
+import za.co.titandynamix.sasbo_online_backend.dto.deletion.DeletionCodeResponseDto;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.services.DeletionCodeService;
 

@@ -1,4 +1,4 @@
-package za.co.titandynamix.sasbo_online_backend.entity;
+package za.co.titandynamix.sasbo_online_backend.entity.location;
 
 import jakarta.persistence.*;
 import lombok.*;

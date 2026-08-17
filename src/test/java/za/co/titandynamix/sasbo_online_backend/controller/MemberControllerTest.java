@@ -12,10 +12,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberDto;
-import za.co.titandynamix.sasbo_online_backend.entity.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +42,9 @@ class MemberControllerTest {
 
     @MockitoBean
     private MemberMapper memberMapper;
+
+    @MockitoBean
+    private RepresentativeService representativeService;
 
     @Nested
     @DisplayName("GET /api/members")

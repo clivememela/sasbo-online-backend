@@ -1,6 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.services;
 
-import za.co.titandynamix.sasbo_online_backend.entity.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,4 +11,5 @@ public interface MemberService {
     Member create(Member member);
     Optional<Member> update(Integer id, Member updated);
     Optional<Member> updateBanking(Integer id, Member banking);
+    Optional<Member> updateMonthlySubscription(Integer id, String monthlySubscription);
 }

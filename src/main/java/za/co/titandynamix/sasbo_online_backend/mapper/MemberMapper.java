@@ -2,25 +2,80 @@ package za.co.titandynamix.sasbo_online_backend.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
+import org.mapstruct.Named;
+import org.mapstruct.ReportingPolicy;
+import org.springframework.beans.factory.annotation.Autowired;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberDto;
-import za.co.titandynamix.sasbo_online_backend.entity.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.UnionStructure;
 
-@Mapper(componentModel = "spring")
-public interface MemberMapper {
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+public abstract class MemberMapper {
 
+    @Autowired
+    protected za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository representativeRepository;
+
+    @Autowired
+    protected za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository unionStructureRepository; // Ensure this repository exists!
+
+    // ============================================================
+    // ENTITY TO DTO
+    // ============================================================
     @Mapping(target = "recruitmentRepresentativeId", source = "recruitmentRepresentative.id")
+    @Mapping(target = "recruitmentRepresentativeName", source = "recruitmentRepresentative", qualifiedByName = "mapRepToName")
+    @Mapping(target = "areasRep", source = "recruitmentRepresentative", qualifiedByName = "mapRepToName")
+    @Mapping(target = "roleId", source = "role.id")
+    @Mapping(target = "roleName", source = "role.name")
+    @Mapping(target = "structureId", source = "structure.id")
+    @Mapping(target = "structure", source = "structure.name")
     @Mapping(target = "areaId", source = "area.id")
+    @Mapping(target = "areaName", source = "area.name")
     @Mapping(target = "userId", source = "user.id")
-    MemberDto toDto(Member member);
+    public abstract MemberDto toDto(Member member);
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "membershipNumber", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "user", ignore = true)
-    @Mapping(target = "recruitmentRepresentative", ignore = true)  // set manually in service
-    @Mapping(target = "area", ignore = true)                      // set manually in service
-    void updateFromMember(Member source, @MappingTarget Member target);
+    // ============================================================
+    // DTO TO ENTITY
+    // ============================================================
+    @Mapping(target = "recruitmentRepresentative", source = "recruitmentRepresentativeName", qualifiedByName = "mapNameToRep")
+    @Mapping(target = "structure", source = "structure", qualifiedByName = "mapStringToStructure") // 👈 Add mapping method for string to entity
+    public abstract Member toEntity(MemberDto memberDto);
+
+    // 💡 Add this inside your MemberMapper class so updates can merge
+    public abstract void updateFromMember(Member source, @org.mapstruct.MappingTarget Member target);
+
+    // Helper Method 1: Turn Representative into String Name
+    @Named("mapRepToName")
+    protected String mapRepToName(Representative representative) {
+        if (representative == null) {
+            return null;
+        }
+        String first = representative.getFirstNames() != null ? representative.getFirstNames() : "";
+        String last = representative.getSurname() != null ? representative.getSurname() : "";
+        return (first + " " + last).trim();
+    }
+
+    // Helper Method 2: Look up Representative by String Name
+    @Named("mapNameToRep")
+    protected Representative mapNameToRep(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return null;
+        }
+        String[] parts = name.trim().split("\\s+", 2);
+        String firstNames = parts[0];
+        String surname = parts.length > 1 ? parts[1] : "";
+        return representativeRepository.findByFirstNamesAndSurname(firstNames, surname)
+                       .orElse(null);
+    }
+
+    // Helper Method 3: Look up UnionStructure Entity from Name String
+    @Named("mapStringToStructure")
+    protected UnionStructure mapStringToStructure(String structureName) {
+        if (structureName == null || structureName.trim().isEmpty()) {
+            return null;
+        }
+        // Match the exact repository method definition
+        return unionStructureRepository.findByNameIgnoreCase(structureName).orElse(null);
+    }
+
 }
-

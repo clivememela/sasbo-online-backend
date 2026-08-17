@@ -12,10 +12,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
-import za.co.titandynamix.sasbo_online_backend.entity.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.entity.recruiter.RecruiterType;
-import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
 import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
@@ -51,7 +50,7 @@ public class DataSeeder implements ApplicationRunner {
                 members.forEach(m -> {
                     m.setId(null);
                     if (m.getPersonalEmail() == null || m.getPersonalEmail().isBlank()) {
-                        m.setPersonalEmail(m.getEmail());
+                        m.setPersonalEmail(m.getPersonalEmail());
                     }
                     if (m.getPreferredEmail() == null || m.getPreferredEmail().isBlank()) {
                         m.setPreferredEmail("personal");

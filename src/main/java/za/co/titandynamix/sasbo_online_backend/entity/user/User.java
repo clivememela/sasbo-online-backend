@@ -7,7 +7,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.Hibernate;
 import org.hibernate.annotations.UuidGenerator;
-import za.co.titandynamix.sasbo_online_backend.entity.TwoFactorAuthentication;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,7 +21,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = "roles")
+@ToString(exclude = "userRoles")
 public class User {
 
     /**
@@ -102,7 +101,7 @@ public class User {
     private boolean enabled = true;
 
     /**
-     * List of roles assigned to the user.
+     * List of userRoles assigned to the user.
      */
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)
@@ -111,17 +110,17 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
-    private Set<Role> roles = new HashSet<>();
+    private Set<UserRole> userRoles = new HashSet<>();
 
     // Helper Methods to Synchronize Bidirectional Relationship
-    public void addRole(Role role) {
-        this.roles.add(role);
-        role.getUsers().add(this);
+    public void addRole(UserRole userRole) {
+        this.userRoles.add(userRole);
+        userRole.getUsers().add(this);
     }
 
-    public void removeRole(Role role) {
-        this.roles.remove(role);
-        role.getUsers().remove(this);
+    public void removeRole(UserRole userRole) {
+        this.userRoles.remove(userRole);
+        userRole.getUsers().remove(this);
     }
 
     @Override

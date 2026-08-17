@@ -1,11 +1,16 @@
-package za.co.titandynamix.sasbo_online_backend.entity;
+package za.co.titandynamix.sasbo_online_backend.entity.member;
 
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
+import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.RepresentativeRole;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.UnionStructure;
 import za.co.titandynamix.sasbo_online_backend.entity.user.User;
+import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,8 +27,13 @@ public class Member {
     private String employeeNumber;
     private String title;
     private String initials;
-    private String surname;
+
+    @Column(name = "first_names")
     private String firstNames;
+
+    @Column(name = "surname")
+    private String surname;
+
     private String identityType;
     private String identityNumber;
     private String passportNumber;
@@ -33,7 +43,6 @@ public class Member {
     private LocalDate joinDate;
 
     // Contact
-    private String email;
     private String personalEmail;
     private String workEmail;
     private String preferredEmail;
@@ -77,38 +86,59 @@ public class Member {
     private String lastMonthBalance;
     private LocalDate dateLastChanged;
 
+    @Column(name = "is_representative")
+    private Boolean isRepresentative;
+
     // Representatives (§4.1, §4.2)
     /** The representative responsible for recruiting this member. */
+    // Self-referencing link: A member recruited by another member acting as a Rep
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recruitment_representative_id")
     private Representative recruitmentRepresentative;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id")
+    private RepresentativeRole role;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "structure_id")
+    private UnionStructure structure;
+
+    private LocalDate electionDate;
 
     /** Area this member belongs to. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "area_id")
     private Area area;
 
-    // History & Remarks (§5 — remarks fields retained pending clarification)
+    /**
+     * Transient field carrying the area representative's display name.
+     * Populated by the API client on write (resolved to recruitmentRepresentative in the service)
+     * and computed from recruitmentRepresentative on read (via the mapper).
+     */
+    @Transient
+    private String areasRep;
+
+    // ─── History & Remarks (§5 — retained pending clarification) ───
+    // §5: "Remarks / Comments" — needs clarification on business purpose
     @Column(length = 1000)
     private String remarks;
+    // §5: "2nd Remarks Field" — needs clarification on whether required
     @Column(length = 1000)
     private String remarks2;
+    // Legacy remarks overflow fields (retained for backward compatibility)
     @Column(length = 1000)
     private String remarks3;
     @Column(length = 1000)
     private String remarks4;
 
-    // Use alternate address — retained pending clarification (§6.5)
+    // §6.5: "Use Alternate Address (Y/N)" — needs clarification on whether still required
     private String useAltAddress;
 
-    // Removed fields per §5 & §6:
-    // - managersCode (§6.1)
-    // - memnetMember (§6.2)
-    // - printLabelForPostage (§6.3)
-    // - suspensionCode (§6.4)
-    // - deductACB (§6.6)
-    // - printMembershipCards (§6.7)
-    // - homeLoanReducedRate (§6.8)
+    // ─── Removed per §6 (columns dropped in V8 migration) ───
+    // §6.1 managersCode, §6.2 memnetMember, §6.3 printLabelForPostage,
+    // §6.4 suspensionCode, §6.6 deductACB, §6.7 printMembershipCards,
+    // §6.8 homeLoanReducedRate
 
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
@@ -117,6 +147,12 @@ public class Member {
     @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
 
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", unique = true)

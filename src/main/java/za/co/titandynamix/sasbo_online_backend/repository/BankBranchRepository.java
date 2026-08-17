@@ -35,4 +35,8 @@ public interface BankBranchRepository extends JpaRepository<BankBranch, Integer>
     // Fetch by SA Branch Code
     @Query("SELECT b.bank.name FROM BankBranch b WHERE b.branchCode = :branchCode")
     Optional<String> findBankNameByBranchCode(@Param("branchCode") String branchCode);
+
+    // Find a specific branch by bank name and branch name (case-insensitive)
+    Optional<BankBranch> findByBank_NameIgnoreCaseAndBranchNameIgnoreCase(
+            String bankName, String branchName);
 }

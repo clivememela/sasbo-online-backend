@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import za.co.titandynamix.sasbo_online_backend.dto.representative.RepresentativeDto;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
@@ -16,8 +17,16 @@ public class RepresentativeController {
     private final RepresentativeService representativeService;
 
     @GetMapping
+    @Transactional(readOnly = true)
     public List<RepresentativeDto> getAll() {
         return this.representativeService.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<RepresentativeDto> getById(@PathVariable Integer id) {
+        return this.representativeService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping

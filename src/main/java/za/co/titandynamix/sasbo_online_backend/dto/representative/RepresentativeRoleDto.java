@@ -13,6 +13,6 @@ public class RepresentativeRoleDto {
     private Integer id;
     private String name;
     private Boolean requiresStructure;
-    private Boolean requiresElectionDate;
+    private Boolean isElectedRole;
     private String description;
 }

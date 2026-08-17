@@ -22,7 +22,6 @@ public class MemberDto {
     private String status;
     private LocalDate joinDate;
 
-    private String email;
     private String personalEmail;
     private String workEmail;
     private String preferredEmail;
@@ -54,17 +53,35 @@ public class MemberDto {
     private String lastMonthBalance;
     private LocalDate dateLastChanged;
 
-    // Representatives (§4.1, §4.2)
-    private Integer recruitmentRepresentativeId;  // the representative who recruited this member
-    private Integer areaId;                       // the area this member belongs to
+    // Representatives (§4.1, §4.2) // the representative who recruited this member
+    private boolean isRepresentative;// the area this member belongs to
+    // Area fields
+    private Integer areaId;
+    private String areaName;
 
-    // History & Remarks
-    private String remarks;
-    private String remarks2;
-    private String remarks3;
-    private String remarks4;
+    /** Combined display name of the member's area representative (read-only on the API response). */
+    private String areasRep;
 
-    // Use alternate address — retained pending clarification (§6.5)
+    // Recruiter fields
+    private Integer recruitmentRepresentativeId;
+    private String recruitmentRepresentativeName;
+
+    // Representative Track fields
+    private Integer roleId;
+    private String roleName;
+
+    private Integer structureId;
+    private String structure; // Maps to structure.name
+    private LocalDate electionDate;
+
+
+    // ─── History & Remarks (§5 — retained pending clarification) ───
+    private String remarks;      // §5: needs clarification on business purpose
+    private String remarks2;     // §5: 2nd Remarks — needs clarification
+    private String remarks3;     // Legacy overflow (retained for backward compatibility)
+    private String remarks4;     // Legacy overflow (retained for backward compatibility)
+
+    // §6.5: Use Alternate Address — needs clarification on whether still required
     private String useAltAddress;
 
     private LocalDateTime createdAt;
@@ -72,12 +89,8 @@ public class MemberDto {
 
     private String userId;
 
-    // Removed fields per §5 & §6:
-    // - managersCode (§6.1)
-    // - memnetMember (§6.2)
-    // - printLabelForPostage (§6.3)
-    // - suspensionCode (§6.4)
-    // - deductACB (§6.6)
-    // - printMembershipCards (§6.7)
-    // - homeLoanReducedRate (§6.8)
+    // Removed per §6 (columns dropped in V8 migration):
+    // §6.1 managersCode, §6.2 memnetMember, §6.3 printLabelForPostage,
+    // §6.4 suspensionCode, §6.6 deductACB, §6.7 printMembershipCards,
+    // §6.8 homeLoanReducedRate
 }

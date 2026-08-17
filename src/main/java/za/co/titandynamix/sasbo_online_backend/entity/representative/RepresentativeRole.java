@@ -24,8 +24,14 @@ public class RepresentativeRole {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "role_name",nullable = false, unique = true)
     private String name;
+
+    /**
+     * Optional human-readable description of the role (e.g. "Branch executive committee member").
+     * Displayed in the frontend to help users understand what the role entails.
+     */
+    private String description;
 
     /**
      * Whether representatives in this role must sit on a Union structure.
@@ -39,11 +45,6 @@ public class RepresentativeRole {
      * If true, an electionDate must be specified when creating/updating a Representative.
      */
     @Builder.Default
-    private Boolean requiresElectionDate = false;
+    private Boolean isElectedRole = false;
 
-    /**
-     * Description or notes about this role (optional).
-     */
-    @Column(length = 500)
-    private String description;
 }

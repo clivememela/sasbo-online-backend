@@ -1,7 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.validator;
 
-import za.co.titandynamix.sasbo_online_backend.entity.Member;
-import za.co.titandynamix.sasbo_online_backend.entity.PaymentType;
+import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 
 /**
  * Validator for Member entity business rules.
@@ -21,25 +21,26 @@ public class MemberValidator {
         String paymentTypeStr = member.getPaymentType();
         
         if (paymentTypeStr == null || paymentTypeStr.isBlank()) {
-            // Payment type not set - not validated here, will be caught by @NotNull if configured
+            // Payment type not set — not validated here
             return;
         }
 
+        // Resolve the payment type; skip validation for unrecognised values
+        // (e.g. legacy data such as "Cash" stored before the current scheme)
+        PaymentType paymentType;
         try {
-            PaymentType paymentType = PaymentType.fromString(paymentTypeStr);
-            
-            if (paymentType.requiresBankAccount()) {
-                if (member.getBankAccountNumber() == null || member.getBankAccountNumber().isBlank()) {
-                    throw new IllegalArgumentException(
-                        "Bank account number is required when payment type is 'Debit Order'"
-                    );
-                }
-            } else if (paymentType == PaymentType.PAYROLL_DEDUCTION) {
-                // For payroll deduction, bank account is optional
-                // No validation needed
-            }
+            paymentType = PaymentType.fromString(paymentTypeStr);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid payment type: " + paymentTypeStr);
+            // Unknown payment type — allow it through; banking rules cannot be enforced
+            return;
+        }
+
+        if (paymentType != null && paymentType.requiresBankAccount()) {
+            if (member.getBankAccountNumber() == null || member.getBankAccountNumber().isBlank()) {
+                throw new IllegalArgumentException(
+                    "Bank account number is required when payment type is '" + paymentType.getDisplayName() + "'"
+                );
+            }
         }
     }
 }
