@@ -116,7 +116,9 @@ public class RepresentativeServiceImpl implements RepresentativeService {
                 existing.setFirstNames(parts[0]);
                 existing.setSurname(parts.length > 1 ? parts[1] : "");
             }
-            existing.setEmail(dto.getEmail());
+            existing.setPersonalEmail(dto.getPersonalEmail());
+            existing.setWorkEmail(dto.getWorkEmail());
+            existing.setPreferredEmail(dto.getPreferredEmail());
             existing.setPhone(dto.getPhone());
 
             // Update Area if provided

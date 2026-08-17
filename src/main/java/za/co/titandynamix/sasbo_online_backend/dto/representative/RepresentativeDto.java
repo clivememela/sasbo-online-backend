@@ -17,7 +17,9 @@ public class RepresentativeDto {
     private String surname;
     /** Combined display name (firstNames + surname). Read-only on the API response. */
     private String name;
-    private String email;
+    private String personalEmail;
+    private String workEmail;
+    private String preferredEmail;
     private String phone;
     private Integer memberId;              // the member who is this representative
     private Integer areaId;                // the area this representative belongs to

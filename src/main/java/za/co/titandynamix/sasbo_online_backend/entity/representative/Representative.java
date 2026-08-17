@@ -26,7 +26,9 @@ public class Representative {
     @Column(name = "surname")
     private String surname;
 
-    private String email;
+    private String personalEmail;
+    private String workEmail;
+    private String preferredEmail;
     private String phone;
 
     /** The SASBO member who holds this representative role. */
