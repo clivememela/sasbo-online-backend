@@ -47,12 +47,16 @@ public class Representative {
     private RepresentativeRole role;
 
     /**
-     * The union structure the representative sits on.
-     * Only applicable when the role requires it (§4.3).
+     * The union structures/positions the representative sits on.
+     * A representative can hold multiple positions across different structures (§4.3).
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "structure_id")
-    private UnionStructure structure;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "representative_structures",
+            joinColumns = @JoinColumn(name = "representative_id"),
+            inverseJoinColumns = @JoinColumn(name = "structure_id")
+    )
+    private Set<UnionStructure> structures = new HashSet<>();
 
     @Column(name = "is_elected_rep")
     private Boolean isElectedRep;
@@ -77,6 +81,29 @@ public class Representative {
     @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    /**
+     * Add a union structure/position to this representative.
+     * Maintains bidirectional relationship consistency.
+     */
+    public void addStructure(UnionStructure structure) {
+        if (this.structures == null) {
+            this.structures = new HashSet<>();
+        }
+        this.structures.add(structure);
+        structure.getRepresentatives().add(this);
+    }
+
+    /**
+     * Remove a union structure/position from this representative.
+     * Maintains bidirectional relationship consistency.
+     */
+    public void removeStructure(UnionStructure structure) {
+        if (this.structures != null) {
+            this.structures.remove(structure);
+            structure.getRepresentatives().remove(this);
+        }
+    }
 
     /**
      * Add a recruited member to this representative's list.

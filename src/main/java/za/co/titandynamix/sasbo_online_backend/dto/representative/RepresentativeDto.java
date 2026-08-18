@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Builder
@@ -24,7 +25,8 @@ public class RepresentativeDto {
     private Integer memberId;              // the member who is this representative
     private Integer areaId;                // the area this representative belongs to
     private Integer roleId;                // the union role (RepresentativeRole)
-    private Integer structureId;           // the union structure (if applicable)
-    private LocalDate electionDate;        // election date (if applicable)
+    private List<Integer> structureIds;    // the union structures/positions they sit on (multi-select)
+    private Boolean isElectedRep;          // whether this is an elected representative (Y/N)
+    private LocalDate electionDate;        // election date (only when isElectedRep = true)
     private Integer membersCount;          // number of members recruited by this representative (read-only)
 }

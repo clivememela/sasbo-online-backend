@@ -11,11 +11,11 @@ import za.co.titandynamix.sasbo_online_backend.entity.representative.Representat
 public interface RepresentativeRepository extends JpaRepository<Representative, Integer> {
 
     @Override
-    @EntityGraph(attributePaths = {"member", "area", "role", "structure", "members"})
+    @EntityGraph(attributePaths = {"member", "area", "role", "structures", "members"})
     List<Representative> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"member", "area", "role", "structure", "members"})
+    @EntityGraph(attributePaths = {"member", "area", "role", "structures", "members"})
     Optional<Representative> findById(Integer id);
     // Matches your entity fields: firstNames and surname
     Optional<Representative> findByFirstNamesAndSurname(String firstNames, String surname);

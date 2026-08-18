@@ -16,8 +16,10 @@ import za.co.titandynamix.sasbo_online_backend.mapper.UnionStructureMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -69,6 +71,11 @@ public class RepresentativeServiceImpl implements RepresentativeService {
                     .orElseThrow(() -> new IllegalArgumentException("Area not found with id: " + dto.getAreaId()));
         }
 
+        // Validate conditional requirements based on isElectedRep flag
+        if (Boolean.TRUE.equals(dto.getIsElectedRep()) && dto.getElectionDate() == null) {
+            throw new IllegalArgumentException("Elected representatives require an election date to be specified.");
+        }
+
         // Validate UserRole and its requirements
         RepresentativeRole role = null;
         if (dto.getRoleId() != null) {
@@ -76,19 +83,23 @@ public class RepresentativeServiceImpl implements RepresentativeService {
                     .orElseThrow(() -> new IllegalArgumentException("UserRole not found with id: " + dto.getRoleId()));
 
             // Validate conditional requirements based on role
-            if (Boolean.TRUE.equals(role.getRequiresStructure()) && dto.getStructureId() == null) {
-                throw new IllegalArgumentException("UserRole '" + role.getName() + "' requires a structure to be specified.");
+            if (Boolean.TRUE.equals(role.getRequiresStructure())
+                    && (dto.getStructureIds() == null || dto.getStructureIds().isEmpty())) {
+                throw new IllegalArgumentException("UserRole '" + role.getName() + "' requires at least one structure to be specified.");
             }
             if (Boolean.TRUE.equals(role.getIsElectedRole()) && dto.getElectionDate() == null) {
                 throw new IllegalArgumentException("UserRole '" + role.getName() + "' requires an election date to be specified.");
             }
         }
 
-        // Validate Structure if provided
-        UnionStructure structure = null;
-        if (dto.getStructureId() != null) {
-            structure = this.unionStructureRepository.findById(dto.getStructureId())
-                    .orElseThrow(() -> new IllegalArgumentException("Structure not found with id: " + dto.getStructureId()));
+        // Validate Structures if provided
+        Set<UnionStructure> structures = new HashSet<>();
+        if (dto.getStructureIds() != null && !dto.getStructureIds().isEmpty()) {
+            for (Integer structureId : dto.getStructureIds()) {
+                UnionStructure structure = this.unionStructureRepository.findById(structureId)
+                        .orElseThrow(() -> new IllegalArgumentException("Structure not found with id: " + structureId));
+                structures.add(structure);
+            }
         }
 
         var entity = this.representativeMapper.toEntity(dto);
@@ -98,7 +109,8 @@ public class RepresentativeServiceImpl implements RepresentativeService {
         entity.setMember(member);
         entity.setArea(area);
         entity.setRole(role);
-        entity.setStructure(structure);
+        entity.setStructures(structures);
+        entity.setIsElectedRep(dto.getIsElectedRep());
         entity.setElectionDate(dto.getElectionDate());
         return this.representativeMapper.toDto(this.representativeRepository.save(entity));
     }
@@ -134,8 +146,9 @@ public class RepresentativeServiceImpl implements RepresentativeService {
                         .orElseThrow(() -> new IllegalArgumentException("UserRole not found with id: " + dto.getRoleId()));
 
                 // Validate conditional requirements
-                if (Boolean.TRUE.equals(role.getRequiresStructure()) && dto.getStructureId() == null) {
-                    throw new IllegalArgumentException("UserRole '" + role.getName() + "' requires a structure to be specified.");
+                if (Boolean.TRUE.equals(role.getRequiresStructure())
+                        && (dto.getStructureIds() == null || dto.getStructureIds().isEmpty())) {
+                    throw new IllegalArgumentException("UserRole '" + role.getName() + "' requires at least one structure to be specified.");
                 }
                 if (Boolean.TRUE.equals(role.getIsElectedRole()) && dto.getElectionDate() == null) {
                     throw new IllegalArgumentException("UserRole '" + role.getName() + "' requires an election date to be specified.");
@@ -144,11 +157,24 @@ public class RepresentativeServiceImpl implements RepresentativeService {
                 existing.setRole(role);
             }
 
-            // Update Structure if provided
-            if (dto.getStructureId() != null) {
-                UnionStructure structure = this.unionStructureRepository.findById(dto.getStructureId())
-                        .orElseThrow(() -> new IllegalArgumentException("Structure not found with id: " + dto.getStructureId()));
-                existing.setStructure(structure);
+            // Update Structures if provided (replaces existing structures)
+            if (dto.getStructureIds() != null) {
+                Set<UnionStructure> structures = new HashSet<>();
+                for (Integer structureId : dto.getStructureIds()) {
+                    UnionStructure structure = this.unionStructureRepository.findById(structureId)
+                            .orElseThrow(() -> new IllegalArgumentException("Structure not found with id: " + structureId));
+                    structures.add(structure);
+                }
+                existing.setStructures(structures);
+            }
+
+            // Update isElectedRep flag
+            if (dto.getIsElectedRep() != null) {
+                existing.setIsElectedRep(dto.getIsElectedRep());
+                // Clear election date if rep is not elected
+                if (Boolean.FALSE.equals(dto.getIsElectedRep())) {
+                    existing.setElectionDate(null);
+                }
             }
 
             // Update Election Date if provided
