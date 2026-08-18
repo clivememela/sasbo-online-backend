@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class UnionStructureDto {
     private Integer id;
     private String name;
+    private Integer parentId;  // null for root-level structures
 }

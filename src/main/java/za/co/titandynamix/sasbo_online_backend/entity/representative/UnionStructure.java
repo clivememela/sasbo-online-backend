@@ -23,6 +23,14 @@ public class UnionStructure {
     private String name;
 
     /**
+     * Parent structure for hierarchical positioning (e.g. "BEC Executive" → "NFC/SJC").
+     * Null means this is a root-level structure/position.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private UnionStructure parent;
+
+    /**
      * Representatives who sit on this union structure.
      * Inverse side of the Representative.structures many-to-many.
      */
