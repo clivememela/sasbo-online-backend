@@ -33,13 +33,13 @@ public class RepresentativeRoleController {
     }
 
     @PostMapping
-    public ResponseEntity<RepresentativeRoleDto> create(@RequestBody RepresentativeRoleDto dto) {
+    public ResponseEntity<?> create(@RequestBody RepresentativeRoleDto dto) {
         try {
             var entity = this.mapper.toEntity(dto);
             var saved = this.repository.save(entity);
             return ResponseEntity.ok(this.mapper.toDto(saved));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

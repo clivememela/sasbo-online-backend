@@ -34,12 +34,12 @@ public class MemberValidator {
         PaymentType paymentType;
         try {
             paymentType = PaymentType.fromString(paymentTypeStr);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException ignored) {
             // Unknown payment type — allow it through; banking rules cannot be enforced
             return;
         }
 
-        if (paymentType != null && paymentType.requiresBankAccount()) {
+        if (paymentType.requiresBankAccount()) {
             if (member.getBankAccountNumber() == null || member.getBankAccountNumber().isBlank()) {
                 throw new IllegalArgumentException(
                     "Bank account number is required when payment type is '" + paymentType.getDisplayName() + "'"

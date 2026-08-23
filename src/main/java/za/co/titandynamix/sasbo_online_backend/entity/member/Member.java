@@ -37,6 +37,7 @@ public class Member {
     private String identityType;
     private String identityNumber;
     private String passportNumber;
+    private LocalDate dateOfBirth;
     private String gender;
     private String race;
     private String status;

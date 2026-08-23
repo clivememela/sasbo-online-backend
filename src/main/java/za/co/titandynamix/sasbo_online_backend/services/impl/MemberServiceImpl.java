@@ -14,10 +14,12 @@ import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.utils.SaIdParser;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +45,7 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public Member create(Member member) {
         member.setId(null);
+        autoPopulateIdDerivedFields(member);
         autoPopulateBankDerivedFields(member);
         MemberValidator.validatePaymentType(member);
         return this.memberRepository.save(member);
@@ -52,21 +55,27 @@ public class MemberServiceImpl implements MemberService {
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
             this.memberMapper.updateFromMember(updated, existing);
-            // Resolve the transient areasRep field (representative display name) to a FK
-            String areasRep = updated.getAreasRep();
-            if (areasRep != null) {
-                if (areasRep.isBlank()) {
-                    existing.setRecruitmentRepresentative(null);
-                } else {
-                    existing.setRecruitmentRepresentative(
-                            this.representativeRepository.findByFullName(areasRep.trim()).orElse(null));
-                }
-            }
-            // Re-enforce read-only monthly subscription and auto-fill debit day/bank address
+            resolveAreasRep(updated.getAreasRep(), existing);
+            autoPopulateIdDerivedFields(existing);
             autoPopulateBankDerivedFields(existing);
             MemberValidator.validatePaymentType(existing);
             return this.memberRepository.save(existing);
         });
+    }
+
+    /**
+     * Resolves the transient areasRep display name to a Representative entity.
+     */
+    private void resolveAreasRep(String areasRep, Member existing) {
+        if (areasRep == null) {
+            return;
+        }
+        if (areasRep.isBlank()) {
+            existing.setRecruitmentRepresentative(null);
+            return;
+        }
+        existing.setRecruitmentRepresentative(
+                this.representativeRepository.findByFullName(areasRep.trim()).orElse(null));
     }
 
     @Override
@@ -96,6 +105,29 @@ public class MemberServiceImpl implements MemberService {
             existing.setMonthlySubscription(monthlySubscription);
             return this.memberRepository.save(existing);
         });
+    }
+
+    // ============================================================
+    // Auto-population helpers for ID-derived fields
+    // ============================================================
+
+    /**
+     * When identityType is "ID" (South African ID), extracts date of birth and gender
+     * from the identityNumber and sets them on the member. These fields are read-only
+     * on the frontend when an SA ID is used.
+     * <p>
+     * When identityType is "Passport", the frontend sends dateOfBirth and gender
+     * directly (user-selected via date picker and dropdown), so no override occurs.
+     */
+    private void autoPopulateIdDerivedFields(Member member) {
+        if ("ID".equalsIgnoreCase(member.getIdentityType())
+                && member.getIdentityNumber() != null
+                && !member.getIdentityNumber().isBlank()) {
+            SaIdParser.extractDateOfBirth(member.getIdentityNumber())
+                    .ifPresent(member::setDateOfBirth);
+            SaIdParser.extractGender(member.getIdentityNumber())
+                    .ifPresent(member::setGender);
+        }
     }
 
     // ============================================================
@@ -174,28 +206,39 @@ public class MemberServiceImpl implements MemberService {
         if (addr == null) {
             return null;
         }
-        StringBuilder sb = new StringBuilder();
-        appendIfPresent(sb, addr.getStreetNumber());
-        appendIfPresent(sb, addr.getStreetName());
-        if (addr.getSuburb() != null) {
-            appendIfPresent(sb, addr.getSuburb().getName());
-        }
-        if (addr.getCity() != null) {
-            appendIfPresent(sb, addr.getCity().getName());
-        }
-        if (addr.getProvince() != null) {
-            appendIfPresent(sb, addr.getProvince().getName());
-        }
-        appendIfPresent(sb, addr.getPostalCode());
-        return sb.toString().trim();
+        String formatted = Stream.of(
+                        addr.getStreetNumber(),
+                        addr.getStreetName(),
+                        getSuburbName(addr),
+                        getCityName(addr),
+                        getProvinceName(addr),
+                        addr.getPostalCode())
+                .filter(part -> part != null && !part.isBlank())
+                .map(String::trim)
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
+        return formatted;
+    }
+
+    private String getSuburbName(PhysicalAddress addr) {
+        return addr.getSuburb() != null ? addr.getSuburb().getName() : null;
+    }
+
+    private String getCityName(PhysicalAddress addr) {
+        return addr.getCity() != null ? addr.getCity().getName() : null;
+    }
+
+    private String getProvinceName(PhysicalAddress addr) {
+        return addr.getProvince() != null ? addr.getProvince().getName() : null;
     }
 
     private void appendIfPresent(StringBuilder sb, String value) {
-        if (value != null && !value.isBlank()) {
-            if (sb.length() > 0) {
-                sb.append(", ");
-            }
-            sb.append(value.trim());
+        if (value == null || value.isBlank()) {
+            return;
         }
+        if (sb.length() > 0) {
+            sb.append(", ");
+        }
+        sb.append(value.trim());
     }
 }
