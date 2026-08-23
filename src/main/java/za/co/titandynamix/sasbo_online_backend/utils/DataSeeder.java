@@ -126,13 +126,22 @@ public class DataSeeder implements ApplicationRunner {
             log.info("No representatives seeded; manage via API");
         }
 
-        if (this.recruiterTypeRepository.count() == 0) {
-            ClassPathResource recruiterResource = new ClassPathResource("data/recruiter.json");
-            try (InputStream recruiterStream = recruiterResource.getInputStream()) {
-                List<RecruiterType> recruiterTypes = mapper.readValue(recruiterStream, new TypeReference<>() {});
-                recruiterTypes.forEach(r -> r.setId(null));
-                this.recruiterTypeRepository.saveAll(recruiterTypes);
-                log.info("Seeded {} recruiter types", recruiterTypes.size());
+        ClassPathResource recruiterResource = new ClassPathResource("data/recruiter.json");
+        try (InputStream recruiterStream = recruiterResource.getInputStream()) {
+            List<RecruiterType> recruiterTypes = mapper.readValue(recruiterStream, new TypeReference<>() {});
+            List<RecruiterType> missingRecruiterTypes = recruiterTypes.stream()
+                    .filter(type -> !this.recruiterTypeRepository.existsByNameIgnoreCase(type.getName()))
+                    .map(type -> {
+                        type.setId(null);
+                        return type;
+                    })
+                    .toList();
+
+            if (!missingRecruiterTypes.isEmpty()) {
+                this.recruiterTypeRepository.saveAll(missingRecruiterTypes);
+                log.info("Seeded {} missing recruiter types", missingRecruiterTypes.size());
+            } else {
+                log.info("Skipping recruiter type seed; all configured recruiter types already exist");
             }
         }
 

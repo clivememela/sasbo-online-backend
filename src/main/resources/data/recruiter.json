@@ -1,17 +1,32 @@
 [
   {
     "id": 1,
-    "name": "Organiser",
+    "name": "BEC",
     "isEnabled": true
   },
   {
     "id": 2,
-    "name": "Recruiters",
+    "name": "Website",
     "isEnabled": true
   },
   {
     "id": 3,
-    "name": "Branch Executive Committee",
+    "name": "EORO",
+    "isEnabled": true
+  },
+  {
+    "id": 4,
+    "name": "RO",
+    "isEnabled": true
+  },
+  {
+    "id": 5,
+    "name": "MSO",
+    "isEnabled": true
+  },
+  {
+    "id": 6,
+    "name": "Youth",
     "isEnabled": true
   }
 ]

@@ -57,7 +57,7 @@ public class Member {
     /**
      * Member's bank account number.
      * REQUIRED when paymentType = "Debit Order"
-     * OPTIONAL when paymentType = "Payroll Deduction"
+     * OPTIONAL when paymentType = "Payroll"
      */
     private String bankAccountNumber;
     private String branch;
@@ -65,10 +65,11 @@ public class Member {
     private String workIbtNo;
     private String bankAddress;
     private String workBankAddress;
+    private String employmentType;
     /**
      * Payment type for member subscriptions.
      * Values: "Debit Order" (requires bankAccountNumber)
-     *         "Payroll Deduction" (bankAccountNumber optional)
+     *         "Payroll" (bankAccountNumber optional)
      * @see PaymentType
      * @see MemberValidator#validatePaymentType(Member)
      */

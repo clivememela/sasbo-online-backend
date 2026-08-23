@@ -40,6 +40,7 @@ public class MemberDto {
     private String workIbtNo;
     private String bankAddress;
     private String workBankAddress;
+    private String employmentType;
     private String paymentType;
     private Integer debitDay;
 
