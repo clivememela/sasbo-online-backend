@@ -38,7 +38,7 @@ public abstract class MemberMapper {
     // DTO TO ENTITY
     // ============================================================
     @Mapping(target = "recruitmentRepresentative", source = "recruitmentRepresentativeName", qualifiedByName = "mapNameToRep")
-    @Mapping(target = "structure", source = "structure", qualifiedByName = "mapStringToStructure") // 👈 Add mapping method for string to entity
+    @Mapping(target = "structure", source = "structureId", qualifiedByName = "mapIdToStructure")
     public abstract Member toEntity(MemberDto memberDto);
 
     // 💡 Add this inside your MemberMapper class so updates can merge
@@ -68,14 +68,13 @@ public abstract class MemberMapper {
                        .orElse(null);
     }
 
-    // Helper Method 3: Look up UnionStructure Entity from Name String
-    @Named("mapStringToStructure")
-    protected UnionStructure mapStringToStructure(String structureName) {
-        if (structureName == null || structureName.trim().isEmpty()) {
+    // Helper Method 3: Look up UnionStructure Entity by ID (from dropdown selection)
+    @Named("mapIdToStructure")
+    protected UnionStructure mapIdToStructure(Integer structureId) {
+        if (structureId == null) {
             return null;
         }
-        // Match the exact repository method definition
-        return unionStructureRepository.findByNameIgnoreCase(structureName).orElse(null);
+        return unionStructureRepository.findById(structureId).orElse(null);
     }
 
 }

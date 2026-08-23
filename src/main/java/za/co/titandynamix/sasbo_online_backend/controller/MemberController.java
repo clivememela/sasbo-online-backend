@@ -82,6 +82,15 @@ public class MemberController {
         return this.representativeService.findAllStructures();
     }
 
+    /**
+     * Returns the position/structure hierarchy as a tree.
+     * Each node includes its children, enabling cascading dropdown selections on the frontend.
+     */
+    @GetMapping("/structures/tree")
+    public List<UnionStructureDto> getStructuresTree() {
+        return this.representativeService.findStructuresTree();
+    }
+
     @PutMapping("/{id}")
     @Transactional
     public ResponseEntity<MemberDto> update(@PathVariable Integer id, @RequestBody Member member) {

@@ -16,10 +16,8 @@ import za.co.titandynamix.sasbo_online_backend.mapper.UnionStructureMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -208,6 +206,54 @@ public class RepresentativeServiceImpl implements RepresentativeService {
     @Override
     public List<UnionStructureDto> findAllStructures() {
         return this.unionStructureRepository.findAll().stream().map(this.unionStructureMapper::toDto).toList();
+    }
+
+    /**
+     * Builds the position/structure hierarchy as a tree for cascading dropdown selections.
+     * Root-level structures (parentId = null) are returned at the top level,
+     * each with its nested children populated recursively.
+     */
+    @Override
+    public List<UnionStructureDto> findStructuresTree() {
+        List<UnionStructure> all = this.unionStructureRepository.findAll();
+
+        // Map every structure to a DTO (without children yet)
+        Map<Integer, UnionStructureDto> dtoById = new LinkedHashMap<>();
+        for (UnionStructure us : all) {
+            UnionStructureDto dto = this.unionStructureMapper.toDto(us);
+            dto.setChildren(new ArrayList<>());
+            dtoById.put(us.getId(), dto);
+        }
+
+        // Wire children into their parents
+        List<UnionStructureDto> roots = new ArrayList<>();
+        for (UnionStructure us : all) {
+            UnionStructureDto dto = dtoById.get(us.getId());
+            if (us.getParent() == null) {
+                roots.add(dto);
+            } else {
+                UnionStructureDto parentDto = dtoById.get(us.getParent().getId());
+                if (parentDto != null) {
+                    parentDto.getChildren().add(dto);
+                } else {
+                    // Orphan — treat as root
+                    roots.add(dto);
+                }
+            }
+        }
+
+        // Remove empty children lists so JSON stays clean
+        roots.forEach(this::pruneEmptyChildren);
+        return roots;
+    }
+
+    /** Recursively removes empty children lists to keep the JSON response clean. */
+    private void pruneEmptyChildren(UnionStructureDto dto) {
+        if (dto.getChildren() != null && dto.getChildren().isEmpty()) {
+            dto.setChildren(null);
+        } else if (dto.getChildren() != null) {
+            dto.getChildren().forEach(this::pruneEmptyChildren);
+        }
     }
 
     private String buildName(Member m) {

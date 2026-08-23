@@ -17,4 +17,6 @@ public interface RepresentativeService {
     List<RepresentativeRoleDto> findAllRepresentativeRoles();
 
     List<UnionStructureDto> findAllStructures();
+
+    List<UnionStructureDto> findStructuresTree();
 }
