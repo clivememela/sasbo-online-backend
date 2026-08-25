@@ -13,6 +13,8 @@ import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.utils.SaIdParser;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
@@ -31,6 +33,8 @@ public class MemberServiceImpl implements MemberService {
     private final SubscriptionsRepository subscriptionsRepository;
     private final BankBranchRepository bankBranchRepository;
     private final BankRepository bankRepository;
+    private final RepresentativeRoleRepository representativeRoleRepository;
+    private final UnionStructureRepository unionStructureRepository;
 
     @Override
     public List<Member> findAll() {
@@ -45,6 +49,7 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public Member create(Member member) {
         member.setId(null);
+        resolveStructureAndRole(member);
         autoPopulateIdDerivedFields(member);
         autoPopulateBankDerivedFields(member);
         MemberValidator.validatePaymentType(member);
@@ -54,6 +59,7 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
+            resolveStructureAndRole(updated);
             this.memberMapper.updateFromMember(updated, existing);
             resolveAreasRep(updated.getAreasRep(), existing);
             autoPopulateIdDerivedFields(existing);
@@ -61,6 +67,30 @@ public class MemberServiceImpl implements MemberService {
             MemberValidator.validatePaymentType(existing);
             return this.memberRepository.save(existing);
         });
+    }
+
+    @Override
+    public void resolveStructureAndRole(Member member) {
+        if (Boolean.TRUE.equals(member.getIsRepresentative())) {
+            if (member.getStructureId() != null) {
+                this.unionStructureRepository.findById(member.getStructureId())
+                        .ifPresentOrElse(member::setStructure, () -> member.setStructure(null));
+            } else {
+                member.setStructure(null);
+            }
+
+            if (member.getRoleId() != null) {
+                this.representativeRoleRepository.findById(member.getRoleId())
+                        .ifPresentOrElse(member::setRole, () -> member.setRole(null));
+            } else {
+                member.setRole(null);
+            }
+        } else {
+            // Not a representative, clear these fields
+            member.setStructure(null);
+            member.setRole(null);
+            member.setElectionDate(null);
+        }
     }
 
     /**

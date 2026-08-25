@@ -51,6 +51,10 @@ public class MemberController {
         if (member.getUser() != null) {
             member.getUser().setId(null);
         }
+        
+        // Resolve structure and role first before validation
+        this.memberService.resolveStructureAndRole(member);
+
         // Enforce rule: Non-members cannot become representatives
         // Business logic validation: Ensure non-members cannot be saved as pure representatives
         // Since they are written into the member table, saving them naturally satisfies "rep is member by default"
@@ -94,6 +98,9 @@ public class MemberController {
     @PutMapping("/{id}")
     @Transactional
     public ResponseEntity<MemberDto> update(@PathVariable Integer id, @RequestBody Member member) {
+        // Resolve structure and role first before validation
+        this.memberService.resolveStructureAndRole(member);
+
         // §4.3 — Validate representative role requirements on update (mirrors create logic)
         if (Boolean.TRUE.equals(member.getIsRepresentative()) && member.getRole() != null) {
             var memberRole = member.getRole();

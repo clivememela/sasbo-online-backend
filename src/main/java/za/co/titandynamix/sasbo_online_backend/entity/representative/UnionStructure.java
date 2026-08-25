@@ -31,6 +31,14 @@ public class UnionStructure {
     private UnionStructure parent;
 
     /**
+     * Whether a member sitting on this structure must provide an election date.
+     * E.g. Shop Steward is an elected position.
+     */
+    @Column(name = "requires_election_date")
+    @Builder.Default
+    private Boolean requiresElectionDate = false;
+
+    /**
      * Representatives who sit on this union structure.
      * Inverse side of the Representative.structures many-to-many.
      */

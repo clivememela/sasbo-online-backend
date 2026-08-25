@@ -20,4 +20,7 @@ public class UnionStructureDto {
 
     /** Child structures — only populated in tree responses. */
     private List<UnionStructureDto> children;
+
+    /** Whether a member on this structure must provide an election date. */
+    private Boolean requiresElectionDate;
 }

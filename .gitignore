@@ -38,3 +38,6 @@ out/
 .vscode/
 /.refact
 .DS_Store
+
+# Stakpak session files
+.stakpak/session*

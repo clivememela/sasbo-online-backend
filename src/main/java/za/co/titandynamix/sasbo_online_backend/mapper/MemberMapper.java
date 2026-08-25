@@ -19,6 +19,9 @@ public abstract class MemberMapper {
     @Autowired
     protected za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository unionStructureRepository; // Ensure this repository exists!
 
+    @Autowired
+    protected za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository representativeRoleRepository;
+
     // ============================================================
     // ENTITY TO DTO
     // ============================================================
@@ -39,6 +42,7 @@ public abstract class MemberMapper {
     // ============================================================
     @Mapping(target = "recruitmentRepresentative", source = "recruitmentRepresentativeName", qualifiedByName = "mapNameToRep")
     @Mapping(target = "structure", source = "structureId", qualifiedByName = "mapIdToStructure")
+    @Mapping(target = "role", source = "roleId", qualifiedByName = "mapIdToRole")
     public abstract Member toEntity(MemberDto memberDto);
 
     // 💡 Add this inside your MemberMapper class so updates can merge
@@ -75,6 +79,15 @@ public abstract class MemberMapper {
             return null;
         }
         return unionStructureRepository.findById(structureId).orElse(null);
+    }
+
+    // Helper Method 4: Look up RepresentativeRole Entity by ID (from dropdown selection)
+    @Named("mapIdToRole")
+    protected za.co.titandynamix.sasbo_online_backend.entity.representative.RepresentativeRole mapIdToRole(Integer roleId) {
+        if (roleId == null) {
+            return null;
+        }
+        return representativeRoleRepository.findById(roleId).orElse(null);
     }
 
 }

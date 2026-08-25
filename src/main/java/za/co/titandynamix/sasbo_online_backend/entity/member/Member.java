@@ -121,6 +121,20 @@ public class Member {
     @Transient
     private String areasRep;
 
+    /**
+     * Transient field carrying the selected structure ID from the API client.
+     * Resolved to the {@link UnionStructure} entity in the service layer.
+     */
+    @Transient
+    private Integer structureId;
+
+    /**
+     * Transient field carrying the selected role ID from the API client.
+     * Resolved to the {@link RepresentativeRole} entity in the service layer.
+     */
+    @Transient
+    private Integer roleId;
+
     // ─── History & Remarks (§5 — retained pending clarification) ───
     // §5: "Remarks / Comments" — needs clarification on business purpose
     @Column(length = 1000)

@@ -12,4 +12,5 @@ public interface MemberService {
     Optional<Member> update(Integer id, Member updated);
     Optional<Member> updateBanking(Integer id, Member banking);
     Optional<Member> updateMonthlySubscription(Integer id, String monthlySubscription);
+    void resolveStructureAndRole(Member member);
 }
