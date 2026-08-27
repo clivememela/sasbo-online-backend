@@ -2,31 +2,31 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import za.co.titandynamix.sasbo_online_backend.dto.recruiter.RecruiterTypeDto;
-import za.co.titandynamix.sasbo_online_backend.entity.recruiter.RecruiterType;
-import za.co.titandynamix.sasbo_online_backend.repository.RecruiterTypeRepository;
-import za.co.titandynamix.sasbo_online_backend.services.RecruiterTypeService;
+import za.co.titandynamix.sasbo_online_backend.dto.recruitment.RecruitmentChannelDto;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
+import za.co.titandynamix.sasbo_online_backend.repository.RecruitmentChannelRepository;
+import za.co.titandynamix.sasbo_online_backend.services.RecruitmentChannelService;
 
 import java.util.List;
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class RecruiterTypeServiceImpl implements RecruiterTypeService {
+public class RecruitmentChannelServiceImpl implements RecruitmentChannelService {
 
-    private final RecruiterTypeRepository repository;
+    private final RecruitmentChannelRepository repository;
 
     @Override
-    public List<RecruiterTypeDto> findAll() {
+    public List<RecruitmentChannelDto> findAll() {
         return repository.findAll().stream().map(this::toDto).toList();
     }
 
     @Override
-    public RecruiterTypeDto create(RecruiterTypeDto dto) {
+    public RecruitmentChannelDto create(RecruitmentChannelDto dto) {
         if (repository.existsByNameIgnoreCase(dto.getName())) {
-            throw new IllegalArgumentException("A recruiter type with that name already exists.");
+            throw new IllegalArgumentException("A recruitment type with that name already exists.");
         }
-        RecruiterType entity = RecruiterType.builder()
+        RecruitmentChannel entity = RecruitmentChannel.builder()
                 .name(dto.getName().trim())
                 .enabled(true)
                 .build();
@@ -34,11 +34,11 @@ public class RecruiterTypeServiceImpl implements RecruiterTypeService {
     }
 
     @Override
-    public Optional<RecruiterTypeDto> update(Long id, RecruiterTypeDto dto) {
+    public Optional<RecruitmentChannelDto> update(Long id, RecruitmentChannelDto dto) {
         return repository.findById(id).map(existing -> {
             if (!existing.getName().equalsIgnoreCase(dto.getName()) &&
                     repository.existsByNameIgnoreCase(dto.getName())) {
-                throw new IllegalArgumentException("A recruiter type with that name already exists.");
+                throw new IllegalArgumentException("A recruitment type with that name already exists.");
             }
             existing.setName(dto.getName().trim());
             existing.setEnabled(dto.isEnabled());
@@ -53,8 +53,8 @@ public class RecruiterTypeServiceImpl implements RecruiterTypeService {
         return true;
     }
 
-    private RecruiterTypeDto toDto(RecruiterType r) {
-        RecruiterTypeDto dto = new RecruiterTypeDto();
+    private RecruitmentChannelDto toDto(RecruitmentChannel r) {
+        RecruitmentChannelDto dto = new RecruitmentChannelDto();
         dto.setId(String.valueOf(r.getId()));
         dto.setName(r.getName());
         dto.setEnabled(r.isEnabled());

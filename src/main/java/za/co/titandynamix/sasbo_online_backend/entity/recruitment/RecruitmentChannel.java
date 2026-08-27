@@ -1,4 +1,4 @@
-package za.co.titandynamix.sasbo_online_backend.entity.recruiter;
+package za.co.titandynamix.sasbo_online_backend.entity.recruitment;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
@@ -8,13 +8,13 @@ import org.hibernate.Hibernate;
 import java.util.Objects;
 
 @Entity
-@Table(name = "recruiter_type")
+@Table(name = "recruitment_channel")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RecruiterType {
+public class RecruitmentChannel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -32,7 +32,7 @@ public class RecruiterType {
         if (this == o) return true;
         if (o == null) return false;
         if (Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
-        RecruiterType that = (RecruiterType) o;
+        RecruitmentChannel that = (RecruitmentChannel) o;
         return getName() != null && Objects.equals(getName(), that.getName());
     }
 

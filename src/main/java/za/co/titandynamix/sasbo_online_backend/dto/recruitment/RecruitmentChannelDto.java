@@ -1,9 +1,9 @@
-package za.co.titandynamix.sasbo_online_backend.dto.recruiter;
+package za.co.titandynamix.sasbo_online_backend.dto.recruitment;
 
 import lombok.Data;
 
 @Data
-public class RecruiterTypeDto {
+public class RecruitmentChannelDto {
     private String id;
     private String name;
     private boolean enabled;

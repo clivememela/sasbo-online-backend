@@ -2,8 +2,6 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
-import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
@@ -236,7 +234,7 @@ public class MemberServiceImpl implements MemberService {
         if (addr == null) {
             return null;
         }
-        String formatted = Stream.of(
+        return Stream.of(
                         addr.getStreetNumber(),
                         addr.getStreetName(),
                         getSuburbName(addr),
@@ -247,7 +245,7 @@ public class MemberServiceImpl implements MemberService {
                 .map(String::trim)
                 .reduce((a, b) -> a + ", " + b)
                 .orElse("");
-        return formatted;
+
     }
 
     private String getSuburbName(PhysicalAddress addr) {
@@ -262,13 +260,4 @@ public class MemberServiceImpl implements MemberService {
         return addr.getProvince() != null ? addr.getProvince().getName() : null;
     }
 
-    private void appendIfPresent(StringBuilder sb, String value) {
-        if (value == null || value.isBlank()) {
-            return;
-        }
-        if (sb.length() > 0) {
-            sb.append(", ");
-        }
-        sb.append(value.trim());
-    }
 }

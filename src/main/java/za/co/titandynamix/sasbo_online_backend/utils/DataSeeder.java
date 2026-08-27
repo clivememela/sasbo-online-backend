@@ -14,7 +14,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
-import za.co.titandynamix.sasbo_online_backend.entity.recruiter.RecruiterType;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
 import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
@@ -33,7 +33,7 @@ public class DataSeeder implements ApplicationRunner {
     private final BankBranchRepository bankBranchRepository;
     private final RepresentativeRepository representativeRepository;
     private final ProvinceRepository provinceRepository;
-    private final RecruiterTypeRepository recruiterTypeRepository;
+    private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final SubscriptionsRepository subscriptionsRepository;
 
     @Override
@@ -128,20 +128,20 @@ public class DataSeeder implements ApplicationRunner {
 
         ClassPathResource recruiterResource = new ClassPathResource("data/recruiter.json");
         try (InputStream recruiterStream = recruiterResource.getInputStream()) {
-            List<RecruiterType> recruiterTypes = mapper.readValue(recruiterStream, new TypeReference<>() {});
-            List<RecruiterType> missingRecruiterTypes = recruiterTypes.stream()
-                    .filter(type -> !this.recruiterTypeRepository.existsByNameIgnoreCase(type.getName()))
+            List<RecruitmentChannel> recruitmentChannels = mapper.readValue(recruiterStream, new TypeReference<>() {});
+            List<RecruitmentChannel> missingRecruitmentChannels = recruitmentChannels.stream()
+                    .filter(type -> !this.recruitmentChannelRepository.existsByNameIgnoreCase(type.getName()))
                     .map(type -> {
                         type.setId(null);
                         return type;
                     })
                     .toList();
 
-            if (!missingRecruiterTypes.isEmpty()) {
-                this.recruiterTypeRepository.saveAll(missingRecruiterTypes);
-                log.info("Seeded {} missing recruiter types", missingRecruiterTypes.size());
+            if (!missingRecruitmentChannels.isEmpty()) {
+                this.recruitmentChannelRepository.saveAll(missingRecruitmentChannels);
+                log.info("Seeded {} missing recruitment types", missingRecruitmentChannels.size());
             } else {
-                log.info("Skipping recruiter type seed; all configured recruiter types already exist");
+                log.info("Skipping recruitment type seed; all configured recruitment types already exist");
             }
         }
 
