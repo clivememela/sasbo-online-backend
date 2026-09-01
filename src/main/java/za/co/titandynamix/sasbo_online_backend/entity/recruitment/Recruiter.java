@@ -22,7 +22,7 @@ public class Recruiter {
     private String name;
 
     /** Number of members this recruiter / recruitment channel has recruited. */
-    @Column(name = "recruitment_number")
+    @Column(name = "members_recruited")
     private Integer recruitmentNumber;
 
     @Column(name = "region")
