@@ -44,6 +44,9 @@ public class MemberDto {
     private String employmentType;
     private String paymentType;
     private Integer debitDay;
+    // Job grade Track fields
+    private Integer jobGradeId;
+    private String jobGradeName;
 
     // Subscriptions
     private String monthlySubscription;

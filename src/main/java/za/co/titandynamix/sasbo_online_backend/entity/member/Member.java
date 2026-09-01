@@ -76,7 +76,6 @@ public class Member {
      */
     private String paymentType;
     private Integer debitDay;
-    private String jobGrade;
 
     // Subscriptions
     private String monthlySubscription;
@@ -105,6 +104,10 @@ public class Member {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "structure_id")
     private UnionStructure structure;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_grade_id")
+    private JobGrade jobGrade;
 
     private LocalDate electionDate;
 
