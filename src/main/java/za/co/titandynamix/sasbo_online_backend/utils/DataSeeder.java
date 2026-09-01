@@ -12,8 +12,10 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
+import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
@@ -22,6 +24,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.*;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Component
@@ -34,7 +37,9 @@ public class DataSeeder implements ApplicationRunner {
     private final RepresentativeRepository representativeRepository;
     private final ProvinceRepository provinceRepository;
     private final RecruitmentChannelRepository recruitmentChannelRepository;
+    private final RecruiterRepository recruiterRepository;
     private final SubscriptionsRepository subscriptionsRepository;
+    private final JobGradeRepository jobGradeRepository;
 
     @Override
     public void run(@NonNull ApplicationArguments args) throws Exception {
@@ -49,6 +54,10 @@ public class DataSeeder implements ApplicationRunner {
                 List<Member> members = mapper.readValue(stream, new TypeReference<>() {});
                 members.forEach(m -> {
                     m.setId(null);
+                    // Legacy seed data carries jobGrade as a plain string; grades are now
+                    // bank-specific JobGrade rows (seeded from data/job_grades.json below),
+                    // so the transient value is dropped rather than persisted.
+                    m.setJobGrade(null);
                     if (m.getPersonalEmail() == null || m.getPersonalEmail().isBlank()) {
                         m.setPersonalEmail(m.getPersonalEmail());
                     }
@@ -87,6 +96,30 @@ public class DataSeeder implements ApplicationRunner {
                 });
                 this.bankBranchRepository.saveAll(branches);
                 log.info("Seeded {} bank branches", branches.size());
+            }
+        }
+
+        if (this.jobGradeRepository.count() == 0) {
+            ClassPathResource jobGradesResource = new ClassPathResource("data/job_grades.json");
+            try (InputStream stream = jobGradesResource.getInputStream()) {
+                List<JobGradeSeed> seeds = mapper.readValue(stream, new TypeReference<>() {});
+                List<Bank> allBanks = this.bankRepository.findAll();
+                List<JobGrade> jobGrades = seeds.stream()
+                        .map(seed -> {
+                            Bank bank = allBanks.stream()
+                                    .filter(b -> b.getName().equalsIgnoreCase(seed.bankName()))
+                                    .findFirst()
+                                    .orElse(null);
+                            if (bank == null) {
+                                log.warn("Skipping job grade '{}' for unknown bank '{}'", seed.grade(), seed.bankName());
+                                return null;
+                            }
+                            return new JobGrade(null, bank, seed.grade(), seed.contractType(), seed.description());
+                        })
+                        .filter(Objects::nonNull)
+                        .toList();
+                this.jobGradeRepository.saveAll(jobGrades);
+                log.info("Seeded {} job grades", jobGrades.size());
             }
         }
 
@@ -145,6 +178,19 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
+        // Recruiters (SASBO organisers + other recruitment types) are seeded from
+        // data/recruiters.json only when the table is empty. The V17 Flyway migration
+        // seeds the same rows, so whichever runs first wins and no duplicates occur.
+        if (this.recruiterRepository.count() == 0) {
+            ClassPathResource recruitersResource = new ClassPathResource("data/recruiters.json");
+            try (InputStream stream = recruitersResource.getInputStream()) {
+                List<Recruiter> recruiters = mapper.readValue(stream, new TypeReference<>() {});
+                recruiters.forEach(r -> r.setId(null));
+                this.recruiterRepository.saveAll(recruiters);
+                log.info("Seeded {} recruiters", recruiters.size());
+            }
+        }
+
         if (this.provinceRepository.count() == 0) {
             ClassPathResource provincesResource = new ClassPathResource("data/provinces.json");
             try (InputStream provinceStream = provincesResource.getInputStream()) {
@@ -155,5 +201,9 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
+    }
+
+    /** Shape of the entries in data/job_grades.json; the bank is resolved by name. */
+    private record JobGradeSeed(String bankName, String grade, String contractType, String description) {
     }
 }

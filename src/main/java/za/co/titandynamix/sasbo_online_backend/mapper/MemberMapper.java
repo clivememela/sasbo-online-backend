@@ -35,7 +35,7 @@ public abstract class MemberMapper {
     @Mapping(target = "areaId", source = "area.id")
     @Mapping(target = "areaName", source = "area.name")
     @Mapping(target = "userId", source = "user.id")
-    @Mapping(target = "jobGrade", source = "jobGrade.code") // Extracts the string field from the class
+    @Mapping(target = "jobGrade", source = "jobGrade.grade") // Extracts the string field from the class
     public abstract MemberDto toDto(Member member);
 
     // ============================================================
@@ -44,7 +44,7 @@ public abstract class MemberMapper {
     @Mapping(target = "recruitmentRepresentative", source = "recruitmentRepresentativeName", qualifiedByName = "mapNameToRep")
     @Mapping(target = "structure", source = "structureId", qualifiedByName = "mapIdToStructure")
     @Mapping(target = "role", source = "roleId", qualifiedByName = "mapIdToRole")
-    @Mapping(target = "jobGrade.code", source = "jobGrade") // Sets the string into the new class instance
+    @Mapping(target = "jobGrade.grade", source = "jobGrade") // Sets the string into the new class instance
     public abstract Member toEntity(MemberDto memberDto);
 
     // 💡 Add this inside your MemberMapper class so updates can merge

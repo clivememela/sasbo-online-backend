@@ -3,16 +3,19 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
+import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.JobGradeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
+import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.utils.SaIdParser;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
@@ -33,6 +36,8 @@ public class MemberServiceImpl implements MemberService {
     private final BankRepository bankRepository;
     private final RepresentativeRoleRepository representativeRoleRepository;
     private final UnionStructureRepository unionStructureRepository;
+    private final JobGradeRepository jobGradeRepository;
+    private final JobGradeService jobGradeService;
 
     @Override
     public List<Member> findAll() {
@@ -50,6 +55,7 @@ public class MemberServiceImpl implements MemberService {
         resolveStructureAndRole(member);
         autoPopulateIdDerivedFields(member);
         autoPopulateBankDerivedFields(member);
+        resolveJobGrade(member);
         MemberValidator.validatePaymentType(member);
         return this.memberRepository.save(member);
     }
@@ -62,6 +68,7 @@ public class MemberServiceImpl implements MemberService {
             resolveAreasRep(updated.getAreasRep(), existing);
             autoPopulateIdDerivedFields(existing);
             autoPopulateBankDerivedFields(existing);
+            resolveJobGrade(existing);
             MemberValidator.validatePaymentType(existing);
             return this.memberRepository.save(existing);
         });
@@ -92,6 +99,35 @@ public class MemberServiceImpl implements MemberService {
     }
 
     /**
+     * Resolves the client-supplied job grade to the persisted, bank-specific JobGrade row.
+     * The API accepts the grade as a plain string (the value shown in the dropdown, which is
+     * sourced from the job_grades table for the selected bank), deserialized into a transient
+     * JobGrade. Grades are bank-specific, so the member's bankName is used for the lookup;
+     * a grade that cannot be resolved is cleared instead of persisted as a detached entity.
+     */
+    private void resolveJobGrade(Member member) {
+        JobGrade submitted = member.getJobGrade();
+        if (submitted == null) {
+            return;
+        }
+        if (submitted.getId() != null) {
+            this.jobGradeRepository.findById(submitted.getId())
+                    .ifPresentOrElse(member::setJobGrade, () -> member.setJobGrade(null));
+            return;
+        }
+        String grade = submitted.getGrade();
+        if (grade == null || grade.isBlank()) {
+            member.setJobGrade(null);
+            return;
+        }
+        JobGrade resolved = this.jobGradeService.findByBankIdentifier(member.getBankName()).stream()
+                .filter(jg -> grade.equalsIgnoreCase(jg.getGrade()))
+                .findFirst()
+                .orElse(null);
+        member.setJobGrade(resolved);
+    }
+
+    /**
      * Resolves the transient areasRep display name to a Representative entity.
      */
     private void resolveAreasRep(String areasRep, Member existing) {
@@ -118,6 +154,12 @@ public class MemberServiceImpl implements MemberService {
             existing.setWorkBankAddress(banking.getWorkBankAddress());
             existing.setPaymentType(banking.getPaymentType());
             existing.setDebitDay(banking.getDebitDay());
+            // Grades are bank-specific: re-resolve the current grade against the (possibly changed) bank
+            JobGrade currentGrade = existing.getJobGrade();
+            if (currentGrade != null) {
+                existing.setJobGrade(new JobGrade(currentGrade.getGrade()));
+                resolveJobGrade(existing);
+            }
             // Auto-populate bank address and debit day from reference data
             // (monthly subscription is NOT auto-set here — only through maintenance)
             autoPopulateBankAddress(existing);

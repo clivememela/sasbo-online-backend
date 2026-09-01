@@ -1,0 +1,164 @@
+[
+    {
+        "bankName": "Absa Bank Limited",
+        "grade": "AVP",
+        "contractType": null,
+        "description": "Non - Bargaining"
+    },
+    {
+        "bankName": "Absa Bank Limited",
+        "grade": "BA1",
+        "contractType": null,
+        "description": "Bargaining unit"
+    },
+    {
+        "bankName": "Absa Bank Limited",
+        "grade": "BA2",
+        "contractType": null,
+        "description": "Bargaining unit"
+    },
+    {
+        "bankName": "Absa Bank Limited",
+        "grade": "BA3",
+        "contractType": null,
+        "description": "Bargaining unit"
+    },
+    {
+        "bankName": "Absa Bank Limited",
+        "grade": "BA4",
+        "contractType": null,
+        "description": "Bargaining unit"
+    },
+    {
+        "bankName": "Absa Bank Limited",
+        "grade": "MP",
+        "contractType": null,
+        "description": "Non - Bargaining"
+    },
+    {
+        "bankName": "Absa Bank Limited",
+        "grade": "P",
+        "contractType": null,
+        "description": "Non - Bargaining"
+    },
+    {
+        "bankName": "Absa Bank Limited",
+        "grade": "VP",
+        "contractType": null,
+        "description": "Non - Bargaining"
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade c",
+        "contractType": "PFA/DFA Sales",
+        "description": null
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade K",
+        "contractType": "TGP/NON TGP",
+        "description": null
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade L",
+        "contractType": "Omlacsa",
+        "description": null
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade M",
+        "contractType": null,
+        "description": null
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade N",
+        "contractType": null,
+        "description": null
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade O",
+        "contractType": null,
+        "description": null
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade P",
+        "contractType": null,
+        "description": null
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade PB",
+        "contractType": null,
+        "description": null
+    },
+    {
+        "bankName": "OM Bank Limited",
+        "grade": "Grade Q",
+        "contractType": null,
+        "description": null
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG04",
+        "contractType": null,
+        "description": "Bargaining Unit"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG05",
+        "contractType": null,
+        "description": "Bargaining Unit"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG06",
+        "contractType": null,
+        "description": "Bargaining Unit"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG07",
+        "contractType": null,
+        "description": "Bargaining Unit"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG08",
+        "contractType": null,
+        "description": "Bargaining Unit"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG09",
+        "contractType": null,
+        "description": "Bargaining Unit"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG10",
+        "contractType": null,
+        "description": "Bargaining Unit"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG11",
+        "contractType": null,
+        "description": "Junior Managers"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG12",
+        "contractType": null,
+        "description": "Middle Managers"
+    },
+    {
+        "bankName": "The Standard Bank of South Africa Limited",
+        "grade": "SBG13",
+        "contractType": null,
+        "description": "Senior Managers"
+    }
+]

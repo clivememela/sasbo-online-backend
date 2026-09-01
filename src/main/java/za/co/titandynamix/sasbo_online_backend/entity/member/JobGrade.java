@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.entity.member;
 
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -34,4 +35,14 @@ public class JobGrade {
 
     @Column(name = "description")
     private String description;
+
+    /**
+     * Allows clients (and the seed data) to send the grade as a plain string,
+     * e.g. {@code "jobGrade": "BA1"}. The resulting instance is transient and is
+     * resolved to the persisted, bank-specific row in the service layer before saving.
+     */
+    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+    public JobGrade(String grade) {
+        this.grade = grade;
+    }
 }
