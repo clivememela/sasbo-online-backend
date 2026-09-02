@@ -1,7 +1,7 @@
 -- ============================================================
--- V18: recruiters.recruitment_number -> INTEGER
+-- V18: recruiters.members_recruited -> INTEGER
 --
--- recruitment_number is the COUNT of members a recruiter / recruitment
+-- members_recruited is the COUNT of members a recruiter / recruitment
 -- channel has recruited, so it must be numeric rather than text. V17
 -- created the column as VARCHAR (matching the then-String entity field);
 -- this converts it to INTEGER.
@@ -12,5 +12,5 @@
 -- ============================================================
 
 ALTER TABLE recruiters
-    ALTER COLUMN recruitment_number TYPE INTEGER
-    USING NULLIF(btrim(recruitment_number::text), '')::INTEGER;
+    ALTER COLUMN members_recruited TYPE INTEGER
+    USING NULLIF(btrim(members_recruited::text), '')::INTEGER;
