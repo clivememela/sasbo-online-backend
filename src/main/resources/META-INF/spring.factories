@@ -1,0 +1,4 @@
+# EnvironmentPostProcessors run before the application context exists, so they cannot be discovered by
+# component scanning and must be registered here.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+za.co.titandynamix.sasbo_online_backend.config.DotEnvEnvironmentPostProcessor
