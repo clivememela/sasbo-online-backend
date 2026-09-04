@@ -302,3 +302,61 @@ a change nobody asked for. Two kinds are listed:
 > down, the day someone *does* fix it the test goes red and points straight at
 > its own comment. A defect nobody notices being fixed is the failure a register
 > exists to prevent.
+
+---
+
+## Part 4 — The lanes, and what they cost
+
+**Measured 2026-09-04**, on this suite, on a developer machine. Every number
+here expires: re-measure, never re-quote.
+
+| | Command | Size | Wall clock | Budget |
+| :-- | :-- | :-- | :-- | :-- |
+| **Fast** | `./gradlew test` | 236 tests · 20 skipped | **63–70s** | **90s** — see below |
+| **Integration** | `./gradlew integrationTest` | 62 tests · 1 skipped | **75–130s** | **180s**, set from the first green run |
+| **Both** | `./gradlew verify` | | 140–220s | — |
+| **The application still builds** | `./gradlew build` | | 58s | — |
+
+### The fast lane's budget was raised, and that is worth explaining
+
+It was **60 seconds**, set when this module had 42 tests and two controller
+slices. It now has 236 and thirteen Spring contexts, and it measures 63–70s.
+
+The budget exists to protect the pre-commit loop, so it is not something to
+quietly delete — but a ceiling set before the scope was known measures the
+plan's age rather than the suite. It is re-derived here by measurement, at
+**90s**, which is the observed cost plus room for a domain or two.
+
+**What is actually costing the time**, if someone wants it back: each
+`@WebMvcTest` boots its own Spring context, because the context cache keys on
+the configuration and every slice names a different controller. Thirteen
+contexts is most of the run.
+
+### JaCoCo is off on the fast lane, and that was measured too
+
+| | Wall clock |
+| :-- | :-- |
+| `./gradlew test` | 70s, 64s |
+| `./gradlew test -Pcoverage` | 87s, 91s |
+
+**About +22 seconds — roughly a third.** The first figure written in
+`build.gradle` for this was "+8s, ~13%", invented before anyone measured. A
+third of the pre-commit loop for a report nobody reads on every commit is the
+wrong trade, so it is opt-in:
+
+```
+./gradlew test -Pcoverage integrationTest jacocoTestReport
+```
+
+The report is a **map, not a gate**: no thresholds, no `violationRules`, and
+nothing wired into `check`. It answers "which controller has no test" as a
+command — and catches the one thing a hand count cannot, a test that exists and
+exercises nothing. It does not replace `CoverageFloorTest`, which is the actual
+contract: a percentage cannot tell you a controller has no test *file*.
+
+### Two more findings, from running the lanes rather than writing them
+
+| Finding | Detail |
+| :-- | :-- |
+| **A deep checkout path silently truncates the JUnit XML** | Gradle names each report `TEST-<fully qualified class>.xml`, and a `@Nested` class appends `$Inner`. Two of those exceeded the 260-character Windows limit: Gradle substituted a hash into the filename and the files could not be opened at all. **The build stayed green and the report every CI integration reads was simply short.** Mitigated by shortening two class names; the underlying limit is a CI-contract concern, because a runner's workspace path is not ours to choose |
+| **`server/.env` is committed *and* listed in `.gitignore`** | Git ignores `.gitignore` for files it already tracks, so the entry does nothing for this file. It currently holds a database username and URL with an empty password — but a developer who adds a password to it will commit it, believing it ignored. The suite runs green with no `.env` at all, which is proven rather than assumed |

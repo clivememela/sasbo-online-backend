@@ -32,17 +32,33 @@ public final class TestSourceInventory {
     private TestSourceInventory() {
     }
 
+    /**
+     * {@code extends Abstract<anything>IT} -- every harness base class ends in
+     * IT, so this needs no list to keep up to date.
+     */
+    private static final java.util.regex.Pattern INHERITS_THE_HARNESS =
+            java.util.regex.Pattern.compile("extends\\s+Abstract\\w*IT\\b");
+
     /** One test class as found on disk. */
     public record TestClassSource(Path path, String name, String body) {
 
         /**
          * Integration lane membership. A class is in it if it carries the tag
-         * itself or inherits it from {@link AbstractPostgresIT}, which is the
-         * only thing in this module that owns a container.
+         * itself, or extends one of the harness base classes -- which are the
+         * only things in this module that own a container.
+         *
+         * <p>Matched by SHAPE ({@code extends Abstract...IT}) rather than by a
+         * list of base-class names, and that is not tidiness. The list version
+         * named only {@code AbstractPostgresIT}; when
+         * {@code AbstractWritingIT} was extracted on 2026-09-04 and six classes
+         * were moved onto it, all six were silently reclassified into the FAST
+         * lane -- where they promptly failed, because there is no container
+         * there. A rule that needs updating when the harness grows is a rule
+         * that will not be.
          */
         public boolean isIntegration() {
             return body.contains("@Tag(\"integration\")")
-                    || body.contains("extends AbstractPostgresIT");
+                    || INHERITS_THE_HARNESS.matcher(body).find();
         }
 
         public boolean isFastLane() {

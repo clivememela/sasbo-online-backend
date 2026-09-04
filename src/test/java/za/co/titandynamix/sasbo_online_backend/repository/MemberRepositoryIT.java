@@ -3,8 +3,6 @@ package za.co.titandynamix.sasbo_online_backend.repository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceAccessMode;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,7 +11,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
 import za.co.titandynamix.sasbo_online_backend.fixtures.LocationFixture;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractPostgresIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 
 import java.util.List;
@@ -28,24 +26,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * capture path, and two of its methods filter on a flag and a status that
  * nothing else checks.
  */
-// READ_WRITE: resets the database and writes rows.
-@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ_WRITE)
 @DisplayName("MemberRepository against the real migration chain")
-class MemberRepositoryIT extends AbstractPostgresIT {
+class MemberRepositoryIT extends AbstractWritingIT {
 
     @Autowired
     private MemberRepository memberRepository;
 
     @Autowired
     private AreaRepository areaRepository;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @BeforeEach
-    void resetDatabase() {
-        DatabaseReset.reset(this.jdbc);
-    }
 
     @Test
     @DisplayName("existsByMembershipNumber distinguishes a taken number from a free one")

@@ -4,14 +4,12 @@ import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceAccessMode;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
 import za.co.titandynamix.sasbo_online_backend.fixtures.BankFixture;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractPostgresIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
 
@@ -30,10 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * is the statement count, and only when the table is large enough for anyone to
  * notice.
  */
-// READ_WRITE: resets the database and writes rows.
-@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ_WRITE)
 @DisplayName("SubscriptionsRepository against the real migration chain")
-class SubscriptionsRepositoryIT extends AbstractPostgresIT {
+class SubscriptionsRepositoryIT extends AbstractWritingIT {
 
     /** Fixed. Nothing here reads the wall clock. */
     private static final LocalDateTime REGISTERED = LocalDateTime.of(2024, 3, 1, 9, 0);
@@ -46,14 +42,6 @@ class SubscriptionsRepositoryIT extends AbstractPostgresIT {
 
     @Autowired
     private EntityManagerFactory entityManagerFactory;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @BeforeEach
-    void resetDatabase() {
-        DatabaseReset.reset(this.jdbc);
-    }
 
     @Test
     @DisplayName("findAllWithBank returns every subscription with its bank attached")

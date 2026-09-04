@@ -3,6 +3,7 @@ plugins {
 	id 'org.springframework.boot' version '3.4.5'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'checkstyle'
+	id 'jacoco'
 }
 
 group = 'za.co.titandynamix'
@@ -141,6 +142,68 @@ tasks.register('verify') {
 	group = 'verification'
 	description = 'Both lanes: everything `check` runs, plus the integration tests.'
 	dependsOn tasks.named('check'), tasks.named('integrationTest')
+}
+
+// ---------------------------------------------------------------------------
+// JaCoCo: a REPORT, never a gate.
+//
+// No violationRules, no threshold, and nothing wired into `check`. Coverage is
+// a DISCOVERY tool here -- it answers "which of the twelve controllers has no
+// test" as a command rather than a hand count, and it catches the one case a
+// hand count cannot: a test that exists and exercises nothing.
+//
+// As a TARGET it is Goodhart bait, and as a build gate it would redden the
+// incumbent developer's pushes for a number nobody agreed to.
+//
+// It does not replace CoverageFloorTest. A line-coverage percentage cannot tell
+// you a controller has no test FILE -- it will happily report 60% while two
+// controllers are untouched. The floor is the contract; this is the map.
+//
+// Off on `test` by default, deliberately. MEASURED 2026-09-04 on this suite,
+// two runs of `./gradlew test --rerun` each way:
+//
+//     without the agent   70s, 64s
+//     with the agent      87s, 91s      -- about +22s, roughly a THIRD slower
+//
+// That is material, and materially more than it was assumed to be before it
+// was measured: the first estimate written here was "+8s, ~13%", from nowhere.
+// The fast lane is the pre-commit loop and is already at its budget, so a
+// third of it for a report nobody reads on every commit is the wrong trade.
+//
+// Ask for it when you want it:  ./gradlew test -Pcoverage jacocoTestReport
+// ---------------------------------------------------------------------------
+jacoco {
+	toolVersion = '0.8.12'
+}
+
+tasks.named('test', Test) {
+	// The agent costs ~13% of the fast lane. Off by default, on when asked for.
+	jacoco.enabled = providers.gradleProperty('coverage').isPresent()
+}
+
+tasks.named('jacocoTestReport', JacocoReport) {
+	// The .exec files by path, and only the ones that exist. Passing the TASKS
+	// here resolves to their binary results directory instead, which JaCoCo
+	// cannot read -- it fails with 'Unable to read execution data file'.
+	//
+	// filter() rather than a hard list, because `test` writes no .exec unless
+	// -Pcoverage was passed. Without it, asking for a report after a plain
+	// `test` run fails on a missing file rather than reporting what it has.
+	executionData.setFrom(files(
+		layout.buildDirectory.file('jacoco/test.exec'),
+		layout.buildDirectory.file('jacoco/integrationTest.exec')
+	).filter { it.exists() })
+	sourceSets sourceSets.main
+	reports {
+		html.required = true
+		xml.required = true
+		html.outputLocation = layout.projectDirectory.dir('reports/coverage')
+		xml.outputLocation = layout.projectDirectory.file('reports/coverage/jacoco.xml')
+	}
+	// Both lanes have run, or the report is a partial picture presented as a
+	// whole one -- which is worse than no report, because it reads as coverage
+	// the integration lane already provides.
+	mustRunAfter tasks.named('integrationTest')
 }
 
 // Enable compiler lint warnings to simulate IDE inspections

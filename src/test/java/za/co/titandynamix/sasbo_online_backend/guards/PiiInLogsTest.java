@@ -6,6 +6,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.Mockito;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.support.LogCapture;
@@ -50,6 +51,22 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
  * Naming today's two offenders would have closed this exact hole and left the
  * hole open.
  */
+// @Isolated: this class runs with nothing else running beside it.
+//
+// A lock would not do. Logback's LoggerContext is process-global, and Spring
+// Boot RESETS it -- removing every appender -- each time an application context
+// starts. Under a parallel runner, a @WebMvcTest booting in another class
+// between this one attaching its appender and reading it back leaves the
+// capture empty, and the test fails having asserted nothing.
+//
+// Observed on 2026-09-04: the canary that exists to prove the capture works
+// failed once in three runs of the full gate, and only under load. That is a
+// flake, and the fix is to remove the concurrency rather than to retry the
+// test.
+//
+// It is a confession, like a resource lock: it costs a little parallelism, and
+// it is the honest price of asserting on a global that a framework owns.
+@Isolated
 @DisplayName("PII in logs")
 class PiiInLogsTest {
 

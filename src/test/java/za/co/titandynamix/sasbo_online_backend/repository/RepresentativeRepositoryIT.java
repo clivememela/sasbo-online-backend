@@ -3,14 +3,12 @@ package za.co.titandynamix.sasbo_online_backend.repository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceAccessMode;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractPostgresIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,24 +23,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * evidence about it, and every one of those four functions is a place the
  * behaviour can differ.
  */
-// READ_WRITE: resets the database and writes rows.
-@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ_WRITE)
 @DisplayName("RepresentativeRepository against the real migration chain")
-class RepresentativeRepositoryIT extends AbstractPostgresIT {
+class RepresentativeRepositoryIT extends AbstractWritingIT {
 
     @Autowired
     private RepresentativeRepository representativeRepository;
 
     @Autowired
     private MemberRepository memberRepository;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @BeforeEach
-    void resetDatabase() {
-        DatabaseReset.reset(this.jdbc);
-    }
 
     @Test
     @DisplayName("findByFirstNamesAndSurname matches on both parts, not just one")

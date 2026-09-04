@@ -3,15 +3,13 @@ package za.co.titandynamix.sasbo_online_backend.repository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceAccessMode;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.fixtures.BankFixture;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractPostgresIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 
 import java.util.List;
@@ -38,22 +36,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * sparing it, so a test cannot come to depend on rows a sibling happened to
  * leave.
  */
-// READ_WRITE: it resets the database and writes rows. The reference
-// repository IT, so this annotation is part of what the other fourteen copy.
-@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ_WRITE)
 @DisplayName("BankRepository against the real migration chain")
-class BankRepositoryIT extends AbstractPostgresIT {
+class BankRepositoryIT extends AbstractWritingIT {
 
     @Autowired
     private BankRepository bankRepository;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @BeforeEach
-    void resetDatabase() {
-        DatabaseReset.reset(this.jdbc);
-    }
 
     @Test
     @DisplayName("findByNameIgnoreCase matches whatever case the caller sent")
