@@ -1,6 +1,10 @@
 HELP.md
 .gradle
 build/
+# Test reports. Written by the test and integrationTest tasks, which put JUnit XML
+# under reports/junit/<task> so one CI artifact glob covers it. Build output, never
+# committed.
+reports/
 .env
 # Machine-local env overrides. Never commit: these hold real database credentials.
 .env.local
