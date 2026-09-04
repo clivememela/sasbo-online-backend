@@ -8,11 +8,8 @@ import javax.sql.DataSource;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
-import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,36 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * checked is worse than no check, so the check lives where its configuration
  * is actually visible.
  *
- * <p><b>Why it is gated on an environment variable.</b> This class lives in the
- * ordinary test source set, so without a gate it would join {@code test} ->
- * {@code check} -> {@code build}, and {@code ./gradlew build} would start
- * demanding a PostgreSQL container from everyone who runs it. That is a change
- * to every developer's workflow made without asking, so the judge runs only
- * when it has been told where to look: set {@code P0_DB_URL} and it runs; leave
- * it unset and JUnit reports it skipped, by name, with this reason.
- *
- * <p>The gate is the SAME variable that addresses the database, which is what
- * keeps it honest -- there is no way to enable the test without also pointing
- * it at something, and no way to point it at something without enabling it.
- * It is not a quarantine and it is not a reaction to flakiness; it is a
- * declaration that the check needs a database. When the integration test lane
- * gains its own task, the gate belongs there instead and comes out of here.
- *
- * <p>Run it with, from the server repo root and against a container already
- * migrated by the Flyway CLI:
- * <pre>
- *   P0_DB_URL=jdbc:postgresql://localhost:5434/sasbo_membership_test \
- *     ./gradlew test --tests '*MigrationSchemaValidationTest' --rerun
- * </pre>
- * {@code --rerun} is not optional. Gradle's up-to-date check knows nothing
- * about the database, so a second invocation with unchanged sources reports
- * BUILD SUCCESSFUL in a few seconds without running anything -- including
- * against a database that has since been broken.
+ * <p>Needs a migrated database; see {@link MigrationDatabaseTest} for the
+ * profile, the {@code P0_DB_URL} gate, and how to run it.
  */
-@SpringBootTest
-@ActiveProfiles("migration")
-@EnabledIfEnvironmentVariable(named = "P0_DB_URL", matches = ".+",
-        disabledReason = "needs a migrated PostgreSQL database; set P0_DB_URL to point at one")
+@MigrationDatabaseTest
 @DisplayName("The migration chain produces a schema the entity model validates against")
 class MigrationSchemaValidationTest {
 
