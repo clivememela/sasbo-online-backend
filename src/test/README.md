@@ -261,3 +261,44 @@ cannot collide with it.
 because it exists, not because someone remembered to register it. Any answer
 other than "nothing" is a design defect in the harness, and the fix belongs to
 whoever owns the harness — not to whoever tripped over it.
+
+---
+
+## Part 3 — Findings: what this suite asserts but does not fix
+
+**This suite makes defects visible. It does not repair them.** Every row below is
+a production change, and a testing pass that quietly rewrites application code is
+a change nobody asked for. Two kinds are listed:
+
+- **Asserted** — a test written to the correct behaviour, landed `@Disabled`,
+  citing its row in `KnownDefects`. It turns green the day the defect is fixed,
+  and `DisabledPopulationTest` then reddens until the row is removed.
+- **Filed** — recorded here only. Either there is nothing a test can assert
+  without inventing the design, or the fix is a decision rather than a repair.
+
+### Asserted, and deliberately red
+
+| Finding | Where | Asserted by |
+| :-- | :-- | :-- |
+| The catch-all handler copies `ex.getMessage()` into the response body, so a 500 can carry SQL, table and column names and bound parameter values. With `/api/**` on `permitAll()`, an anonymous caller who can trigger a 500 reads them | `GlobalExceptionHandler.handleGeneralException` | `GlobalExceptionHandlerTest` |
+| The validation handler casts **every** binding error to `FieldError`. A class-level constraint produces an `ObjectError`, so the 400 path throws `ClassCastException` and the caller gets a 500. Latent until the first class-level constraint is written — **found by the first test ever run against this handler** | `GlobalExceptionHandler.handleValidationFailures` | `GlobalExceptionHandlerTest` |
+| Service methods issue more than one repository write with no transaction boundary. **2 of 19 services** carry `@Transactional`; a failure between writes leaves data half written, with nothing logged | `services/impl/` | `TransactionBoundaryTest` |
+| No list endpoint paginates or caps its result. Every one returns the whole table, so the response grows with the database. `GET /api/members` is the clearest case | `controller/` | `UnboundedCollectionTest` |
+
+### Filed, not asserted
+
+| Finding | Detail |
+| :-- | :-- |
+| **No typed error codes anywhere** | The `exception` package holds two files. The envelope's `error` is the HTTP reason phrase and `message` is `ex.getMessage()` — so a test can assert the status, the `validationErrors` field names and the envelope shape, and nothing else. A typed `code` per domain failure is the right design; it needs new exception types and a new envelope field, which is a production change |
+| **`@Data` over PII on two response DTOs** | `MemberDto` (identity number, passport number, date of birth, bank account number) and `BankingDetailsDto` (account number) generate a `toString()` over those fields. One log format argument away from the log file. Asserted as a *list* by `PiiInLogsTest`, so a **new** type doing the same reddens immediately |
+| **`root: DEBUG` plus a payload-logging filter** | `RequestLoggingConfig` mounts `CommonsRequestLoggingFilter` with `setIncludePayload(true)`, and the root level is `DEBUG`. What stops every POST body — identity numbers included — reaching the log today is a *single line* setting that one logger to `WARN`. That is a configuration accident standing in for a design |
+| **Two controllers bypass the service layer** | `AreaController` and `RepresentativeRoleController` inject a repository directly and map rows inline. Asserted as a list by `LayeringTest`, so a third would redden |
+| **`DataSeeder` drops an unmatched bank silently** | Exact name matching plus `.ifPresent()` with no `else`: a subscription whose bank name does not match is written with a blank bank, no log and no error. One such row is in the live database |
+| **`SaIdParser` reads the wall clock** | Century inference calls `LocalDate.now()` inside a `static` method, so the same input yields a different answer as years pass and no test can pin the rollover without moving the machine's clock. The fix is to inject a `Clock` |
+| **`POST /api/members` returns `200`, not `201`, with no `Location` header** | Wrong by REST convention. It is asserted **as it is**, with the intended shape named in a comment — the one deliberate assertion of current behaviour here, allowed only because the status code is load-bearing for the browser. A test asserting `201` would be red from day one for something nobody is going to fix in a testing pass, and a permanently-red box teaches everyone to ignore red boxes |
+
+> **Why `POST /api/members` is the single exception to "never assert the
+> defect".** Untested, it is invisible. Asserted as-is with the intent written
+> down, the day someone *does* fix it the test goes red and points straight at
+> its own comment. A defect nobody notices being fixed is the failure a register
+> exists to prevent.
