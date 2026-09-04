@@ -2,6 +2,9 @@ HELP.md
 .gradle
 build/
 .env
+# Machine-local env overrides. Never commit: these hold real database credentials.
+.env.local
+.env.*.local
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
