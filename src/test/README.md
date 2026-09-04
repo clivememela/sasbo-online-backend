@@ -148,3 +148,116 @@ Nothing under `src/main/java`. The substitution was applied, measured and
 reverted. Every verdict above is executed in the sub-branch that owns that
 domain — `bank` with the reference module, `member` with the member domain — so
 that each rewrite is reviewed beside the pattern it is being brought up to.
+
+---
+
+## Part 2 — The pattern
+
+**`bank` is the reference module.** It was built first and alone, and every
+other domain copies it rather than reinventing a shape. If something here does
+not fit your domain, that is worth saying out loud — the answer is usually that
+the harness needs a change, not that this domain is special.
+
+### The six files per domain
+
+| File | Lane | Proves | May **never** assert |
+| :-- | :-- | :-- | :-- |
+| `<Domain>ValidationTest` *(where a validator exists)* | fast | The rules, as plain static calls | Anything needing a framework |
+| `<Domain>MapperTest` | fast | Every target field arrives, **by reflection** | Anything the database decides |
+| `<Domain>ServiceTest` | fast | Business rules and branching | Anything a stub supplied |
+| `<Domain>ControllerTest` | fast | Transport, binding, status, the error envelope | Authorization, unless it imports the real `SecurityConfig` |
+| `<Dto>JsonTest` | fast | The exact wire shape the client parses | What the server does with it |
+| `<Domain>RepositoryIT` | integration | SQL, constraints, ordering, collation | UI behaviour |
+
+**A fact is proven at the cheapest layer that can prove it, and proven there
+once.** Re-proving a lower layer from a higher one is how a suite gets slow and
+brittle without getting better.
+
+### The four rules that are not negotiable
+
+**1. No test asserts a value its own stub supplied.** If the arrange block
+returns a sorted list and the assert block checks the list is sorted, the test
+has proved that Mockito works. This is the single most common way a suite
+reaches a high test *count* while asserting nothing, and the audit above found
+five instances of it in one file.
+
+**2. `any()` may not stand behind a claim of specificity.** Where the claim is
+about *what* a collaborator was called with, an `ArgumentCaptor` makes it and
+the captured value is asserted.
+`BankServiceImplTest.findAllRequestsAscendingNameOrder` is the reference.
+
+**3. Never assert a human-readable message.** Status codes and field names are
+the contract; messages are copy. A test that reddens when someone rewords a
+`throw` is a test that punishes an improvement.
+
+> **What this codebase actually guarantees, which is less than the rule
+> assumes.** The `exception` package holds exactly two files — the handler and
+> the `ApiErrorResponse` record. There are **no custom exception types and no
+> `code` field anywhere.** The envelope is `timestamp · status · error ·
+> message · path · validationErrors`, where `error` is the HTTP reason phrase
+> and `message` is `ex.getMessage()`. So the three things that are stable, and
+> therefore the only three worth asserting, are: **the HTTP status**, the
+> **`validationErrors` field names**, and **the envelope's own shape**. A typed
+> `code` per domain failure is the right design and it is a production change;
+> it is written up as a finding, not built here.
+
+**4. The H2 fast lane is not a database.** Its schema is one Hibernate invents
+at startup — `create-drop`, Flyway disabled. Fine for transport, mapping and
+rules; **never** evidence about schema, constraints, native SQL, `ILIKE`,
+sequences, collation or `ORDER BY`. Anything in that list is an `*IT`.
+
+### Fixtures
+
+One builder per domain in `fixtures/`, returning a **valid baseline**. A test
+overrides only the field it is about, so its intent is visible in one line and
+it does not redden when an unrelated required column is added. The same builder
+serves both lanes — two fixture sets for one domain are two specifications.
+
+**Synthetic values only, never a seeded real one.** Coverage reports, failure
+output and traces are artefacts that get forwarded; a real SA ID in a fixture is
+a privacy breach with a URL attached.
+
+**Any name that can reach an `ORDER BY` is collation-neutral**: plainly
+separated ASCII, no leading lowercase particle (`de Villiers`, `van Zyl`), no
+apostrophe or hyphen (`O'Brien`, `Smit-Nel`), no diacritic, no case-only pair.
+Those are exactly the names `C`, `en_ZA.UTF-8` and `en_US.UTF-8` disagree about,
+and they are ordinary South African names — which is why this is a rule and not
+an intention. Realism is the wrong instinct: a sort test proves the `ORDER BY`
+clause, and the names are an implementation detail of that proof.
+
+### Mapper tests are field-exhaustive, and have no list
+
+`MapperContract.assertEveryTargetFieldArrives(...)` populates every source field
+by reflection, maps, then walks the **target** type demanding each field
+arrived. Copy `BankMapperTest` and change three things: the mapper, the two
+types, the floor.
+
+A target field with no source **fails by name**. If it genuinely has none, it
+goes in `knownUnmapped` *with a written reason* — and the guard then asserts it
+is still `null`, so the day someone maps it the test reddens and the entry has
+to go. A subtraction list that silently absorbs entries hides its third one.
+
+> **What does and does not redden it.** Adding a field to the DTO alone goes red
+> naming that field. Adding it to the entity **as well** does not — MapStruct
+> maps same-named fields implicitly, so that change is genuinely correct and the
+> guard is right to stay green.
+
+### Integration tests share one real database, and must say so
+
+One container per JVM, and test classes run concurrently. `DatabaseReset` is a
+`TRUNCATE` across every table, so a class resetting while a sibling reads a
+count makes that sibling see zero.
+
+Every `*IT` touching table data therefore declares
+`@ResourceLock(DatabaseReset.SHARED_DATABASE)` — `READ_WRITE` if it resets or
+writes, `READ` if it only reads. **A lock is a confession**, and each one says
+in a comment which it is and why. The cheaper answer is always a test that needs
+no lock: transactional and rolled back, or keyed uniquely enough that a sibling
+cannot collide with it.
+
+### What adding a new domain costs the harness
+
+**Nothing.** Write the six files; the discovery guards pick the domain up
+because it exists, not because someone remembered to register it. Any answer
+other than "nothing" is a design defect in the harness, and the fix belongs to
+whoever owns the harness — not to whoever tripped over it.
