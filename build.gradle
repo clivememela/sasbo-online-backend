@@ -72,7 +72,13 @@ dependencies {
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	// Promoted from testRuntimeOnly: the same artifact, now also on the test
+	// COMPILE path, so LoggingBootstrap can implement LauncherSessionListener.
+	// That listener binds SLF4J to Logback once, on the launcher thread, before
+	// the parallel phase starts -- without it, a log-capturing test that lands
+	// beside a class booting a Spring context is handed SLF4J's substitute
+	// factory and fails in its own setup. No new dependency is resolved.
+	testImplementation 'org.junit.platform:junit-platform-launcher'
 }
 
 // ---------------------------------------------------------------------------

@@ -33,14 +33,6 @@ class LaneSeparationTest {
      */
     private static final int SCAN_FLOOR = 5;
 
-    /**
-     * Every test class expected to contain a deliberately disabled test. Empty,
-     * and it stays empty until a phase lands a defect assertion that is meant to
-     * be red. Each entry added here must name the register row it asserts, in
-     * the {@code @Disabled} reason, so the two cannot drift apart.
-     */
-    private static final List<String> DECLARED_DISABLED = List.of();
-
     @Test
     @DisplayName("classify two anchors whose lane is not in doubt")
     void anchorCanaries() {
@@ -93,34 +85,18 @@ class LaneSeparationTest {
                 .isNotEmpty();
     }
 
-    @Test
-    @DisplayName("carry no disabled tests, because none is declared yet")
-    void disabledPopulationIsExactlyWhatIsDeclared() {
-        // The arc will later land roughly a dozen deliberately @Disabled tests,
-        // each asserting a defect it does not fix. Individually each is
-        // justified; collectively, a suite carrying a dozen disabled tests with
-        // nothing counting them reads as neglected rather than deliberate.
-        //
-        // So the population is asserted EXACTLY, from the moment it is zero.
-        // Adding a disabled test without adding it to DECLARED_DISABLED reddens
-        // here -- and so does fixing the defect and leaving the test disabled,
-        // which is the half that actually rots.
-        List<TestClassSource> all = TestSourceInventory.all();
-        assertNonVacuousScan(all, SCAN_FLOOR, "test classes scanned for @Disabled");
-
-        List<String> disabled = all.stream()
-                .filter(TestClassSource::hasDisabledAnnotation)
-                .map(TestClassSource::name)
-                .sorted()
-                .toList();
-
-        assertThat(disabled)
-                .as("classes containing @Disabled, against the declared population. "
-                        + "Nothing in this repository is disabled yet: no defect has been "
-                        + "asserted-and-left-red, and nothing is skipped for unreliability -- "
-                        + "quarantine is not a thing here")
-                .isEqualTo(DECLARED_DISABLED);
-    }
+    // The disabled population is asserted by DisabledPopulationTest, not here.
+    //
+    // This class carried that assertion while the population was empty and there
+    // was nowhere better for it to live. It asserted the LIST OF CLASSES holding
+    // a @Disabled, which was the most that could be checked before any defect
+    // had been written down. DisabledPopulationTest asserts the stronger thing:
+    // every @Disabled cites a named register row, every row is cited by a test,
+    // and the counts match in both directions.
+    //
+    // Two guards asserting overlapping populations is how a floor ends up
+    // copy-pasted into four places and stale in all four, so this one was moved
+    // rather than kept alongside. Lane separation is what this class is for.
 
     private static TestClassSource byName(List<TestClassSource> all, String name) {
         return all.stream()
