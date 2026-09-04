@@ -22,57 +22,124 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
  * present in the API response, it is simply always {@code null}, and every
  * other test agrees the endpoint works.
  *
+ * <p>The risk is not hypothetical here. {@code MemberMapper} is declared
+ * {@code unmappedTargetPolicy = ReportingPolicy.IGNORE}, so MapStruct will not
+ * even warn about a dropped field on a 61-field DTO.
+ *
  * <p>So this test has <b>no list of its own to forget</b>. It populates every
  * source field by reflection, maps, and then walks the TARGET type demanding
  * that each of its fields arrived. The target type is the specification, which
  * is legitimate here because MapStruct generates the implementation from it:
- * reflecting over a generated mapper is reading the contract, not guessing at
- * it.
+ * reflecting over a generated mapper is reading the contract, not guessing.
  *
- * <h2>Flattened mappings are resolved, not excused</h2>
- * A target field with no same-named source field is tried as a camel-case path:
- * {@code bankName} against {@code bank.name}, {@code branchCode} against
- * {@code branch.code}. That is MapStruct's own convention, so the guard follows
- * the same rule the mapper does rather than being told the answer.
+ * <h2>Four things a target field can be, and they are not the same thing</h2>
+ * A guard with one escape hatch turns every awkward field into "excluded", and
+ * then the list means nothing. These are kept apart deliberately:
  *
- * <h2>What an unmapped field costs</h2>
- * A target field that resolves to nothing fails the test <b>by name</b>. If it
- * genuinely has no source, it goes in {@code knownUnmapped} <b>with a written
- * reason</b> -- and the guard then asserts it is still {@code null}. The day
- * someone maps it, this test reddens and the entry must be removed. A
- * subtraction list that silently absorbs new entries hides its third one; an
- * asserted list cannot.
+ * <table border="1">
+ *   <caption>How each declared field is treated</caption>
+ *   <tr><th>Declared as</th><th>Asserted</th><th>Means</th></tr>
+ *   <tr><td>(nothing)</td><td>arrived, and equals its source</td>
+ *       <td>a plain copy, resolved by name or by MapStruct's camel-case
+ *           flattening ({@code bankName} against {@code bank.name})</td></tr>
+ *   <tr><td>{@code sourcePath}</td><td>arrived, and equals THAT path</td>
+ *       <td>an explicit {@code @Mapping} the walker could not have guessed --
+ *           transcribed from the mapper, so changing the mapper reddens the
+ *           test</td></tr>
+ *   <tr><td>{@code computed}</td><td>arrived</td>
+ *       <td>built by a {@code qualifiedByName} method rather than copied. The
+ *           value is not a source value, but "it arrived" is still checkable
+ *           and is what the defect class is about</td></tr>
+ *   <tr><td>{@code unfillable}</td><td>nothing</td>
+ *       <td>its source is a collection or a self-reference that
+ *           {@link Synthetic} deliberately does not populate. A limitation of
+ *           the fixture, openly stated -- not a claim about the mapper</td></tr>
+ *   <tr><td>{@code unmapped}</td><td>still holds its type's default</td>
+ *       <td>a real gap. The day it is mapped this reddens and the entry has to
+ *           go, so the list cannot outlive the problem</td></tr>
+ * </table>
+ *
+ * <p>Anything not declared and not resolvable fails <b>by name</b>.
  *
  * <h2>Its own reddening change</h2>
  * Add a field to a response DTO and to nothing else. This must go red naming
- * that field. Note that adding it to the entity <i>as well</i> does NOT redden
- * it -- MapStruct maps same-named fields implicitly, so that change is
- * genuinely correct and the guard is right to stay green.
+ * that field. Adding it to the entity <i>as well</i> does NOT redden it --
+ * MapStruct maps same-named fields implicitly, so that change is genuinely
+ * correct and the guard is right to stay green.
  */
 public final class MapperContract {
 
     private MapperContract() {
     }
 
+    /** How the caller declares the fields the walker cannot work out alone. */
+    public static final class Declared {
+
+        private final Map<String, String> sourcePaths = new LinkedHashMap<>();
+        private final Map<String, String> computed = new LinkedHashMap<>();
+        private final Map<String, String> unfillable = new LinkedHashMap<>();
+        private final Map<String, String> unmapped = new LinkedHashMap<>();
+
+        private Declared() {
+        }
+
+        /** An explicit {@code @Mapping}, transcribed from the mapper. */
+        public Declared sourcePath(String targetField, String path) {
+            this.sourcePaths.put(targetField, path);
+            return this;
+        }
+
+        /** Built by a custom method. Asserted to arrive, not to equal a source. */
+        public Declared computed(String targetField, String how) {
+            this.computed.put(targetField, how);
+            return this;
+        }
+
+        /** Its source is something {@link Synthetic} does not populate. */
+        public Declared unfillable(String targetField, String why) {
+            this.unfillable.put(targetField, why);
+            return this;
+        }
+
+        /**
+         * A real gap. Asserted to still hold its type's default -- {@code null}
+         * for a reference, {@code false} or {@code 0} for a primitive.
+         *
+         * <p>The primitive case is the nastier one and the reason this is not
+         * simply a null check: an unmapped {@code boolean} reads as
+         * {@code false}, which looks like an answer rather than an absence.
+         */
+        public Declared unmapped(String targetField, String why) {
+            this.unmapped.put(targetField, why);
+            return this;
+        }
+    }
+
+    /** Nothing declared: every target field is expected to be a plain copy. */
+    public static Declared expecting() {
+        return new Declared();
+    }
+
+    /** The common case, where every target field is a plain copy. */
+    public static <S, T> void assertEveryTargetFieldArrives(
+            Class<S> sourceType, Class<T> targetType, Function<S, T> map, int floor) {
+        assertEveryTargetFieldArrives(sourceType, targetType, map, floor, expecting());
+    }
+
     /**
      * Asserts every field of {@code targetType} was populated from a populated
-     * source.
+     * source, treating each declared field as its declaration says.
      *
-     * @param sourceType    the entity, populated field-by-field by {@link Synthetic}
-     * @param targetType    the DTO. Its fields are the specification
-     * @param map           the mapper call under test
-     * @param floor         a non-vacuity canary on the target's field count,
-     *                      deliberately BELOW the real number. It is not a
-     *                      coverage target -- it only proves the walk walked
-     * @param knownUnmapped target field name to the written reason it has no
-     *                      source. Each is asserted to still be {@code null}
+     * @param floor a non-vacuity canary on the target's field count,
+     *              deliberately BELOW the real number. Not a coverage target --
+     *              it only proves the walk walked
      */
     public static <S, T> void assertEveryTargetFieldArrives(
             Class<S> sourceType,
             Class<T> targetType,
             Function<S, T> map,
             int floor,
-            Map<String, String> knownUnmapped) {
+            Declared declared) {
 
         S source = Synthetic.populated(sourceType);
         T target = map.apply(source);
@@ -85,52 +152,69 @@ public final class MapperContract {
         List<Field> targetFields = Synthetic.fieldsOf(targetType);
         assertNonVacuousScan(targetFields, floor, targetType.getSimpleName() + " fields");
 
-        Map<String, String> unmapped = new LinkedHashMap<>();
+        Map<String, String> unresolved = new LinkedHashMap<>();
         List<String> checked = new ArrayList<>();
 
         for (Field field : targetFields) {
             String name = field.getName();
             Object actual = read(target, field);
 
-            if (knownUnmapped.containsKey(name)) {
-                assertThat(actual)
-                        .as("'%s' is on this mapper's knownUnmapped list -- \"%s\" -- but it now "
-                                + "arrives with a value. If it has been mapped deliberately, "
-                                + "delete the entry. A subtraction list nobody has to maintain "
-                                + "stops describing anything",
-                                name, knownUnmapped.get(name))
-                        .isNull();
+            if (declared.unfillable.containsKey(name)) {
                 continue;
             }
 
-            Object expected = resolve(source, name);
+            if (declared.unmapped.containsKey(name)) {
+                assertThat(isDefault(field.getType(), actual))
+                        .as("'%s' is declared unmapped -- \"%s\" -- but it now arrives with a "
+                                + "value rather than its type's default. If it has been mapped "
+                                + "deliberately, delete the entry. A list nobody has to maintain "
+                                + "stops describing anything", name, declared.unmapped.get(name))
+                        .isTrue();
+                continue;
+            }
+
+            if (declared.computed.containsKey(name)) {
+                checked.add(name);
+                assertThat(actual)
+                        .as("'%s' is declared computed -- \"%s\" -- and did not arrive. A "
+                                + "computed field's value is not a source value, but it still "
+                                + "has to be there", name, declared.computed.get(name))
+                        .isNotNull();
+                continue;
+            }
+
+            String path = declared.sourcePaths.get(name);
+            Object expected = path != null ? follow(source, path) : resolve(source, name);
+
             if (expected == null) {
-                unmapped.put(name, "no source field or flattened path resolves it");
+                unresolved.put(name, path != null
+                        ? "declared source path '" + path + "' resolves to nothing"
+                        : "no source field or flattened path resolves it");
                 continue;
             }
 
             checked.add(name);
             assertThat(actual)
                     .as("'%s' did not arrive. Every field on %s was populated, so a null here is "
-                            + "the mapper dropping it -- a field that reads but does not write. "
-                            + "Expected the value of the source path for '%s'",
-                            name, sourceType.getSimpleName(), name)
+                            + "the mapper dropping it -- a field that reads but does not write",
+                            name, sourceType.getSimpleName())
                     .isNotNull();
             assertThat(String.valueOf(actual))
                     .as("'%s' arrived with the wrong value, which is a crossed wire rather than a "
                             + "missing one. Every synthetic value is derived from its own field "
-                            + "name, so a mapping pointed at the wrong source shows up here",
-                            name)
+                            + "name, so a mapping pointed at the wrong source shows up here", name)
                     .isEqualTo(String.valueOf(expected));
         }
 
-        if (!unmapped.isEmpty()) {
-            fail("%s -> %s leaves %d target field(s) with no source: %s%n%n"
-                    + "Either map them, or add each to knownUnmapped with the reason it cannot be "
-                    + "mapped. Do not delete this assertion: a DTO field that is always null is "
-                    + "invisible to every other test, because the endpoint still answers 200.",
+        if (!unresolved.isEmpty()) {
+            fail("%s -> %s leaves %d target field(s) unaccounted for: %s%n%n"
+                    + "Map them, or declare each one: sourcePath for an explicit @Mapping, "
+                    + "computed for a qualifiedByName method, unfillable if the synthetic fixture "
+                    + "cannot populate its source, unmapped if it is a real gap. Do not delete "
+                    + "this assertion: a DTO field that is always null is invisible to every "
+                    + "other test, because the endpoint still answers 200.",
                     sourceType.getSimpleName(), targetType.getSimpleName(),
-                    unmapped.size(), unmapped.keySet());
+                    unresolved.size(), unresolved.keySet());
         }
 
         assertThat(checked)
@@ -139,20 +223,46 @@ public final class MapperContract {
                 .isNotEmpty();
     }
 
-    /** The common case: nothing is expected to be unmapped. */
-    public static <S, T> void assertEveryTargetFieldArrives(
-            Class<S> sourceType, Class<T> targetType, Function<S, T> map, int floor) {
-        assertEveryTargetFieldArrives(sourceType, targetType, map, floor, Map.of());
+    /**
+     * Whether a value is what an unset field of that type holds.
+     *
+     * <p>A reference is {@code null}. A primitive is {@code false} or zero --
+     * and that case is why this method exists rather than a null check: an
+     * unmapped {@code boolean} on a DTO reads as a confident {@code false} to
+     * every consumer, which is worse than an obvious absence.
+     */
+    private static boolean isDefault(Class<?> type, Object value) {
+        if (!type.isPrimitive()) {
+            return value == null;
+        }
+        if (type == boolean.class) {
+            return Boolean.FALSE.equals(value);
+        }
+        if (type == char.class) {
+            return Character.valueOf(' ').equals(value);
+        }
+        return value instanceof Number number && number.doubleValue() == 0d;
+    }
+
+    /** Walks an explicit dotted path, e.g. {@code jobGrade.grade}. */
+    private static Object follow(Object root, String path) {
+        Object current = root;
+        for (String segment : path.split("\\.")) {
+            if (current == null) {
+                return null;
+            }
+            current = readByName(current, segment);
+        }
+        return current;
     }
 
     /**
      * The value a target field should have come from: a same-named source
      * field, or the camel-case path MapStruct would have flattened.
      *
-     * <p>{@code bankName} is tried as {@code bank} then {@code name};
-     * {@code provinceCommitteeCode} as {@code province.committeeCode} and
-     * {@code provinceCommittee.code}. Returns {@code null} when nothing
-     * resolves, which is the caller's signal to fail by name.
+     * <p>{@code bankName} is tried as {@code bank} then {@code name}. Returns
+     * {@code null} when nothing resolves, which is the caller's signal to fail
+     * by name.
      */
     private static Object resolve(Object root, String targetFieldName) {
         Object direct = readByName(root, targetFieldName);
