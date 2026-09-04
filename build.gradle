@@ -90,7 +90,16 @@ dependencies {
 // ---------------------------------------------------------------------------
 
 def junitXmlInto = { Test t, String name ->
-	t.reports.junitXml.outputLocation = layout.projectDirectory.dir("reports/junit/${name}")
+	def dir = layout.projectDirectory.dir("reports/junit/${name}")
+	t.reports.junitXml.outputLocation = dir
+	// Gradle overwrites the files it produces and removes nothing else, so a
+	// deleted or renamed test leaves its last result behind forever. That stale
+	// XML is then counted by every report reader and uploaded by CI as a test
+	// that still exists -- observed here: a temporary class deleted from the
+	// source tree kept appearing in the totals. Clear the directory first.
+	t.doFirst {
+		delete dir
+	}
 }
 
 tasks.named('test', Test) {
