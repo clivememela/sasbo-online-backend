@@ -4,8 +4,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceAccessMode;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,7 +11,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.location.City;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Town;
 import za.co.titandynamix.sasbo_online_backend.fixtures.LocationFixture;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractPostgresIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,10 +42,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * report is simply short. Recorded as a finding for the CI contract, and
  * mitigated here by keeping the names short.
  */
-// READ_WRITE: resets the database and writes rows.
-@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ_WRITE)
 @DisplayName("The location repositories against the real migration chain")
-class LocationIT extends AbstractPostgresIT {
+class LocationIT extends AbstractWritingIT {
 
     @Autowired
     private ProvinceRepository provinceRepository;
@@ -63,14 +59,6 @@ class LocationIT extends AbstractPostgresIT {
 
     @Autowired
     private AreaRepository areaRepository;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @BeforeEach
-    void resetDatabase() {
-        DatabaseReset.reset(this.jdbc);
-    }
 
     @Nested
     @DisplayName("ProvinceRepository")

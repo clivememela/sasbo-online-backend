@@ -5,8 +5,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceAccessMode;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,7 +14,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
 import za.co.titandynamix.sasbo_online_backend.fixtures.BankFixture;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractPostgresIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
@@ -46,10 +44,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * report is simply short. Recorded as a finding for the CI contract, and
  * mitigated here by keeping the names short.
  */
-// READ_WRITE: resets the database and writes rows.
-@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ_WRITE)
 @DisplayName("The reference-data repositories against the real migration chain")
-class ReferenceDataIT extends AbstractPostgresIT {
+class ReferenceDataIT extends AbstractWritingIT {
 
     @Autowired
     private JobGradeRepository jobGradeRepository;
@@ -68,14 +64,6 @@ class ReferenceDataIT extends AbstractPostgresIT {
 
     @Autowired
     private UnionStructureRepository unionStructureRepository;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @BeforeEach
-    void resetDatabase() {
-        DatabaseReset.reset(this.jdbc);
-    }
 
     @Nested
     @DisplayName("JobGradeRepository")
