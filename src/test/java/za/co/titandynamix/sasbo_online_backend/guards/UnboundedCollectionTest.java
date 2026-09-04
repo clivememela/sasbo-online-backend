@@ -78,14 +78,14 @@ class UnboundedCollectionTest {
     @DisplayName("the scan finds the controllers and the list endpoints it is meant to grade")
     void theScanIsNotVacuous() {
         assertNonVacuousScan(MainSourceInventory.inLayer(Layer.CONTROLLER), 10, "controllers");
-        assertNonVacuousScan(collectionEndpoints(), 8, "collection-returning endpoints");
+        assertNonVacuousScan(ENDPOINTS, 8, "collection-returning endpoints");
     }
 
     @Test
     @Disabled(KnownDefects.COLLECTION_ENDPOINTS_ARE_UNBOUNDED)
     @DisplayName("every collection endpoint is bounded")
     void everyCollectionEndpointIsBounded() {
-        List<String> unbounded = collectionEndpoints().stream()
+        List<String> unbounded = ENDPOINTS.stream()
                 .filter(e -> !e.bounded())
                 .map(Endpoint::describe)
                 .toList();
@@ -103,7 +103,7 @@ class UnboundedCollectionTest {
         // The named instance. The disabled test above cannot report a
         // regression, because it is red by design -- so the specific case the
         // finding rests on is asserted separately and positively.
-        List<Endpoint> memberEndpoints = collectionEndpoints().stream()
+        List<Endpoint> memberEndpoints = ENDPOINTS.stream()
                 .filter(e -> e.controller().equals("MemberController"))
                 .toList();
 
@@ -129,6 +129,22 @@ class UnboundedCollectionTest {
                             + "controller exists. Remove the entry", entry.getKey(),
                             entry.getValue())
                     .contains(entry.getKey());
+
+            // The half this test's own name promised and did not deliver. Only
+            // asserting that the controller EXISTS would leave an entry sitting
+            // on a controller that no longer returns a collection -- an
+            // exemption for a rule it is no longer breaking, which is exactly
+            // the stale-list rot every other guard here asserts against.
+            //
+            // ACBController is the deliberate exception: it exposes no
+            // endpoints at all, which is itself a recorded finding.
+            if (entry.getKey().equals("ACBController")) {
+                continue;
+            }
+            assertThat(ENDPOINTS)
+                    .as("%s is allowlisted as bounded-by-nature but no longer returns a "
+                            + "collection. Delete the entry", entry.getKey())
+                    .anyMatch(e -> e.controller().equals(entry.getKey()));
         }
     }
 
@@ -138,17 +154,22 @@ class UnboundedCollectionTest {
         }
     }
 
+    /** Computed once: the source it derives from cannot change mid-run. */
+    private static final List<Endpoint> ENDPOINTS = collectionEndpoints();
+
     private static List<Endpoint> collectionEndpoints() {
         List<Endpoint> found = new ArrayList<>();
         for (MainClassSource controller : MainSourceInventory.inLayer(Layer.CONTROLLER)) {
             boolean allowlisted = BOUNDED_BY_NATURE.containsKey(controller.name());
+            // Both depend on the controller, not on the individual match, so
+            // they are computed once per file rather than once per endpoint.
+            boolean paginated = controller.contains("Pageable")
+                    || controller.contains("Page<")
+                    || controller.contains("Slice<");
             Matcher matcher = COLLECTION_ENDPOINT.matcher(controller.code());
             while (matcher.find()) {
                 int line = 1 + (int) controller.code()
                         .substring(0, matcher.start()).chars().filter(c -> c == '\n').count();
-                boolean paginated = controller.contains("Pageable")
-                        || controller.contains("Page<")
-                        || controller.contains("Slice<");
                 found.add(new Endpoint(controller.name(), line, allowlisted || paginated));
             }
         }

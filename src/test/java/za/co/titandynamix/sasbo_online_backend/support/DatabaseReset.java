@@ -138,7 +138,24 @@ public final class DatabaseReset {
         return Map.copyOf(taken);
     }
 
+    /**
+     * Every table the reset truncates, read once.
+     *
+     * <p>The list cannot change after the migrations have run, and this used to
+     * be an {@code information_schema} query on every single reset.
+     */
     private static List<String> allTablesExceptHistory(JdbcTemplate jdbc) {
+        List<String> cached = tables;
+        if (cached == null) {
+            cached = readTableNames(jdbc);
+            tables = cached;
+        }
+        return cached;
+    }
+
+    private static volatile List<String> tables;
+
+    private static List<String> readTableNames(JdbcTemplate jdbc) {
         return jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables "
                         + "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' "
@@ -146,13 +163,25 @@ public final class DatabaseReset {
                 String.class, FLYWAY_HISTORY);
     }
 
+    /**
+     * Rewrites one seeded table from the snapshot, in a single batch.
+     *
+     * <p>One statement per table rather than one per row. The three seeded
+     * tables hold 58 rows between them, and this runs on both sides of every
+     * integration test -- around a hundred times a run -- so a row-at-a-time
+     * insert was ~5,800 round trips to the container for work whose SQL is
+     * identical every time. Every row of a table has the same columns, because
+     * they all came from one {@code SELECT *}, so the statement is built once.
+     */
     private static void restore(JdbcTemplate jdbc, String table, List<Map<String, Object>> rows) {
-        for (Map<String, Object> row : rows) {
-            List<String> columns = new ArrayList<>(row.keySet());
+        if (!rows.isEmpty()) {
+            List<String> columns = new ArrayList<>(rows.get(0).keySet());
             String placeholders = String.join(", ", columns.stream().map(c -> "?").toList());
-            jdbc.update("INSERT INTO " + table + " (" + String.join(", ", columns) + ") "
-                            + "VALUES (" + placeholders + ")",
-                    columns.stream().map(row::get).toArray());
+            List<Object[]> values = rows.stream()
+                    .map(row -> columns.stream().map(row::get).toArray())
+                    .toList();
+            jdbc.batchUpdate("INSERT INTO " + table + " (" + String.join(", ", columns) + ") "
+                    + "VALUES (" + placeholders + ")", values);
         }
         // Explicit ids were just written, so the identity sequence still points at
         // 1 and the next JPA insert would collide. Left unset, this is a failure

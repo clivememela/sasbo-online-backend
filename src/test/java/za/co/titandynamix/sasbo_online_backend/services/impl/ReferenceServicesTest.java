@@ -51,7 +51,6 @@ class ReferenceServicesTest {
 
     @Nested
     @DisplayName("ProvinceServiceImpl")
-    @ExtendWith(MockitoExtension.class)
     class Provinces {
 
         @Mock private ProvinceRepository provinceRepository;
@@ -95,7 +94,6 @@ class ReferenceServicesTest {
 
     @Nested
     @DisplayName("RecruitmentChannelServiceImpl")
-    @ExtendWith(MockitoExtension.class)
     class RecruitmentChannels {
 
         @Mock private RecruitmentChannelRepository repository;
@@ -185,7 +183,6 @@ class ReferenceServicesTest {
 
     @Nested
     @DisplayName("DeletionCodeServiceImpl")
-    @ExtendWith(MockitoExtension.class)
     class DeletionCodes {
 
         @Mock private DeletionCodeRepository deletionCodeRepository;
@@ -226,7 +223,6 @@ class ReferenceServicesTest {
 
     @Nested
     @DisplayName("BankingServiceImpl")
-    @ExtendWith(MockitoExtension.class)
     class Banking {
 
         @Mock private za.co.titandynamix.sasbo_online_backend.services.BankBranchService
@@ -256,7 +252,6 @@ class ReferenceServicesTest {
 
     @Nested
     @DisplayName("BankBranchServiceImpl")
-    @ExtendWith(MockitoExtension.class)
     class BankBranches {
 
         @Mock private BankBranchRepository bankBranchRepository;

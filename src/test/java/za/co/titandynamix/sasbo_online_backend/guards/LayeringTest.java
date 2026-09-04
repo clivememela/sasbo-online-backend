@@ -122,9 +122,7 @@ class LayeringTest {
     @Test
     @DisplayName("no entity or DTO depends on a service or a repository")
     void dataTypesDependOnNothingAboveThem() {
-        List<MainClassSource> dataTypes = new ArrayList<>();
-        dataTypes.addAll(MainSourceInventory.inLayer(Layer.ENTITY));
-        dataTypes.addAll(MainSourceInventory.inLayer(Layer.DTO));
+        List<MainClassSource> dataTypes = MainSourceInventory.dataTypes();
 
         assertNonVacuousScan(dataTypes, 30, "entities and DTOs");
 

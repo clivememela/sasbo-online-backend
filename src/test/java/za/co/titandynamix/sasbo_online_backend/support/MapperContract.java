@@ -239,7 +239,7 @@ public final class MapperContract {
             return Boolean.FALSE.equals(value);
         }
         if (type == char.class) {
-            return Character.valueOf(' ').equals(value);
+            return Character.valueOf('\0').equals(value);
         }
         return value instanceof Number number && number.doubleValue() == 0d;
     }
@@ -296,12 +296,12 @@ public final class MapperContract {
         return null;
     }
 
+    /**
+     * Reads a field. Delegates to {@link Synthetic#read}, which is where the
+     * {@code setAccessible} and the checked-exception wrapping live -- three
+     * places were doing that same dance around one line.
+     */
     private static Object read(Object owner, Field field) {
-        try {
-            field.setAccessible(true);
-            return field.get(owner);
-        } catch (IllegalAccessException e) {
-            throw new IllegalStateException("Could not read " + field.getName(), e);
-        }
+        return Synthetic.read(owner, field);
     }
 }

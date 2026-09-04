@@ -44,6 +44,9 @@ public final class MemberFixture {
      */
     public static final String SYNTHETIC_ID = "9404275800086";
 
+    /** Synthetic. A South African account number is 11 digits; this one is invented. */
+    public static final String SYNTHETIC_ACCOUNT = "62001234567";
+
     /** Fixed. Nothing here reads the wall clock. */
     private static final LocalDateTime CREATED = LocalDateTime.of(2024, 1, 15, 8, 0);
 

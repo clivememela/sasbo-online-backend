@@ -40,7 +40,31 @@ public final class TestSourceInventory {
             java.util.regex.Pattern.compile("extends\\s+Abstract\\w*IT\\b");
 
     /** One test class as found on disk. */
-    public record TestClassSource(Path path, String name, String body) {
+    public static final class TestClassSource {
+
+        private final Path path;
+        private final String name;
+        private final String body;
+        private String blankedCode;
+
+        TestClassSource(Path path, String name, String body) {
+            this.path = path;
+            this.name = name;
+            this.body = body;
+        }
+
+        public Path path() {
+            return this.path;
+        }
+
+        public String name() {
+            return this.name;
+        }
+
+        public String body() {
+            return this.body;
+        }
+
 
         /**
          * Integration lane membership. A class is in it if it carries the tag
@@ -56,6 +80,28 @@ public final class TestSourceInventory {
          * there. A rule that needs updating when the harness grows is a rule
          * that will not be.
          */
+        /**
+         * The source with every comment blanked, line numbers preserved.
+         *
+         * <p>{@link #body()} is the raw text, and a guard searching it convicts
+         * a class for a comment that merely mentions the thing being guarded --
+         * including a comment explaining why the class does the right thing.
+         * That is not hypothetical: the security-slice guard's first run
+         * convicted the reference controller slice for describing the rule, and
+         * convicted the security slice itself for saying which annotation it
+         * deliberately does not carry.
+         *
+         * <p>Computed on demand and cached, because most guards never ask.
+         */
+        public String code() {
+            String blanked = this.blankedCode;
+            if (blanked == null) {
+                blanked = MainSourceInventory.blankComments(this.body);
+                this.blankedCode = blanked;
+            }
+            return blanked;
+        }
+
         public boolean isIntegration() {
             return body.contains("@Tag(\"integration\")")
                     || INHERITS_THE_HARNESS.matcher(body).find();
@@ -85,8 +131,50 @@ public final class TestSourceInventory {
      * <p>The filename convention is the discovery rule, and it is the same one
      * Gradle's test tasks use, so this inventory and the runner cannot disagree
      * about what a test class is.
+     *
+     * <p>Read once and held, for the same reason as the production inventory:
+     * three guard classes call this nine times a run, over 57 files, and source
+     * does not change while the JVM is running.
      */
     public static List<TestClassSource> all() {
+        List<TestClassSource> cached = ALL;
+        if (cached == null) {
+            synchronized (TestSourceInventory.class) {
+                cached = ALL;
+                if (cached == null) {
+                    cached = read();
+                    ALL = cached;
+                }
+            }
+        }
+        return cached;
+    }
+
+    /**
+     * Every test class except the one doing the scanning.
+     *
+     * <p>A guard that searches source for a pattern <b>contains that pattern</b>,
+     * as a string literal in its own file — so it convicts itself the moment it
+     * is written. Comment blanking does not help: these are literals, not
+     * comments, and blanking literals would hide the SQL in a {@code @Query},
+     * which is the thing a repository guard most wants to read.
+     *
+     * <p>So a scanner excludes itself, explicitly and by name. This is the same
+     * trap {@code hasDisabledAnnotation} solved by requiring the annotation to
+     * open a line; that trick works for annotations and not for the general
+     * case, which is what this method is for.
+     *
+     * @param scanner the guard doing the scanning
+     */
+    public static List<TestClassSource> allExcept(Class<?> scanner) {
+        return all().stream()
+                .filter(c -> !c.name().equals(scanner.getSimpleName()))
+                .toList();
+    }
+
+    private static volatile List<TestClassSource> ALL;
+
+    private static List<TestClassSource> read() {
         if (!Files.isDirectory(TEST_SOURCE_ROOT)) {
             throw new IllegalStateException(
                     "No test sources at " + TEST_SOURCE_ROOT.toAbsolutePath()

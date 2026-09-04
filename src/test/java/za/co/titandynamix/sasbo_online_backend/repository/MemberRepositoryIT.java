@@ -1,11 +1,10 @@
 package za.co.titandynamix.sasbo_online_backend.repository;
 
-import org.junit.jupiter.api.BeforeEach;
+import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
-import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
@@ -13,6 +12,7 @@ import za.co.titandynamix.sasbo_online_backend.fixtures.LocationFixture;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
+import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
 
 import java.util.List;
 
@@ -34,6 +34,9 @@ class MemberRepositoryIT extends AbstractWritingIT {
 
     @Autowired
     private AreaRepository areaRepository;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @Test
     @DisplayName("existsByMembershipNumber distinguishes a taken number from a free one")
@@ -174,6 +177,31 @@ class MemberRepositoryIT extends AbstractWritingIT {
     @DisplayName("starts from the migration chain's own state, not a sibling's leftovers")
     void startsFromTheMigrationSeed() {
         assertThat(this.memberRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("listing members costs the same number of queries at 5 rows and at 50")
+    void listingDoesNotGrowWithTheData() {
+        // The member listing is the one that will hurt: Member holds five
+        // @ManyToOne relations and a @OneToOne, all lazy, and GET /api/members
+        // returns every row with every field. If any of them is resolved during
+        // mapping, the cost grows with the register.
+        //
+        // Measured at two sizes, because one measurement cannot tell a constant
+        // cost from a growing one.
+        QueryCount.assertConstantAcrossSizes(
+                this.entityManagerFactory,
+                this::seedTo,
+                () -> this.memberRepository.findAll().forEach(Member::getSurname),
+                5, 50);
+    }
+
+    /** Rebuilds the table with exactly {@code rows} members. */
+    private void seedTo(int rows) {
+        DatabaseReset.reset(this.jdbc);
+        for (int i = 1; i <= rows; i++) {
+            this.memberRepository.save(MemberFixture.withSurname("Member" + i));
+        }
     }
 
     private static Member inArea(Member member, Area area) {

@@ -1,18 +1,15 @@
 package za.co.titandynamix.sasbo_online_backend.repository;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.entity.location.City;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Town;
 import za.co.titandynamix.sasbo_online_backend.fixtures.LocationFixture;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
-import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

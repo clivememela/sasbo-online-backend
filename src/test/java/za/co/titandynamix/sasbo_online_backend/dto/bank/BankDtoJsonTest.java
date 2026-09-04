@@ -1,12 +1,10 @@
 package za.co.titandynamix.sasbo_online_backend.dto.bank;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import org.springframework.boot.test.json.JacksonTester;
-import org.springframework.context.annotation.Import;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.support.Synthetic;
 
@@ -28,16 +26,22 @@ import static org.assertj.core.api.Assertions.assertThat;
  * where "the server is authoritative, the client fetches" stops being an
  * intention and becomes a test.
  */
-@JsonTest
-@Import(JacksonConfig.class)
+// No @JsonTest, and no Spring context. JacksonConfig.objectMapper() takes no
+// arguments, so the application's real mapper is one constructor call away --
+// and a context boot is the most expensive thing in the fast lane. The
+// assertions are unchanged: this is still the application's mapper, not Boot's
+// default, which is the whole point of the file.
 @DisplayName("BankDto payload contract")
 class BankDtoJsonTest {
 
-    @Autowired
+    private final ObjectMapper objectMapper = new JacksonConfig().objectMapper();
+
     private JacksonTester<BankDto> json;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @BeforeEach
+    void bindTester() {
+        JacksonTester.initFields(this, this.objectMapper);
+    }
 
     @Test
     @DisplayName("serialises exactly the three field names the client reads")

@@ -12,6 +12,9 @@ import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapperImpl;
+import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
@@ -69,16 +72,13 @@ class MemberControllerSecurityTest {
     // which this slice does not exercise -- but the context will not start
     // without them.
     @MockitoBean
-    private za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository
-            representativeRepository;
+    private RepresentativeRepository representativeRepository;
 
     @MockitoBean
-    private za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository
-            unionStructureRepository;
+    private UnionStructureRepository unionStructureRepository;
 
     @MockitoBean
-    private za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository
-            representativeRoleRepository;
+    private RepresentativeRoleRepository representativeRoleRepository;
 
     @Test
     @Disabled(KnownDefects.POPIA_ANONYMOUS_READ_IS_ALLOWED)

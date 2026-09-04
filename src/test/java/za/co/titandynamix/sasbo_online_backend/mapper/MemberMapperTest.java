@@ -20,15 +20,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * worse than nothing here.
  */
 @DisplayName("MemberMapper")
-class MemberMapperTest {
+class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
 
-    private final MemberMapper mapper = new MemberMapperImpl();
+    private static final MemberMapper MAPPER = new MemberMapperImpl();
 
-    @Test
-    @DisplayName("every field on MemberDto arrives from a fully populated Member")
-    void everyTargetFieldArrives() {
-        MapperContract.assertEveryTargetFieldArrives(
-                Member.class, MemberDto.class, this.mapper::toDto, 40,
+    MemberMapperTest() {
+        super(Member.class, MemberDto.class, MAPPER::toDto, 40,
                 MapperContract.expecting()
                         // Every explicit @Mapping on MemberMapper, transcribed.
                         // Not duplication: several of these targets ALSO exist as
@@ -78,12 +75,7 @@ class MemberMapperTest {
         Member member = new Member();
         member.setIsRepresentative(Boolean.TRUE);
 
-        assertThat(this.mapper.toDto(member).isRepresentative()).isTrue();
+        assertThat(MAPPER.toDto(member).isRepresentative()).isTrue();
     }
 
-    @Test
-    @DisplayName("maps a null entity to null rather than an empty DTO")
-    void mapsNullToNull() {
-        assertThat(this.mapper.toDto(null)).isNull();
-    }
 }

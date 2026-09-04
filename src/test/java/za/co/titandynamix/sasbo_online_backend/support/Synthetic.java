@@ -7,7 +7,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -80,7 +82,6 @@ public final class Synthetic {
                 continue;
             }
             try {
-                field.setAccessible(true);
                 field.set(target, value);
             } catch (IllegalAccessException e) {
                 throw new IllegalStateException("Could not set " + field.getName(), e);
@@ -96,17 +97,45 @@ public final class Synthetic {
      * coverage counter and the outer-class reference on a nested class. Setting
      * either is meaningless, and setting JaCoCo's breaks the run.
      */
-    public static java.util.List<Field> fieldsOf(Class<?> type) {
-        java.util.List<Field> fields = new java.util.ArrayList<>();
+    public static List<Field> fieldsOf(Class<?> type) {
+        return FIELDS.computeIfAbsent(type, Synthetic::walkFields);
+    }
+
+    /**
+     * Reads one field, with the checked exception turned into an unchecked one.
+     *
+     * <p>Here rather than in each caller: three places were doing the same
+     * {@code setAccessible} plus {@code try/catch} dance around one line.
+     */
+    public static Object read(Object owner, Field field) {
+        try {
+            return field.get(owner);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Could not read " + field.getName(), e);
+        }
+    }
+
+    /**
+     * Cached per class: {@code getDeclaredFields()} clones its array on every
+     * call, and the mapper contract asks for a class's fields once per field
+     * lookup -- several hundred rebuilds for one 61-field assertion.
+     */
+    private static final Map<Class<?>, List<Field>> FIELDS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static List<Field> walkFields(Class<?> type) {
+        List<Field> fields = new ArrayList<>();
         for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
             for (Field f : c.getDeclaredFields()) {
                 if (Modifier.isStatic(f.getModifiers()) || f.isSynthetic()) {
                     continue;
                 }
+                // Once, when the list is built, rather than on every read.
+                f.setAccessible(true);
                 fields.add(f);
             }
         }
-        return fields;
+        return List.copyOf(fields);
     }
 
     private static Object valueFor(Class<?> type, String seed, int depth, Set<Class<?>> onPath) {

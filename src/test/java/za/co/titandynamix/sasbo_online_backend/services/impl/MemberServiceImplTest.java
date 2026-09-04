@@ -29,6 +29,7 @@ import za.co.titandynamix.sasbo_online_backend.support.Synthetic;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -143,16 +144,11 @@ class MemberServiceImplTest {
         //
         // Found by the reddening change: planting a silent field drop left this
         // test green. The snapshot is what makes it an assertion.
-        Map<String, String> before = new java.util.LinkedHashMap<>();
+        Map<String, String> before = new LinkedHashMap<>();
         for (Field field : fields) {
-            field.setAccessible(true);
-            try {
-                Object value = field.get(captured);
-                if (value != null) {
-                    before.put(field.getName(), String.valueOf(value));
-                }
-            } catch (IllegalAccessException e) {
-                throw new IllegalStateException(field.getName(), e);
+            Object value = Synthetic.read(captured, field);
+            if (value != null) {
+                before.put(field.getName(), String.valueOf(value));
             }
         }
 
@@ -167,14 +163,8 @@ class MemberServiceImplTest {
             if (SERVICE_MAY_CHANGE.containsKey(field.getName())) {
                 continue;
             }
-            field.setAccessible(true);
             String expected = before.get(field.getName());
-            Object actual;
-            try {
-                actual = field.get(reachedTheRepository);
-            } catch (IllegalAccessException e) {
-                throw new IllegalStateException(field.getName(), e);
-            }
+            Object actual = Synthetic.read(reachedTheRepository, field);
             if (expected == null) {
                 continue;
             }

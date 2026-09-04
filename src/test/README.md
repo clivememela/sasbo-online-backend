@@ -312,10 +312,23 @@ here expires: re-measure, never re-quote.
 
 | | Command | Size | Wall clock | Budget |
 | :-- | :-- | :-- | :-- | :-- |
-| **Fast** | `./gradlew test` | 236 tests · 20 skipped | **63–70s** | **90s** — see below |
-| **Integration** | `./gradlew integrationTest` | 62 tests · 1 skipped | **75–130s** | **180s**, set from the first green run |
-| **Both** | `./gradlew verify` | | 140–220s | — |
-| **The application still builds** | `./gradlew build` | | 58s | — |
+| **Fast** | `./gradlew test` | 243 tests · 20 skipped | **57–64s** | **90s** — see below |
+| **Integration** | `./gradlew integrationTest` | 65 tests · 1 skipped | **131–174s** | **240s**, set from the measured range |
+| **Both** | `./gradlew verify --rerun-tasks` | | 149–264s | — |
+| **The application still builds** | `./gradlew build` | | 66s | — |
+
+> **These numbers moved during the phase's refactor pass, in both directions.**
+> The fast lane came *down* from 77–82s: `PiiInLogsTest` is `@Isolated`, and
+> while an isolated class runs the whole suite is single-threaded — so its two
+> static source scans were costing wall clock that nothing shared. They moved to
+> `PiiToStringTest`, which needs no isolation. Two source inventories and the
+> reflective field walk were also memoised, and one Spring context was deleted
+> outright (`BankDtoJsonTest` builds the application's `ObjectMapper` directly).
+>
+> The integration lane went *up*, from 75–130s, because the phase added three
+> query-count tests that each seed 5 rows and then 50. That is the cost of
+> measuring N+1 at two sizes, and it is worth it; the budget is set from the
+> observed range rather than from the old one.
 
 ### The fast lane's budget was raised, and that is worth explaining
 

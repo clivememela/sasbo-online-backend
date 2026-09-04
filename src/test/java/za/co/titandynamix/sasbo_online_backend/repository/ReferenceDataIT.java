@@ -1,13 +1,12 @@
 package za.co.titandynamix.sasbo_online_backend.repository;
 
-import org.junit.jupiter.api.BeforeEach;
+import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.codes.DeletionCode;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
@@ -18,6 +17,7 @@ import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
+import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,6 +52,9 @@ class ReferenceDataIT extends AbstractWritingIT {
 
     @Autowired
     private BankRepository bankRepository;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @Autowired
     private DeletionCodeRepository deletionCodeRepository;
@@ -104,6 +107,22 @@ class ReferenceDataIT extends AbstractWritingIT {
             assertThat(ReferenceDataIT.this.jobGradeRepository
                     .findByBank_UniversalBranchCode("000000"))
                     .isEmpty();
+        }
+
+        @Test
+        @DisplayName("listing job grades costs the same queries at 5 rows and at 50")
+        void listingDoesNotGrowWithTheData() {
+            // JobGrade.bank is FetchType.EAGER, the shape that produces one
+            // extra statement per row. Whether it actually does is a planning
+            // decision Hibernate makes, so it is measured rather than reasoned
+            // about -- at two sizes, because one number cannot tell a constant
+            // cost from a growing one.
+            QueryCount.assertConstantAcrossSizes(
+                    ReferenceDataIT.this.entityManagerFactory,
+                    ReferenceDataIT.this::seedGradesTo,
+                    () -> ReferenceDataIT.this.jobGradeRepository.findAll()
+                            .forEach(grade -> grade.getBank().getName()),
+                    5, 50);
         }
 
         @Test
@@ -241,6 +260,15 @@ class ReferenceDataIT extends AbstractWritingIT {
             assertThatThrownBy(() -> ReferenceDataIT.this.unionStructureRepository
                     .saveAndFlush(MemberFixture.structure("Provincial Committee")))
                     .isInstanceOf(DataIntegrityViolationException.class);
+        }
+    }
+
+    /** Rebuilds the job grades with exactly {@code rows} entries on one bank. */
+    private void seedGradesTo(int rows) {
+        DatabaseReset.reset(this.jdbc);
+        Bank bank = this.bankRepository.save(BankFixture.named("Absa"));
+        for (int i = 1; i <= rows; i++) {
+            this.saveGrade(bank, "BA" + i);
         }
     }
 

@@ -81,8 +81,53 @@ public final class MainSourceInventory {
         }
     }
 
-    /** Every production class in the application package. */
+    /**
+     * Every production class in the application package.
+     *
+     * <p>Read once and held. Five guard classes call this between fifteen and
+     * twenty times per run, and each call walked 122 files, read half a megabyte
+     * and ran a character-by-character comment blanker over it. Source cannot
+     * change while the JVM is running, so re-reading it proved nothing and cost
+     * a measurable slice of a fast lane that is already at its budget.
+     */
     public static List<MainClassSource> all() {
+        List<MainClassSource> cached = ALL;
+        if (cached == null) {
+            synchronized (MainSourceInventory.class) {
+                cached = ALL;
+                if (cached == null) {
+                    cached = read();
+                    ALL = cached;
+                }
+            }
+        }
+        return cached;
+    }
+
+    /** Every class in one layer. Derived from the cached read, not a fresh one. */
+    public static List<MainClassSource> inLayer(Layer layer) {
+        return BY_LAYER.computeIfAbsent(layer,
+                l -> all().stream().filter(c -> c.layer() == l).toList());
+    }
+
+    /**
+     * Entities and DTOs together -- the "data types" three separate guards were
+     * each assembling by hand, with the same two {@code addAll} calls and the
+     * same floor. One definition, so a change to what counts as a data type is
+     * one edit.
+     */
+    public static List<MainClassSource> dataTypes() {
+        List<MainClassSource> both = new ArrayList<>(inLayer(Layer.ENTITY));
+        both.addAll(inLayer(Layer.DTO));
+        return List.copyOf(both);
+    }
+
+    private static volatile List<MainClassSource> ALL;
+
+    private static final java.util.Map<Layer, List<MainClassSource>> BY_LAYER =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static List<MainClassSource> read() {
         if (!Files.isDirectory(MAIN_SOURCE_ROOT)) {
             throw new IllegalStateException(
                     "No production sources at " + MAIN_SOURCE_ROOT.toAbsolutePath()
@@ -106,11 +151,6 @@ public final class MainSourceInventory {
         } catch (IOException e) {
             throw new UncheckedIOException("Could not read the production sources", e);
         }
-    }
-
-    /** Every class in one layer. */
-    public static List<MainClassSource> inLayer(Layer layer) {
-        return all().stream().filter(c -> c.layer() == layer).toList();
     }
 
     private static Layer layerOf(Path path) {
@@ -138,7 +178,7 @@ public final class MainSourceInventory {
      * fails in the direction of a guard convicting the wrong line -- which is
      * how a guard gets switched off. This walks the characters instead.
      */
-    static String blankComments(String source) {
+    public static String blankComments(String source) {
         StringBuilder out = new StringBuilder(source.length());
         int i = 0;
         while (i < source.length()) {

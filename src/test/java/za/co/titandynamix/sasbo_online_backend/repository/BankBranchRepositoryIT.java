@@ -1,13 +1,10 @@
 package za.co.titandynamix.sasbo_online_backend.repository;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceAccessMode;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.persistence.EntityManagerFactory;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.entity.location.City;
@@ -15,8 +12,9 @@ import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.fixtures.BankFixture;
 import za.co.titandynamix.sasbo_online_backend.fixtures.LocationFixture;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractPostgresIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
+import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,10 +29,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * in the application, and the shape most likely to compile into SQL nobody
  * expects.
  */
-// READ_WRITE: resets the database and writes rows.
-@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ_WRITE)
 @DisplayName("BankBranchRepository against the real migration chain")
-class BankBranchRepositoryIT extends AbstractPostgresIT {
+class BankBranchRepositoryIT extends AbstractWritingIT {
 
     @Autowired
     private BankBranchRepository bankBranchRepository;
@@ -43,18 +39,13 @@ class BankBranchRepositoryIT extends AbstractPostgresIT {
     private BankRepository bankRepository;
 
     @Autowired
+    private EntityManagerFactory entityManagerFactory;
+
+    @Autowired
     private ProvinceRepository provinceRepository;
 
     @Autowired
     private CityRepository cityRepository;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @BeforeEach
-    void resetDatabase() {
-        DatabaseReset.reset(this.jdbc);
-    }
 
     @Test
     @DisplayName("existsByBank_NameAndBranchName needs both parts to match")
@@ -179,6 +170,34 @@ class BankBranchRepositoryIT extends AbstractPostgresIT {
 
         assertThatThrownBy(() -> this.saveBranch(absa, "Rosebank", "632005", null))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("listing branches costs the same number of queries at 5 rows and at 50")
+    void listingDoesNotGrowWithTheData() {
+        // BankBranch.bank is FetchType.EAGER, which is the classic N+1 shape:
+        // Hibernate fetches the branches, then issues one more statement per
+        // branch to fill the relation. Whether it actually does depends on how
+        // it chooses to plan the query, which is exactly why this is measured
+        // rather than reasoned about.
+        //
+        // Two sizes, because one measurement cannot tell a constant cost from a
+        // growing one.
+        QueryCount.assertConstantAcrossSizes(
+                this.entityManagerFactory,
+                this::seedTo,
+                () -> this.bankBranchRepository.findAll()
+                        .forEach(branch -> branch.getBank().getName()),
+                5, 50);
+    }
+
+    /** Rebuilds the table with exactly {@code rows} branches on one bank. */
+    private void seedTo(int rows) {
+        DatabaseReset.reset(this.jdbc);
+        Bank bank = this.bankRepository.save(BankFixture.named("Absa"));
+        for (int i = 1; i <= rows; i++) {
+            this.saveBranch(bank, "Branch " + i, String.format("%06d", 600000 + i), null);
+        }
     }
 
     private static PhysicalAddress addressIn(Province province, City city) {

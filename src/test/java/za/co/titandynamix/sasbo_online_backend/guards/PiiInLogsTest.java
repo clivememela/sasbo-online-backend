@@ -9,18 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.Mockito;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
+import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.support.LogCapture;
-import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
-import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.Layer;
-import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.MainClassSource;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.assertNonVacuousScan;
 
 /**
  * Personal information does not reach the log.
@@ -53,6 +45,11 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
  */
 // @Isolated: this class runs with nothing else running beside it.
 //
+// It holds ONLY the behavioural half. The two static source scans that used to
+// live here moved to PiiToStringTest -- while an isolated class runs the whole
+// suite is single-threaded, so work in here is added to the wall clock rather
+// than shared with it, and those two tests never touched a logger.
+//
 // A lock would not do. Logback's LoggerContext is process-global, and Spring
 // Boot RESETS it -- removing every appender -- each time an application context
 // starts. Under a parallel runner, a @WebMvcTest booting in another class
@@ -70,34 +67,6 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
 @DisplayName("PII in logs")
 class PiiInLogsTest {
 
-    /**
-     * Field names that carry personal information. Substring-matched
-     * case-insensitively, so {@code memberIdentityNumber} and
-     * {@code accountNumber} are both caught without listing either.
-     */
-    private static final Set<String> PII_FIELD_MARKERS = Set.of(
-            "identitynumber", "idnumber", "passportnumber", "accountnumber",
-            "dateofbirth", "taxnumber");
-
-    /** Lombok annotations that generate a {@code toString()} over every field. */
-    private static final List<String> TOSTRING_GENERATORS = List.of("@Data", "@ToString");
-
-    /**
-     * Types that generate a {@code toString()} over PII today, and what each
-     * is. Both are response DTOs annotated {@code @Data}, which is the default
-     * reach for a DTO and the reason this is a guard rather than a review note.
-     *
-     * <p>Asserted, not suppressed: each entry is checked to still be a real
-     * violation, so removing {@code @Data} from one reddens this test until the
-     * entry goes. Changing that is a production change and is written up as a
-     * finding rather than applied by a test suite.
-     */
-    private static final Map<String, String> KNOWN_TOSTRING_OVER_PII = Map.of(
-            "MemberDto",
-            "@Data over identityNumber, passportNumber, dateOfBirth and bankAccountNumber",
-            "BankingDetailsDto",
-            "@Data over accountNumber");
-
     private LogCapture captured;
 
     @BeforeEach
@@ -114,68 +83,18 @@ class PiiInLogsTest {
     }
 
     @Test
-    @DisplayName("no new type generates a toString over a PII field")
-    void noTypeGeneratesAToStringOverPii() {
-        List<MainClassSource> dataTypes = new ArrayList<>();
-        dataTypes.addAll(MainSourceInventory.inLayer(Layer.ENTITY));
-        dataTypes.addAll(MainSourceInventory.inLayer(Layer.DTO));
-
-        assertNonVacuousScan(dataTypes, 30, "entities and DTOs");
-
-        List<String> offenders = new ArrayList<>();
-        for (MainClassSource type : dataTypes) {
-            if (KNOWN_TOSTRING_OVER_PII.containsKey(type.name()) || !carriesPii(type)) {
-                continue;
-            }
-            for (String generator : TOSTRING_GENERATORS) {
-                if (type.linesContaining(generator).isEmpty()) {
-                    continue;
-                }
-                offenders.add(type.at(type.linesContaining(generator).get(0))
-                        + " " + generator + " over a PII field");
-            }
-        }
-
-        assertThat(offenders)
-                .as("a generated toString() over personal information puts every field one log "
-                        + "format argument away from the log file. Use @Getter/@Setter instead "
-                        + "of @Data, or @ToString.Exclude the field")
-                .isEmpty();
-    }
-
-    @Test
-    @DisplayName("every listed toString-over-PII exception is still real")
-    void knownToStringViolationsAreStillViolations() {
-        List<MainClassSource> dataTypes = new ArrayList<>();
-        dataTypes.addAll(MainSourceInventory.inLayer(Layer.ENTITY));
-        dataTypes.addAll(MainSourceInventory.inLayer(Layer.DTO));
-
-        for (Map.Entry<String, String> entry : KNOWN_TOSTRING_OVER_PII.entrySet()) {
-            MainClassSource type = dataTypes.stream()
-                    .filter(t -> t.name().equals(entry.getKey()))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError(
-                            entry.getKey() + " is listed but no longer exists. Remove the entry."));
-
-            boolean stillGenerates = TOSTRING_GENERATORS.stream()
-                    .anyMatch(g -> !type.linesContaining(g).isEmpty());
-
-            assertThat(stillGenerates && carriesPii(type))
-                    .as("%s is listed as generating a toString over PII -- \"%s\" -- but no "
-                            + "longer does. Delete the entry", entry.getKey(), entry.getValue())
-                    .isTrue();
-        }
-    }
-
-    @Test
     @DisplayName("the exception handler logs the path and the type, never the payload")
     void theExceptionHandlerLogsNoPii() {
         // The behavioural half. The catch-all is the one place in this
         // application that deliberately logs an exception, and an exception
         // raised while binding or persisting a member is exactly where an
         // identity number ends up inside a message.
-        String syntheticId = "9404275800086";
-        String syntheticAccount = "62001234567";
+        // The fixture's value, not a copy of it. This assertion is that the log
+        // does not contain the identity number the APPLICATION would have
+        // handled -- a literal drifting from the fixture would leave it
+        // asserting against a value nothing produces.
+        String syntheticId = MemberFixture.SYNTHETIC_ID;
+        String syntheticAccount = MemberFixture.SYNTHETIC_ACCOUNT;
 
         HttpServletRequest request = Mockito.mock(HttpServletRequest.class);
         Mockito.when(request.getRequestURI()).thenReturn("/api/members");
@@ -209,8 +128,4 @@ class PiiInLogsTest {
                 .contains("canary for the log capture");
     }
 
-    private static boolean carriesPii(MainClassSource type) {
-        String lowered = type.code().toLowerCase(java.util.Locale.ROOT);
-        return PII_FIELD_MARKERS.stream().anyMatch(lowered::contains);
-    }
 }
