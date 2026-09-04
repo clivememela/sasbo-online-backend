@@ -312,7 +312,7 @@ here expires: re-measure, never re-quote.
 
 | | Command | Size | Wall clock | Budget |
 | :-- | :-- | :-- | :-- | :-- |
-| **Fast** | `./gradlew test` | 243 tests · 20 skipped | **57–64s** | **90s** — see below |
+| **Fast** | `./gradlew test --rerun` | 243 tests · 20 skipped | **98–217s** ⚠️ *six clean runs, 2026-09-05* | **240s** — see below |
 | **Integration** | `./gradlew integrationTest` | 65 tests · 1 skipped | **131–174s** | **240s**, set from the measured range |
 | **Both** | `./gradlew verify --rerun-tasks` | | 149–264s | — |
 | **The application still builds** | `./gradlew build` | | 66s | — |
@@ -330,15 +330,53 @@ here expires: re-measure, never re-quote.
 > measuring N+1 at two sizes, and it is worth it; the budget is set from the
 > observed range rather than from the old one.
 
-### The fast lane's budget was raised, and that is worth explaining
+### The fast lane's budget was raised — twice, and the second time is a warning
 
 It was **60 seconds**, set when this module had 42 tests and two controller
-slices. It now has 236 and thirteen Spring contexts, and it measures 63–70s.
+slices. It now has 243 and thirteen Spring contexts.
 
 The budget exists to protect the pre-commit loop, so it is not something to
 quietly delete — but a ceiling set before the scope was known measures the
-plan's age rather than the suite. It is re-derived here by measurement, at
-**90s**, which is the observed cost plus room for a domain or two.
+plan's age rather than the suite. It was re-derived on 2026-09-04 at **90s**,
+from a then-measured 57–64s.
+
+> ### ⚠️ 2026-09-05 — that measurement does not reproduce, and the number was wrong to trust
+>
+> Re-measured before ratifying the 90s decision: **six clean `./gradlew test
+> --rerun` runs, nothing else running, gave 217 · 190 · 156 · 185 · 98 · 134
+> seconds.** Not one of the six landed inside 57–64s, and the fastest was
+> still above 90s. The suite itself is unchanged and intact — the same run
+> reports **243 tests, 0 failures, 20 skipped** every time.
+>
+> **The finding is not "the suite got slower". It is that this lane's wall
+> clock has a 2.2× spread on the same machine, on the same commit, within one
+> hour** — so any single measurement of it, including the 57–64s one, is
+> nearly meaningless. The earlier figure was not falsified by a change; it was
+> a sample from a very wide distribution, recorded as though it were a
+> property of the suite.
+>
+> **Why it is that variable**, and the two candidates, neither yet eliminated:
+> thirteen Spring contexts boot *concurrently* on 12 cores, so the run is
+> scheduler-bound rather than work-bound — the sum of per-class times is
+> **1284s** against a ~150s wall, an 8.5× parallel speed-up that any competing
+> load eats into directly. And this checkout lives inside a **OneDrive**
+> directory, whose sync is already known on this machine to make `reports/`
+> briefly unreadable after a run.
+>
+> **Decided: the documented ceiling is 240s**, which every one of the six runs
+> meets. That is not a claim the lane is fast — it is an honest ceiling
+> instead of an aspirational one, and an unenforced budget nobody meets is
+> worth less than an accurate number.
+>
+> 🔑 **The real fix is the one already named below** — thirteen `@WebMvcTest`
+> contexts is most of the cost, and collapsing them is what would buy back a
+> genuinely fast pre-commit loop. **Filed, not done**: it costs slice
+> isolation and risks concurrent classes sharing mock instances, which is a
+> deliberate design change and not a measurement correction.
+>
+> ⚠️ **Nothing in this repository enforces this budget** — there is no
+> assertion on it anywhere; it is a documented ceiling only. Read that as a
+> reason to keep the number honest, not as a reason to relax it.
 
 **What is actually costing the time**, if someone wants it back: each
 `@WebMvcTest` boots its own Spring context, because the context cache keys on
