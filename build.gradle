@@ -25,6 +25,21 @@ repositories {
 	mavenCentral()
 }
 
+// Testcontainers, deliberately ahead of the version Spring Boot 3.4.5 manages.
+//
+// Boot 3.4.5 manages 1.20.6, and 1.20.6 CANNOT TALK TO THIS DOCKER. Engine 29.6.2
+// (Desktop 4.84) answers its /info call with HTTP 400 on every named pipe it tries,
+// so Testcontainers reports "Could not find a valid Docker environment" on a machine
+// where `docker info` works perfectly. 1.21.4 connects first time. Same 1.x API, so
+// spring-boot-testcontainers is unaffected.
+//
+// It is an `ext` property rather than a platform() constraint because
+// io.spring.dependency-management FORCES its managed version: with
+// `testImplementation platform('org.testcontainers:testcontainers-bom:1.21.4')` the
+// build silently kept resolving 1.20.6. Overriding the managed property is the only
+// thing that actually moves it.
+ext['testcontainers.version'] = '1.21.4'
+
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -47,11 +62,70 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'com.h2database:h2'
 
+	// Integration lane: a real, throwaway PostgreSQL with the migration chain applied.
+	// Versions are deliberately absent. io.spring.dependency-management already imports
+	// the Testcontainers BOM that Boot 3.4.5 was built and tested against (1.20.6), and
+	// an explicit testcontainers-bom here was silently losing to it -- the file said
+	// 1.20.4 and the build resolved 1.20.6. One source of truth is better than a pin
+	// that does not hold.
+	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.named('test') {
-	useJUnitPlatform()
+// ---------------------------------------------------------------------------
+// Two lanes.
+//
+//   test             fast, H2, no Docker. The pre-commit loop. Untagged tests.
+//   integrationTest  a real PostgreSQL container with the migration chain
+//                    applied. Tagged `integration`.
+//   verify           both, in one command.
+//
+// `check` deliberately still depends on `test` alone, so `./gradlew build`
+// keeps working with no Docker daemon. Hanging integrationTest off `check`
+// would add a Docker requirement to a task everyone already runs -- see the
+// integrationTest description below.
+// ---------------------------------------------------------------------------
+
+def junitXmlInto = { Test t, String name ->
+	t.reports.junitXml.outputLocation = layout.projectDirectory.dir("reports/junit/${name}")
+}
+
+tasks.named('test', Test) {
+	useJUnitPlatform {
+		excludeTags 'integration'
+	}
+	junitXmlInto(delegate, 'test')
+}
+
+tasks.register('integrationTest', Test) {
+	group = 'verification'
+	description = 'Runs the `integration`-tagged tests against a real PostgreSQL container. Needs Docker.'
+
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+
+	useJUnitPlatform {
+		includeTags 'integration'
+	}
+	junitXmlInto(delegate, 'integrationTest')
+
+	// These tests read a database, and Gradle's up-to-date check cannot see one.
+	// Without this, a second run with unchanged sources reports success in seconds
+	// without executing anything -- including against a database that has since
+	// been broken. A green result that ran nothing is the failure this lane exists
+	// to prevent.
+	outputs.upToDateWhen { false }
+
+	shouldRunAfter tasks.named('test')
+}
+
+tasks.register('verify') {
+	group = 'verification'
+	description = 'Both lanes: everything `check` runs, plus the integration tests.'
+	dependsOn tasks.named('check'), tasks.named('integrationTest')
 }
 
 // Enable compiler lint warnings to simulate IDE inspections

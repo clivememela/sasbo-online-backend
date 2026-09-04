@@ -1,0 +1,30 @@
+# The integration lane.
+#
+# There is no datasource here on purpose. @ServiceConnection on the container in
+# AbstractPostgresIT supplies the URL, user and password at a precedence nothing
+# in .env.local can reach -- and a guard asserts that, rather than trusting it.
+# A JDBC URL written in this file would be a URL someone could point at the one
+# database on this machine that cannot be rebuilt from migrations.
+spring:
+  flyway:
+    # The schema under test is the one production runs. ddl-auto would test
+    # Hibernate's opinion of the schema instead, which is the drift this whole
+    # arc exists to close.
+    enabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    clean-disabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  datasource:
+    hikari:
+      # Bounded, so a container that never becomes reachable fails the test in
+      # seconds with a clear message instead of hanging the build.
+      connection-timeout: 10000
+
+logging:
+  level:
+    root: WARN
+    org.flywaydb: INFO
