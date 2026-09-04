@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -74,18 +76,18 @@ class MigrationChainContentTest {
         // defect that makes these two numbers worth asserting rather than assuming.
         assertThat(jdbc.queryForObject("SELECT count(*) FROM union_structures", Integer.class))
                 .as("union_structures, seeded by V16")
-                .isEqualTo(19);
+                .isEqualTo(MigrationSeed.UNION_STRUCTURES);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM representative_roles", Integer.class))
                 .as("representative_roles, seeded by V16")
-                .isEqualTo(6);
+                .isEqualTo(MigrationSeed.REPRESENTATIVE_ROLES);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM recruiters", Integer.class))
                 .as("recruiters, seeded by V17")
-                .isEqualTo(33);
+                .isEqualTo(MigrationSeed.RECRUITERS);
 
         assertThat(jdbc.queryForObject(
                 "SELECT name FROM union_structures WHERE id = 1", String.class))
                 .as("the root of the structure hierarchy")
-                .isEqualTo("SASBO");
+                .isEqualTo(MigrationSeed.ROOT_STRUCTURE);
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM union_structures WHERE parent_id IS NULL", Integer.class))
                 .as("exactly one root -- a second root means a reseed ran twice")

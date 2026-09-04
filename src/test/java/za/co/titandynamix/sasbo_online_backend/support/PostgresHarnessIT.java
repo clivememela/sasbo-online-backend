@@ -31,57 +31,47 @@ class PostgresHarnessIT extends AbstractPostgresIT {
     private DataSource dataSource;
 
     @Test
-    @DisplayName("is a container, not this machine's database")
-    void isAThrowawayContainer() throws SQLException {
-        String url = POSTGRES.getJdbcUrl();
+    @DisplayName("points at a throwaway container and at nothing else, whatever .env.local says")
+    void pointsAtAThrowawayContainerAndNothingElse() throws SQLException {
+        String containerUrl = POSTGRES.getJdbcUrl();
 
-        assertThat(url)
-                .as("the container's own JDBC URL")
+        assertThat(containerUrl)
+                .as("the container own JDBC URL")
                 .contains("localhost")
                 .doesNotContain("sasbo_membership");
 
-        // Where the connection ACTUALLY goes. Asked of the live connection, not of
-        // the Environment -- see the note below on why that distinction is the whole
-        // guard.
-        try (Connection connection = dataSource.getConnection()) {
-            assertThat(connection.getMetaData().getURL())
-                    .as("the URL the pool is really dialling")
-                    .isEqualTo(url);
-        }
-
-        assertThat(jdbc.queryForObject("SELECT current_database()", String.class))
-                .as("the database actually connected to. 'sasbo_membership' here would mean "
-                        + "the integration lane had found the one database on this machine "
-                        + "that cannot be rebuilt from migrations")
-                .isEqualTo("sasbo_it");
-    }
-
-    @Test
-    @DisplayName("ignores a .env.local pointed at the real database")
-    void envLocalCannotReachTheDatasource() throws SQLException {
-        // DotEnvEnvironmentPostProcessor places .env.local ABOVE application.yaml, so
-        // a developer's own SPRING_DATASOURCE_URL outranks anything this profile says.
-        // @ServiceConnection wins anyway -- but NOT by setting the property. It
-        // contributes a JdbcConnectionDetails bean that the DataSource
-        // auto-configuration prefers over every property source, so:
+        // Asked of the live CONNECTION, never of the Environment -- and that
+        // distinction is the whole guard.
+        //
+        // DotEnvEnvironmentPostProcessor places .env.local ABOVE application.yaml,
+        // so a developer own SPRING_DATASOURCE_URL outranks anything this profile
+        // says. @ServiceConnection wins anyway, but NOT by setting the property:
+        // it contributes a JdbcConnectionDetails bean that the DataSource
+        // auto-configuration prefers over every property source. So:
         //
         //     spring.datasource.url  can still read jdbc:...:5432/sasbo_membership
         //     the actual connection  is the container, every time
         //
-        // Verified 2026-09-04 by putting exactly that into .env.local and running the
-        // lane. That gap is why this guard asks the CONNECTION and never the property:
-        // an assertion on spring.datasource.url reports a developer's real database
-        // while the test is safely on a container -- and, read the other way round,
-        // would pass while the connection had gone somewhere else entirely.
+        // Verified 2026-09-04 by putting exactly that into .env.local and running
+        // the lane green. An assertion on spring.datasource.url would therefore
+        // report a developer real database while the test was safely isolated --
+        // and, read the other way, would pass while the connection had gone
+        // somewhere else entirely. Ours is the one database on this machine that
+        // cannot be rebuilt from migrations, so this guard asks where the
+        // connection actually went.
         try (Connection connection = dataSource.getConnection()) {
+            assertThat(connection.getMetaData().getURL())
+                    .as("the URL the pool is really dialling")
+                    .isEqualTo(containerUrl)
+                    .doesNotContain("sasbo_membership");
             assertThat(connection.getCatalog())
                     .as("the catalog the live connection is bound to")
                     .isEqualTo("sasbo_it");
-            assertThat(connection.getMetaData().getURL())
-                    .as("no developer database, whatever the environment claims")
-                    .doesNotContain("sasbo_membership")
-                    .isEqualTo(POSTGRES.getJdbcUrl());
         }
+
+        assertThat(jdbc.queryForObject("SELECT current_database()", String.class))
+                .as("the database the queries land in")
+                .isEqualTo("sasbo_it");
     }
 
     @Test
@@ -93,13 +83,13 @@ class PostgresHarnessIT extends AbstractPostgresIT {
         // database the application actually runs against".
         assertThat(jdbc.queryForObject("SELECT count(*) FROM union_structures", Integer.class))
                 .as("union_structures seeded by V16")
-                .isEqualTo(19);
+                .isEqualTo(MigrationSeed.UNION_STRUCTURES);
 
         assertThat(jdbc.queryForObject(
                 "SELECT max(version::int) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class))
                 .as("the last migration applied")
-                .isEqualTo(18);
+                .isEqualTo(MigrationSeed.LAST_MIGRATION_VERSION);
     }
 
     @Test
