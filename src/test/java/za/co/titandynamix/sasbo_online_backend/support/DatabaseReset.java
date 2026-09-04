@@ -28,8 +28,46 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * state -- but that is a property of the harness, so
  * {@link #assertSnapshotIsPristine} exists to say so out loud rather than
  * assume it.
+ *
+ * <h2>A reset is exclusive, and that has to be declared</h2>
+ * Test classes run concurrently and every integration test shares ONE real
+ * database. A reset is a {@code TRUNCATE} across every table in it, so while
+ * one class is resetting, a sibling reading a count sees zero and a sibling
+ * that has just written sees its row disappear. Nothing about that is a flake
+ * to be retried: it is two tests using one resource without saying so.
+ *
+ * <p>{@link #SHARED_DATABASE} is the name they say it with. Every integration
+ * test that touches table data declares it:
+ *
+ * <ul>
+ *   <li>{@code @ResourceLock(value = SHARED_DATABASE, mode = READ_WRITE)} --
+ *       anything that calls {@link #reset(JdbcTemplate)} or writes rows.
+ *   <li>{@code @ResourceLock(value = SHARED_DATABASE, mode = READ)} -- anything
+ *       that only reads. Readers still run concurrently with each other; they
+ *       are simply never running while a truncate is.
+ * </ul>
+ *
+ * <p><b>A lock is a confession.</b> The cheaper answer is a test that never
+ * needs one -- transactional and rolled back, or keyed uniquely enough that a
+ * sibling cannot collide with it. These locks exist because a truncate-based
+ * reset cannot be either of those things, and that is the honest cost of
+ * restoring rather than sparing. Every class carrying one says in a comment
+ * which of the two it is and why.
+ *
+ * <p>Found on 2026-09-04 by the first repository test to write rows: the
+ * harness self-test truncated the database between that test's {@code save} and
+ * its query. The harness had shipped without the declaration because, until
+ * then, only the self-test wrote anything.
  */
 public final class DatabaseReset {
+
+    /**
+     * The one real database every integration test shares. See the class
+     * comment -- this is the resource name, and it lives here rather than in
+     * each test so that the classes contending for it cannot spell it
+     * differently and quietly stop contending.
+     */
+    public static final String SHARED_DATABASE = "the shared integration database";
 
     /**
      * Seeded by the migrations, and therefore restored rather than deleted.

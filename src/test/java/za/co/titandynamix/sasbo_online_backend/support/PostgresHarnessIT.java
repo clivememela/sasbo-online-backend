@@ -6,7 +6,9 @@ import java.sql.SQLException;
 import javax.sql.DataSource;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -21,6 +23,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * schema, an H2 instance, or -- the failure that matters -- a developer's own
  * database. These assertions are what make that impossible to miss.
  */
+// READ: this class only reads -- seeded counts, server settings, connection
+// metadata. It still declares the resource, because a truncate running
+// beside it would answer 0 for a count the migrations guarantee is 19.
+@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ)
 @DisplayName("The Postgres harness")
 class PostgresHarnessIT extends AbstractPostgresIT {
 

@@ -1,7 +1,9 @@
 package za.co.titandynamix.sasbo_online_backend.support;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -18,6 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@link LaneSeparationTest}, in the fast lane, because a lane guard that only
  * runs when Docker is up cannot protect a machine that has none.
  */
+// READ_WRITE: this class truncates the whole database. While it does,
+// every sibling reading a count sees zero -- so it may not run beside one.
+@ResourceLock(value = DatabaseReset.SHARED_DATABASE, mode = ResourceAccessMode.READ_WRITE)
 @DisplayName("The harness, checking itself")
 class AbstractPostgresITSelfTest extends AbstractPostgresIT {
 
