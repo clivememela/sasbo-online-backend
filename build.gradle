@@ -145,6 +145,47 @@ tasks.register('verify') {
 }
 
 // ---------------------------------------------------------------------------
+// The API contract artifacts.
+//
+// `api-surface.txt` and `api-vocabulary.json` at the PROJECT ROOT -- not under
+// src/main/resources, which is packaged into the deployable JAR. They are test
+// artifacts; shipping a map of the whole API to production serves no runtime
+// purpose.
+//
+// This task and ApiSurfaceSnapshotTest are THE SAME CLASS, run two ways:
+//
+//     ./gradlew generateApiSurface   writes the artifacts   (-DapiSurface.write=true)
+//     ./gradlew test                 asserts they match     (the fast lane)
+//
+// One class rather than a generator plus a checker, on purpose. Two separate
+// implementations of the same format drift from each other, and the symptom is
+// a freshness test that reddens on a file the generator just wrote.
+//
+// Needs no Docker and no database: the handler mapping is populated at context
+// refresh, before any query runs.
+// ---------------------------------------------------------------------------
+tasks.register('generateApiSurface', Test) {
+	group = 'documentation'
+	description = 'Rewrites api-surface.txt and api-vocabulary.json from the live routing table. Commit the diff.'
+
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+
+	useJUnitPlatform()
+	filter {
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.guards.ApiSurfaceSnapshotTest'
+	}
+
+	systemProperty 'apiSurface.write', 'true'
+
+	// Regenerating is something you ask for explicitly. Gradle's up-to-date
+	// check would otherwise skip it whenever the test sources had not changed
+	// -- including the case that matters most, where a CONTROLLER changed and
+	// the artifact is exactly what needs rewriting.
+	outputs.upToDateWhen { false }
+}
+
+// ---------------------------------------------------------------------------
 // JaCoCo: a REPORT, never a gate.
 //
 // No violationRules, no threshold, and nothing wired into `check`. Coverage is

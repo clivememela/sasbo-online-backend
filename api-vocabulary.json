@@ -1,0 +1,8 @@
+{
+  "_generated": "./gradlew generateApiSurface -- do not edit by hand",
+  "paymentTypes": [
+    {"name":"DEBIT_ORDER","displayName":"Debit Order","requiresBankAccount":true},
+    {"name":"PAYROLL","displayName":"Payroll","requiresBankAccount":false}
+  ],
+  "errorEnvelopeKeys": ["timestamp", "status", "error", "message", "path", "validationErrors"]
+}

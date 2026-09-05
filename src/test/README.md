@@ -411,3 +411,69 @@ contract: a percentage cannot tell you a controller has no test *file*.
 | :-- | :-- |
 | **A deep checkout path silently truncates the JUnit XML** | Gradle names each report `TEST-<fully qualified class>.xml`, and a `@Nested` class appends `$Inner`. Two of those exceeded the 260-character Windows limit: Gradle substituted a hash into the filename and the files could not be opened at all. **The build stayed green and the report every CI integration reads was simply short.** Mitigated by shortening two class names; the underlying limit is a CI-contract concern, because a runner's workspace path is not ours to choose |
 | **`server/.env` is committed *and* listed in `.gitignore`** | Git ignores `.gitignore` for files it already tracks, so the entry does nothing for this file. It currently holds a database username and URL with an empty password — but a developer who adds a password to it will commit it, believing it ignored. The suite runs green with no `.env` at all, which is proven rather than assumed |
+
+---
+
+## Part 5 — The API contract artifacts, and how to refresh them
+
+Two generated files sit at the **project root**, and both are committed:
+
+| File | What it carries |
+| :-- | :-- |
+| `api-surface.txt` | Every route this application serves, one `METHOD /path` per line, sorted by path then method |
+| `api-vocabulary.json` | The payment-type vocabulary *and its `requiresBankAccount` rule*, plus the error envelope's key set |
+
+They exist for a repository that cannot see this one. The browser gets a
+**copy**, and its own guard asserts that every path its services call appears in
+it — so a call to an endpoint this server does not have reddens in milliseconds,
+with no browser and no database.
+
+### Refreshing them — the whole procedure
+
+```
+./gradlew generateApiSurface     # rewrites both files from the live routing table
+git diff                         # read it: this is the API change you just made
+git add api-surface.txt api-vocabulary.json
+```
+
+Then copy `api-surface.txt` and `api-vocabulary.json` into the browser
+repository at `client/src/test/`, and commit them there **after** the server
+commit. The client half is useless without the artifact it reads, so the server
+commit is always first.
+
+### Why you cannot forget
+
+`ApiSurfaceSnapshotTest` runs in the **fast lane** and compares the committed
+files against the live mapping byte for byte. Add an endpoint, rename one,
+delete one — the build reddens here, in the repository where the change was
+made. Nobody has to remember anything, which is the only reliable kind of
+freshness.
+
+The generator and the checker are **the same class**, run two ways
+(`-DapiSurface.write=true` for the first). Two implementations of one format
+drift apart, and the symptom is a freshness test reddening on a file the
+generator just wrote.
+
+### Three things about these files that are easy to get wrong
+
+| | |
+| :-- | :-- |
+| **Never edit them by hand** | A hand-maintained endpoint list is a second source of truth. It agrees with the application on the day it is written and drifts silently afterwards — which is the exact failure the guard reading it exists to catch |
+| **Project root, not `src/main/resources`** | Anything under `src/main/resources` is packaged into the deployable JAR. These are test artifacts, and shipping a map of the whole API to production serves no runtime purpose. **Checked by hand on 2026-09-05** — `unzip -l build/libs/*.jar` found neither among 415 entries. ⚠️ Deliberately *not* an automated assertion: nothing in `src/test` inspects `build/libs`, so this invariant is currently unguarded and would not redden if someone moved the files |
+| **The `.gitattributes` rules are scoped to two filenames on purpose** | The comparison is a byte comparison and this repository is developed on Windows, so both files are pinned to LF. A blanket `* text=auto eol=lf` would renormalise the **entire repository** — every CRLF file modified at once, an unreadable `git status`, and a whole-repo line-ending diff on the next commit. It would also override the existing `*.bat text eol=crlf` rule, which is there because `.bat` files need CRLF |
+
+### The floor, and what it is actually for
+
+`ROUTE_FLOOR` is **30**, measured through the guard's own discovery at **41**
+routes on 2026-09-05. It is a non-vacuity canary, not a coverage target: what it
+catches is `getHandlerMethods()` returning nothing, which would write an empty
+artifact, compare it against an empty committed file and **pass**. Never raise it
+to match the actual — delete a controller in a legitimate refactor and a floor of
+41 reddens for a reason nobody caused.
+
+> **`ACBController` contributes zero routes**, and that is correct rather than a
+> discovery bug: it declares no handler methods at all. Eleven of the twelve
+> controllers produce the forty application routes; the forty-first line is the
+> framework's own `ANY /error`. Framework routes are **not** filtered out — a
+> curated list is the hand-maintained second source of truth this whole
+> mechanism exists to avoid.

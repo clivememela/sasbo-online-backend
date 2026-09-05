@@ -1,3 +1,15 @@
 /gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
+
+# The generated API contract artifacts, compared BYTE FOR BYTE by
+# ApiSurfaceSnapshotTest and by the browser's contract guard. Pinned to LF so
+# that comparison means the same thing on Windows and on Linux.
+#
+# Scoped to these two filenames DELIBERATELY. A blanket `* text=auto eol=lf`
+# renormalises the ENTIRE repository: every CRLF-checked-out file becomes
+# modified at once, the next `git status` is unreadable, and the next commit is
+# a whole-repo line-ending diff. It would also silently override the
+# `*.bat text eol=crlf` rule above, which exists because .bat files need CRLF.
+api-surface.txt text eol=lf
+api-vocabulary.json text eol=lf
