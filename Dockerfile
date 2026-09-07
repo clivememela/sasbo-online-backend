@@ -1,4 +1,4 @@
-# Build stage: uses the official Gradle image matching the project's wrapper version
+# Build stage (v2): uses the official Gradle image matching the project's wrapper version
 FROM gradle:9.5-jdk21 AS build
 # Use the gradle user's project directory for better defaults and permissions
 WORKDIR /home/gradle/project
