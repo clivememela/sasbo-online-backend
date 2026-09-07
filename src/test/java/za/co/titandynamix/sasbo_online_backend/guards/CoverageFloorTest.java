@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.guards;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.support.Floors;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.Layer;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.MainClassSource;
@@ -53,20 +54,6 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
 @DisplayName("Coverage floor")
 class CoverageFloorTest {
 
-    /**
-     * Canaries, measured 2026-09-04 through this class's own walker, each set
-     * deliberately below the real count.
-     *
-     * <p>Actuals on that date: 12 controllers, 10 mappers, 15 repositories with
-     * a declared query method, 19 service files. Never raise these to match; a
-     * count expires, and a canary equal to the actual is fragile without being
-     * stricter.
-     */
-    private static final int CONTROLLER_CANARY = 10;
-    private static final int MAPPER_CANARY = 8;
-    private static final int REPOSITORY_CANARY = 12;
-    private static final int SERVICE_CANARY = 15;
-
     /** A repository method beyond the inherited CRUD -- what makes one testworthy. */
     private static final Pattern DECLARED_QUERY_METHOD =
             Pattern.compile("^\\s{4}(?!//)[A-Za-z@].*\\w+\\s*\\(", Pattern.MULTILINE);
@@ -75,7 +62,7 @@ class CoverageFloorTest {
     @DisplayName("every controller has a test, named by this walker rather than by eye")
     void everyControllerHasATest() {
         List<MainClassSource> controllers = MainSourceInventory.inLayer(Layer.CONTROLLER);
-        assertNonVacuousScan(controllers, CONTROLLER_CANARY, "controllers");
+        assertNonVacuousScan(controllers, Floors.CONTROLLERS, "controllers");
 
         assertThat(withoutATest(controllers))
                 .as("controllers with no test file. Discovery, not a list -- a controller added "
@@ -88,7 +75,7 @@ class CoverageFloorTest {
     @DisplayName("every mapper has a test")
     void everyMapperHasATest() {
         List<MainClassSource> mappers = MainSourceInventory.inLayer(Layer.MAPPER);
-        assertNonVacuousScan(mappers, MAPPER_CANARY, "mappers");
+        assertNonVacuousScan(mappers, Floors.MAPPERS, "mappers");
 
         assertThat(withoutATest(mappers))
                 .as("mappers with no test file. A floor of 'at least eight mapper tests' is "
@@ -104,12 +91,12 @@ class CoverageFloorTest {
         // The layer the floor originally omitted, and the one where the DATABASE
         // decides the answer -- so it is the one layer H2 cannot stand in for.
         List<MainClassSource> repositories = MainSourceInventory.inLayer(Layer.REPOSITORY);
-        assertNonVacuousScan(repositories, REPOSITORY_CANARY, "repositories");
+        assertNonVacuousScan(repositories, Floors.REPOSITORIES, "repositories");
 
         List<MainClassSource> withQueries = repositories.stream()
                 .filter(CoverageFloorTest::declaresAQueryMethod)
                 .toList();
-        assertNonVacuousScan(withQueries, REPOSITORY_CANARY, "repositories with a query method");
+        assertNonVacuousScan(withQueries, Floors.REPOSITORIES_WITH_A_QUERY, "repositories with a query method");
 
         // "Covered by an IT" rather than "has a file called <Name>IT": several
         // repositories share one IT because they share a hierarchy, and building
@@ -119,7 +106,7 @@ class CoverageFloorTest {
         List<TestClassSource> integrationTests = TestSourceInventory.all().stream()
                 .filter(TestClassSource::isIntegration)
                 .toList();
-        assertNonVacuousScan(integrationTests, 5, "integration test classes");
+        assertNonVacuousScan(integrationTests, Floors.INTEGRATION_TEST_CLASSES, "integration test classes");
 
         for (MainClassSource repository : withQueries) {
             boolean covered = integrationTests.stream()
@@ -147,7 +134,7 @@ class CoverageFloorTest {
                 .filter(c -> c.name().endsWith("Handler"))
                 .toList();
 
-        assertNonVacuousScan(handlers, 1, "exception handlers");
+        assertNonVacuousScan(handlers, Floors.EXCEPTION_HANDLERS, "exception handlers");
         assertThat(withoutATest(handlers)).isEmpty();
     }
 
@@ -158,12 +145,12 @@ class CoverageFloorTest {
         // interfaces with no behaviour of their own, and demanding a test file
         // for an interface would be a box nobody can tick honestly.
         List<MainClassSource> services = MainSourceInventory.inLayer(Layer.SERVICE);
-        assertNonVacuousScan(services, SERVICE_CANARY, "services");
+        assertNonVacuousScan(services, Floors.SERVICES, "services");
 
         List<MainClassSource> implementations = services.stream()
                 .filter(s -> s.code().contains("@Service"))
                 .toList();
-        assertNonVacuousScan(implementations, 5, "service implementations");
+        assertNonVacuousScan(implementations, Floors.SERVICE_IMPLEMENTATIONS, "service implementations");
 
         // "A test constructs it" rather than "a file is named after it". Several
         // small services share one test class -- five near-empty files would
@@ -194,7 +181,7 @@ class CoverageFloorTest {
     /** The classes in {@code candidates} that no test file is named for. */
     private static List<String> withoutATest(List<MainClassSource> candidates) {
         List<TestClassSource> tests = TestSourceInventory.all();
-        assertNonVacuousScan(tests, 20, "test classes");
+        assertNonVacuousScan(tests, Floors.TEST_CLASSES, "test classes");
 
         List<String> missing = new ArrayList<>();
         for (MainClassSource candidate : candidates) {

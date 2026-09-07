@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.guards;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.support.Floors;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.Layer;
@@ -54,7 +55,7 @@ class TransactionBoundaryTest {
     @DisplayName("the scan finds the services and the multi-write methods it is meant to grade")
     void theScanIsNotVacuous() {
         List<MainClassSource> services = MainSourceInventory.inLayer(Layer.SERVICE);
-        assertNonVacuousScan(services, 15, "services");
+        assertNonVacuousScan(services, Floors.SERVICES, "services");
 
         // The guard's own second half. A walker that parses no methods reports
         // no unprotected ones, and this whole class would pass while grading
@@ -91,10 +92,17 @@ class TransactionBoundaryTest {
                 .sorted()
                 .toList();
 
+        // `contains`, not `containsExactly`. The stated guarantee is
+        // one-directional -- a boundary must not be REMOVED -- and
+        // `containsExactly` also fires when one is ADDED. Adding @Transactional
+        // to a third service is the correct repair of register row A15, so the
+        // stricter form made the guard obstruct the fix it exists to motivate,
+        // and would have announced it with a message saying a boundary was
+        // removed: the opposite of what happened.
         assertThat(withBoundary)
                 .as("the services that declare a transaction boundary today. If one disappears "
                         + "from this list, a boundary was removed")
-                .containsExactly("DeletionCodeServiceImpl", "RepresentativeServiceImpl");
+                .contains("DeletionCodeServiceImpl", "RepresentativeServiceImpl");
     }
 
     /** A service method that writes more than once, and whether it is guarded. */

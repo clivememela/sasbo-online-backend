@@ -199,6 +199,41 @@ public final class MainSourceInventory {
                 }
                 out.append("  ");
                 i = Math.min(i + 2, source.length());
+            } else if (c == '"' && i + 2 < source.length()
+                    && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"') {
+                // A TEXT BLOCK. Copied verbatim through its closing delimiter.
+                //
+                // Without this branch the walker reads `"""` as an empty string
+                // followed by an opening quote, so a text block containing an
+                // ODD number of quote characters leaves the string state
+                // inverted for the rest of the file -- and every `//` comment
+                // after it is then treated as string content and survives
+                // blanking. Five guards read this output as code, so a word in
+                // a comment becomes a conviction: an `@Transactional` mentioned
+                // in prose reads as a declared transaction boundary.
+                //
+                // Latent rather than live when this was added: both files that
+                // use text blocks today happen to balance their quotes, and the
+                // blanked output of all 201 sources was verified byte-identical
+                // before and after this branch (2026-09-07). It is the next text
+                // block that would have paid for it.
+                out.append("\"\"\"");
+                i += 3;
+                while (i < source.length()) {
+                    if (source.charAt(i) == '\\' && i + 1 < source.length()) {
+                        out.append(source.charAt(i)).append(source.charAt(i + 1));
+                        i += 2;
+                        continue;
+                    }
+                    if (source.charAt(i) == '"' && i + 2 < source.length()
+                            && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"') {
+                        out.append("\"\"\"");
+                        i += 3;
+                        break;
+                    }
+                    out.append(source.charAt(i));
+                    i++;
+                }
             } else if (c == '"' || c == '\'') {
                 char quote = c;
                 out.append(c);

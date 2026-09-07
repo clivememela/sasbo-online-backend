@@ -110,19 +110,6 @@ public final class TestSourceInventory {
         public boolean isFastLane() {
             return !isIntegration();
         }
-
-        /**
-         * True only where {@code @Disabled} is USED as an annotation.
-         *
-         * <p>A plain substring search matches this scanner's own source, the
-         * guard that calls it, and every comment that discusses the subject --
-         * so the guard convicts itself the moment it is written. Requiring the
-         * annotation to open a line is what separates using it from writing
-         * about it.
-         */
-        public boolean hasDisabledAnnotation() {
-            return body.lines().map(String::strip).anyMatch(line -> line.startsWith("@Disabled"));
-        }
     }
 
     /**
@@ -160,9 +147,10 @@ public final class TestSourceInventory {
      * which is the thing a repository guard most wants to read.
      *
      * <p>So a scanner excludes itself, explicitly and by name. This is the same
-     * trap {@code hasDisabledAnnotation} solved by requiring the annotation to
-     * open a line; that trick works for annotations and not for the general
-     * case, which is what this method is for.
+     * trap {@code DisabledPopulationTest}'s {@code ANY_DISABLED} pattern solves
+     * by anchoring to the start of a line, which separates USING an annotation
+     * from writing about it; that trick works for annotations and not for the
+     * general case, which is what this method is for.
      *
      * @param scanner the guard doing the scanning
      */

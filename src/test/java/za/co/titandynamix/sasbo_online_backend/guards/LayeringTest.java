@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.guards;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.support.Floors;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.Layer;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.MainClassSource;
@@ -59,7 +60,7 @@ class LayeringTest {
 
         // The canary. Without it a broken walker finds no controllers, reports
         // no offenders, and this test passes while asserting nothing.
-        assertNonVacuousScan(controllers, 10, "controllers");
+        assertNonVacuousScan(controllers, Floors.CONTROLLERS, "controllers");
 
         List<String> offenders = new ArrayList<>();
         for (MainClassSource controller : controllers) {
@@ -106,7 +107,7 @@ class LayeringTest {
     void servicesDoNotDependOnControllers() {
         List<MainClassSource> services = MainSourceInventory.inLayer(Layer.SERVICE);
 
-        assertNonVacuousScan(services, 15, "services");
+        assertNonVacuousScan(services, Floors.SERVICES, "services");
 
         List<String> offenders = services.stream()
                 .filter(s -> s.contains(".controller."))
@@ -124,7 +125,7 @@ class LayeringTest {
     void dataTypesDependOnNothingAboveThem() {
         List<MainClassSource> dataTypes = MainSourceInventory.dataTypes();
 
-        assertNonVacuousScan(dataTypes, 30, "entities and DTOs");
+        assertNonVacuousScan(dataTypes, Floors.DATA_TYPES, "entities and DTOs");
 
         List<String> offenders = new ArrayList<>();
         for (MainClassSource type : dataTypes) {

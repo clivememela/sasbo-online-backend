@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.guards;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.support.Floors;
 import za.co.titandynamix.sasbo_online_backend.support.CommittedSecrets;
 import za.co.titandynamix.sasbo_online_backend.support.CommittedSecrets.Exclusion;
 import za.co.titandynamix.sasbo_online_backend.support.CommittedSecrets.Finding;
@@ -31,8 +32,12 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
 @DisplayName("Committed secrets")
 class CommittedSecretsTest {
 
-    private final List<String> tracked = CommittedSecrets.trackedFiles();
-    private final List<Finding> findings = CommittedSecrets.scan();
+    // Held by CommittedSecrets itself, which reads once per JVM. These were
+    // instance fields, and JUnit's default lifecycle builds a fresh instance
+    // per test method -- so six methods meant six repository scans and twelve
+    // `git ls-files` spawns, in the lane that runs on every commit.
+    private static final List<String> tracked = CommittedSecrets.trackedFiles();
+    private static final List<Finding> findings = CommittedSecrets.unallowedFindings();
 
     @Test
     @DisplayName("the scan asked git for the tracked files and got a repository back")
@@ -41,7 +46,7 @@ class CommittedSecretsTest {
         // detached checkout, or with git absent from the PATH. That reports no
         // secrets and passes, which is the failure mode of every discovery
         // guard: green because it looked at nothing.
-        assertNonVacuousScan(tracked, 100, "files tracked by git in this repository");
+        assertNonVacuousScan(tracked, Floors.TRACKED_FILES, "files tracked by git in this repository");
     }
 
     @Test
@@ -53,7 +58,7 @@ class CommittedSecretsTest {
         // The mirror image of the exclusion list. An over-broad exclusion
         // silences this guard exactly as effectively as a raised threshold, and
         // the finding count alone would never show it.
-        assertNonVacuousScan(scanned, 100, "files actually scanned after path exclusions");
+        assertNonVacuousScan(scanned, Floors.TRACKED_FILES, "files actually scanned after path exclusions");
         assertThat(scanned).anyMatch(path -> path.endsWith(".java"));
         assertThat(scanned).anyMatch(path -> path.endsWith(".yaml") || path.endsWith(".yml"));
     }
@@ -110,7 +115,9 @@ class CommittedSecretsTest {
                 .as("A secret has been COMMITTED. It is now on every clone, every fork and "
                         + "every backup of this repository, and deleting the file does not "
                         + "remove it from history. Rotate the credential first -- that is the "
-                        + "only step that actually revokes it -- then remove it from the tree.")
+                        + "only step that actually revokes it -- then remove it from the tree. "
+                        + "(Findings on an allowlisted path are excluded here; the allowlist "
+                        + "is separately asserted empty for this repository.)")
                 .isEmpty();
     }
 }

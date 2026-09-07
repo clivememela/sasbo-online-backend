@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.guards;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.support.Floors;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 import za.co.titandynamix.sasbo_online_backend.support.TestSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.TestSourceInventory.TestClassSource;
@@ -64,7 +65,7 @@ class DisabledPopulationTest {
     @DisplayName("every disabled test cites a register row")
     void everyDisabledTestCitesARow() {
         List<TestClassSource> classes = TestSourceInventory.all();
-        assertNonVacuousScan(classes, 12, "test classes");
+        assertNonVacuousScan(classes, Floors.TEST_CLASSES, "test classes");
 
         List<String> uncited = new ArrayList<>();
         for (TestClassSource source : classes) {

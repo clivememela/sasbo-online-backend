@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.guards;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.support.Floors;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.Layer;
@@ -77,8 +78,8 @@ class UnboundedCollectionTest {
     @Test
     @DisplayName("the scan finds the controllers and the list endpoints it is meant to grade")
     void theScanIsNotVacuous() {
-        assertNonVacuousScan(MainSourceInventory.inLayer(Layer.CONTROLLER), 10, "controllers");
-        assertNonVacuousScan(ENDPOINTS, 8, "collection-returning endpoints");
+        assertNonVacuousScan(MainSourceInventory.inLayer(Layer.CONTROLLER), Floors.CONTROLLERS, "controllers");
+        assertNonVacuousScan(ENDPOINTS, Floors.COLLECTION_ENDPOINTS, "collection-returning endpoints");
     }
 
     @Test

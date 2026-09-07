@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -96,6 +97,12 @@ public final class CommittedSecrets {
      */
     public static final List<Allowed> ALLOWLIST = List.of();
 
+    /** Read once and held -- see {@link #trackedFiles()}. */
+    private static volatile List<String> TRACKED;
+
+    /** Read once and held -- see {@link #scan()}. */
+    private static volatile List<Finding> SCANNED;
+
     private record Signature(String name, Pattern pattern) {
     }
 
@@ -123,9 +130,36 @@ public final class CommittedSecrets {
         return PATH_EXCLUSIONS.stream().anyMatch(e -> e.match().matcher(path).find());
     }
 
-    /** Every path git tracks, relative to the repository root. */
+    /**
+     * Every path git tracks, relative to the repository root.
+     *
+     * <p>Read once and held, in the idiom {@code MainSourceInventory.all()}
+     * already uses next door and for the same reason. These were instance
+     * fields on the guard under JUnit's default per-method lifecycle, so six
+     * test methods meant six full scans of 256 tracked files and <b>twelve</b>
+     * {@code git ls-files} subprocess spawns per run -- in the fast lane, which
+     * is the one paid on every commit. Neither the git index nor the working
+     * tree can change while the JVM is running.
+     *
+     * <p>{@code -z} rather than newline-separated output: git C-quotes a path
+     * containing a newline or a non-ASCII byte, and a C-quoted path then fails
+     * to resolve and is silently skipped -- a file excluded from the scan by
+     * its own name. NUL-separated output is never quoted.
+     */
     public static List<String> trackedFiles() {
-        return git("ls-files").lines().filter(line -> !line.isBlank()).toList();
+        List<String> cached = TRACKED;
+        if (cached == null) {
+            synchronized (CommittedSecrets.class) {
+                cached = TRACKED;
+                if (cached == null) {
+                    cached = Arrays.stream(git("ls-files", "-z").split("\0"))
+                            .filter(line -> !line.isBlank())
+                            .toList();
+                    TRACKED = cached;
+                }
+            }
+        }
+        return cached;
     }
 
     /**
@@ -137,6 +171,35 @@ public final class CommittedSecrets {
      * caused by the tool meant to prevent the first.
      */
     public static List<Finding> scan() {
+        List<Finding> cached = SCANNED;
+        if (cached == null) {
+            synchronized (CommittedSecrets.class) {
+                cached = SCANNED;
+                if (cached == null) {
+                    cached = doScan();
+                    SCANNED = cached;
+                }
+            }
+        }
+        return cached;
+    }
+
+    /**
+     * Findings outside the allowlist -- what a guard should assert on.
+     *
+     * <p>{@link #ALLOWLIST} was declared, documented and read by nothing:
+     * {@code scan()} never consulted it, so the first person with a
+     * legitimate entry to add would have reddened the guard anyway and been
+     * told about a rule rather than about a mechanism. The browser
+     * repository's twin already filters this way; this makes the two agree.
+     */
+    public static List<Finding> unallowedFindings() {
+        return scan().stream()
+                .filter(f -> ALLOWLIST.stream().noneMatch(a -> a.path().equals(f.path())))
+                .toList();
+    }
+
+    private static List<Finding> doScan() {
         List<Finding> findings = new ArrayList<>();
 
         for (String path : trackedFiles()) {

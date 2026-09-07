@@ -31,7 +31,6 @@ class LaneSeparationTest {
      * Deliberately far below the real count, and never raised to match it. It
      * asserts the walker walked, not how many tests exist.
      */
-    private static final int SCAN_FLOOR = 5;
 
     @Test
     @DisplayName("classify two anchors whose lane is not in doubt")
@@ -62,7 +61,7 @@ class LaneSeparationTest {
 
         // Non-vacuity first: without it, a broken walker returns nothing and
         // every assertion below passes over an empty list.
-        assertNonVacuousScan(all, SCAN_FLOOR, "test classes under src/test/java");
+        assertNonVacuousScan(all, Floors.TEST_CLASSES, "test classes under src/test/java");
 
         List<TestClassSource> integration = all.stream().filter(TestClassSource::isIntegration).toList();
         List<TestClassSource> fast = all.stream().filter(TestClassSource::isFastLane).toList();

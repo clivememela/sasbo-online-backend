@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.guards;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.support.Floors;
 import za.co.titandynamix.sasbo_online_backend.support.TestSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.TestSourceInventory.TestClassSource;
 
@@ -58,12 +59,12 @@ class SecuritySliceTest {
     @DisplayName("no slice both disables the filters and asserts something about authorization")
     void filtersOffMeansNoSecurityClaim() {
         List<TestClassSource> classes = TestSourceInventory.allExcept(SecuritySliceTest.class);
-        assertNonVacuousScan(classes, 20, "test classes");
+        assertNonVacuousScan(classes, Floors.TEST_CLASSES, "test classes");
 
         List<TestClassSource> slices = classes.stream()
                 .filter(c -> c.code().contains("@WebMvcTest"))
                 .toList();
-        assertNonVacuousScan(slices, 8, "controller slices");
+        assertNonVacuousScan(slices, Floors.CONTROLLER_SLICES, "controller slices");
 
         List<String> offenders = new ArrayList<>();
         for (TestClassSource slice : slices) {
