@@ -23,11 +23,10 @@ RUN ./gradlew build -x test --no-daemon
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
-# Create and use a non-root user for runtime security
-RUN groupadd --system app && useradd --system --gid app --create-home --home-dir /home/app --shell /usr/sbin/nologin app
-
+RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
-COPY --from=build --chown=app:app /home/gradle/project/build/libs/*.jar app.jar
+# If using Gradle
+COPY build/libs/*.jar /app.jar
 USER app
 
 EXPOSE 8080
