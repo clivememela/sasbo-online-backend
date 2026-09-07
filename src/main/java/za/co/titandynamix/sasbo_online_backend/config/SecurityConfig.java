@@ -24,31 +24,38 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/banks", "/api/job-grades", "/api/banks/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/subscriptions", "/api/subscriptions/**").permitAll()
-                .requestMatchers("/api/**").permitAll()
-                .anyRequest().authenticated()
-            );
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                                                       .requestMatchers("/actuator/health").permitAll()
+                                                       .requestMatchers(HttpMethod.GET, "/api/banks", "/api/job-grades", "/api/banks/**").permitAll()
+                                                       .requestMatchers(HttpMethod.GET, "/api/subscriptions", "/api/subscriptions/**").permitAll()
+                                                       .requestMatchers("/api/**").permitAll()
+                                                       .anyRequest().authenticated()
+                );
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = this.frontendUrl != null && !this.frontendUrl.isBlank()
-                ? List.of("http://localhost:5173", this.frontendUrl)
-                : List.of("http://localhost:5173");
+
+        // Strip trailing slash if present on FRONTEND_URL string
+        String cleanFrontendUrl = (this.frontendUrl != null) ? this.frontendUrl.replaceAll("/+$", "") : "";
+
+        List<String> origins = !cleanFrontendUrl.isBlank()
+                                       ? List.of("http://localhost:5173", cleanFrontendUrl)
+                                       : List.of("http://localhost:5173");
+
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
+        // Global rule alignment capturing browser handshake updates
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }

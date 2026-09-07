@@ -21,15 +21,21 @@ public class JobGradeController {
     @GetMapping
     public ResponseEntity<List<String>> getByBank(@RequestParam(name = "bankCode", required = false) String bankCode,
                                                   @RequestParam(name = "bank", required = false) String bank) {
+
         String identifier = (bankCode != null && !bankCode.isBlank()) ? bankCode : bank;
-        try {
-            List<JobGrade> grades = service.findByBankIdentifier(identifier);
-            List<String> values = grades.stream().map(jg -> jg.getGrade()).collect(Collectors.toList());
-            return ResponseEntity.ok(values);
-        } catch (Exception e) {
-            // Return 500 intentionally if something unexpected happens; include message for easier debugging
-            return ResponseEntity.status(500).body(List.of("ERROR: " + e.getMessage()));
+
+        // Let exceptions bubble up naturally so they print out properly in your Render terminal logs
+        List<JobGrade> grades = service.findByBankIdentifier(identifier);
+
+        if (grades == null) {
+            return ResponseEntity.ok(List.of());
         }
+
+        List<String> values = grades.stream()
+                                      .map(jg -> jg.getGrade())
+                                      .filter(grade -> grade != null)
+                                      .collect(Collectors.toList());
+
+        return ResponseEntity.ok(values);
     }
 }
-
