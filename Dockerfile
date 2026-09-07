@@ -26,7 +26,7 @@ FROM eclipse-temurin:21-jre-alpine
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 # If using Gradle
-COPY build/libs/*.jar /app.jar
+COPY --from=build /home/gradle/project/build/libs/*.jar /app.jar
 USER app
 
 EXPOSE 8080
