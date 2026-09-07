@@ -26,10 +26,10 @@ FROM eclipse-temurin:21-jre-alpine
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 # If using Gradle
-COPY --from=build /home/gradle/project/build/libs/*.jar /app.jar
+COPY --from=build /home/gradle/project/build/libs/sasbo-online-backend-0.0.1-SNAPSHOT.jar /app/app.jar
 USER app
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 
 
