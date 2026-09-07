@@ -3,8 +3,8 @@ spring:
     name: sasbo-online-backend
   datasource:
     url: ${SPRING_DATASOURCE_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       data-source-properties:
