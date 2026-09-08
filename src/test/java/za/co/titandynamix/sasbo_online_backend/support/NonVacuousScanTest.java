@@ -16,11 +16,11 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
  *
  * <h2>🔴 Why this file exists</h2>
  * {@link NonVacuousScan} is the single mechanism that stops every
- * discovery-based guard in this repository from passing over nothing. Thirteen
- * guards call it. Until this file, <b>none of them proved it could fail</b> --
- * so the assertion that all the other assertions are real was itself unasserted,
- * and a change that made this method a no-op would have turned thirteen guards
- * into decoration with a completely green run.
+ * discovery-based guard in this repository from passing over nothing. Every one
+ * of them calls it, and until this file <b>none of them proved it could
+ * fail</b> — so the assertion that all the other assertions are real was itself
+ * unasserted, and a change making this method a no-op would have turned every
+ * one of them into decoration, with a completely green run.
  *
  * <p>That is the exact shape the class's own javadoc warns about, applied to the
  * class writing the warning: <i>"a broken walker finds nothing, reports no
@@ -29,8 +29,8 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
  *
  * <h2>Why it is not enough that the guards use it</h2>
  * A guard calling {@code assertNonVacuousScan} proves the call compiles. It does
- * not prove the call can redden -- and on a healthy codebase every one of those
- * thirteen passes on every run, which means thirteen green results are equally
+ * not prove the call can redden -- and on a healthy codebase every one of them
+ * passes on every run, which means all those green results are equally
  * consistent with the method asserting nothing at all.
  *
  * <p>The suite repository already does this: {@code tests/harness/canary.spec.js}

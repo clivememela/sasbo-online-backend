@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.assertNonVacuousScan;
 
 /**
  * The migrations on disk are exactly the migrations the chain says it applies.
@@ -56,14 +55,6 @@ class MigrationInventoryTest {
     private static final Path MIGRATION_DIR =
             Paths.get("src", "main", "resources", "db", "migration");
 
-    /**
-     * Deliberately far below the real count, with headroom. It exists for one
-     * failure only: the directory walk returning nothing -- a moved folder, a
-     * changed layout -- which would otherwise compare an empty list against an
-     * empty list and pass. Never raised to match the actual.
-     */
-    private static final int MIGRATION_FLOOR = 10;
-
     @Test
     @DisplayName("every migration on disk is declared, and every declared migration exists")
     void diskAndSpecificationAgree() throws IOException {
@@ -76,8 +67,17 @@ class MigrationInventoryTest {
                     .toList();
         }
 
-        assertNonVacuousScan(onDisk, MIGRATION_FLOOR, "migration files under " + MIGRATION_DIR);
-
+        // 🔑 NO NON-VACUITY FLOOR HERE, deliberately, and that is worth saying
+        // because every other discovery guard in this repository has one.
+        //
+        // A floor exists for a scan whose EXPECTED side can also be empty: find
+        // nothing, compare against nothing, pass. This comparison's expected
+        // side is `MigrationSeed.MIGRATIONS`, a hand-written list that is never
+        // empty -- so a walk returning nothing already fails below, naming
+        // every missing file, and `Files.list` throws outright if the directory
+        // has moved. A floor would add a second number to maintain and catch
+        // nothing the assertion does not.
+        //
         // Sorted on both sides rather than compared in order: this test's
         // subject is WHICH migrations exist, and Flyway decides the running
         // order from the version, not from a directory listing. The order the

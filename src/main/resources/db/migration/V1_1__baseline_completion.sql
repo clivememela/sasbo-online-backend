@@ -13,9 +13,11 @@
 -- and none of the reds names the cause.
 --
 -- `V1__baseline_schema.sql` was deleted to resolve it, and this file supplies
--- the three objects the surviving baseline lacks. A fractional version is what
--- lets that happen without renumbering: the chain runs V1 (theirs) -> V1.1
--- (this) -> V2 ... V19, and not one existing file is touched.
+-- the objects the surviving baseline lacks -- they are listed below rather than
+-- counted here, because the count was wrong once already and a number in a
+-- header is a number nobody re-derives. A fractional version is what lets this
+-- happen without renumbering: the chain runs V1 (theirs) -> V1.1 (this) ->
+-- V2 ... V19, and not one existing file is touched.
 --
 -- 🔑 WHAT IS HERE, and why each one is not optional. Everything ELSE in
 -- V2..V19 was written defensively enough to run against a foreign baseline
