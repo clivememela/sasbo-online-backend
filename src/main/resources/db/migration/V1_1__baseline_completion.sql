@@ -17,17 +17,42 @@
 -- lets that happen without renumbering: the chain runs V1 (theirs) -> V1.1
 -- (this) -> V2 ... V19, and not one existing file is touched.
 --
--- 🔑 EXACTLY THREE OBJECTS. Everything else in V2..V19 was written defensively
--- enough to run against a foreign baseline unchanged -- `IF EXISTS` on the
--- drops, `IF NOT EXISTS` on the adds. These three are the ones that are not
--- optional:
+-- 🔑 WHAT IS HERE, and why each one is not optional. Everything ELSE in
+-- V2..V19 was written defensively enough to run against a foreign baseline
+-- unchanged -- `IF EXISTS` on the drops, `IF NOT EXISTS` on the adds:
 --
---   branches          `Branch.java` maps it. `ddl-auto: validate` fails without it.
---   banking_details   `BankingDetails.java` maps it. Same.
---   members.job_grade V11 runs ALTER TABLE members ALTER COLUMN job_grade TYPE
---                     VARCHAR(255). Postgres has NO `IF EXISTS` on ALTER COLUMN
---                     ... TYPE, so this one does not degrade to a no-op -- THE
---                     CHAIN FAILS OUTRIGHT AT V11 without it.
+--   branches                      `Branch.java` maps it.
+--   banking_details               `BankingDetails.java` maps it.
+--   bank_branches.last_visited_date  `BankBranch.java` maps it.
+--   users.tfa_enabled             `TwoFactorAuthentication`, @Embedded in `User`.
+--   users.send_to                 The other half of that embeddable.
+--   members.job_grade             Required by V11; see the statement.
+--   recruiters.members_recruited  A TYPE, not an object. See the statement.
+--
+-- ⚠️ A CAREFUL READ SAID THERE WERE THREE OF THESE. RUNNING IT FOUND SEVEN, and
+-- that gap is the most useful thing this file records. The read was not lazy --
+-- it audited every statement in V2..V19 that cannot be made conditional. It
+-- missed two whole categories:
+--
+--   1. COLUMNS NOTHING IN THE CHAIN MENTIONS. `last_visited_date`,
+--      `tfa_enabled` and `send_to` are added by NO migration. They existed only
+--      because the old baseline declared them, and the only thing that knows
+--      they are required is the ENTITY MODEL. Reading the migrations could not
+--      have found them; `ddl-auto: validate` finds them one per run.
+--   2. TYPES UNDERNEATH `IF NOT EXISTS`. That form looks like the safe one and
+--      hides an assumption: it guards the TABLE and says nothing about the
+--      columns of a table somebody else created. V17 creates `recruiters` with
+--      `members_recruited VARCHAR(255)` and seeds '10', '11', '13'; V18 then
+--      converts it to INTEGER. Against the surviving baseline the table already
+--      exists with that column INTEGER, the create no-ops, and the seed fails
+--      with `column "members_recruited" is of type integer but expression is of
+--      type text` -- 65 integration tests failing with a context-load error
+--      that names Spring rather than Flyway.
+--
+-- 🔑 The complete list came from diffing the two baselines column by column
+-- rather than from a sixth run. `validate` reports ONE missing column per
+-- attempt, so following it would have cost a container start each time and
+-- still not have said when it was finished.
 --
 -- ⚠️ EVERY STATEMENT HERE IS IDEMPOTENT, and that is a requirement rather than
 -- a style. The runtime configuration sets `baseline-on-migrate: true`, so this
@@ -38,12 +63,9 @@
 -- ⚠️ TWO COSTS WERE ACCEPTED KNOWINGLY when the surviving baseline changed, and
 -- they are recorded so that nobody later reads them as bugs:
 --
---   1. `MigrationChainContentTest.droppedColumnsAreGone` no longer proves what
---      it was written to prove. Its subject is seven columns that V8 drops; the
---      surviving baseline never created them, so the assertion now passes
---      whether V8 ran or not. It is kept because it still guards against their
---      REAPPEARANCE, but it can no longer tell "V8 ran" from "V8 never ran".
---      See its own comment, which says so.
+--   1. Some of what `MigrationChainContentTest` proved about the V8 and V9 drops
+--      is gone. That test owns the fact and states it; it is deliberately NOT
+--      restated here, because a count in a second file is a count that drifts.
 --   2. This file is meaningless without `V1__initial_schema.sql` staying as it
 --      is. Under `validate-on-migrate: true` -- which the migration test profile
 --      sets deliberately -- an edit to that file changes its checksum and
@@ -92,6 +114,25 @@ CREATE TABLE IF NOT EXISTS banking_details
     CONSTRAINT fk_banking_details_branch FOREIGN KEY (branch_id) REFERENCES branches (id)
 );
 
+-- The three columns NO migration adds, and which exist only because the old
+-- baseline declared them.
+--
+-- 🔑 THESE ARE THE ONES READING THE MIGRATIONS CANNOT FIND. Nothing in V2..V19
+-- mentions any of them; the only statement that they are required is in the
+-- Java. `BankBranch.lastVisitedDate` is a plain mapped field, and
+-- `TwoFactorAuthentication` is @Embedded in `User`, contributing `tfa_enabled`
+-- (it names the column explicitly) and `send_to` (an @Enumerated(STRING), so
+-- text). Miss one and the chain runs perfectly and then `ddl-auto: validate`
+-- refuses the context with `missing column [...] in table [...]`.
+ALTER TABLE bank_branches
+    ADD COLUMN IF NOT EXISTS last_visited_date VARCHAR(255);
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS tfa_enabled BOOLEAN;
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS send_to VARCHAR(255);
+
 -- `members.job_grade` -- the free-text grade that `job_grade_id` replaced.
 --
 -- 🔴 NOTHING READS THIS COLUMN and it must exist anyway. V11's ALTER COLUMN ...
@@ -105,3 +146,42 @@ CREATE TABLE IF NOT EXISTS banking_details
 -- model does not mention, so it is harmless -- it is simply dead. Leave it.
 ALTER TABLE members
     ADD COLUMN IF NOT EXISTS job_grade VARCHAR(255);
+
+-- `recruiters.members_recruited` -- widened back to text so that V17 can seed it.
+--
+-- 🔴 THIS ONE IS A TYPE, NOT AN OBJECT, and that is why reading missed it.
+-- V17 does `CREATE TABLE IF NOT EXISTS recruiters (... members_recruited
+-- VARCHAR(255) ...)` and then seeds '10', '11', '13' as text; V18 converts the
+-- column to INTEGER afterwards. The whole of that sequence assumed V17 was the
+-- statement that CREATED the table. Against the surviving baseline it is not --
+-- the table is already there with the column already INTEGER, the create
+-- no-ops, and the seed fails with "column members_recruited is of type integer
+-- but expression is of type text".
+--
+-- 🔑 So the chain's end state is unchanged and only its middle moves: this
+-- widens the column, V17 seeds text into it exactly as it always did, and V18
+-- narrows it back to INTEGER with its own USING clause. `recruiterCountsAreNumeric`
+-- still asserts `integer` at the end, and it is the guard that would catch this
+-- being wrong.
+--
+-- ⚠️ NOT fixed by editing V17. V17 and V18 are shared with the main line
+-- unchanged, and editing an applied migration changes its checksum -- which,
+-- under the `validate-on-migrate: true` this suite runs with, reddens every
+-- database that already has it. Fixing the precondition here keeps every shared
+-- file untouched, which is this whole file's premise.
+DO $$
+    BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'recruiters'
+                     AND column_name = 'members_recruited'
+                     AND data_type <> 'character varying') THEN
+            -- The USING clause is explicit rather than left to Postgres to
+            -- infer. integer -> varchar is an ASSIGNMENT cast, which
+            -- ALTER COLUMN ... TYPE does accept, but "accepts an assignment
+            -- cast" is a rule worth not depending on in a migration that only
+            -- ever runs once per database.
+            ALTER TABLE recruiters
+                ALTER COLUMN members_recruited TYPE VARCHAR(255)
+                USING members_recruited::VARCHAR(255);
+        END IF;
+    END $$;

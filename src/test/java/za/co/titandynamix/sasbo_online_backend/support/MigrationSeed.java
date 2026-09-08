@@ -3,7 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.support;
 import java.util.List;
 
 /**
- * What the migration chain seeds, written down once.
+ * The shape of the migration chain, and what it seeds, written down once.
  *
  * <p>These numbers were spread across four files before this existed -- the
  * chain-content assertions, the harness check, the self-test and the reset
@@ -35,24 +35,58 @@ public final class MigrationSeed {
     public static final String ROOT_STRUCTURE = "SASBO";
 
     /**
-     * Every version the chain applies, in Flyway's order -- the one declaration
-     * of the chain's shape, and the only place it is written down.
+     * Every migration the chain applies, in order, by filename -- the ONE
+     * declaration of the chain's shape.
      *
-     * <p>🔑 THIS LIST IS CLOSED ON PURPOSE. It pins two things a
+     * <p>🔑 FILENAMES RATHER THAN BARE VERSIONS, because the filename carries
+     * the version AND the description, and Flyway derives its own
+     * {@code description} column from exactly this text. A list of versions
+     * cannot tell {@code V8__drop_removed_member_columns.sql} from some other
+     * file renamed to {@code V8__}; this can.
+     *
+     * <p>🔑 AND IT IS CLOSED ON PURPOSE. It pins two things a
      * {@code containsAtLeast} would let through: the deliberate absence of a
      * V6, and the presence of {@code 1.1}. Do not relax it to make a red test
-     * green -- a new migration is a deliberate act and adding its version here
-     * is part of writing it.
+     * green -- a new migration is a deliberate act, and adding its name here is
+     * part of writing it.
      *
-     * <p>{@code 1.1} is a fractional version and not a typo. There were briefly
-     * two different files both claiming version 1; the surviving baseline is
-     * {@code V1__initial_schema.sql} and {@code V1_1__baseline_completion.sql}
-     * supplies the three objects it lacks. That file's header carries the whole
-     * story.
+     * <p>⚠️ It is a SPECIFICATION and must never be derived from the files on
+     * disk. Derived, deleting a migration would delete its own expectation and
+     * the suite would stay green over the loss -- which is the one failure this
+     * list exists to make loud.
+     *
+     * <p>{@code V1_1} is a fractional version, not a typo -- see that file's
+     * header.
      */
-    public static final List<String> APPLIED_VERSIONS = List.of(
-            "1", "1.1", "2", "3", "4", "5", "7", "8", "9", "10",
-            "11", "12", "13", "14", "15", "16", "17", "18", "19");
+    public static final List<String> MIGRATIONS = List.of(
+            "V1__initial_schema.sql",
+            "V1_1__baseline_completion.sql",
+            "V2__Update_Union_Schema.sql",
+            "V3__add_member_email_fields.sql",
+            "V4__representative_member_link.sql",
+            "V5__representative_area_nullable.sql",
+            "V7__add_role_description.sql",
+            "V8__drop_removed_member_columns.sql",
+            "V9__drop_representatives_name_column.sql",
+            "V10__remove_cash_payment_type.sql",
+            "V11__job_grade_alphanumeric.sql",
+            "V12__add_representative_email_fields.sql",
+            "V13__restructure_representative_to_many_structures.sql",
+            "V14__add_position_hierarchy_to_union_structures.sql",
+            "V15__add_member_date_of_birth.sql",
+            "V16__reseed_union_structures_hierarchy.sql",
+            "V17__seed_recruiters.sql",
+            "V18__recruiter_members_recruited_to_integer.sql",
+            "V19__add_cosatu_structure_fields.sql");
+
+    /**
+     * The versions those filenames declare, as Flyway records them in
+     * {@code flyway_schema_history.version}: the text between the leading
+     * {@code V} and the {@code __}, with {@code _} read as the decimal point.
+     */
+    public static final List<String> APPLIED_VERSIONS = MIGRATIONS.stream()
+            .map((name) -> name.substring(1, name.indexOf("__")).replace('_', '.'))
+            .toList();
 
     /**
      * The last migration in the chain, DERIVED rather than restated.
@@ -63,8 +97,7 @@ public final class MigrationSeed {
      * is in the chain, and the query that used to read this cast the column to
      * {@code int}, which that value would have made fail.
      */
-    public static final String LAST_MIGRATION_VERSION =
-            APPLIED_VERSIONS.get(APPLIED_VERSIONS.size() - 1);
+    public static final String LAST_MIGRATION_VERSION = APPLIED_VERSIONS.getLast();
 
     private MigrationSeed() {
     }

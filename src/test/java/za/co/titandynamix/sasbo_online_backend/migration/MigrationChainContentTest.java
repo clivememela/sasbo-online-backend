@@ -117,28 +117,23 @@ class MigrationChainContentTest {
                 .isEqualTo("character varying");
     }
 
+    /**
+     * These columns are absent at the end of the chain and no later migration
+     * re-adds them.
+     *
+     * <p>Note what this does NOT prove, because the name it used to have --
+     * "the columns V8 and V9 drop really are gone" -- claimed it did. The
+     * baseline this was written against created every one of these columns, so
+     * their absence could only mean the drops ran. The surviving baseline
+     * creates none of them, and V8 and V9 both use {@code DROP COLUMN IF
+     * EXISTS}, so for these nine the assertion holds whether the migration ran
+     * or not. {@code schemaHistoryIsComplete} is what asserts they applied;
+     * {@code representativeRoleWasAddedThenDropped} below is the one column
+     * that still distinguishes the two.
+     */
     @Test
-    @DisplayName("the columns V8 and V9 drop really are gone")
-    void droppedColumnsAreGone() {
-        // ⚠️ READ THIS BEFORE TRUSTING A GREEN HERE -- MOST OF IT NO LONGER
-        // PROVES WHAT ITS NAME SAYS. This test used to prove that V8 and V9
-        // RAN: the baseline it was written against created all of these
-        // columns, so their absence at the end of the chain could only mean the
-        // drops executed. That baseline is gone. The surviving one --
-        // V1__initial_schema.sql -- creates none of the seven V8 columns and no
-        // representatives.name, and both migrations use DROP COLUMN IF EXISTS.
-        // So for nine of these ten the assertion now passes whether the
-        // migration ran or not, which is verbatim the ambiguity it was written
-        // to remove.
-        //
-        // 🔑 EXACTLY ONE COLUMN STILL CARRIES THE ORIGINAL MEANING:
-        // representatives.rep_role, because V4 adds it before V9 drops it. That
-        // one line is the whole of what this test still proves about the drops.
-        //
-        // It is kept because it still guards the other direction, which is a
-        // real and plausible mistake: a later migration that RE-ADDED one of
-        // these columns reddens it. But schemaHistoryIsComplete's version list
-        // is now the only thing asserting that V8 and V9 were applied at all.
+    @DisplayName("these columns are absent, and no later migration re-adds them")
+    void droppedColumnsHaveNotReappeared() {
         for (String column : DROPPED_BY_V8) {
             assertThat(columnType("members", column))
                     .as("members.%s -- dropped by V8", column)
@@ -147,8 +142,25 @@ class MigrationChainContentTest {
         assertThat(columnType("representatives", "name"))
                 .as("representatives.name -- the NOT NULL column V9 drops, which broke every INSERT")
                 .isNull();
+    }
+
+    @Test
+    @DisplayName("V9's drop really ran -- the one column that can still prove it")
+    void representativeRoleWasAddedThenDropped() {
+        // 🔑 THE ONLY ADD-THEN-DROP PAIR THE CHAIN STILL HAS against this
+        // baseline, which is what makes it the only column whose absence is
+        // evidence rather than a coincidence. V4 adds representatives.rep_role;
+        // V9 drops it. The baseline does not create it, so if V9 had never run
+        // this column would be PRESENT, put there by V4 -- and that is the
+        // difference from every assertion in the test above, where absence is
+        // also what a chain that never ran would produce.
+        //
+        // Kept as its own test, with its own name, so that a future reader
+        // deleting the vacuous assertions above does not take this one with
+        // them.
         assertThat(columnType("representatives", "rep_role"))
-                .as("representatives.rep_role -- added by V4, dropped by V9")
+                .as("representatives.rep_role -- added by V4, dropped by V9. Present here means "
+                        + "V9 did not run; the other drop assertions cannot tell you that")
                 .isNull();
     }
 

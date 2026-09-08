@@ -62,7 +62,7 @@ class JobGradeControllerTest {
     @DisplayName("GET /api/job-grades returns {value,label} objects, not the entities")
     void returnsValueLabelObjects() throws Exception {
         when(this.jobGradeService.findByBankIdentifier("632005"))
-                .thenReturn(List.of(grade("BA1"), grade("BA2")));
+                .thenReturn(List.of(new JobGrade("BA1"), new JobGrade("BA2")));
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
                 .andExpect(status().isOk())
@@ -101,7 +101,7 @@ class JobGradeControllerTest {
         // turning a data problem into a 500. The controller filters instead, so
         // assert the filter rather than trusting it.
         when(this.jobGradeService.findByBankIdentifier("632005"))
-                .thenReturn(List.of(grade(null), grade("BA1")));
+                .thenReturn(List.of(new JobGrade(null), new JobGrade("BA1")));
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
                 .andExpect(status().isOk())
@@ -150,10 +150,12 @@ class JobGradeControllerTest {
                 .andExpect(jsonPath("$").isEmpty());
     }
 
-    private static JobGrade grade(String value) {
-        return grade(value, null, null);
-    }
-
+    /**
+     * Only the three-argument shape is a helper. A grade with nothing but a
+     * value already has a public constructor on the entity -- {@code new
+     * JobGrade("BA1")} -- and wrapping it would be a fourth way to build one
+     * thing in a suite that already has three.
+     */
     private static JobGrade grade(String value, String description, String contractType) {
         JobGrade jobGrade = new JobGrade();
         jobGrade.setGrade(value);

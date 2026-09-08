@@ -93,17 +93,12 @@ class ApiSurfaceSnapshotTest {
      * {@code requestMappingHandlerMapping} and {@code controllerEndpointHandlerMapping}
      * -- and every test in this class failed before running, with a
      * {@code NoUniqueBeanDefinitionException} that names Spring internals and
-     * not the dependency that caused it. Four guards went dark at once for a
-     * reason no line of this file mentions.
+     * not the dependency that caused it. Four guards went dark at once, from a
+     * one-line dependency change, for a reason nothing in this file mentioned.
      *
-     * <p>🔑 The qualifier is also the ANSWER TO A CONTRACT QUESTION, not just a
-     * disambiguation: {@code requestMappingHandlerMapping} carries the
-     * application's own routes and {@code controllerEndpointHandlerMapping}
-     * carries the actuator's. This snapshot is the API the client is written
-     * against, so {@code /actuator/**} is deliberately OUT of it -- adding
-     * actuator must not silently rewrite the committed surface. If that
-     * decision is ever reversed it is reversed HERE, on purpose, and the
-     * artifact diff will show it.
+     * <p>⚠️ This is a disambiguation and NOT what keeps the actuator out of the
+     * committed surface -- see {@code theSurfaceCarriesNoActuatorRoutes}, which
+     * is what actually asserts that.
      */
     @Autowired
     @Qualifier("requestMappingHandlerMapping")
@@ -139,6 +134,35 @@ class ApiSurfaceSnapshotTest {
                         + "works. Regenerate and commit the diff: %s",
                         ApiSurface.SURFACE_FILE, ApiSurface.regenerateCommand())
                 .isEqualTo(live);
+    }
+
+    @Test
+    @DisplayName("the surface carries no actuator routes")
+    void theSurfaceCarriesNoActuatorRoutes() {
+        // 🔴 THIS CONTRACT WAS HELD BY NOTHING, and it looked like it was held
+        // by the @Qualifier above. It was not: the actuator's WEB endpoints live
+        // in WebMvcEndpointHandlerMapping, which is not a
+        // RequestMappingHandlerMapping at all and was never a candidate for
+        // that injection. The second bean by type carries @ControllerEndpoint
+        // beans, of which this application has none -- so it is empty, and the
+        // qualifier's effect on the surface today is precisely nothing.
+        //
+        // What the contract is: `api-surface.txt` is the file the BROWSER's own
+        // guard reads, and the browser has no business calling /actuator/**.
+        // Letting an ops endpoint into it would silently widen the API the
+        // client is written against.
+        //
+        // Why it needs an assertion rather than a filter: ApiSurface.routes()
+        // refuses on principle to filter anything -- "a curated list is the
+        // hand-maintained second source of truth this class exists to avoid" --
+        // so the guard has to be a statement about the produced surface.
+        // `management.endpoints.web.exposure.include` is a routine ops change,
+        // and without this test it rewrites the committed artifact silently.
+        assertThat(ApiSurface.routes(handlerMapping))
+                .as("routes under /actuator in the committed API surface. The actuator is "
+                        + "deliberately not part of the contract the browser is written against; "
+                        + "if that is ever reversed, reverse it here on purpose")
+                .noneMatch((route) -> route.contains("/actuator"));
     }
 
     @Test
