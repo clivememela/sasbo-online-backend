@@ -4,7 +4,7 @@
 
 ## Architecture Overview
 
-**Tech Stack**: Java 21 | Spring Boot 4.0.3 | Gradle | PostgreSQL | JPA/Hibernate
+**Tech Stack**: Java 21 | Spring Boot 3.4.5 | Gradle | PostgreSQL | JPA/Hibernate
 
 Two parallel project repos:
 - **Backend** (`sasbo-online-backend`): Gradle-based Spring Boot REST API on port 8080
