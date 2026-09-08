@@ -43,7 +43,7 @@ public class SecurityConfig {
         String cleanFrontendUrl = (this.frontendUrl != null) ? this.frontendUrl.replaceAll("/+$", "") : "";
 
         List<String> origins = !cleanFrontendUrl.isBlank()
-                                       ? List.of("http://localhost:5173", cleanFrontendUrl)
+                                       ? List.of("http://localhost:5173", cleanFrontendUrl,"https://dev.sasbo.online/")
                                        : List.of("http://localhost:5173");
 
         config.setAllowedOrigins(origins);

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +15,9 @@ import java.util.List;
  * into a comma-separated String for storage.
  */
 public class StringArrayToCommaSeparatedDeserializer extends StdDeserializer<String> {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     public StringArrayToCommaSeparatedDeserializer() {
         super(String.class);

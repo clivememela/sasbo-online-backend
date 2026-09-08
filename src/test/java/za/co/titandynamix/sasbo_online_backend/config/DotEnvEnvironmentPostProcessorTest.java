@@ -50,11 +50,11 @@ class DotEnvEnvironmentPostProcessorTest {
                 # a comment
 
                    # an indented comment
-                export DB_PASSWORD=secret
+                export SPRING_DATASOURCE_PASSWORD=secret
                 """);
 
         assertEquals(1, parsed.size());
-        assertEquals("secret", parsed.get("DB_PASSWORD"));
+        assertEquals("secret", parsed.get("SPRING_DATASOURCE_PASSWORD"));
     }
 
     @Test
@@ -70,12 +70,12 @@ class DotEnvEnvironmentPostProcessorTest {
     @Test
     @DisplayName("an empty value is kept as an empty string, not dropped")
     void keepsEmptyValue() {
-        // .env ships DB_PASSWORD= blank. It must resolve to "" rather than go missing, or the
+        // .env ships SPRING_DATASOURCE_PASSWORD= blank. It must resolve to "" rather than go missing, or the
         // placeholder fails and the error points at the wrong thing.
-        Map<String, Object> parsed = DotEnvEnvironmentPostProcessor.parse("DB_PASSWORD=\n");
+        Map<String, Object> parsed = DotEnvEnvironmentPostProcessor.parse("SPRING_DATASOURCE_PASSWORD=\n");
 
-        assertTrue(parsed.containsKey("DB_PASSWORD"));
-        assertEquals("", parsed.get("DB_PASSWORD"));
+        assertTrue(parsed.containsKey("SPRING_DATASOURCE_PASSWORD"));
+        assertEquals("", parsed.get("SPRING_DATASOURCE_PASSWORD"));
     }
 
     @Test
@@ -208,13 +208,13 @@ class DotEnvEnvironmentPostProcessorTest {
         @DisplayName("both files load when .env.local is present, with .env as fallback")
         void loadsBothWhenLocalFilePresent(@TempDir Path dir) throws Exception {
             Files.writeString(dir.resolve(".env"),
-                    "SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/shared\nDB_PASSWORD=fromShared\n");
-            Files.writeString(dir.resolve(".env.local"), "DB_PASSWORD=fromLocal\n");
+                    "SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/shared\nSPRING_DATASOURCE_PASSWORD=fromShared\n");
+            Files.writeString(dir.resolve(".env.local"), "SPRING_DATASOURCE_PASSWORD=fromLocal\n");
 
             ConfigurableEnvironment environment = runProcessorIn(dir);
 
             // .env.local wins where both define a key...
-            assertEquals("fromLocal", environment.getProperty("DB_PASSWORD"));
+            assertEquals("fromLocal", environment.getProperty("SPRING_DATASOURCE_PASSWORD"));
             // ...and .env still supplies what .env.local leaves out.
             assertEquals("jdbc:postgresql://localhost:5432/shared",
                     environment.getProperty("SPRING_DATASOURCE_URL"));
