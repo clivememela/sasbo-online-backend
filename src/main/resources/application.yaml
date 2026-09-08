@@ -13,7 +13,6 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
     connect-retries: 10
-    # locations: classpath:db/migration do not use in production
     clean-disabled: false
     validate-on-migrate: false
   jpa:
@@ -23,21 +22,36 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  thymeleaf:
+    check-template-location: false
+    enabled: false
+  mvc:
+    static-path-pattern: /static/**
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      static-locations: classpath:/static/
+      add-mappings: false
 
 server:
   port: ${SERVER_PORT:8080}
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on-param
+    include-exception: false
 
 logging:
   level:
     root: DEBUG
     za.co.titandynamix: DEBUG
-    org.springframework.web.servlet.DispatcherServlet: WARN
+    org.springframework.web.servlet.DispatcherServlet: DEBUG
     org.springframework.web.filter.CommonsRequestLoggingFilter: WARN
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
     org.apache.coyote.http11.Http11Processor: ERROR
-    
+
 front:
   end:
     url: ${FRONTEND_URL:}
-  
+

@@ -2,47 +2,48 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import za.co.titandynamix.sasbo_online_backend.dto.member.JobGradeDto;
+import za.co.titandynamix.sasbo_online_backend.dto.member.JobGradeResponseDto;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
-import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
+import za.co.titandynamix.sasbo_online_backend.services.impl.JobGradeServiceImpl;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/job-grades")
 @RequiredArgsConstructor
 public class JobGradeController {
-    private final JobGradeService jobGradeService;
+    private final JobGradeServiceImpl jobGradeService;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, String>>> getByBank(
+    public ResponseEntity<List<JobGradeResponseDto>> getByBank(
             @RequestParam(name = "bankCode", required = false) String bankCode,
             @RequestParam(name = "bank", required = false) String bank) {
 
         String identifier = (bankCode != null && !bankCode.isBlank()) ? bankCode : bank;
 
-        List<JobGrade> grades = jobGradeService.findByBankIdentifier(identifier);
+        List<JobGrade> jobGradeList = jobGradeService.findByBankIdentifier(identifier);
 
-        if (grades == null) {
+        if (jobGradeList == null || jobGradeList.isEmpty()) {
             return ResponseEntity.ok(List.of());
         }
 
-        List<Map<String, String>> values = grades.stream()
-                .filter(jg -> jg.getGrade() != null)
-                .map(jg -> {
-                    String label = Stream.of(jg.getGrade(), jg.getDescription(), jg.getContractType())
-                            .filter(s -> s != null && !s.isBlank())
-                            .collect(Collectors.joining(" - "));
-                    return Map.of("value", jg.getGrade(), "label", label);
+        List<JobGradeResponseDto> values = jobGradeList.stream()
+                .filter(jobGrade -> jobGrade.getGrade() != null)
+                .map(jobGrade -> {
+                    JobGradeDto dto = new JobGradeDto();
+                    dto.setId(jobGrade.getId());
+                    dto.setGrade(jobGrade.getGrade());
+                    dto.setDescription(jobGrade.getDescription());
+                    dto.setContractType(jobGrade.getContractType());
+                    return JobGradeResponseDto.from(dto);
                 })
+                .filter(response -> response != null)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(values);
     }
+
 }

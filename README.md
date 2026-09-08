@@ -153,7 +153,7 @@ interfaces in `mapper/` (`BankMapper`, `MemberMapper`, `ProvinceMapper`, `CityMa
 
 Business logic lives behind interfaces (`BankService`, `BankBranchService`, `BankingService`,
 `MemberService`, `ProvinceService`, `RepresentativeService`, `SubscriptionsService`,
-`DeletionCodeService`, `JobGradeService`, `RecruitmentChannelService`) with implementations in
+`DeletionCodeService`, `JobGradeServiceImpl`, `RecruitmentChannelService`) with implementations in
 `services/impl/`. Controllers that need logic delegate here; a few simpler controllers inject repositories
 directly (see each controller).
 
