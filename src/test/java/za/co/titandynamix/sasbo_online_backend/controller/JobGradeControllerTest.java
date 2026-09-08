@@ -150,6 +150,24 @@ class JobGradeControllerTest {
                 .andExpect(jsonPath("$").isEmpty());
     }
 
+    @Test
+    @DisplayName("a missing middle part leaves no doubled separator in the label")
+    void labelSkipsAbsentPartsRatherThanPaddingThem() throws Exception {
+        // 🔑 THE GAP BETWEEN THE TWO LABEL TESTS ABOVE. One covers a grade with
+        // nothing else, one covers a grade with everything -- and between them
+        // sits the case where a part in the MIDDLE is absent, which is the only
+        // shape a join-then-scrub implementation gets wrong in a way neither
+        // neighbour can see. Upstream shipped exactly that implementation and
+        // both neighbours would have passed on the "A -  - C" it produced.
+        when(this.jobGradeService.findByBankIdentifier("632005"))
+                .thenReturn(List.of(grade("C1", null, "Permanent")));
+
+        this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].value").value("C1"))
+                .andExpect(jsonPath("$[0].label").value("C1 - Permanent"));
+    }
+
     /**
      * Only the three-argument shape is a helper. A grade with nothing but a
      * value already has a public constructor on the entity -- {@code new
