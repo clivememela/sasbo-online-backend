@@ -10,7 +10,9 @@ import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/job-grades")
@@ -19,22 +21,27 @@ public class JobGradeController {
     private final JobGradeService jobGradeService;
 
     @GetMapping
-    public ResponseEntity<List<String>> getByBank(@RequestParam(name = "bankCode", required = false) String bankCode,
-                                                  @RequestParam(name = "bank", required = false) String bank) {
+    public ResponseEntity<List<Map<String, String>>> getByBank(
+            @RequestParam(name = "bankCode", required = false) String bankCode,
+            @RequestParam(name = "bank", required = false) String bank) {
 
         String identifier = (bankCode != null && !bankCode.isBlank()) ? bankCode : bank;
 
-        // Let exceptions bubble up naturally so they print out properly in your Render terminal logs
         List<JobGrade> grades = jobGradeService.findByBankIdentifier(identifier);
 
         if (grades == null) {
             return ResponseEntity.ok(List.of());
         }
 
-        List<String> values = grades.stream()
-                                      .map(jg -> jg.getGrade())
-                                      .filter(grade -> grade != null)
-                                      .collect(Collectors.toList());
+        List<Map<String, String>> values = grades.stream()
+                .filter(jg -> jg.getGrade() != null)
+                .map(jg -> {
+                    String label = Stream.of(jg.getGrade(), jg.getDescription(), jg.getContractType())
+                            .filter(s -> s != null && !s.isBlank())
+                            .collect(Collectors.joining(" - "));
+                    return Map.of("value", jg.getGrade(), "label", label);
+                })
+                .collect(Collectors.toList());
 
         return ResponseEntity.ok(values);
     }

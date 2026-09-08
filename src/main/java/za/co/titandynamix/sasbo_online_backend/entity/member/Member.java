@@ -176,4 +176,11 @@ public class Member {
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", unique = true)
     private User user;
+
+    // ─── COSATU Structure ───
+    private String isCosatu;
+    private String cosatuLocal;
+    private String cosatuRegion;
+    /** Comma-separated list of held positions: PEC, CEC, Treasurer, Chairperson, Secretary */
+    private String cosatuPositions;
 }
