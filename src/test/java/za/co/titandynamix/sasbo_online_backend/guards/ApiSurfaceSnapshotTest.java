@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import za.co.titandynamix.sasbo_online_backend.controller.MemberController;
@@ -84,7 +85,28 @@ class ApiSurfaceSnapshotTest {
     /** Six components today. Same reasoning, same headroom. */
     private static final int ENVELOPE_KEY_FLOOR = 3;
 
+    /**
+     * 🔴 QUALIFIED BY NAME, and it must stay that way.
+     *
+     * <p>Injecting this by type alone worked until {@code spring-boot-starter-actuator}
+     * arrived, at which point the context held TWO beans of this type --
+     * {@code requestMappingHandlerMapping} and {@code controllerEndpointHandlerMapping}
+     * -- and every test in this class failed before running, with a
+     * {@code NoUniqueBeanDefinitionException} that names Spring internals and
+     * not the dependency that caused it. Four guards went dark at once for a
+     * reason no line of this file mentions.
+     *
+     * <p>🔑 The qualifier is also the ANSWER TO A CONTRACT QUESTION, not just a
+     * disambiguation: {@code requestMappingHandlerMapping} carries the
+     * application's own routes and {@code controllerEndpointHandlerMapping}
+     * carries the actuator's. This snapshot is the API the client is written
+     * against, so {@code /actuator/**} is deliberately OUT of it -- adding
+     * actuator must not silently rewrite the committed surface. If that
+     * decision is ever reversed it is reversed HERE, on purpose, and the
+     * artifact diff will show it.
+     */
     @Autowired
+    @Qualifier("requestMappingHandlerMapping")
     private RequestMappingHandlerMapping handlerMapping;
 
     /** The controller itself, so the artifact carries what it actually returns. */

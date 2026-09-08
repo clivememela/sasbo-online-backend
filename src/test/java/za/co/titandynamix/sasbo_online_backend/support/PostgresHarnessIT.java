@@ -91,9 +91,17 @@ class PostgresHarnessIT extends AbstractPostgresIT {
                 .as("union_structures seeded by V16")
                 .isEqualTo(MigrationSeed.UNION_STRUCTURES);
 
+        // 🔴 NOT `max(version::int)`, which is what this was. The chain contains
+        // version `1.1`, and Postgres raises "invalid input syntax for type
+        // integer" on that cast -- so the assertion would not have failed, it
+        // would have ERRORED, in the integration lane's named anchor test,
+        // naming a type rather than a migration. Read the last version in
+        // Flyway's own order instead: no cast, and it is what "the last
+        // migration applied" actually means.
         assertThat(jdbc.queryForObject(
-                "SELECT max(version::int) FROM flyway_schema_history WHERE version IS NOT NULL",
-                Integer.class))
+                "SELECT version FROM flyway_schema_history WHERE version IS NOT NULL "
+                        + "ORDER BY installed_rank DESC LIMIT 1",
+                String.class))
                 .as("the last migration applied")
                 .isEqualTo(MigrationSeed.LAST_MIGRATION_VERSION);
     }

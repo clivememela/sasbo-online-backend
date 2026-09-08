@@ -48,9 +48,9 @@ class MigrationChainContentTest {
 
         assertThat(versions)
                 .as("applied versions in Flyway's order -- this list is also what pins "
-                        + "the deliberate gap where V6 would be. See V1's header")
-                .containsExactly("1", "2", "3", "4", "5", "7", "8", "9", "10",
-                        "11", "12", "13", "14", "15", "16", "17", "18");
+                        + "the deliberate gap where V6 would be, and the fractional 1.1. "
+                        + "See V1_1__baseline_completion.sql's header")
+                .containsExactlyElementsOf(MigrationSeed.APPLIED_VERSIONS);
 
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE NOT success", Integer.class))
@@ -120,6 +120,25 @@ class MigrationChainContentTest {
     @Test
     @DisplayName("the columns V8 and V9 drop really are gone")
     void droppedColumnsAreGone() {
+        // ⚠️ READ THIS BEFORE TRUSTING A GREEN HERE -- MOST OF IT NO LONGER
+        // PROVES WHAT ITS NAME SAYS. This test used to prove that V8 and V9
+        // RAN: the baseline it was written against created all of these
+        // columns, so their absence at the end of the chain could only mean the
+        // drops executed. That baseline is gone. The surviving one --
+        // V1__initial_schema.sql -- creates none of the seven V8 columns and no
+        // representatives.name, and both migrations use DROP COLUMN IF EXISTS.
+        // So for nine of these ten the assertion now passes whether the
+        // migration ran or not, which is verbatim the ambiguity it was written
+        // to remove.
+        //
+        // 🔑 EXACTLY ONE COLUMN STILL CARRIES THE ORIGINAL MEANING:
+        // representatives.rep_role, because V4 adds it before V9 drops it. That
+        // one line is the whole of what this test still proves about the drops.
+        //
+        // It is kept because it still guards the other direction, which is a
+        // real and plausible mistake: a later migration that RE-ADDED one of
+        // these columns reddens it. But schemaHistoryIsComplete's version list
+        // is now the only thing asserting that V8 and V9 were applied at all.
         for (String column : DROPPED_BY_V8) {
             assertThat(columnType("members", column))
                     .as("members.%s -- dropped by V8", column)
