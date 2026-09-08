@@ -15,7 +15,6 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeReposito
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
-import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.utils.SaIdParser;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
@@ -37,7 +36,7 @@ public class MemberServiceImpl implements MemberService {
     private final RepresentativeRoleRepository representativeRoleRepository;
     private final UnionStructureRepository unionStructureRepository;
     private final JobGradeRepository jobGradeRepository;
-    private final JobGradeService jobGradeService;
+    private final JobGradeServiceImpl jobGradeService;
 
     @Override
     public List<Member> findAll() {

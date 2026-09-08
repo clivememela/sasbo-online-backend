@@ -10,6 +10,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.JobGradeRepository;
+import za.co.titandynamix.sasbo_online_backend.services.impl.JobGradeServiceImpl;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,7 +22,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("JobGradeService Tests")
+@DisplayName("JobGradeServiceImpl Tests")
 class JobGradeServiceTest {
 
     @Mock
@@ -30,11 +31,11 @@ class JobGradeServiceTest {
     @Mock
     private BankRepository bankRepository;
 
-    private JobGradeService jobGradeService;
+    private JobGradeServiceImpl jobGradeService;
 
     @BeforeEach
     void setUp() {
-        this.jobGradeService = new JobGradeService(this.jobGradeRepository, this.bankRepository);
+        this.jobGradeService = new JobGradeServiceImpl(this.jobGradeRepository, this.bankRepository);
     }
 
     private static JobGrade grade(Integer id, Bank bank, String value) {
