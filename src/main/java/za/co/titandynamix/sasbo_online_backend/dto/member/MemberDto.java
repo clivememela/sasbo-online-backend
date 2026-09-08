@@ -1,5 +1,8 @@
 package za.co.titandynamix.sasbo_online_backend.dto.member;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.StringSerializer;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -94,8 +97,15 @@ public class MemberDto {
 
     private String userId;
 
-    // Removed per §6 (columns dropped in V8 migration):
-    // §6.1 managersCode, §6.2 memnetMember, §6.3 printLabelForPostage,
-    // §6.4 suspensionCode, §6.6 deductACB, §6.7 printMembershipCards,
-    // §6.8 homeLoanReducedRate
+    // ─── COSATU Structure ───
+    private String isCosatu;
+    private String cosatuLocal;
+    private String cosatuRegion;
+    /**
+     * Stored as comma-separated string internally (e.g. "PEC,CEC,Treasurer").
+     * Deserialized from a JSON array sent by the frontend.
+     * Serialized back as a comma-separated string; frontend splits on "," to rebuild the array.
+     */
+    @JsonDeserialize(using = StringArrayToCommaSeparatedDeserializer.class)
+    private String cosatuPositions;
 }

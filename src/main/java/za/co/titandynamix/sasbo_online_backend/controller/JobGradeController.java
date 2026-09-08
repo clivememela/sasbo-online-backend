@@ -10,26 +10,39 @@ import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/job-grades")
 @RequiredArgsConstructor
 public class JobGradeController {
-    private final JobGradeService service;
+    private final JobGradeService jobGradeService;
 
     @GetMapping
-    public ResponseEntity<List<String>> getByBank(@RequestParam(name = "bankCode", required = false) String bankCode,
-                                                  @RequestParam(name = "bank", required = false) String bank) {
+    public ResponseEntity<List<Map<String, String>>> getByBank(
+            @RequestParam(name = "bankCode", required = false) String bankCode,
+            @RequestParam(name = "bank", required = false) String bank) {
+
         String identifier = (bankCode != null && !bankCode.isBlank()) ? bankCode : bank;
-        try {
-            List<JobGrade> grades = service.findByBankIdentifier(identifier);
-            List<String> values = grades.stream().map(jg -> jg.getGrade()).collect(Collectors.toList());
-            return ResponseEntity.ok(values);
-        } catch (Exception e) {
-            // Return 500 intentionally if something unexpected happens; include message for easier debugging
-            return ResponseEntity.status(500).body(List.of("ERROR: " + e.getMessage()));
+
+        List<JobGrade> grades = jobGradeService.findByBankIdentifier(identifier);
+
+        if (grades == null) {
+            return ResponseEntity.ok(List.of());
         }
+
+        List<Map<String, String>> values = grades.stream()
+                .filter(jg -> jg.getGrade() != null)
+                .map(jg -> {
+                    String label = Stream.of(jg.getGrade(), jg.getDescription(), jg.getContractType())
+                            .filter(s -> s != null && !s.isBlank())
+                            .collect(Collectors.joining(" - "));
+                    return Map.of("value", jg.getGrade(), "label", label);
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(values);
     }
 }
-

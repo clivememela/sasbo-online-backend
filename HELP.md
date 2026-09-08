@@ -9,14 +9,14 @@ The following was discovered as part of building this project:
 For further reference, please consider the following sections:
 
 * [Official Gradle documentation](https://docs.gradle.org)
-* [Spring Boot Gradle Plugin Reference Guide](https://docs.spring.io/spring-boot/4.0.3/gradle-plugin)
-* [Create an OCI image](https://docs.spring.io/spring-boot/4.0.3/gradle-plugin/packaging-oci-image.html)
-* [Spring Boot DevTools](https://docs.spring.io/spring-boot/4.0.3/reference/using/devtools.html)
-* [Spring Data JPA](https://docs.spring.io/spring-boot/4.0.3/reference/data/sql.html#data.sql.jpa-and-spring-data)
-* [Spring Web](https://docs.spring.io/spring-boot/4.0.3/reference/web/servlet.html)
-* [Thymeleaf](https://docs.spring.io/spring-boot/4.0.3/reference/web/servlet.html#web.servlet.spring-mvc.template-engines)
-* [Spring Security](https://docs.spring.io/spring-boot/4.0.3/reference/web/spring-security.html)
-* [MongoDB](https://docs.spring.io/spring-boot/4.0.3/reference/data/nosql.html#data.nosql.mongodb)
+* [Spring Boot Gradle Plugin Reference Guide](https://docs.spring.io/spring-boot/3.4.5/gradle-plugin)
+* [Create an OCI image](https://docs.spring.io/spring-boot/3.4.5/gradle-plugin/packaging-oci-image.html)
+* [Spring Boot DevTools](https://docs.spring.io/spring-boot/3.4.5/reference/using/devtools.html)
+* [Spring Data JPA](https://docs.spring.io/spring-boot/3.4.5/reference/data/sql.html#data.sql.jpa-and-spring-data)
+* [Spring Web](https://docs.spring.io/spring-boot/3.4.5/reference/web/servlet.html)
+* [Thymeleaf](https://docs.spring.io/spring-boot/3.4.5/reference/web/servlet.html#web.servlet.spring-mvc.template-engines)
+* [Spring Security](https://docs.spring.io/spring-boot/3.4.5/reference/web/spring-security.html)
+* [MongoDB](https://docs.spring.io/spring-boot/3.4.5/reference/data/nosql.html#data.nosql.mongodb)
 
 ### Guides
 The following guides illustrate how to use some features concretely:

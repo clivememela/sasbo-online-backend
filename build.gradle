@@ -46,11 +46,11 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
 	implementation 'org.mapstruct:mapstruct:1.6.3'
 	implementation 'org.flywaydb:flyway-core:10.22.0'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-
 
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql:10.22.0'
 
@@ -80,6 +80,10 @@ dependencies {
 	// beside a class booting a Spring context is handed SLF4J's substitute
 	// factory and fails in its own setup. No new dependency is resolved.
 	testImplementation 'org.junit.platform:junit-platform-launcher'
+}
+
+jar {
+	enabled = false
 }
 
 // ---------------------------------------------------------------------------
