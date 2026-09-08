@@ -12,6 +12,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
@@ -39,12 +40,24 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Strip trailing slash if present on FRONTEND_URL string
-        String cleanFrontendUrl = (this.frontendUrl != null) ? this.frontendUrl.replaceAll("/+$", "") : "";
+        List<String> origins = new ArrayList<>();
 
-        List<String> origins = !cleanFrontendUrl.isBlank()
-                                       ? List.of("http://localhost:5173", cleanFrontendUrl)
-                                       : List.of("http://localhost:5173");
+        // 1. Always allow Local Development
+        origins.add("http://localhost:5173");
+
+        // 2. Always allow your future Custom Production Domain (No trailing slash!)
+        origins.add("https://sasbo.online");
+
+        // 3. Always allow current temporary Vercel domain as a fallback
+        origins.add("https://vercel.app");
+
+        // 4. Dynamically append FRONTEND_URL if provided in Render Env Variables
+        if (this.frontendUrl != null && !this.frontendUrl.isBlank()) {
+            String cleanFrontendUrl = this.frontendUrl.replaceAll("/+$", "");
+            if (!origins.contains(cleanFrontendUrl)) {
+                origins.add(cleanFrontendUrl);
+            }
+        }
 
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
@@ -53,7 +66,6 @@ public class SecurityConfig {
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Global rule alignment capturing browser handshake updates
         source.registerCorsConfiguration("/**", config);
         return source;
     }

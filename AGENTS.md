@@ -68,7 +68,7 @@ Controllers create entities from DTOs and persist directly; optional service lay
 
 ### Configuration Management
 - **Environment Variables** (`.env`):
-  - Backend: `SPRING_DATASOURCE_URL`, `DB_USERNAME`, `DB_PASSWORD`, `SERVER_PORT`
+  - Backend: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `SERVER_PORT`
   - Frontend: `VITE_API_BASE_URL` (proxy to `/api` in dev; built-in prod)
 - **application.yaml**: Defaults to localhost; environment vars override for Render deployment
 
