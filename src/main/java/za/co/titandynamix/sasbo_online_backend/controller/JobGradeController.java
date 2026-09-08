@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/job-grades")
 @RequiredArgsConstructor
 public class JobGradeController {
-    private final JobGradeService service;
+    private final JobGradeService jobGradeService;
 
     @GetMapping
     public ResponseEntity<List<String>> getByBank(@RequestParam(name = "bankCode", required = false) String bankCode,
@@ -25,7 +25,7 @@ public class JobGradeController {
         String identifier = (bankCode != null && !bankCode.isBlank()) ? bankCode : bank;
 
         // Let exceptions bubble up naturally so they print out properly in your Render terminal logs
-        List<JobGrade> grades = service.findByBankIdentifier(identifier);
+        List<JobGrade> grades = jobGradeService.findByBankIdentifier(identifier);
 
         if (grades == null) {
             return ResponseEntity.ok(List.of());
