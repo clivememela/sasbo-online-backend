@@ -26,23 +26,24 @@ public class JobGradeServiceImpl implements JobGradeService {
 
         String candidate = bankCodeOrNameOrId.trim();
 
-        // Try by universal branch code first: the front end resolves the selected bank to its
-        // (numeric) universal code, so a numeric candidate must not be mistaken for a bank id.
+        // 1. Try by universal branch code first
         var byCode = jobGradeRepository.findByBank_UniversalBranchCode(candidate);
         if (byCode != null && !byCode.isEmpty()) return byCode;
 
-        // If it looks numeric, fall back to lookup by bank id
-        try {
-            Integer id = Integer.valueOf(candidate);
-            var byId = jobGradeRepository.findByBank_Id(id);
-            if (byId != null && !byId.isEmpty()) return byId;
-        } catch (NumberFormatException ignored) {
+        // 2. If it is numeric AND short (likely a real table primary key ID), fall back to lookup by bank id
+        if (candidate.matches("\\d+") && candidate.length() < 5) {
+            try {
+                Integer id = Integer.valueOf(candidate);
+                var byId = jobGradeRepository.findByBank_Id(id);
+                if (byId != null && !byId.isEmpty()) return byId;
+            } catch (NumberFormatException ignored) {
+            }
         }
 
-        // Finally try to resolve by bank name (case-insensitive)
+        // 3. Finally try to resolve by bank name (case-insensitive)
         return bankRepository.findByNameIgnoreCase(candidate)
-                .map(b -> jobGradeRepository.findByBank_Id(b.getId()))
-                .orElse(Collections.emptyList());
+                       .map(b -> jobGradeRepository.findByBank_Id(b.getId()))
+                       .orElse(Collections.emptyList());
     }
 
 }

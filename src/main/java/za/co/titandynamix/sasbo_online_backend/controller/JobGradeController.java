@@ -31,17 +31,25 @@ public class JobGradeController {
         }
 
         List<JobGradeResponseDto> values = jobGradeList.stream()
-                .filter(jobGrade -> jobGrade.getGrade() != null)
-                .map(jobGrade -> {
-                    JobGradeDto dto = new JobGradeDto();
-                    dto.setId(jobGrade.getId());
-                    dto.setGrade(jobGrade.getGrade());
-                    dto.setDescription(jobGrade.getDescription());
-                    dto.setContractType(jobGrade.getContractType());
-                    return JobGradeResponseDto.from(dto);
-                })
-                .filter(response -> response != null)
-                .collect(Collectors.toList());
+                                                   .filter(jobGrade -> jobGrade.getGrade() != null)
+                                                   .map(jobGrade -> {
+                                                       JobGradeDto dto = new JobGradeDto();
+                                                       dto.setId(jobGrade.getId());
+                                                       dto.setGrade(jobGrade.getGrade());
+                                                       dto.setDescription(jobGrade.getDescription());
+                                                       dto.setContractType(jobGrade.getContractType());
+
+                                                       // Defensively catch structural errors here
+                                                       try {
+                                                           return JobGradeResponseDto.from(dto);
+                                                       } catch (Exception e) {
+                                                           // Log the bad record but don't crash the server
+                                                           System.err.println("Failed mapping job grade ID: " + jobGrade.getId() + " - " + e.getMessage());
+                                                           return null;
+                                                       }
+                                                   })
+                                                   .filter(response -> response != null) // Now this safely drops failed conversions
+                                                   .collect(Collectors.toList());
 
         return ResponseEntity.ok(values);
     }
