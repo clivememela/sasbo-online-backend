@@ -9,7 +9,21 @@ import lombok.Getter;
 @Getter
 public enum PaymentType {
     DEBIT_ORDER("Debit Order"),
-    PAYROLL("Payroll");
+    /**
+     * SD2-3. The display name is <b>"Payroll Deduction"</b>, not "Payroll".
+     * <p>
+     * Four sources agree on the longer name: the specification uses it eight
+     * times, {@code V10}'s own comment says the system supports "Debit Order"
+     * and "Payroll Deduction", and <b>48 of the 160 seeded members are stored
+     * with it</b>. The enum and the client were the outliers.
+     * <p>
+     * 🔑 The cheap fix was to change the CLIENT's comparison to "Payroll" --
+     * one line, and backwards: it would have orphaned those 48 live members,
+     * whose stored value no longer matched anything the UI offered.
+     * {@link #fromString} already accepts both spellings, so nothing that reads
+     * existing data breaks.
+     */
+    PAYROLL("Payroll Deduction");
 
     private final String displayName;
 

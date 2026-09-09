@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.validator;
 
+import za.co.titandynamix.sasbo_online_backend.domain.debit.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 
@@ -8,10 +9,6 @@ import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
  * Enforces conditional field requirements based on payment type.
  */
 public class MemberValidator {
-
-    private static final int DEBIT_DAY_20 = 20;
-    private static final int DEBIT_DAY_25 = 25;
-    private static final int DEBIT_DAY_31 = 31;
 
     /**
      * Validate member payment type and banking information.
@@ -46,15 +43,15 @@ public class MemberValidator {
                 );
             }
 
+            // The permitted range lives in DebitDay, once. It was {20, 25, 31}
+            // here AND in three client files -- and it rejected the server's OWN
+            // reference data: the service sets debitDay from the bank's
+            // subscription row, and 13 of the 15 rows fall outside that set. This
+            // validator runs on create, update AND updateBanking, so writing a
+            // debit-order member back UNCHANGED was a 400 for most of them.
             Integer debitDay = member.getDebitDay();
-            if (debitDay != null
-                    && debitDay != DEBIT_DAY_20
-                    && debitDay != DEBIT_DAY_25
-                    && debitDay != DEBIT_DAY_31) {
-                throw new IllegalArgumentException(
-                        "Debit day must be one of 20, 25 or 31 when payment type is '"
-                                + paymentType.getDisplayName() + "'"
-                );
+            if (debitDay != null && !DebitDay.isInRange(debitDay)) {
+                throw new IllegalArgumentException(DebitDay.message());
             }
         }
     }

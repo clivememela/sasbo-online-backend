@@ -37,10 +37,10 @@ class PaymentTypeVocabularyTest {
      * Every value the browser can put in {@code paymentType}. Its counterpart
      * is {@code PAYMENT_TYPE_OPTIONS} in the browser's member constants.
      */
-    private static final String[] WHAT_THE_BROWSER_SENDS = {"Debit Order", "Payroll"};
+    private static final String[] WHAT_THE_BROWSER_SENDS = {"Debit Order", "Payroll Deduction"};
 
     @ParameterizedTest
-    @ValueSource(strings = {"Debit Order", "Payroll"})
+    @ValueSource(strings = {"Debit Order", "Payroll Deduction", "Payroll"})
     @DisplayName("resolves every value the browser can send")
     void resolvesEveryBrowserValue(String sent) {
         // If this reddens, the browser is sending something the server rejects

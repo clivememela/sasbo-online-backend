@@ -189,8 +189,19 @@ public class MemberServiceImpl implements MemberService {
      * When identityType is "Passport", the frontend sends dateOfBirth and gender
      * directly (user-selected via date picker and dropdown), so no override occurs.
      */
+    /**
+     * A17. This compared against {@code "ID"} while the browser sends
+     * {@code "I.D. Number"}, so the derivation below had never run for a single
+     * real capture. Both spellings are accepted: the browser's value is the one
+     * that matters, and the short form is kept because older rows carry it.
+     */
+    private static boolean isSouthAfricanId(String identityType) {
+        return "I.D. Number".equalsIgnoreCase(identityType)
+                || "ID".equalsIgnoreCase(identityType);
+    }
+
     private void autoPopulateIdDerivedFields(Member member) {
-        if ("ID".equalsIgnoreCase(member.getIdentityType())
+        if (isSouthAfricanId(member.getIdentityType())
                 && member.getIdentityNumber() != null
                 && !member.getIdentityNumber().isBlank()) {
             SaIdParser.extractDateOfBirth(member.getIdentityNumber())
