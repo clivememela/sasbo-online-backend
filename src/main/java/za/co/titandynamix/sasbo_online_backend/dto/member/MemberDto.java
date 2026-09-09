@@ -51,6 +51,24 @@ public class MemberDto {
     private Integer jobGradeId;
     private String jobGradeName;
 
+    /**
+     * What the server did with the submitted job grade -- MATCHED, CAPTURED or
+     * CLEARED (02.5, ux.md 6c clause 2).
+     *
+     * <p>🔴 THIS FIELD IS WHY THE FEATURE WORKS AT ALL. The outcome was originally
+     * put only on the {@code Member} ENTITY, as a transient. Every member endpoint
+     * returns {@code memberMapper.toDto(...)}, and MapStruct maps by name with
+     * {@code unmappedTargetPolicy = IGNORE} -- so the outcome was computed correctly,
+     * asserted correctly by the service test, and then silently dropped at the
+     * mapper. The browser would have received a member with no outcome and said
+     * nothing, which is precisely the silent-discard defect 02.5 exists to remove,
+     * reintroduced one layer up.
+     *
+     * <p>Found by the phase's refactor pass. `MemberDtoJobGradeOutcomeTest` now
+     * asserts the wire rather than the calculation.
+     */
+    private String jobGradeOutcome;
+
     // Subscriptions
     private String monthlySubscription;
     private String subscriptionFrequency;

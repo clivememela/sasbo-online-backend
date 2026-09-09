@@ -36,6 +36,13 @@ public abstract class MemberMapper {
     @Mapping(target = "areaName", source = "area.name")
     @Mapping(target = "userId", source = "user.id")
     @Mapping(target = "jobGrade", source = "jobGrade.grade") // Extracts the string field from the class
+    // 02.5. Named explicitly rather than relying on the by-name default: the entity
+    // carries an enum and the DTO a String, and this mapping is the ONLY thing that
+    // puts the job-grade outcome on the wire. It was missing once already, and the
+    // failure was silent in both directions -- IGNORE drops an unmapped target
+    // without a word, and nothing on the server noticed because the service test
+    // reads the entity.
+    @Mapping(target = "jobGradeOutcome", source = "jobGradeOutcome")
     public abstract MemberDto toDto(Member member);
 
     // ============================================================
