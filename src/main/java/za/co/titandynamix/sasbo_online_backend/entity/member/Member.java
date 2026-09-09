@@ -75,7 +75,7 @@ public class Member {
     private String bankAccountNumber;
     private String branch;
     private String ibtNo;
-    private String workIbtNo;
+    /*private String workIbtNo;*/
     private String bankAddress;
     private String workBankAddress;
     private String employmentType;

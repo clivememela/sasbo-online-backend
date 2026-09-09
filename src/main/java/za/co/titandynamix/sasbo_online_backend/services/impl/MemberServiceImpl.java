@@ -294,7 +294,6 @@ public class MemberServiceImpl implements MemberService {
             existing.setBankAccountNumber(banking.getBankAccountNumber());
             existing.setBranch(banking.getBranch());
             existing.setIbtNo(banking.getIbtNo());
-            existing.setWorkIbtNo(banking.getWorkIbtNo());
             existing.setBankAddress(banking.getBankAddress());
             existing.setWorkBankAddress(banking.getWorkBankAddress());
             existing.setPaymentType(banking.getPaymentType());
