@@ -182,14 +182,6 @@ public class MemberServiceImpl implements MemberService {
     // ============================================================
 
     /**
-     * When identityType is "ID" (South African ID), extracts date of birth and gender
-     * from the identityNumber and sets them on the member. These fields are read-only
-     * on the frontend when an SA ID is used.
-     * <p>
-     * When identityType is "Passport", the frontend sends dateOfBirth and gender
-     * directly (user-selected via date picker and dropdown), so no override occurs.
-     */
-    /**
      * A17. This compared against {@code "ID"} while the browser sends
      * {@code "I.D. Number"}, so the derivation below had never run for a single
      * real capture. Both spellings are accepted: the browser's value is the one
@@ -200,6 +192,15 @@ public class MemberServiceImpl implements MemberService {
                 || "ID".equalsIgnoreCase(identityType);
     }
 
+    /**
+     * For a South African ID, extracts date of birth and gender from the
+     * identity number and sets them on the member. Those fields are read-only on
+     * the frontend when an SA ID is used.
+     * <p>
+     * For a passport the frontend sends {@code dateOfBirth} and {@code gender}
+     * directly -- a passport number carries no date to derive from -- so no
+     * override occurs.
+     */
     private void autoPopulateIdDerivedFields(Member member) {
         if (isSouthAfricanId(member.getIdentityType())
                 && member.getIdentityNumber() != null

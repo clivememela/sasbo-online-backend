@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 /**
  * 🔴 THE ARC'S GATE. Capture a member through the real HTTP endpoint, against a
@@ -109,31 +111,17 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         // @RequestBody Member while the deserializer sat on MemberDto.
         //
         // Either one alone answered 500. Fixing one alone left capture dead.
-        String response = this.mockMvc.perform(post("/api/members")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(captureFormPayload()))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        JsonNode created = this.objectMapper.readTree(response);
+        JsonNode created = capture();
 
         assertThat(created.hasNonNull("id"))
-                .as("the capture did not come back with an id. Response body: %s", response)
+                .as("the capture did not come back with an id. Response body: %s", created)
                 .isTrue();
     }
 
     @Test
     @DisplayName("a captured member reads back with the fields that have columns")
     void theCapturedMemberRoundTrips() throws Exception {
-        JsonNode created = capture();
-        int id = created.get("id").asInt();
-
-        String body = this.mockMvc.perform(get("/api/members/{id}", id))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        JsonNode read = this.objectMapper.readTree(body);
+        JsonNode read = readBack(capture());
 
         // Every one of these has a column, so every one of them must survive.
         assertThat(read.get("firstNames").asText()).isEqualTo("Synthetic");
@@ -185,13 +173,7 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
                 }
                 """;
 
-        String response = this.mockMvc.perform(post("/api/members")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(hostile))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        JsonNode created = this.objectMapper.readTree(response);
+        JsonNode created = capture(hostile);
 
         assertThat(created.get("id").asInt())
                 .as("the caller chose its own primary key")
@@ -212,14 +194,13 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         JsonNode created = capture();
         int id = created.get("id").asInt();
 
-        String edit = captureFormPayload()
-                .replace("\"phone\": \"0115550000\"", "\"phone\": \"0115559999\"")
-                .replace("\"cosatuPositions\": []", "\"cosatuPositions\": [\"PEC\", \"CEC\"]");
+        ObjectNode edit = formPayload();
+        edit.put("phone", "0115559999");
+        edit.putArray("cosatuPositions").add("PEC").add("CEC");
 
-        this.mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .put("/api/members/{id}", id)
+        this.mockMvc.perform(put("/api/members/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(edit))
+                        .content(edit.toString()))
                 .andReturn();
 
         JsonNode read = readBack(created);
@@ -244,30 +225,42 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
 
         // The mapper used to emit `target.setId(source.getId())`, so the id in the
         // BODY won over the id in the PATH.
-        String retarget = captureFormPayload()
-                .replace("\"surname\": \"Testperson\"", "\"surname\": \"Retargeted\"")
-                .replace("{\n", "{\n  \"id\": " + secondId + ",\n");
+        //
+        // 🔑 The id is set on a PARSED node, not spliced into the payload's text.
+        // The first version matched the text block's opening brace, which meant a
+        // reindent or a leading comment would have turned the injection into a
+        // NO-OP -- and a no-op here is this test passing green while asserting
+        // nothing at all about retargeting.
+        ObjectNode retarget = formPayload();
+        retarget.put("surname", "Retargeted");
+        retarget.put("id", secondId);
 
-        this.mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .put("/api/members/{id}", firstId)
+        this.mockMvc.perform(put("/api/members/{id}", firstId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(retarget))
+                        .content(retarget.toString()))
                 .andReturn();
 
-        String other = this.mockMvc.perform(get("/api/members/{id}", secondId))
-                .andReturn().getResponse().getContentAsString();
-
-        assertThat(this.objectMapper.readTree(other).get("surname").asText())
+        assertThat(readBack(second).get("surname").asText())
                 .as("a PUT aimed at member %d rewrote member %d", firstId, secondId)
                 .isEqualTo("Testperson");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
+    /** The capture payload as a mutable node, so an edit is a field set and not
+     *  a string match against the text block's formatting. */
+    private ObjectNode formPayload() throws Exception {
+        return (ObjectNode) this.objectMapper.readTree(captureFormPayload());
+    }
+
     private JsonNode capture() throws Exception {
+        return capture(captureFormPayload());
+    }
+
+    private JsonNode capture(String payload) throws Exception {
         String response = this.mockMvc.perform(post("/api/members")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(captureFormPayload()))
+                        .content(payload))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();

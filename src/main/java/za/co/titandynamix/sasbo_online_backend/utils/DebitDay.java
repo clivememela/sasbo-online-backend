@@ -1,4 +1,4 @@
-package za.co.titandynamix.sasbo_online_backend.domain.debit;
+package za.co.titandynamix.sasbo_online_backend.utils;
 
 /**
  * The permitted debit days, as ONE definition.
@@ -24,7 +24,12 @@ package za.co.titandynamix.sasbo_online_backend.domain.debit;
  * the 20th: subscriptions are collected in the second half of the month, and no
  * source offers a reason to allow earlier.
  *
- * @see BusinessDays for what happens when the chosen day is not a business day
+ * <h2>The business-day rule is NOT here yet</h2>
+ * A debit day that falls on a weekend or a public holiday moves BACKWARDS to
+ * the last business day before it, never forwards into the next month. That
+ * rule is specified and is not implemented: it ships with the screen that
+ * shows a member their actual debit date, where a test can prove it against a
+ * real calendar rather than assert it in a comment.
  */
 public final class DebitDay {
 

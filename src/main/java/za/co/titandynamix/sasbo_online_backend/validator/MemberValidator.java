@@ -1,6 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.validator;
 
-import za.co.titandynamix.sasbo_online_backend.domain.debit.DebitDay;
+import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 
