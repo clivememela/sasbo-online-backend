@@ -4,6 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
@@ -16,7 +18,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -81,25 +82,22 @@ class JobGradeServiceTest {
                 .containsExactly("BA1");
     }
 
-    @Test
-    @DisplayName("Should not read a long numeric candidate as a bank id when no universal code matches")
-    void testLongNumericWithNoCodeMatchIsNeverTriedAsABankId() {
-        // Arrange -- a six-digit universal branch code that matches no bank. Before
-        // upstream 9b62e37 this fell through to findByBank_Id(632005); the gate that
-        // stops it -- numeric AND under five digits -- is the one genuine fix in that
-        // commit (U-20), and nothing asserted it. The universal-code test above cannot:
-        // it stubs the code lookup to SUCCEED, so its never() holds with or without
-        // the gate. This one starves the code lookup so the gate is the only thing
-        // standing between the candidate and the id lookup.
-        when(this.jobGradeRepository.findByBank_UniversalBranchCode("632005")).thenReturn(List.of());
-        when(this.bankRepository.findByNameIgnoreCase("632005")).thenReturn(Optional.empty());
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"12345", "632005"})
+    @DisplayName("Should not read a numeric candidate of five digits or more as a bank id when no universal code matches")
+    void testFindByLongNumericCodeWithNoMatch(String candidate) {
+        // Arrange — a universal branch code shape that matches no bank. The universal-code
+        // test above stubs the code lookup to SUCCEED, so its never() holds with or without
+        // the length gate; starving the lookup leaves the gate as the only thing in the way.
+        // "12345" is the boundary the gate defines, "632005" the real-world shape.
+        when(this.jobGradeRepository.findByBank_UniversalBranchCode(candidate)).thenReturn(List.of());
 
         // Act
-        List<JobGrade> result = this.jobGradeService.findByBankIdentifier("632005");
+        List<JobGrade> result = this.jobGradeService.findByBankIdentifier(candidate);
 
-        // Assert -- the name lookup is the only strategy left, and it finds nothing
+        // Assert — the candidate is not a primary key, so it is never tried as one
         assertThat(result).isEmpty();
-        verify(this.jobGradeRepository, never()).findByBank_Id(anyInt());
+        verify(this.jobGradeRepository, never()).findByBank_Id(Integer.valueOf(candidate));
     }
 
     @Test
