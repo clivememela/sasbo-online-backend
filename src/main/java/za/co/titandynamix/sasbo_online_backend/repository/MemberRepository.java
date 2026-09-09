@@ -13,6 +13,23 @@ import java.util.Optional;
 public interface MemberRepository extends JpaRepository<Member, Integer> {
     boolean existsByMembershipNumber(String membershipNumber);
 
+    /**
+     * The next membership number, from the sequence V22 creates.
+     *
+     * <p>🔴 NOT {@code existsByMembershipNumber}. The obvious implementation --
+     * find the highest, add one, check it is free -- is a check-then-act race: two
+     * captures at the same moment both read 100160, both find 100161 free, and both
+     * take it. The window is small and the damage is permanent, because there is no
+     * DELETE endpoint (register D9), so a duplicate has to be edited into something
+     * else by hand, forever.
+     *
+     * <p>{@code nextval} is atomic by construction: it never hands the same value to
+     * two callers, with no lock, no retry and no window. That is the whole reason
+     * this is a sequence and not a query.
+     */
+    @Query(value = "SELECT nextval('membership_number_seq')", nativeQuery = true)
+    long nextMembershipNumber();
+
     @Override
     @EntityGraph(attributePaths = {"recruitmentRepresentative", "structure", "role", "area", "user"})
     List<Member> findAll();

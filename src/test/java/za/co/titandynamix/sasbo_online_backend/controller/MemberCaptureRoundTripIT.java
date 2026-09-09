@@ -312,6 +312,54 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
                 .isFalse();
     }
 
+    // ─── 03.4: the membership number ───
+
+    @Test
+    @DisplayName("🔴 a captured member GETS a membership number -- nothing assigned one before")
+    void aCapturedMemberGetsAMembershipNumber() throws Exception {
+        // `membershipNumber` was on the entity, `existsByMembershipNumber` was on the
+        // repository, and nothing ever called it -- so every member captured through
+        // the API was stored with a NULL number while all 160 seeded members have one.
+        // The field looked implemented from every angle except the one that mattered.
+        JsonNode read = readBack(capture());
+
+        assertThat(read.get("membershipNumber").asText())
+                .as("the shape the union's own 160 members use")
+                .matches("M-\\d{6}");
+    }
+
+    @Test
+    @DisplayName("🔴 two captures never share a number -- the reason it is a sequence")
+    void twoCapturesNeverShareANumber() throws Exception {
+        // The failure this design prevents. "Find the highest, add one, check it is
+        // free" is a check-then-act race: two captures both read 100160, both find
+        // 100161 free, and both take it. There is no DELETE endpoint (register D9), so
+        // the duplicate is permanent and somebody edits it by hand forever.
+        //
+        // This asserts the PROPERTY -- distinct numbers, strictly increasing -- rather
+        // than specific values, because the values depend on how many members this test
+        // class captured before it and asserting those would be asserting the fixture.
+        String first = readBack(capture()).get("membershipNumber").asText();
+        String second = readBack(capture()).get("membershipNumber").asText();
+
+        assertThat(second).isNotEqualTo(first);
+        assertThat(numberIn(second)).isGreaterThan(numberIn(first));
+    }
+
+    @Test
+    @DisplayName("the sequence starts past the seeded block, so it cannot collide with it")
+    void theSequenceStartsPastTheSeededBlock() throws Exception {
+        // The seed occupies M-100001..M-100160 contiguously. Starting anywhere at or
+        // below 100160 would collide with a real member on the very first capture --
+        // and this lane truncates the members table, so nothing else would notice.
+        assertThat(numberIn(readBack(capture()).get("membershipNumber").asText()))
+                .isGreaterThanOrEqualTo(100161L);
+    }
+
+    private static long numberIn(String membershipNumber) {
+        return Long.parseLong(membershipNumber.substring(2));
+    }
+
     /** One area, and its name back. */
     private String seedArea(String name) {
         this.jdbc.update("INSERT INTO areas (name) VALUES (?)", name);

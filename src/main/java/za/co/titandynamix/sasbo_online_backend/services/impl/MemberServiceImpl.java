@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
@@ -53,7 +54,30 @@ public class MemberServiceImpl implements MemberService {
         return this.memberRepository.findById(id);
     }
 
+    /**
+     * 03.6 / A15 -- the member write path is a MULTI-ENTITY write and can half-land.
+     *
+     * <p>Capture is not one insert. It resolves relations, and since 02.5 it can also
+     * INSERT a job grade: an administrator who types a grade the master list does not
+     * have causes `job_grades` to gain a row before `members` gains one. Without a
+     * boundary, a failure between those two writes -- a validation error, a constraint,
+     * a dropped connection -- leaves the captured grade behind with no member attached
+     * to it, and nothing logged, nothing failed and nothing to notice it.
+     *
+     * <p>🔑 02.5 made this worse and this repays it. Before that unit the capture path
+     * issued one write; adding `capture()` gave it two, which is exactly the shape A15
+     * describes.
+     *
+     * <p>⚠️ SCOPED TO THIS PATH, deliberately, and A15 stays open. The register row
+     * covers all nineteen services; this fixes the one the arc owns and can prove. The
+     * pin on `everyMultiWriteMethodIsTransactional` therefore stays exactly where it
+     * is -- removing it would claim a repair that has not happened, and
+     * `theExistingBoundariesAreStillThere` is written with `contains` rather than
+     * `containsExactly` precisely so that adding a third boundary is not itself a
+     * failure.
+     */
     @Override
+    @Transactional
     public Member create(Member member) {
         member.setId(null);
         resolveStructureAndRole(member);
@@ -62,11 +86,38 @@ public class MemberServiceImpl implements MemberService {
         autoPopulateIdDerivedFields(member);
         autoPopulateBankDerivedFields(member);
         resolveJobGrade(member);
+        assignMembershipNumber(member);
         MemberValidator.validatePaymentType(member);
         return this.memberRepository.save(member);
     }
 
+    /**
+     * Gives a new member its membership number (03.4).
+     *
+     * <p>🔴 NOTHING DID THIS BEFORE. `membershipNumber` is on the entity,
+     * `existsByMembershipNumber` is on the repository, and nothing ever called it --
+     * so every member captured through the API was stored with a NULL membership
+     * number, while all 160 seeded members have one. The field looked implemented
+     * from every angle except the one that mattered.
+     *
+     * <p>The number comes from a SEQUENCE, not from "highest + 1, check it is free":
+     * see {@code MemberRepository.nextMembershipNumber} for why that check-then-act
+     * shape is a race whose damage cannot be undone on this API.
+     *
+     * <p>A number already supplied is kept. That is not a courtesy to the client --
+     * `MemberMapper` ignores `membershipNumber` on write and `SR-1` blocks it on the
+     * request body, so the only caller that can set one is a migration or an import,
+     * and overwriting it there would be worse than useless.
+     */
+    private void assignMembershipNumber(Member member) {
+        if (member.getMembershipNumber() != null && !member.getMembershipNumber().isBlank()) {
+            return;
+        }
+        member.setMembershipNumber("M-" + this.memberRepository.nextMembershipNumber());
+    }
+
     @Override
+    @Transactional
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
             resolveStructureAndRole(updated);
@@ -236,6 +287,7 @@ public class MemberServiceImpl implements MemberService {
     }
 
     @Override
+    @Transactional
     public Optional<Member> updateBanking(Integer id, Member banking) {
         return this.memberRepository.findById(id).map(existing -> {
             existing.setBankName(banking.getBankName());
