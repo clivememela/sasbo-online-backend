@@ -23,6 +23,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepo
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.RecruitmentChannelRepository;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 import za.co.titandynamix.sasbo_online_backend.support.Synthetic;
@@ -94,6 +95,10 @@ class MemberServiceImplTest {
             Map.entry("area",
                     "resolved from `areaRecruited` (03.3, R2/RE-3). The FK has existed since "
                             + "V1 and nothing wrote to it until this unit"),
+            Map.entry("recruitmentChannel",
+                    "resolved from `recruitedHow` (03.8) -- HOW the member was recruited. The "
+                            + "reference table was seeded and served all along with no member "
+                            + "pointing at it"),
             Map.entry("bankName", "derived from the branch"),
             Map.entry("branch", "derived from the banking details"),
             Map.entry("branchCode", "derived from the banking details"),
@@ -113,6 +118,7 @@ class MemberServiceImplTest {
     @Mock private JobGradeRepository jobGradeRepository;
     @Mock private JobGradeService jobGradeService;
     @Mock private AreaRepository areaRepository;
+    @Mock private RecruitmentChannelRepository recruitmentChannelRepository;
 
     @Captor
     private ArgumentCaptor<Member> saved;
@@ -125,7 +131,8 @@ class MemberServiceImplTest {
                 this.memberRepository, this.memberMapper, this.representativeRepository,
                 this.subscriptionsRepository, this.bankBranchRepository, this.bankRepository,
                 this.representativeRoleRepository, this.unionStructureRepository,
-                this.jobGradeRepository, this.jobGradeService, this.areaRepository);
+                this.jobGradeRepository, this.jobGradeService, this.areaRepository,
+                this.recruitmentChannelRepository);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

@@ -43,6 +43,11 @@ public abstract class MemberMapper {
     // without a word, and nothing on the server noticed because the service test
     // reads the entity.
     @Mapping(target = "jobGradeOutcome", source = "jobGradeOutcome")
+    // 03.8 / 03.3 -- the Recruitment Channel tab reads back what it wrote. Named
+    // explicitly for the same reason as the line above: an unmapped target is dropped
+    // without a word, and this arc has already paid for that once.
+    @Mapping(target = "recruitedHow", source = "recruitmentChannel.name")
+    @Mapping(target = "areaRecruited", source = "area.name")
     public abstract MemberDto toDto(Member member);
 
     // ============================================================

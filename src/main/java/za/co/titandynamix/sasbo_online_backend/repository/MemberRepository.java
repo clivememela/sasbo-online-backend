@@ -31,11 +31,11 @@ public interface MemberRepository extends JpaRepository<Member, Integer> {
     long nextMembershipNumber();
 
     @Override
-    @EntityGraph(attributePaths = {"recruitmentRepresentative", "structure", "role", "area", "user"})
+    @EntityGraph(attributePaths = {"recruitmentRepresentative", "structure", "role", "area", "user", "recruitmentChannel"})
     List<Member> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"recruitmentRepresentative", "structure", "role", "area", "user"})
+    @EntityGraph(attributePaths = {"recruitmentRepresentative", "structure", "role", "area", "user", "recruitmentChannel"})
     Optional<Member> findById(Integer id);
     
     // Filtering methods

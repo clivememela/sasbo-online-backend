@@ -11,6 +11,7 @@ import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.RecruitmentChannelRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.JobGradeRepository;
@@ -43,6 +44,7 @@ public class MemberServiceImpl implements MemberService {
     private final JobGradeRepository jobGradeRepository;
     private final JobGradeService jobGradeService;
     private final AreaRepository areaRepository;
+    private final RecruitmentChannelRepository recruitmentChannelRepository;
 
     @Override
     public List<Member> findAll() {
@@ -83,6 +85,7 @@ public class MemberServiceImpl implements MemberService {
         resolveStructureAndRole(member);
         resolveRecruiter(member);
         resolveAreaRecruited(member);
+        resolveRecruitedHow(member);
         autoPopulateIdDerivedFields(member);
         autoPopulateBankDerivedFields(member);
         resolveJobGrade(member);
@@ -127,6 +130,8 @@ public class MemberServiceImpl implements MemberService {
             resolveRecruiter(existing);
             existing.setAreaRecruited(updated.getAreaRecruited());
             resolveAreaRecruited(existing);
+            existing.setRecruitedHow(updated.getRecruitedHow());
+            resolveRecruitedHow(existing);
             autoPopulateIdDerivedFields(existing);
             autoPopulateBankDerivedFields(existing);
             resolveJobGrade(existing);
@@ -269,6 +274,26 @@ public class MemberServiceImpl implements MemberService {
             return;
         }
         member.setArea(this.areaRepository.findByNameIgnoreCase(name.trim()).orElse(null));
+    }
+
+    /**
+     * Resolves HOW the member was recruited to a {@code RecruitmentChannel} (03.8).
+     *
+     * <p>The stakeholder's item (1) for the Recruitment Channel tab. Same shape as
+     * the other two resolvers on this path: a NAME on the wire, an entity in the
+     * column, blank clears and absent leaves alone.
+     */
+    private void resolveRecruitedHow(Member member) {
+        String name = member.getRecruitedHow();
+        if (name == null) {
+            return;
+        }
+        if (name.isBlank()) {
+            member.setRecruitmentChannel(null);
+            return;
+        }
+        member.setRecruitmentChannel(
+                this.recruitmentChannelRepository.findByNameIgnoreCase(name.trim()).orElse(null));
     }
 
     /**

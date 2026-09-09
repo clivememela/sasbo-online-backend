@@ -69,6 +69,21 @@ public class MemberDto {
      */
     private String jobGradeOutcome;
 
+    /**
+     * The Recruitment Channel tab, as the stakeholder defined it on 2026-09-09:
+     * HOW the member was recruited, WHERE, and by WHOM.
+     *
+     * <p>All three travel by NAME. `recruitedHow` and `areaRecruited` are written by
+     * the capture form and read back resolved; `recruitmentRepresentativeName` above
+     * already carried the third.
+     *
+     * <p>🔴 Declared on the DTO and mapped EXPLICITLY, because 02.5 lost exactly this
+     * wire once: a field correct on the entity, absent from the DTO, and dropped in
+     * silence by `unmappedTargetPolicy = IGNORE`.
+     */
+    private String recruitedHow;
+    private String areaRecruited;
+
     // Subscriptions
     private String monthlySubscription;
     private String subscriptionFrequency;

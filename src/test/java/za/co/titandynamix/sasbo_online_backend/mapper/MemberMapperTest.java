@@ -41,6 +41,13 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
                         .sourcePath("roleName", "role.name")
                         .sourcePath("areaId", "area.id")
                         .sourcePath("areaName", "area.name")
+                        // 03.3 / 03.8 -- the Recruitment Channel tab reads back the three
+                        // things it wrote. `areaRecruited` deliberately shares a source with
+                        // `areaName`: they are the same area under the name each screen uses
+                        // for it, and saying so here is what stops the guard reading a second
+                        // mapping to one source as a crossed wire.
+                        .sourcePath("areaRecruited", "area.name")
+                        .sourcePath("recruitedHow", "recruitmentChannel.name")
                         .sourcePath("userId", "user.id")
                         .sourcePath("recruitmentRepresentativeId",
                                 "recruitmentRepresentative.id")

@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
@@ -157,6 +158,26 @@ public class Member {
      */
     @Transient
     private String recruitmentRep;
+
+    /**
+     * HOW the member was recruited -- the stakeholder's item (1) for this tab.
+     *
+     * <p>🔑 The reference data has existed all along and nothing pointed at it.
+     * `recruitment_channels` is seeded (BEC, Website, EORO, RO, MSO, Youth), served
+     * at /api/recruitment-channels with full CRUD, and administered by its own
+     * screen -- wired to no member. Capturing it is what turns that table from
+     * decoration into a fact about a person.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruitment_channel_id")
+    private RecruitmentChannel recruitmentChannel;
+
+    /**
+     * The channel NAME on the wire, resolved to {@link #recruitmentChannel} in the
+     * service -- the same shape as {@code areaRecruited} and {@code recruitmentRep}.
+     */
+    @Transient
+    private String recruitedHow;
 
     /**
      * The AREA the member was recruited in (R2, RE-3).

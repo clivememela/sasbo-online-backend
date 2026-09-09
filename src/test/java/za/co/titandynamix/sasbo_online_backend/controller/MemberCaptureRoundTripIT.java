@@ -312,6 +312,65 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
                 .isFalse();
     }
 
+    // ─── 03.8: the Recruitment Channel tab, as the stakeholder defined it ───
+
+    @Test
+    @DisplayName("🗣️ all THREE things the stakeholder asked this tab to capture round-trip")
+    void theRecruitmentChannelTripleRoundTrips() throws Exception {
+        // The stakeholder, 2026-09-09: "Under Recruitment Channel we capture:
+        //   1. How the member was recruited.
+        //   2. The area where the member was recruited.
+        //   3. Who recruited the member, where applicable."
+        //
+        // Asserted TOGETHER, in one capture, because the requirement is the tab and not
+        // three separate fields. Each of the three has its own failure history: (1) was
+        // never captured at all, (2) captured a person under an area-shaped name, and
+        // (3) was sent on every capture and silently dropped.
+        String channel = seedChannel("Website");
+        String area = seedArea("Umhlanga Ridge");
+        String recruiter = seedRepresentative("Thandiwe", "Mokoena");
+
+        JsonNode read = readBack(capture(payloadWith(
+                "\"recruitedHow\": \"" + channel + "\", "
+                        + "\"areaRecruited\": \"" + area + "\", "
+                        + "\"recruitmentRep\": \"" + recruiter + "\"")));
+
+        assertThat(read.get("recruitedHow").asText()).isEqualTo(channel);
+        assertThat(read.get("areaRecruited").asText()).isEqualTo(area);
+        assertThat(read.get("recruitmentRepresentativeName").asText()).isEqualTo(recruiter);
+    }
+
+    @Test
+    @DisplayName("the recruiter is optional -- 'where applicable' is the stakeholder's own word")
+    void theRecruiterIsOptional() throws Exception {
+        // How and where, with no who. This must be an ordinary successful capture, not
+        // a validation failure: a member who joined through the website was recruited
+        // by nobody, and the form must be able to say so.
+        String channel = seedChannel("Website");
+
+        JsonNode read = readBack(capture(payloadWith(
+                "\"recruitedHow\": \"" + channel + "\"")));
+
+        assertThat(read.get("recruitedHow").asText()).isEqualTo(channel);
+        assertThat(read.hasNonNull("recruitmentRepresentativeName")).isFalse();
+    }
+
+    @Test
+    @DisplayName("a channel the union does not have resolves to nothing, rather than to loose text")
+    void anUnknownChannelIsNotInvented() throws Exception {
+        JsonNode read = readBack(capture(payloadWith("\"recruitedHow\": \"Carrier Pigeon\"")));
+
+        assertThat(read.hasNonNull("recruitedHow"))
+                .as("an unmatched channel must not create or imply a row")
+                .isFalse();
+    }
+
+    /** One recruitment channel, and its name back. */
+    private String seedChannel(String name) {
+        this.jdbc.update("INSERT INTO recruitment_channel (name, is_enabled) VALUES (?, TRUE)", name);
+        return name;
+    }
+
     // ─── 03.4: the membership number ───
 
     @Test
