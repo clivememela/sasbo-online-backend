@@ -48,10 +48,11 @@ public class MemberController {
     @PostMapping
     @ResponseStatus(HttpStatus.OK)
     public MemberDto create(@RequestBody Member member) {
-        if (member.getUser() != null) {
-            member.getUser().setId(null);
-        }
-        
+        // The user-id scrub that stood here is gone because it is now unreachable:
+        // Member.user is @JsonProperty(access = READ_ONLY), so Jackson -- the only
+        // thing that constructs this parameter -- never populates it. Leaving it
+        // would read as a live security control and imply that binding a user is
+        // possible-but-mitigated. The annotation is the actual guard.
         // Resolve structure and role first before validation
         this.memberService.resolveStructureAndRole(member);
 
