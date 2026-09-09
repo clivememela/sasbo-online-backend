@@ -1,0 +1,284 @@
+package za.co.titandynamix.sasbo_online_backend.controller;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+
+/**
+ * 🔴 THE ARC'S GATE. Capture a member through the real HTTP endpoint, against a
+ * real PostgreSQL, then read the member back and check what actually survived.
+ *
+ * <h2>Why this test and not the ones that already exist</h2>
+ * There is a client-side round-trip already ({@code CaptureMember.roundtrip.test.jsx}),
+ * and it is a good test of a different thing: it asserts the <b>request body</b>
+ * under MSW. It therefore <b>cannot see a field that is submitted, accepted with a
+ * 200, and silently dropped</b> — which is register A31, and 24 of the 64 fields
+ * this form submits. Only entity-to-column, through a real schema, can see that.
+ *
+ * <p>And a green unit suite is not the gate either: the two blockers below were
+ * both invisible to it, because neither the entity binding nor Jackson's array
+ * handling is exercised without an actual request.
+ *
+ * <h2>The payload is the REAL one</h2>
+ * {@link #captureFormPayload()} is what {@code CaptureMember.jsx} actually sends,
+ * including the fields with no column and the two empty arrays. That is
+ * deliberate and load-bearing: a tidied-up synthetic payload omits
+ * {@code cosatuPositions: []}, and omitting it is exactly what would have hidden
+ * the blocker this arc exists to fix.
+ *
+ * <h2>🔑 The date shape, stated rather than discovered (BR-B)</h2>
+ * Jackson serialises {@code LocalDate} as a <b>three-element array</b>
+ * {@code [2026,9,9]}, not {@code "2026-09-09"}, because this application replaces
+ * Boot's auto-configured {@code ObjectMapper} and loses
+ * {@code WRITE_DATES_AS_TIMESTAMPS=false} with it. So a CORRECT round-trip reads
+ * as a failure to anyone expecting a string. This test asserts the array shape
+ * explicitly and says why, so the next reader does not "fix" a passing test.
+ */
+@AutoConfigureMockMvc
+@DisplayName("Capturing a member, end to end, against a real database")
+class MemberCaptureRoundTripIT extends AbstractWritingIT {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    /**
+     * The capture form's payload, as the browser sends it.
+     *
+     * <p>⚠️ Do not "clean this up". The empty arrays and the columnless fields are
+     * the point: {@code cosatuPositions: []} is what made every save a 500, and it
+     * did so only because the property EXISTS on the entity. Before that column
+     * was added the same array was an unknown property and Spring ignored it
+     * harmlessly.
+     */
+    private String captureFormPayload() {
+        return """
+                {
+                  "title": "Mr",
+                  "initials": "S",
+                  "firstNames": "Synthetic",
+                  "surname": "Testperson",
+                  "identityType": "I.D. Number",
+                  "identityNumber": "9001010000080",
+                  "gender": "Male",
+                  "race": "African",
+                  "personalEmail": "synthetic@example.test",
+                  "workEmail": "",
+                  "preferredEmail": "personal",
+                  "phone": "0115550000",
+                  "workTel": "",
+                  "homeTel": "",
+                  "address": "1 Test Street",
+                  "joinDate": "2026-09-09",
+                  "status": "Active",
+                  "subscriptionFrequency": "Monthly",
+                  "employeeNumber": "EMP-0001",
+                  "bankName": "Nedbank",
+                  "bankAccountNumber": "1234567890",
+                  "branch": "Head Office",
+                  "employmentType": "Permanent",
+                  "paymentType": "Debit Order",
+                  "debitDay": 20,
+                  "isRepresentative": false,
+                  "isCosatu": "N",
+                  "cosatuPositions": [],
+                  "selectedBecStructures": [],
+                  "remarks": "captured by the round-trip gate"
+                }
+                """;
+    }
+
+    @Test
+    @DisplayName("🔴 the two blockers: a capture with the real payload answers 200, not 500")
+    void captureSucceedsWithTheRealPayload() throws Exception {
+        // A30 was `joinDate` submitted as a two-element ARRAY (`.split("T")` with
+        // no `[0]`) into a LocalDate. B-1 was `cosatuPositions: []` binding an
+        // array into a bare String on the ENTITY, because POST binds
+        // @RequestBody Member while the deserializer sat on MemberDto.
+        //
+        // Either one alone answered 500. Fixing one alone left capture dead.
+        String response = this.mockMvc.perform(post("/api/members")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(captureFormPayload()))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode created = this.objectMapper.readTree(response);
+
+        assertThat(created.hasNonNull("id"))
+                .as("the capture did not come back with an id. Response body: %s", response)
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("a captured member reads back with the fields that have columns")
+    void theCapturedMemberRoundTrips() throws Exception {
+        JsonNode created = capture();
+        int id = created.get("id").asInt();
+
+        String body = this.mockMvc.perform(get("/api/members/{id}", id))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        JsonNode read = this.objectMapper.readTree(body);
+
+        // Every one of these has a column, so every one of them must survive.
+        assertThat(read.get("firstNames").asText()).isEqualTo("Synthetic");
+        assertThat(read.get("surname").asText()).isEqualTo("Testperson");
+        assertThat(read.get("identityNumber").asText()).isEqualTo("9001010000080");
+        assertThat(read.get("employeeNumber").asText()).isEqualTo("EMP-0001");
+        assertThat(read.get("bankAccountNumber").asText()).isEqualTo("1234567890");
+        assertThat(read.get("paymentType").asText()).isEqualTo("Debit Order");
+        assertThat(read.get("address").asText()).isEqualTo("1 Test Street");
+        assertThat(read.get("remarks").asText()).isEqualTo("captured by the round-trip gate");
+    }
+
+    @Test
+    @DisplayName("🔑 BR-B — joinDate reads back as [year, month, day], NOT as a string")
+    void theDateShapeIsAnArrayAndThatIsAsserted() throws Exception {
+        JsonNode read = readBack(capture());
+        JsonNode joinDate = read.get("joinDate");
+
+        assertThat(joinDate.isArray())
+                .as("""
+                        joinDate came back as %s rather than a JSON array.
+
+                        If it is now an ISO STRING, that is not a regression -- it is
+                        JacksonConfig having been fixed to keep Boot's
+                        WRITE_DATES_AS_TIMESTAMPS=false. That is a deliberate,
+                        BREAKING wire change that must ship with the client's
+                        apiDates.fromApi(). Update this assertion in the same commit,
+                        do not delete it.""", joinDate)
+                .isTrue();
+        assertThat(joinDate.get(0).asInt()).isEqualTo(2026);
+        assertThat(joinDate.get(1).asInt()).isEqualTo(9);
+        assertThat(joinDate.get(2).asInt()).isEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("🔒 SR-1 — a request body cannot write the users table or choose its own id")
+    void massAssignmentIsRefused() throws Exception {
+        // The member endpoints are permitAll() and bind the entity, and
+        // Member.user cascades ALL. Before the READ_ONLY annotations this payload
+        // created a user row -- username, enabled and userRoles included -- for an
+        // anonymous caller.
+        String hostile = """
+                {
+                  "firstNames": "Mallory",
+                  "surname": "Testperson",
+                  "id": 4242,
+                  "membershipNumber": "M-000001",
+                  "user": { "username": "mallory", "enabled": true }
+                }
+                """;
+
+        String response = this.mockMvc.perform(post("/api/members")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(hostile))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        JsonNode created = this.objectMapper.readTree(response);
+
+        assertThat(created.get("id").asInt())
+                .as("the caller chose its own primary key")
+                .isNotEqualTo(4242);
+
+        Integer users = this.jdbc.queryForObject("SELECT count(*) FROM users", Integer.class);
+        assertThat(users)
+                .as("an anonymous POST to /api/members created a row in the USERS table")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("🔴 the same payload can be saved again from the register — PUT is not a 500")
+    void editingACapturedMemberIsNotA500() throws Exception {
+        // The second blocker broke EDITING as well: PUT binds the entity too, and
+        // the register splits the comma-separated value back into an array to edit
+        // it. So correcting a phone number was the same 500 as capturing.
+        JsonNode created = capture();
+        int id = created.get("id").asInt();
+
+        String edit = captureFormPayload()
+                .replace("\"phone\": \"0115550000\"", "\"phone\": \"0115559999\"")
+                .replace("\"cosatuPositions\": []", "\"cosatuPositions\": [\"PEC\", \"CEC\"]");
+
+        this.mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/members/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edit))
+                .andReturn();
+
+        JsonNode read = readBack(created);
+        assertThat(read.get("phone").asText())
+                .as("the edit did not persist")
+                .isEqualTo("0115559999");
+        assertThat(read.get("cosatuPositions").asText())
+                .as("""
+                        An array of positions was submitted and the stored value is not the
+                        folded string. StringArrayToCommaSeparatedDeserializer is what makes
+                        the array acceptable at all.""")
+                .isEqualTo("PEC,CEC");
+    }
+
+    @Test
+    @DisplayName("a PUT cannot retarget the write at a different member (SR-4)")
+    void aPutCannotRetargetAnotherMember() throws Exception {
+        JsonNode first = capture();
+        JsonNode second = capture();
+        int firstId = first.get("id").asInt();
+        int secondId = second.get("id").asInt();
+
+        // The mapper used to emit `target.setId(source.getId())`, so the id in the
+        // BODY won over the id in the PATH.
+        String retarget = captureFormPayload()
+                .replace("\"surname\": \"Testperson\"", "\"surname\": \"Retargeted\"")
+                .replace("{\n", "{\n  \"id\": " + secondId + ",\n");
+
+        this.mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/members/{id}", firstId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(retarget))
+                .andReturn();
+
+        String other = this.mockMvc.perform(get("/api/members/{id}", secondId))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(this.objectMapper.readTree(other).get("surname").asText())
+                .as("a PUT aimed at member %d rewrote member %d", firstId, secondId)
+                .isEqualTo("Testperson");
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    private JsonNode capture() throws Exception {
+        String response = this.mockMvc.perform(post("/api/members")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(captureFormPayload()))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return this.objectMapper.readTree(response);
+    }
+
+    private JsonNode readBack(JsonNode created) throws Exception {
+        String body = this.mockMvc.perform(get("/api/members/{id}", created.get("id").asInt()))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return this.objectMapper.readTree(body);
+    }
+}
