@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -78,6 +79,27 @@ class JobGradeServiceTest {
                 .hasSize(1)
                 .extracting(JobGrade::getGrade)
                 .containsExactly("BA1");
+    }
+
+    @Test
+    @DisplayName("Should not read a long numeric candidate as a bank id when no universal code matches")
+    void testLongNumericWithNoCodeMatchIsNeverTriedAsABankId() {
+        // Arrange -- a six-digit universal branch code that matches no bank. Before
+        // upstream 9b62e37 this fell through to findByBank_Id(632005); the gate that
+        // stops it -- numeric AND under five digits -- is the one genuine fix in that
+        // commit (U-20), and nothing asserted it. The universal-code test above cannot:
+        // it stubs the code lookup to SUCCEED, so its never() holds with or without
+        // the gate. This one starves the code lookup so the gate is the only thing
+        // standing between the candidate and the id lookup.
+        when(this.jobGradeRepository.findByBank_UniversalBranchCode("632005")).thenReturn(List.of());
+        when(this.bankRepository.findByNameIgnoreCase("632005")).thenReturn(Optional.empty());
+
+        // Act
+        List<JobGrade> result = this.jobGradeService.findByBankIdentifier("632005");
+
+        // Assert -- the name lookup is the only strategy left, and it finds nothing
+        assertThat(result).isEmpty();
+        verify(this.jobGradeRepository, never()).findByBank_Id(anyInt());
     }
 
     @Test
