@@ -47,7 +47,24 @@ public abstract class MemberMapper {
     @Mapping(target = "jobGrade.grade", source = "jobGrade") // Sets the string into the new class instance
     public abstract Member toEntity(MemberDto memberDto);
 
-    // 💡 Add this inside your MemberMapper class so updates can merge
+    /**
+     * Merges a submitted member onto the persisted one for {@code PUT}.
+     * <p>
+     * 🔒 The ignored properties are identity and provenance, not data: they are
+     * either server-allocated or resolved from a transient id, and every one of
+     * them is {@code READ_ONLY} on the entity — so they arrive {@code null} on
+     * {@code source} and a blanket copy would ERASE the persisted value. A null
+     * {@code id} is the sharp one: it turns the following {@code save()} into an
+     * INSERT. {@code structure}, {@code role} and {@code recruitmentRepresentative}
+     * are resolved onto the target by the service instead.
+     */
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "membershipNumber", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "structure", ignore = true)
+    @Mapping(target = "role", ignore = true)
+    @Mapping(target = "recruitmentRepresentative", ignore = true)
     public abstract void updateFromMember(Member source, @org.mapstruct.MappingTarget Member target);
 
     // Helper Method 1: Turn Representative into String Name

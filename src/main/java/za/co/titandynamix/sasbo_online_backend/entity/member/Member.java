@@ -1,5 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.entity.member;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -9,6 +11,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.RepresentativeRole;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.UnionStructure;
+import za.co.titandynamix.sasbo_online_backend.dto.member.StringArrayToCommaSeparatedDeserializer;
 import za.co.titandynamix.sasbo_online_backend.entity.user.User;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
@@ -20,9 +23,17 @@ import java.time.LocalDateTime;
 @Table(name = "members")
 public class Member {
 
+    /**
+     * Never bound from the request body. {@code POST} allocates it and {@code PUT}
+     * takes it from the path, so accepting it over the wire only lets a caller
+     * aim a write at a different row.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "id")
     private Integer id;
 
+    /** Server-allocated; see the membership-number sequence. Not client input. */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String membershipNumber;
     private String employeeNumber;
     private String title;
@@ -93,14 +104,20 @@ public class Member {
     // Representatives (§4.1, §4.2)
     /** The representative responsible for recruiting this member. */
     // Self-referencing link: A member recruited by another member acting as a Rep
+    /** Resolved from the transient {@code areasRep}, never bound directly. */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recruitment_representative_id")
     private Representative recruitmentRepresentative;
 
+    /** Resolved from the transient {@code roleId}, never bound directly. */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id")
     private RepresentativeRole role;
 
+    /** Resolved from the transient {@code structureId}, never bound directly. */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "structure_id")
     private UnionStructure structure;
@@ -173,6 +190,15 @@ public class Member {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * 🔒 Read-only over the wire. This association cascades {@code ALL}, so while
+     * the member endpoints bind the entity under {@code permitAll()}, a bound
+     * {@code user} object is an anonymous write straight into the {@code users}
+     * table — {@code username}, {@code enabled} and {@code userRoles} included.
+     * ({@code password} happens to be {@code @JsonIgnore}d; that is luck, not a
+     * design.) Account creation belongs to the user endpoints.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "user_id", unique = true)
     private User user;
@@ -181,6 +207,17 @@ public class Member {
     private String isCosatu;
     private String cosatuLocal;
     private String cosatuRegion;
-    /** Comma-separated list of held positions: PEC, CEC, Treasurer, Chairperson, Secretary */
+    /**
+     * Comma-separated list of held positions: PEC, CEC, Treasurer, Chairperson, Secretary.
+     * <p>
+     * The deserializer is on the ENTITY, not only on {@code MemberDto}, because
+     * {@code POST}, {@code PUT} and {@code PATCH /banking} all bind
+     * {@code @RequestBody Member}. The client sends a JSON array; without this
+     * annotation Jackson raises {@code MismatchedInputException} and the save
+     * answers 500. Adding the column is what made a previously-ignored unknown
+     * property fatal, so any future array field on this entity needs the same
+     * treatment.
+     */
+    @JsonDeserialize(using = StringArrayToCommaSeparatedDeserializer.class)
     private String cosatuPositions;
 }
