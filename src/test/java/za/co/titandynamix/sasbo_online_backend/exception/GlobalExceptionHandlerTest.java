@@ -128,7 +128,6 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @Disabled(KnownDefects.CATCH_ALL_LEAKS_INTERNALS)
     @DisplayName("a 500 body carries no SQL, no table or column name and no bound value")
     void theCatchAllDoesNotLeakInternals() {
         // A real DataIntegrityViolationException message, in the shape the

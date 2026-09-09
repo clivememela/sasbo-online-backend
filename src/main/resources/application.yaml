@@ -13,7 +13,7 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
     connect-retries: 10
-    clean-disabled: false
+    clean-disabled: true
     validate-on-migrate: false
   jpa:
     hibernate:
@@ -38,7 +38,7 @@ server:
   error:
     include-message: always
     include-binding-errors: always
-    include-stacktrace: on-param
+    include-stacktrace: never
     include-exception: false
 
 logging:

@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @RestControllerAdvice
@@ -54,14 +55,36 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    /**
+     * The catch-all. Everything the other handlers did not claim arrives here, which
+     * makes it the one handler that must assume the exception is hostile to show.
+     * <p>
+     * 🔒 It does NOT return {@code ex.getMessage()}. For the exceptions that
+     * actually reach it that string is the system's internals: a
+     * {@code DataIntegrityViolationException} carries the failing SQL and its bound
+     * parameters, which on {@code members} are an identity number, names and a bank
+     * account number. Every member endpoint is {@code permitAll()}, so that was
+     * readable by anyone who could provoke a 500.
+     * <p>
+     * The detail is not lost, only moved: it is logged in full beside a correlation
+     * id, and the same id is the one thing returned. A caller reporting "error
+     * a1b2c3d4" is enough to find the whole stack trace in the log, and it tells an
+     * attacker nothing.
+     * <p>
+     * Handlers for expected failures ({@code IllegalArgumentException}, validation)
+     * keep returning their messages -- those are written FOR the user, and 01.2's
+     * whole point is that the user finally sees them.
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneralException(Exception ex, HttpServletRequest request) {
-        log.error("Unhandled exception on {}", request.getRequestURI(), ex);
+        String reference = UUID.randomUUID().toString().substring(0, 8);
+        log.error("Unhandled exception on {} [ref {}]", request.getRequestURI(), reference, ex);
         ApiErrorResponse response = new ApiErrorResponse(
                 LocalDateTime.now(ZoneId.of("UTC")),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                ex.getMessage(),
+                "Something went wrong on our side. Quote reference " + reference
+                        + " if you report this.",
                 request.getRequestURI(),
                 null
         );

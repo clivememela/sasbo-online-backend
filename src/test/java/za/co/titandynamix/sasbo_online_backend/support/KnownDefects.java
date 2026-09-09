@@ -39,22 +39,11 @@ public final class KnownDefects {
     private KnownDefects() {
     }
 
-    /**
-     * {@code handleGeneralException} puts {@code ex.getMessage()} straight into
-     * the response body. For a constraint violation or any JDBC failure that
-     * string carries the SQL, the constraint name, the table and column names
-     * and often the bound parameter values -- which on this application means
-     * identity numbers and bank account numbers. Combined with
-     * {@code permitAll()}, a caller who can trigger a 500 reads internals
-     * anonymously.
-     */
-    public static final String CATCH_ALL_LEAKS_INTERNALS =
-            "KNOWN DEFECT: the catch-all exception handler copies the exception message into the "
-                    + "response body, so a 500 can carry SQL, table and column names and bound "
-                    + "parameter values to an anonymous caller. This test asserts the 500 body "
-                    + "carries none of them. The 404 and 400 handlers keep their messages "
-                    + "deliberately -- those are caller-facing, and narrowing the finding to the "
-                    + "catch-all is what makes it a one-line fix.";
+    // CATCH_ALL_LEAKS_INTERNALS was here. FIXED in 01.2: the catch-all now
+    // logs the exception against a short correlation id and returns only
+    // that id, so the 500 body carries no SQL, no column name and no bound
+    // value. The test it pinned -- GlobalExceptionHandlerTest
+    // #theCatchAllDoesNotLeakInternals -- is enabled and is now the guard.
 
     /**
      * Two of nineteen services carry {@code @Transactional}. A service method
