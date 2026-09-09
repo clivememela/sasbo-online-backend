@@ -23,6 +23,8 @@ import java.util.List;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -112,5 +114,46 @@ class MemberControllerSecurityTest {
 
         this.mockMvc.perform(get("/api/members"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("the CORS policy is actually WIRED to the filter chain, not merely declared")
+    void theCorsPolicyIsWired() throws Exception {
+        // 🔴 THE ASSERTION `CorsPolicyTest` CANNOT MAKE, and the reason both files
+        // exist. That one constructs `SecurityConfig` directly and asserts what
+        // the `CorsConfigurationSource` bean CONTAINS -- which is the right way to
+        // check the origin list cheaply, and is completely blind to whether
+        // anything consults it. Delete `.cors(...)` from `filterChain` and CORS
+        // stops working entirely while every assertion over there stays green:
+        // the bean is still perfect, and nothing asks it anything.
+        //
+        // A preflight is the only thing that proves the wiring, because it is the
+        // request the browser actually sends and the filter chain is what answers
+        // it. This slice already boots the real `SecurityConfig`, so the context
+        // is paid for.
+        this.mockMvc.perform(options("/api/members")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+    }
+
+    @Test
+    @DisplayName("a preflight from an origin NOT on the list is refused")
+    void anUnknownOriginIsRefused() throws Exception {
+        // The other direction, and the one that distinguishes "CORS is wired" from
+        // "CORS allows everybody". Without it, an `allowedOriginPatterns("*")`
+        // would satisfy the test above perfectly -- the header comes back, the
+        // preflight succeeds, and the API is open to the internet with cookies.
+        //
+        // 🔑 Spring answers a disallowed preflight with 403 and NO
+        // `Access-Control-Allow-Origin`. Both are asserted: the status alone would
+        // also match a route that simply does not exist.
+        this.mockMvc.perform(options("/api/members")
+                        .header("Origin", "https://not-a-sasbo-origin.invalid")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 }

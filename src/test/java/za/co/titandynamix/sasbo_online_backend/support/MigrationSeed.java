@@ -85,8 +85,26 @@ public final class MigrationSeed {
      * {@code V} and the {@code __}, with {@code _} read as the decimal point.
      */
     public static final List<String> APPLIED_VERSIONS = MIGRATIONS.stream()
-            .map((name) -> name.substring(1, name.indexOf("__")).replace('_', '.'))
+            .map(MigrationSeed::versionOf)
             .toList();
+
+    /**
+     * The Flyway version a migration filename declares: the text between the
+     * leading {@code V} and the {@code __}, with {@code _} read as the decimal
+     * point.
+     *
+     * <p>🔑 EXTRACTED SO THE RULE EXISTS ONCE. It was an inline lambda here, and
+     * a guard that needed the same mapping wrote the identical expression out
+     * again -- one rule in two places, agreeing silently until one of them was
+     * edited. A repeatable migration prefix, an undo prefix, or a second
+     * fractional version has to be handled once.
+     *
+     * <p>It is a {@code String} rather than a number because a Flyway version is
+     * not one: {@code 1.1} is in this chain.
+     */
+    public static String versionOf(String fileName) {
+        return fileName.substring(1, fileName.indexOf("__")).replace('_', '.');
+    }
 
     /**
      * The last migration in the chain, DERIVED rather than restated.

@@ -180,6 +180,76 @@ class MemberRepositoryIT extends AbstractWritingIT {
     }
 
     @Test
+    @DisplayName("COSATU's four columns survive a write and a read back")
+    void cosatuFieldsRoundTrip() {
+        // V19 added four columns and nothing asserted a value written to them
+        // is the value read back.
+        //
+        // 🔑 WHY MigrationSchemaValidationTest DOES NOT COVER THIS. That test
+        // runs `ddl-auto: validate`, which proves the columns EXIST and that
+        // their types match what the entity declares. It cannot prove a
+        // mapping is right: a field mapped to the wrong column, or two fields
+        // mapped to one, passes validation completely and loses data at run
+        // time. The only assertion that distinguishes those is a value going in
+        // and the same value coming out.
+        //
+        // Distinct values per field, deliberately. Four fields all set to "Y"
+        // would pass even if the mapping crossed two of them over -- which is
+        // the mistake actually available here, because `cosatuLocal` and
+        // `cosatuRegion` are adjacent, same-typed, and named alike.
+        Member member = MemberFixture.aMember();
+        member.setMembershipNumber("M-COSATU-1");
+        member.setIsCosatu("Y");
+        member.setCosatuLocal("Johannesburg Central");
+        member.setCosatuRegion("Gauteng");
+        member.setCosatuPositions("PEC,CEC");
+
+        Integer id = this.memberRepository.save(member).getId();
+
+        // 🔑 THE READ IS GENUINELY A READ, and it is worth knowing why rather
+        // than assuming it. These tests carry no @Transactional -- deliberately,
+        // because AbstractWritingIT resets with TRUNCATE on both sides instead
+        // of relying on rollback. So `save` commits and `findById` runs in its
+        // own transaction with its own persistence context: the fields below
+        // come from the database, not from an identity map.
+        //
+        // ⚠️ Under @Transactional this test would be nearly worthless -- the
+        // same managed instance would come back and it would assert that the
+        // setters work. If a future change makes these tests transactional, this
+        // one needs an explicit flush-and-clear to keep meaning anything.
+        Member reread = this.memberRepository.findById(id).orElseThrow();
+
+        assertThat(reread.getIsCosatu()).isEqualTo("Y");
+        assertThat(reread.getCosatuLocal()).isEqualTo("Johannesburg Central");
+        assertThat(reread.getCosatuRegion()).isEqualTo("Gauteng");
+        assertThat(reread.getCosatuPositions())
+                .as("the positions column is a comma-separated VARCHAR(500), written by "
+                        + "StringArrayToCommaSeparatedDeserializer from the browser's array. "
+                        + "It must survive storage as the single string it was joined into")
+                .isEqualTo("PEC,CEC");
+    }
+
+    @Test
+    @DisplayName("a member who is not in COSATU stores nulls, not empty strings")
+    void aNonCosatuMemberStoresNulls() {
+        // The common case, and the one whose breakage would be widest. The
+        // client's detail view branches on `cosatuPositions?.length > 0`, which
+        // treats null and "" identically -- so the two are indistinguishable
+        // from the browser and a change between them would be invisible there.
+        // This is the layer that can tell them apart, which makes it the layer
+        // that should say which one the database holds.
+        Member member = MemberFixture.aMember();
+        member.setMembershipNumber("M-COSATU-2");
+
+        Integer id = this.memberRepository.save(member).getId();
+        Member reread = this.memberRepository.findById(id).orElseThrow();
+
+        assertThat(reread.getCosatuLocal()).isNull();
+        assertThat(reread.getCosatuRegion()).isNull();
+        assertThat(reread.getCosatuPositions()).isNull();
+    }
+
+    @Test
     @DisplayName("listing members costs the same number of queries at 5 rows and at 50")
     void listingDoesNotGrowWithTheData() {
         // The member listing is the one that will hurt: Member holds five

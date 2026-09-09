@@ -113,6 +113,46 @@ def junitXmlInto = { Test t, String name ->
 	}
 }
 
+// ---------------------------------------------------------------------------
+// The forked test JVM's heap, DECLARED rather than inherited -- CI-5.
+//
+// 🔴 IT WAS UNDECLARED, so every Test task took the JVM's host-derived default:
+// one quarter of physical RAM, measured at 4018 MB on this machine. That is not
+// a tuning question, it is a REPRODUCIBILITY one -- the same suite was given a
+// different heap on every machine it ran on, and nobody had chosen any of them.
+// A memory-shaped failure is then unattributable, which matters here more than
+// most places: F9 and F11 are both host-starvation incidents that presented as
+// failing suites.
+//
+// `withType(Test)` rather than the two tasks separately, so `generateApiSurface`
+// -- also a Test task -- cannot be the one that quietly keeps the old default.
+//
+// 🔴 DECLARED AT THE VALUE THIS HOST WAS ALREADY USING, WHICH MAKES THIS A
+// NO-OP HERE ON PURPOSE -- and the first draft got that wrong in a way worth
+// recording. It set `2g`, halving the ceiling, with a comment calling the
+// number "a ceiling chosen for portability". That is a TUNING decision, and
+// choosing it properly is a six-run timing experiment on a quiet host, which
+// this box has not been for days. Changing heap on a memory-pressured machine
+// is how the false red this suite has already been bitten by gets manufactured.
+//
+// Measured on this host: the fork's ergonomic default was `MaxHeapSize` 4018 MB
+// (a quarter of 16 GB). `4g` is that value, written down. So the suite behaves
+// exactly as it did, and the number is now a choice somebody can find and
+// change rather than a property of whichever machine ran it.
+//
+// ⚠️ `minHeapSize` IS DELIBERATELY NOT SET. The first draft set `512m`, which
+// RAISES the up-front commitment from this JVM's ~252 MB default -- the wrong
+// direction on a box measured between 1.0 and 2.7 GB free, and a second
+// unargued tuning decision riding along with the first. A short-lived test JVM
+// gains almost nothing from a large initial heap.
+//
+// ⏳ The real ceiling belongs to the timing experiment, on a quiet host, with
+// the daemon's own heap and `org.gradle.workers.max` considered at the same
+// time -- this declares one of the three JVMs in play.
+tasks.withType(Test).configureEach {
+	maxHeapSize = '4g'
+}
+
 tasks.named('test', Test) {
 	useJUnitPlatform {
 		excludeTags 'integration'
@@ -139,7 +179,22 @@ tasks.register('integrationTest', Test) {
 	// to prevent.
 	outputs.upToDateWhen { false }
 
-	shouldRunAfter tasks.named('test')
+	// 🔴 `mustRunAfter`, NOT `shouldRunAfter` -- the hard form, and the soft one
+	// was a foot-gun that only fires on the machine it hurts most.
+	//
+	// `shouldRunAfter` is explicitly advisory: Gradle is permitted to ignore it
+	// to improve parallelism or to break a cycle. Both lanes are `Test` tasks and
+	// each forks a JVM; the integration lane also starts a PostgreSQL container.
+	// Ordered concurrently -- which `--parallel` is allowed to do -- that is two
+	// forked JVMs plus a database on a host this project has repeatedly measured
+	// between 1.0 and 2.7 GB free.
+	//
+	// 🔑 AND THE FAILURE WOULD NOT LOOK LIKE A CONFIGURATION MISTAKE. It is
+	// F11's signature: workers failing to start under memory pressure, reported
+	// as ordinary failures, in the other repository. It reads as flake. The hard
+	// ordering costs nothing in the normal case -- the lanes already run in this
+	// order -- and removes the only path to that state.
+	mustRunAfter tasks.named('test')
 }
 
 tasks.register('verify') {

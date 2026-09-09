@@ -10,6 +10,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -110,9 +112,27 @@ class MigrationInventoryTest {
         // A merge is exactly how it happens, which is why this is asserted over
         // the DECLARED list: it reddens in the fast lane on the merge commit,
         // before anything is run.
-        assertThat(MigrationSeed.APPLIED_VERSIONS)
-                .as("Flyway versions parsed from MigrationSeed.MIGRATIONS. Two migrations at "
-                        + "one version is a chain that cannot start, and it merges cleanly")
-                .doesNotHaveDuplicates();
+        //
+        // 🔑 THE FAILURE NAMES THE FILENAMES, NOT JUST THE VERSION, and that is
+        // the whole reason this groups rather than calling `doesNotHaveDuplicates`
+        // on the versions. The incident above was two files that merged cleanly
+        // BECAUSE their names differ -- so "version 1 appears twice" leaves the
+        // reader to go and find which two files those are, which is the one
+        // question they have. `V1 claimed by [V1__baseline_schema.sql,
+        // V1__initial_schema.sql]` is the whole diagnosis in one line.
+        Map<String, List<String>> byVersion = MigrationSeed.MIGRATIONS.stream()
+                .collect(Collectors.groupingBy(MigrationSeed::versionOf));
+
+        List<String> collisions = byVersion.entrySet().stream()
+                .filter((entry) -> entry.getValue().size() > 1)
+                .map((entry) -> "V" + entry.getKey() + " claimed by " + entry.getValue())
+                .sorted()
+                .toList();
+
+        assertThat(collisions)
+                .as("migrations declared in MigrationSeed.MIGRATIONS that share a Flyway "
+                        + "version. Two migrations at one version is a chain that cannot "
+                        + "start, and it merges cleanly")
+                .isEmpty();
     }
 }
