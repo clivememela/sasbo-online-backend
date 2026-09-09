@@ -27,6 +27,8 @@ import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 @Service
@@ -83,9 +85,9 @@ public class MemberServiceImpl implements MemberService {
     public Member create(Member member) {
         member.setId(null);
         resolveStructureAndRole(member);
-        resolveRecruiter(member);
-        resolveAreaRecruited(member);
-        resolveRecruitedHow(member);
+        resolveRecruiter(member.getRecruitmentRep(), member);
+        resolveAreaRecruited(member.getAreaRecruited(), member);
+        resolveRecruitedHow(member.getRecruitedHow(), member);
         autoPopulateIdDerivedFields(member);
         autoPopulateBankDerivedFields(member);
         resolveJobGrade(member);
@@ -126,12 +128,14 @@ public class MemberServiceImpl implements MemberService {
             resolveStructureAndRole(updated);
             this.memberMapper.updateFromMember(updated, existing);
             resolveAreasRep(updated.getAreasRep(), existing);
-            existing.setRecruitmentRep(updated.getRecruitmentRep());
-            resolveRecruiter(existing);
-            existing.setAreaRecruited(updated.getAreaRecruited());
-            resolveAreaRecruited(existing);
-            existing.setRecruitedHow(updated.getRecruitedHow());
-            resolveRecruitedHow(existing);
+            // ♻️ Each of these was two statements before P3's refactor pass: copy the
+            // transient name from `updated` onto `existing`, then resolve `existing`.
+            // The copy was already redundant -- `updateFromMember` maps all four
+            // transients by name one line above -- and reading the name straight off
+            // `updated` removes both the copy and the need to know that.
+            resolveRecruiter(updated.getRecruitmentRep(), existing);
+            resolveAreaRecruited(updated.getAreaRecruited(), existing);
+            resolveRecruitedHow(updated.getRecruitedHow(), existing);
             autoPopulateIdDerivedFields(existing);
             autoPopulateBankDerivedFields(existing);
             resolveJobGrade(existing);
@@ -233,27 +237,47 @@ public class MemberServiceImpl implements MemberService {
     }
 
     /**
+     * ♻️ THE ONE SHAPE EVERY REFERENCE RESOLVER ON THIS PATH HAS: a NAME on the wire,
+     * an ENTITY in the column.
+     *
+     * <p>P3's refactor pass extracted this. The phase wrote three copies of it in one
+     * commit range -- recruiter, area recruited, recruitment channel -- and a FOURTH
+     * had been sitting beside them since before the arc opened ({@code areasRep}).
+     * Four hand-written copies of eight lines, all doing exactly this:
+     *
+     * <pre>
+     *   name == null   ->  leave the column alone   (the field was not mentioned)
+     *   name is blank  ->  set the column to null   (the field was cleared)
+     *   otherwise      ->  look it up, trimmed; an unmatched name stores null
+     * </pre>
+     *
+     * <p>🔑 THE NULL / BLANK DISTINCTION IS THE WHOLE REASON THIS IS SHARED. "Absent"
+     * and "cleared" are different requests, and conflating them is how a PUT that
+     * never mentioned a field ends up wiping it. Written out four times it is four
+     * chances to get that backwards; written once it is a property of the mechanism.
+     *
+     * <p>⚠️ A name that matches nothing stores {@code null}, silently, in all four --
+     * that behaviour is preserved here exactly as it was, not endorsed. It is recorded
+     * as a finding for {@code RF}: a resolver that cannot find the row the user picked
+     * from a drop-down it was given should probably say so rather than drop it.
+     */
+    private <T> void resolveByName(String name, Function<String, Optional<T>> lookup, Consumer<T> assign) {
+        if (name == null) {
+            return;
+        }
+        assign.accept(name.isBlank() ? null : lookup.apply(name.trim()).orElse(null));
+    }
+
+    /**
      * Resolves the RECRUITER -- the person who signed the member up (R1, R5).
      *
      * <p>🔴 Nothing on this entity was called {@code recruitmentRep} before 03.3, so
      * the name the capture form had always sent was ignored as an unknown property and
      * the recruiter was dropped on every capture, with the save reporting success.
-     *
-     * <p>A blank value CLEARS the link; an absent one leaves it alone. Those are
-     * different requests and conflating them is how an edit that never mentioned a
-     * field ends up wiping it.
      */
-    private void resolveRecruiter(Member member) {
-        String name = member.getRecruitmentRep();
-        if (name == null) {
-            return;
-        }
-        if (name.isBlank()) {
-            member.setRecruitmentRepresentative(null);
-            return;
-        }
-        member.setRecruitmentRepresentative(
-                this.representativeRepository.findByFullName(name.trim()).orElse(null));
+    private void resolveRecruiter(String name, Member target) {
+        resolveByName(name, this.representativeRepository::findByFullName,
+                target::setRecruitmentRepresentative);
     }
 
     /**
@@ -267,51 +291,33 @@ public class MemberServiceImpl implements MemberService {
      * fact with a different lifetime. The areas themselves are seeded from the distinct
      * areas of the bank branches; see {@code DataSeeder}.
      */
-    private void resolveAreaRecruited(Member member) {
-        String name = member.getAreaRecruited();
-        if (name == null) {
-            return;
-        }
-        if (name.isBlank()) {
-            member.setRecruitedArea(null);
-            return;
-        }
-        member.setRecruitedArea(this.areaRepository.findByNameIgnoreCase(name.trim()).orElse(null));
+    private void resolveAreaRecruited(String name, Member target) {
+        resolveByName(name, this.areaRepository::findByNameIgnoreCase, target::setRecruitedArea);
     }
 
     /**
      * Resolves HOW the member was recruited to a {@code RecruitmentChannel} (03.8).
      *
-     * <p>The stakeholder's item (1) for the Recruitment Channel tab. Same shape as
-     * the other two resolvers on this path: a NAME on the wire, an entity in the
-     * column, blank clears and absent leaves alone.
+     * <p>The stakeholder's item (1) for the Recruitment Channel tab.
      */
-    private void resolveRecruitedHow(Member member) {
-        String name = member.getRecruitedHow();
-        if (name == null) {
-            return;
-        }
-        if (name.isBlank()) {
-            member.setRecruitmentChannel(null);
-            return;
-        }
-        member.setRecruitmentChannel(
-                this.recruitmentChannelRepository.findByNameIgnoreCase(name.trim()).orElse(null));
+    private void resolveRecruitedHow(String name, Member target) {
+        resolveByName(name, this.recruitmentChannelRepository::findByNameIgnoreCase,
+                target::setRecruitmentChannel);
     }
 
     /**
      * Resolves the transient areasRep display name to a Representative entity.
+     *
+     * <p>⚠️ It writes {@link Member#setRecruitmentRepresentative}, the SAME column
+     * {@link #resolveRecruiter} writes, from a different wire field. On the update
+     * path both run, so whichever is non-null last wins. That is not a defect today
+     * -- the register's edit screen sends {@code areasRep} and capture sends
+     * {@code recruitmentRep}, never both -- but two names for one column is the
+     * finding {@code 03.10} is already open on, and this is a third face of it.
+     * Recorded, not repaired: a refactor pass does not resolve a modelling question.
      */
     private void resolveAreasRep(String areasRep, Member existing) {
-        if (areasRep == null) {
-            return;
-        }
-        if (areasRep.isBlank()) {
-            existing.setRecruitmentRepresentative(null);
-            return;
-        }
-        existing.setRecruitmentRepresentative(
-                this.representativeRepository.findByFullName(areasRep.trim()).orElse(null));
+        resolveRecruiter(areasRep, existing);
     }
 
     @Override

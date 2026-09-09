@@ -211,8 +211,14 @@ public class Member {
      * the label alone would have left the screen collecting the wrong kind of thing
      * behind a corrected word, which is worse than leaving it obviously wrong.
      *
-     * <p>Resolves to {@link #area} -- the FK that has existed since V1 and that
-     * nothing had ever populated.
+     * <p>Resolves to {@link #recruitedArea}, its OWN column since V24.
+     *
+     * <p>♻️ This line used to say it resolved to {@link #area} -- true when 03.3
+     * wrote it, false the moment V24 separated the two, and still sitting three
+     * lines under a javadoc that said the opposite. Corrected by P3's refactor
+     * pass. A comment that contradicts the field beside it is worse than none: it
+     * is the version a reader trusts, and it survives exactly because nothing
+     * compiles it.
      */
     @Transient
     private String areaRecruited;

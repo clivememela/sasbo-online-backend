@@ -67,10 +67,59 @@ class RecruiterSourceAgreementTest {
                         + "MEMBERS table (origin/main 4e41ed5)")
                 .isTrue();
 
-        assertThat(members.contains("representativeRepository.findByFullName"))
+        assertThat(resolvesThroughRepresentatives(members.code()))
                 .as("the column's source: resolveRecruiter looks the submitted name up in the "
                         + "REPRESENTATIVES table, which is what the FK points at")
                 .isTrue();
+    }
+
+    /**
+     * Does this source resolve a recruiter name through the {@code representatives} table?
+     *
+     * <h2>♻️ Why this is a pattern and not a literal</h2>
+     * It was {@code contains("representativeRepository.findByFullName")}, and P3's refactor
+     * pass broke it — by rewriting one call as a method reference,
+     * {@code representativeRepository::findByFullName}. <b>Nothing about the divergence
+     * changed.</b> The same repository, the same finder, the same table; only the two
+     * characters between them.
+     *
+     * <p>🔑 That is this suite's most expensive recurring failure, and it has now happened
+     * in both directions: the vocabulary walker went <b>blind</b> when literals became
+     * constants, and this one went <b>loud</b> when a call became a method reference. A
+     * source guard pinned to one spelling is pinned to an accident. So the predicate
+     * accepts either separator, and {@link #thePredicateCanTellTheDifference} proves it
+     * still rejects a source that does not resolve through that repository at all —
+     * because a guard that cannot be shown to fail is not evidence.
+     */
+    private static boolean resolvesThroughRepresentatives(String code) {
+        return java.util.regex.Pattern
+                .compile("representativeRepository\\s*(?:\\.|::)\\s*findByFullName")
+                .matcher(code)
+                .find();
+    }
+
+    @Test
+    @DisplayName("the guard's own canary — the predicate rejects a source that does not do this")
+    void thePredicateCanTellTheDifference() {
+        assertThat(resolvesThroughRepresentatives("this.representativeRepository.findByFullName(n)"))
+                .as("the spelling P3 replaced").isTrue();
+        assertThat(resolvesThroughRepresentatives("this.representativeRepository::findByFullName"))
+                .as("the spelling P3 introduced").isTrue();
+
+        // The half that makes the two above mean something. Both a DIFFERENT repository and
+        // a DIFFERENT finder must read as "no" -- otherwise the pattern would convict any
+        // class that merely mentions either word, and would keep passing after 03.10 moved
+        // the lookup to the members table, which is the exact change it exists to catch.
+        assertThat(resolvesThroughRepresentatives("this.memberRepository.findByFullName(n)"))
+                .as("a lookup moved to the MEMBERS table -- what 03.10 would do").isFalse();
+        assertThat(resolvesThroughRepresentatives("this.representativeRepository.findById(id)"))
+                .as("the representatives repository used for something else").isFalse();
+
+        // And against a real file rather than a string, so the predicate is proved on the
+        // same input the assertion above feeds it.
+        assertThat(resolvesThroughRepresentatives(source("RepresentativeServiceImpl").code()))
+                .as("RepresentativeServiceImpl holds the repository but never calls this finder")
+                .isFalse();
     }
 
     @Test
