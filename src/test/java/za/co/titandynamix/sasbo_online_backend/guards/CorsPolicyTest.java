@@ -35,9 +35,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * That is the exact move the review warned about: updating a security assertion
  * until it agrees with the new configuration launders a security change into a
  * passing suite. So this file does not assert <i>"CORS is registered on
- * {@code /**}"</i> as though the value were the point. It asserts the two
- * properties that make the width <b>safe</b>, and it says in each message what
- * breaks if that property goes.
+ * {@code /**}"</i> as though the value were the point. It asserts the properties
+ * that make the width <b>safe</b> — credentials are allowed, so the origin list
+ * is the only bound; that list is closed; and no wildcard pattern escapes a
+ * domain this project controls — and each message says what breaks if one goes.
  *
  * <h2>The property that actually matters</h2>
  * 🔑 <b>Credentialed CORS is only ever bounded by its origin list.</b>

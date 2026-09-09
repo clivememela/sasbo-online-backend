@@ -81,8 +81,12 @@ public final class MigrationSeed {
 
     /**
      * The versions those filenames declare, as Flyway records them in
-     * {@code flyway_schema_history.version}: the text between the leading
-     * {@code V} and the {@code __}, with {@code _} read as the decimal point.
+     * {@code flyway_schema_history.version} — via {@link #versionOf}, which is
+     * where the parsing rule is written down.
+     *
+     * <p>⚠️ It was written out here as well, inside an extraction whose own
+     * comment says the rule now exists once. Two statements of one rule, added
+     * in the same change that existed to remove exactly that.
      */
     public static final List<String> APPLIED_VERSIONS = MIGRATIONS.stream()
             .map(MigrationSeed::versionOf)
