@@ -25,6 +25,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.RecruiterRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RecruitmentChannelRepository;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
@@ -91,6 +92,11 @@ class MemberServiceImplTest {
                     "REPORTED by the service -- it is the answer to what resolveJobGrade did "
                             + "(MATCHED/CAPTURED/CLEARED), not something the client sends. "
                             + "Asserted in JobGradeResolutionTest"),
+            Map.entry("recruiter",
+                    "resolved from the recruiter NAME the capture form submits (03.10). It "
+                            + "used to resolve through `representatives`, a table seeded by "
+                            + "nothing, so every capture stored null while the union's 33 real "
+                            + "recruiters sat in `recruiters` behind no controller"),
             Map.entry("recruitmentRepresentative",
                     "resolved from the recruiter name -- `areasRep` on update, and from 03.3 "
                             + "`recruitmentRep` on create, which nothing had ever bound"),
@@ -122,6 +128,7 @@ class MemberServiceImplTest {
     @Mock private JobGradeService jobGradeService;
     @Mock private AreaRepository areaRepository;
     @Mock private RecruitmentChannelRepository recruitmentChannelRepository;
+    @Mock private RecruiterRepository recruiterRepository;
 
     @Captor
     private ArgumentCaptor<Member> saved;
@@ -135,7 +142,7 @@ class MemberServiceImplTest {
                 this.subscriptionsRepository, this.bankBranchRepository, this.bankRepository,
                 this.representativeRoleRepository, this.unionStructureRepository,
                 this.jobGradeRepository, this.jobGradeService, this.areaRepository,
-                this.recruitmentChannelRepository);
+                this.recruitmentChannelRepository, this.recruiterRepository);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

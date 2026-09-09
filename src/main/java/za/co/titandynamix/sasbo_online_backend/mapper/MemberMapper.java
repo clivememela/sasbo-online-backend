@@ -25,8 +25,14 @@ public abstract class MemberMapper {
     // ============================================================
     // ENTITY TO DTO
     // ============================================================
-    @Mapping(target = "recruitmentRepresentativeId", source = "recruitmentRepresentative.id")
-    @Mapping(target = "recruitmentRepresentativeName", source = "recruitmentRepresentative", qualifiedByName = "mapRepToName")
+    // 🗣️ 03.10 -- the RECRUITER is what the capture form asked for and what it now
+    // reads back. `recruitmentRepresentativeName` keeps its wire name deliberately:
+    // it is the field `Members.jsx` already reads, and renaming an external contract
+    // buys nothing here while breaking the screen. The SOURCE is what changed.
+    @Mapping(target = "recruitmentRepresentativeId", source = "recruiter.id")
+    @Mapping(target = "recruitmentRepresentativeName", source = "recruiter.name")
+    // `areasRep` still reflects the REPRESENTATIVE link, which is a different fact
+    // and a different column -- the register's edit screen owns it.
     @Mapping(target = "areasRep", source = "recruitmentRepresentative", qualifiedByName = "mapRepToName")
     @Mapping(target = "roleId", source = "role.id")
     @Mapping(target = "roleName", source = "role.name")
@@ -54,6 +60,7 @@ public abstract class MemberMapper {
     // DTO TO ENTITY
     // ============================================================
     @Mapping(target = "recruitmentRepresentative", source = "recruitmentRepresentativeName", qualifiedByName = "mapNameToRep")
+    @Mapping(target = "recruiter", ignore = true)
     @Mapping(target = "structure", source = "structureId", qualifiedByName = "mapIdToStructure")
     @Mapping(target = "role", source = "roleId", qualifiedByName = "mapIdToRole")
     @Mapping(target = "jobGrade.grade", source = "jobGrade") // Sets the string into the new class instance
@@ -77,6 +84,7 @@ public abstract class MemberMapper {
     @Mapping(target = "structure", ignore = true)
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "recruitmentRepresentative", ignore = true)
+    @Mapping(target = "recruiter", ignore = true)
     public abstract void updateFromMember(Member source, @org.mapstruct.MappingTarget Member target);
 
     // Helper Method 1: Turn Representative into String Name

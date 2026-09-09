@@ -271,7 +271,7 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         // truncates every table around each test, so this lane has no seed data at all
         // -- and a test that quietly skipped on an empty list would assert nothing while
         // looking green, which is how the unseeded `areas` table survived since V1.
-        String recruiter = seedRepresentative("Thandiwe", "Mokoena");
+        String recruiter = seedRecruiter("Thandiwe Mokoena Testrecruiter");
 
         JsonNode read = readBack(capture(payloadWith(
                 "\"recruitmentRep\": \"" + recruiter + "\"")));
@@ -333,7 +333,7 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         // (3) was sent on every capture and silently dropped.
         String channel = seedChannel("Website");
         String area = seedArea("Umhlanga Ridge");
-        String recruiter = seedRepresentative("Thandiwe", "Mokoena");
+        String recruiter = seedRecruiter("Thandiwe Mokoena Testrecruiter");
 
         JsonNode read = readBack(capture(payloadWith(
                 "\"recruitedHow\": \"" + channel + "\", "
@@ -438,17 +438,30 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
      * means the fixture is built the way the application builds it, rather than by
      * writing a row shape a migration might later change underneath us.
      */
-    private String seedRepresentative(String firstNames, String surname) throws Exception {
-        int memberId = capture().get("id").asInt();
-        // `created_at` and `updated_at` are NOT NULL with no default -- the entity fills
-        // them via @PrePersist, which a raw INSERT bypasses. Supplied explicitly rather
-        // than made nullable: relaxing a production constraint to suit a fixture is the
-        // wrong direction.
-        this.jdbc.update(
-                "INSERT INTO representatives (first_names, surname, member_id, created_at, updated_at) "
-                        + "VALUES (?, ?, ?, now(), now())",
-                firstNames, surname, memberId);
-        return firstNames + " " + surname;
+    /**
+     * A RECRUITER the capture form can name — 03.10.
+     *
+     * <p>🔴 This used to insert into {@code representatives}, because that is where
+     * {@code resolveRecruiter} looked names up. Measuring 03.10 showed why that never
+     * worked outside a test: {@code representatives} is seeded by no migration and no
+     * seeder, so in the running application the table was <b>empty</b> and every
+     * capture stored a null recruiter — while the union's 33 real recruiter names sat
+     * in {@code recruiters}, referenced by no foreign key and served by no controller.
+     *
+     * <p>🔑 The old helper was therefore <b>manufacturing the only condition under
+     * which the feature worked.</b> It inserted the row the production code needed and
+     * nothing else ever did, so the test proved the wiring while the screen stayed
+     * broken. That is worth naming: a fixture that creates the data the application
+     * cannot create is a test that passes for the wrong reason.
+     *
+     * <p>The name is synthetic and deliberately unlike anything in
+     * {@code recruiters.json} — the 33 seeded rows are present in this lane, and a
+     * case-insensitive collision with one of them is how the seed's three "Vacant"
+     * rows were found.
+     */
+    private String seedRecruiter(String name) {
+        this.jdbc.update("INSERT INTO recruiters (name, members_recruited) VALUES (?, 0)", name);
+        return name;
     }
 
     /** The real payload with one extra field, so each test states only what it is about. */

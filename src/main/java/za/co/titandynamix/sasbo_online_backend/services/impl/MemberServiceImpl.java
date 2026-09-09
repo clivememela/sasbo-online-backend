@@ -13,6 +13,7 @@ import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.RecruiterRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RecruitmentChannelRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
@@ -50,6 +51,7 @@ public class MemberServiceImpl implements MemberService {
     private final JobGradeService jobGradeService;
     private final AreaRepository areaRepository;
     private final RecruitmentChannelRepository recruitmentChannelRepository;
+    private final RecruiterRepository recruiterRepository;
 
     @Override
     public List<Member> findAll() {
@@ -277,10 +279,20 @@ public class MemberServiceImpl implements MemberService {
      * <p>🔴 Nothing on this entity was called {@code recruitmentRep} before 03.3, so
      * the name the capture form had always sent was ignored as an unknown property and
      * the recruiter was dropped on every capture, with the save reporting success.
+     *
+     * <p>🗣️ 🔴 AND IT RESOLVED AGAINST THE WRONG TABLE UNTIL 03.10 WAS MEASURED. It
+     * looked names up in {@code representatives}, which is seeded by nothing and has
+     * never held a row -- so every capture resolved to {@code null} and the recruiter
+     * was dropped again, quietly, by a different route. Meanwhile the union's 33 real
+     * recruiter names sat in {@code recruiters}, referenced by no foreign key and
+     * served by no controller.
+     *
+     * <p>🔑 The owner settled it on 2026-09-09: a RECRUITER signed the member up and
+     * lives in {@code recruiters}; a REPRESENTATIVE sits on a structure and stays
+     * Edit Member's business. Two concepts that one column had been serving.
      */
     private void resolveRecruiter(String name, Member target) {
-        resolveByName(name, this.representativeRepository::findByFullName,
-                target::setRecruitmentRepresentative);
+        resolveByName(name, this.recruiterRepository::findFirstByNameIgnoreCaseOrderByIdAsc, target::setRecruiter);
     }
 
     /**
@@ -311,16 +323,17 @@ public class MemberServiceImpl implements MemberService {
     /**
      * Resolves the transient areasRep display name to a Representative entity.
      *
-     * <p>⚠️ It writes {@link Member#setRecruitmentRepresentative}, the SAME column
-     * {@link #resolveRecruiter} writes, from a different wire field. On the update
-     * path both run, so whichever is non-null last wins. That is not a defect today
-     * -- the register's edit screen sends {@code areasRep} and capture sends
-     * {@code recruitmentRep}, never both -- but two names for one column is the
-     * finding {@code 03.10} is already open on, and this is a third face of it.
-     * Recorded, not repaired: a refactor pass does not resolve a modelling question.
+     * <p>✅ 03.10 CLOSED THE COLLISION. This used to write the same column
+     * {@link #resolveRecruiter} writes, from a different wire field, so on the update
+     * path whichever ran last won. They now write different columns because they mean
+     * different things: {@code areasRep} is the register's REPRESENTATIVE link and
+     * stays pointed at {@code representatives}; the capture form's recruiter goes to
+     * {@link Member#setRecruiter}. The modelling question is answered, so the
+     * mechanism no longer has to be shared to hide it.
      */
     private void resolveAreasRep(String areasRep, Member existing) {
-        resolveRecruiter(areasRep, existing);
+        resolveByName(areasRep, this.representativeRepository::findByFullName,
+                existing::setRecruitmentRepresentative);
     }
 
     @Override

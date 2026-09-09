@@ -1,135 +1,170 @@
 package za.co.titandynamix.sasbo_online_backend.guards;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.MainClassSource;
 
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The recruiter drop-down and the recruiter column must read the same thing.
+ * ✅ 03.10 CLOSED — the recruiter drop-down and the recruiter column read the SAME
+ * table, and it is the one that actually holds recruiters.
  *
- * <h2>🔴 The defect this exists for, which arrived from upstream</h2>
- * {@code origin/main}'s {@code 4e41ed5} changed {@code RepresentativeServiceImpl.findAll()} to
- * derive representatives from the <b>members</b> table:
+ * <h2>What this file used to be</h2>
+ * A tripwire. {@code /api/representatives} fed the drop-down while
+ * {@code MemberServiceImpl} resolved the submitted name in a different table, so it
+ * asserted that the two were <b>known to differ</b> and failed the day either side
+ * moved. That was the correct shape for an open modelling question.
  *
- * <pre>{@code this.memberRepository.findByIsRepresentativeTrue()}</pre>
+ * <h2>🔴 What measuring it actually found</h2>
+ * The question "which of the two tables is the source of truth" had the wrong shape.
+ * There were <b>four disjoint people-lists sharing no names at all</b>:
  *
- * <p>That endpoint fills the capture form's <b>Recruiter</b> drop-down. But the value it
- * produces has to resolve into
- * {@code members.recruitment_representative_id → representatives.id}, and
- * {@code MemberServiceImpl.resolveRecruiter} looks the name up in the
- * <b>representatives</b> table.
+ * <ul>
+ *   <li>{@code representatives} — seeded by no migration and no seeder. Empty.</li>
+ *   <li>{@code members.is_representative} — the key is <b>absent from
+ *       members.json entirely</b>, so {@code findByIsRepresentativeTrue()} returns
+ *       nothing and {@code /api/representatives} answers {@code []}.</li>
+ *   <li>{@code recruiters} — <b>33 real union names</b> with recruited-counts,
+ *       referenced by no foreign key, served by no controller.</li>
+ *   <li>{@code members.areas_rep} — 62 distinct names matching none of the above.</li>
+ * </ul>
  *
- * <p><b>Two different tables.</b> A member flagged {@code is_representative = true} with no row
- * in {@code representatives} is OFFERED by the drop-down and CANNOT BE RESOLVED on save — so
- * the recruiter is dropped and the capture reports success. That is A31's class and R5's exact
- * defect, re-created from the other side of the wire hours after 03.3 fixed it.
+ * <p><b>So the drop-down was empty for every user, whichever table it read.</b> It
+ * was not two sources disagreeing; it was a field with no source, next to a table
+ * of real recruiters that nothing could reach.
  *
- * <h2>Why this is a SOURCE scan and not a data test</h2>
- * A data test would need both a member-without-a-representative-row and a fixture that proves
- * the drop-down offered them — and would pass on any dataset where the two happen to agree,
- * which is most of them. The divergence is <b>structural</b>: it is a property of which
- * repository each side calls, and it is true whether or not today's rows expose it.
+ * <h2>🗣️ The decision, 2026-09-09</h2>
+ * A <b>recruiter</b> signed the member up and lives in {@code recruiters}. A
+ * <b>representative</b> sits on a structure and stays Edit Member's business,
+ * administered through {@code /api/representatives}. One column had been serving
+ * both concepts, which is why neither worked.
  *
- * <p>🔑 So this guard does not assert the two are the same. <b>It asserts that they are known to
- * differ</b>, and fails the day someone changes one without the other — in either direction. It
- * is a tripwire on a decision that has not been made yet, not a claim that the code is correct.
- *
- * <h2>What closing this looks like</h2>
- * Unit {@code 03.10}. It is a MODELLING decision — which table is the source of truth for "a
- * representative" — and picking one unilaterally is how the two concepts got out of step to
- * begin with. When it is settled, this guard is deleted along with the divergence.
+ * <p>So this guard inverts: it now asserts the two sides <b>agree</b>, and it will
+ * fail if anyone re-points either half at the other table.
  */
-@DisplayName("Recruiter source agreement (03.10 — open)")
+@DisplayName("Recruiter source agreement (03.10 — closed)")
 class RecruiterSourceAgreementTest {
+
+    private static List<String> SEEDED_RECRUITERS;
+
+    @BeforeAll
+    static void loadSeed() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        List<String> names = new ArrayList<>();
+        try (InputStream in = RecruiterSourceAgreementTest.class
+                .getResourceAsStream("/data/recruiters.json")) {
+            assertThat(in).as("the recruiter seed is on the classpath").isNotNull();
+            for (JsonNode n : mapper.readTree(in)) {
+                names.add(n.path("name").asText(null));
+            }
+        }
+        SEEDED_RECRUITERS = List.copyOf(names);
+    }
 
     private static MainClassSource source(String name) {
         return MainSourceInventory.all().stream()
                 .filter(c -> c.name().equals(name))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(
-                        name + " not found. If it was renamed, this guard needs re-aiming rather "
-                                + "than deleting: the divergence it tracks is still open."));
-    }
-
-    @Test
-    @DisplayName("🔴 the two sides still read different tables — 03.10 is still open")
-    void theDivergenceIsStillThere() {
-        // Stated as the CURRENT truth. When 03.10 lands, this test fails and is deleted with
-        // the divergence -- which is the correct way for a tripwire to end its life.
-        MainClassSource representatives = source("RepresentativeServiceImpl");
-        MainClassSource members = source("MemberServiceImpl");
-
-        assertThat(representatives.contains("findByIsRepresentativeTrue"))
-                .as("the drop-down's source: /api/representatives derives its list from the "
-                        + "MEMBERS table (origin/main 4e41ed5)")
-                .isTrue();
-
-        assertThat(resolvesThroughRepresentatives(members.code()))
-                .as("the column's source: resolveRecruiter looks the submitted name up in the "
-                        + "REPRESENTATIVES table, which is what the FK points at")
-                .isTrue();
+                        name + " not found. If it was renamed, this guard needs re-aiming "
+                                + "rather than deleting: it is what stops the recruiter's two "
+                                + "sides drifting apart again."));
     }
 
     /**
-     * Does this source resolve a recruiter name through the {@code representatives} table?
+     * Does this source resolve a recruiter name through the {@code recruiters} table?
      *
-     * <h2>♻️ Why this is a pattern and not a literal</h2>
-     * It was {@code contains("representativeRepository.findByFullName")}, and P3's refactor
-     * pass broke it — by rewriting one call as a method reference,
-     * {@code representativeRepository::findByFullName}. <b>Nothing about the divergence
-     * changed.</b> The same repository, the same finder, the same table; only the two
-     * characters between them.
-     *
-     * <p>🔑 That is this suite's most expensive recurring failure, and it has now happened
-     * in both directions: the vocabulary walker went <b>blind</b> when literals became
-     * constants, and this one went <b>loud</b> when a call became a method reference. A
-     * source guard pinned to one spelling is pinned to an accident. So the predicate
-     * accepts either separator, and {@link #thePredicateCanTellTheDifference} proves it
-     * still rejects a source that does not resolve through that repository at all —
-     * because a guard that cannot be shown to fail is not evidence.
+     * <p>♻️ A PATTERN, NOT A LITERAL, and the reason is on the record. The previous
+     * version of this guard matched {@code representativeRepository.findByFullName}
+     * exactly, and a {@code /simplify} pass rewrote that call as a method reference —
+     * same repository, same finder, <b>two characters</b> — and the guard went red for
+     * a change that altered nothing. A source guard pinned to one spelling is pinned
+     * to an accident, so this accepts either separator and
+     * {@link #thePredicateCanTellTheDifference} proves it still discriminates.
      */
-    private static boolean resolvesThroughRepresentatives(String code) {
-        return java.util.regex.Pattern
-                .compile("representativeRepository\\s*(?:\\.|::)\\s*findByFullName")
+    private static boolean resolvesThroughRecruiters(String code) {
+        return Pattern.compile("recruiterRepository\\s*(?:\\.|::)\\s*findFirstByNameIgnoreCase")
                 .matcher(code)
                 .find();
     }
 
     @Test
-    @DisplayName("the guard's own canary — the predicate rejects a source that does not do this")
-    void thePredicateCanTellTheDifference() {
-        assertThat(resolvesThroughRepresentatives("this.representativeRepository.findByFullName(n)"))
-                .as("the spelling P3 replaced").isTrue();
-        assertThat(resolvesThroughRepresentatives("this.representativeRepository::findByFullName"))
-                .as("the spelling P3 introduced").isTrue();
+    @DisplayName("✅ both sides read the recruiters table")
+    void theTwoSidesAgree() {
+        // ⚠️ RE-AIMED ONCE MORE, IN THE SAME COMMIT THAT WROTE IT, and the reason is
+        // this guard's whole subject. The first draft asserted the CONTROLLER touches
+        // `recruiterRepository` -- then LayeringTest correctly refused a controller
+        // that queries a repository, the query moved into the service, and this went
+        // red for a change that altered nothing about the divergence it tracks. It
+        // asks about the LAYER that owns the query now, and about the controller only
+        // that it delegates.
+        assertThat(source("RecruiterServiceImpl").contains("recruiterRepository"))
+                .as("the drop-down's source: /api/recruiters is served from the recruiters table")
+                .isTrue();
+        assertThat(source("RecruiterController").contains("recruiterService"))
+                .as("and the controller goes through the service, per LayeringTest")
+                .isTrue();
 
-        // The half that makes the two above mean something. Both a DIFFERENT repository and
-        // a DIFFERENT finder must read as "no" -- otherwise the pattern would convict any
-        // class that merely mentions either word, and would keep passing after 03.10 moved
-        // the lookup to the members table, which is the exact change it exists to catch.
-        assertThat(resolvesThroughRepresentatives("this.memberRepository.findByFullName(n)"))
-                .as("a lookup moved to the MEMBERS table -- what 03.10 would do").isFalse();
-        assertThat(resolvesThroughRepresentatives("this.representativeRepository.findById(id)"))
-                .as("the representatives repository used for something else").isFalse();
+        assertThat(resolvesThroughRecruiters(source("MemberServiceImpl").code()))
+                .as("the column's source: resolveRecruiter looks the submitted name up in "
+                        + "the recruiters table, which is what members.recruiter_id points at")
+                .isTrue();
+    }
 
-        // And against a real file rather than a string, so the predicate is proved on the
-        // same input the assertion above feeds it.
-        assertThat(resolvesThroughRepresentatives(source("RepresentativeServiceImpl").code()))
-                .as("RepresentativeServiceImpl holds the repository but never calls this finder")
+    @Test
+    @DisplayName("the representative concept is still separate, and still served")
+    void representativesAreStillTheirOwnThing() {
+        // 🔑 The half that keeps the fix honest. "Make the two agree" is trivially
+        // satisfiable by deleting one of them -- and deleting /api/representatives
+        // would take the structures screen with it, which the stakeholder keeps.
+        MainClassSource representatives = source("RepresentativeServiceImpl");
+
+        assertThat(representatives.contains("findByIsRepresentativeTrue"))
+                .as("/api/representatives still answers the structures question")
+                .isTrue();
+        assertThat(resolvesThroughRecruiters(representatives.code()))
+                .as("and it is NOT quietly reading recruiters -- two concepts, two sources")
                 .isFalse();
     }
 
     @Test
-    @DisplayName("the recruiter is still resolved by NAME, which is what makes the mismatch reachable")
-    void theRecruiterIsResolvedByName() {
-        // If the wire ever carried an ID instead of a name, the mismatch above stops being
-        // reachable through the form and this guard would be describing a hazard that no
-        // longer exists. Asserted so that change is noticed rather than assumed.
-        assertThat(source("MemberServiceImpl").contains("member.getRecruitmentRep()"))
-                .as("the capture form submits a recruiter NAME, and the server resolves it")
-                .isTrue();
+    @DisplayName("🔴 the drop-down is no longer empty — 33 recruiters are seeded")
+    void theSeedActuallyHasRecruiters() {
+        // The defect that started this: a correctly-wired drop-down over an empty
+        // table is still an empty drop-down, and every previous candidate source was
+        // empty. This asserts the DATA, because the wiring was never the whole story.
+        assertThat(SEEDED_RECRUITERS)
+                .as("recruiters.json is what fills the capture form's Recruiter field")
+                .hasSizeGreaterThan(20)
+                .doesNotContainNull();
+    }
+
+    @Test
+    @DisplayName("the guard's own canary — the predicate rejects the other tables")
+    void thePredicateCanTellTheDifference() {
+        assertThat(resolvesThroughRecruiters("this.recruiterRepository.findFirstByNameIgnoreCase(n)"))
+                .as("a plain call").isTrue();
+        assertThat(resolvesThroughRecruiters("this.recruiterRepository::findFirstByNameIgnoreCase"))
+                .as("a method reference").isTrue();
+
+        // The half that makes the two above mean something: the shapes 03.10 rejected
+        // must read as "no", or this guard would keep passing after someone pointed
+        // the resolution back at either of the empty tables.
+        assertThat(resolvesThroughRecruiters("this.representativeRepository.findByFullName(n)"))
+                .as("the representatives table -- what it used to do").isFalse();
+        assertThat(resolvesThroughRecruiters("this.memberRepository.findFirstByNameIgnoreCase(n)"))
+                .as("the members table -- the other candidate 03.10 considered").isFalse();
+        assertThat(resolvesThroughRecruiters("this.recruiterRepository.findById(id)"))
+                .as("the right repository used for something else").isFalse();
     }
 }

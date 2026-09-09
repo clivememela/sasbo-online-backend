@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
@@ -111,6 +112,30 @@ public class Member {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recruitment_representative_id")
     private Representative recruitmentRepresentative;
+
+    /**
+     * WHO SIGNED THIS MEMBER UP -- the stakeholder's capture item (3), "where
+     * applicable". Its own column since V25.
+     *
+     * <p>🔑 NOT {@link #recruitmentRepresentative}, and the difference is the
+     * finding 03.10 turned into. A RECRUITER signed the member up; a
+     * REPRESENTATIVE sits on a structure with a role and an election date. One
+     * column was serving both, so neither worked: `representatives` is seeded by
+     * nothing, `is_representative` is absent from the member seed, and the
+     * drop-down was EMPTY for every user while 33 real recruiter names sat in
+     * `recruiters` referenced by no foreign key at all.
+     *
+     * <p>Same species as {@link #area} vs {@link #recruitedArea} (V24) and
+     * {@code job_grades.description} (V21): one name meaning two things.
+     *
+     * <p>{@code recruitmentRepresentative} above is left in place and unread. It
+     * is upstream's column and it is on `main`; removing it is a merge decision,
+     * not this arc's.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruiter_id")
+    private Recruiter recruiter;
 
     /** Resolved from the transient {@code roleId}, never bound directly. */
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
