@@ -22,6 +22,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeReposito
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 import za.co.titandynamix.sasbo_online_backend.support.Synthetic;
@@ -87,7 +88,12 @@ class MemberServiceImplTest {
                     "REPORTED by the service -- it is the answer to what resolveJobGrade did "
                             + "(MATCHED/CAPTURED/CLEARED), not something the client sends. "
                             + "Asserted in JobGradeResolutionTest"),
-            Map.entry("recruitmentRepresentative", "resolved from the representative name"),
+            Map.entry("recruitmentRepresentative",
+                    "resolved from the recruiter name -- `areasRep` on update, and from 03.3 "
+                            + "`recruitmentRep` on create, which nothing had ever bound"),
+            Map.entry("area",
+                    "resolved from `areaRecruited` (03.3, R2/RE-3). The FK has existed since "
+                            + "V1 and nothing wrote to it until this unit"),
             Map.entry("bankName", "derived from the branch"),
             Map.entry("branch", "derived from the banking details"),
             Map.entry("branchCode", "derived from the banking details"),
@@ -106,6 +112,7 @@ class MemberServiceImplTest {
     @Mock private UnionStructureRepository unionStructureRepository;
     @Mock private JobGradeRepository jobGradeRepository;
     @Mock private JobGradeService jobGradeService;
+    @Mock private AreaRepository areaRepository;
 
     @Captor
     private ArgumentCaptor<Member> saved;
@@ -118,7 +125,7 @@ class MemberServiceImplTest {
                 this.memberRepository, this.memberMapper, this.representativeRepository,
                 this.subscriptionsRepository, this.bankBranchRepository, this.bankRepository,
                 this.representativeRoleRepository, this.unionStructureRepository,
-                this.jobGradeRepository, this.jobGradeService);
+                this.jobGradeRepository, this.jobGradeService, this.areaRepository);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

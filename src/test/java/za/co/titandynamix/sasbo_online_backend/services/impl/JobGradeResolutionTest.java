@@ -66,6 +66,7 @@ class JobGradeResolutionTest {
     @Mock private UnionStructureRepository unionStructureRepository;
     @Mock private JobGradeRepository jobGradeRepository;
     @Mock private JobGradeService jobGradeService;
+    @Mock private AreaRepository areaRepository;
 
     private MemberServiceImpl service;
 
@@ -97,7 +98,7 @@ class JobGradeResolutionTest {
                 this.memberRepository, this.memberMapper, this.representativeRepository,
                 this.subscriptionsRepository, this.bankBranchRepository, this.bankRepository,
                 this.representativeRoleRepository, this.unionStructureRepository,
-                this.jobGradeRepository, this.jobGradeService);
+                this.jobGradeRepository, this.jobGradeService, this.areaRepository);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

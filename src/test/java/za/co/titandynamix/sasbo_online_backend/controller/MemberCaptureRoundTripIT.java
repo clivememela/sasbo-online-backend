@@ -257,6 +257,94 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         return capture(captureFormPayload());
     }
 
+    // ─── 03.3: the two Recruitment Channel fields that STAY ───
+
+    @Test
+    @DisplayName("🔴 R5 — the Recruiter persists, where before it was dropped in silence")
+    void theRecruiterPersists() throws Exception {
+        // Before 03.3 the form sent `recruitmentRep` and NOTHING on the entity was
+        // called that, so Jackson ignored it as an unknown property, the recruiter was
+        // dropped, and the save reported success. A31's class, in the field the whole
+        // Recruitment Channel tab exists for.
+        //
+        // The fixture is created HERE rather than read from the API. AbstractWritingIT
+        // truncates every table around each test, so this lane has no seed data at all
+        // -- and a test that quietly skipped on an empty list would assert nothing while
+        // looking green, which is how the unseeded `areas` table survived since V1.
+        String recruiter = seedRepresentative("Thandiwe", "Mokoena");
+
+        JsonNode read = readBack(capture(payloadWith(
+                "\"recruitmentRep\": \"" + recruiter + "\"")));
+
+        assertThat(read.get("recruitmentRepresentativeName").asText())
+                .as("the recruiter was submitted and must come back resolved, not dropped")
+                .isEqualTo(recruiter);
+    }
+
+    @Test
+    @DisplayName("🔑 R2 / RE-3 — Area Recruited stores an AREA, and it reaches areas.id")
+    void theAreaRecruitedPersistsAsAnArea() throws Exception {
+        // The change of MEANING, asserted where it is visible. The old field captured a
+        // PERSON under an area-shaped name; this one resolves to `members.area_id`, a
+        // foreign key that had existed since V1 with nothing ever writing to it.
+        String area = seedArea("Umhlanga Ridge");
+
+        JsonNode read = readBack(capture(payloadWith(
+                "\"areaRecruited\": \"" + area + "\"")));
+
+        assertThat(read.get("areaName").asText())
+                .as("Area Recruited must resolve to a row in `areas`, not be stored as loose text")
+                .isEqualTo(area);
+        assertThat(read.hasNonNull("areaId"))
+                .as("the FK itself must be set -- a name that matched nothing would still "
+                        + "round-trip as text and look correct")
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("an area the union does not have resolves to nothing, rather than to loose text")
+    void anUnknownAreaIsNotInvented() throws Exception {
+        JsonNode read = readBack(capture(payloadWith(
+                "\"areaRecruited\": \"Atlantis-On-Sea\"")));
+
+        assertThat(read.hasNonNull("areaId"))
+                .as("an unmatched area must not create or imply a row")
+                .isFalse();
+    }
+
+    /** One area, and its name back. */
+    private String seedArea(String name) {
+        this.jdbc.update("INSERT INTO areas (name) VALUES (?)", name);
+        return name;
+    }
+
+    /**
+     * One representative, and the display name {@code findByFullName} will match.
+     *
+     * <p>{@code representatives.member_id} is NOT NULL, so a representative cannot
+     * exist without a member. This captures one through the API first — which also
+     * means the fixture is built the way the application builds it, rather than by
+     * writing a row shape a migration might later change underneath us.
+     */
+    private String seedRepresentative(String firstNames, String surname) throws Exception {
+        int memberId = capture().get("id").asInt();
+        // `created_at` and `updated_at` are NOT NULL with no default -- the entity fills
+        // them via @PrePersist, which a raw INSERT bypasses. Supplied explicitly rather
+        // than made nullable: relaxing a production constraint to suit a fixture is the
+        // wrong direction.
+        this.jdbc.update(
+                "INSERT INTO representatives (first_names, surname, member_id, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, now(), now())",
+                firstNames, surname, memberId);
+        return firstNames + " " + surname;
+    }
+
+    /** The real payload with one extra field, so each test states only what it is about. */
+    private String payloadWith(String extraJsonField) {
+        String base = captureFormPayload().trim();
+        return base.substring(0, base.lastIndexOf('}')) + ",\n  " + extraJsonField + "\n}";
+    }
+
     private JsonNode capture(String payload) throws Exception {
         String response = this.mockMvc.perform(post("/api/members")
                         .contentType(MediaType.APPLICATION_JSON)

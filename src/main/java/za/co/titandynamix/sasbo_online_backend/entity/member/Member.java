@@ -143,6 +143,37 @@ public class Member {
     private String areasRep;
 
     /**
+     * The RECRUITER -- the person who signed this member up (R1, R5).
+     *
+     * <p>🔴 Before 03.3 the capture form sent `recruitmentRep` and NOTHING on this
+     * entity was called that, so Jackson ignored it as an unknown property and the
+     * recruiter was dropped on every single capture. The save reported success. It is
+     * the A31 class -- a field that reads but does not write -- in the field the whole
+     * "Recruitment Channel" tab exists for.
+     *
+     * <p>Transient because it carries a NAME on the wire and resolves to
+     * {@link #recruitmentRepresentative} in the service, exactly as {@code areasRep}
+     * has always done for the register's edit path.
+     */
+    @Transient
+    private String recruitmentRep;
+
+    /**
+     * The AREA the member was recruited in (R2, RE-3).
+     *
+     * <p>🔑 THIS IS A CHANGE OF MEANING, NOT A RENAME. The form's old "Area's
+     * Recruiter" was populated from the list of recruiter PEOPLE, so it captured a
+     * person under an area-shaped name. The specification asks for an AREA. Renaming
+     * the label alone would have left the screen collecting the wrong kind of thing
+     * behind a corrected word, which is worse than leaving it obviously wrong.
+     *
+     * <p>Resolves to {@link #area} -- the FK that has existed since V1 and that
+     * nothing had ever populated.
+     */
+    @Transient
+    private String areaRecruited;
+
+    /**
      * Transient field carrying the selected structure ID from the API client.
      * Resolved to the {@link UnionStructure} entity in the service layer.
      */

@@ -14,6 +14,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
@@ -42,6 +43,7 @@ public class DataSeeder implements ApplicationRunner {
     private final RecruiterRepository recruiterRepository;
     private final SubscriptionsRepository subscriptionsRepository;
     private final JobGradeRepository jobGradeRepository;
+    private final AreaRepository areaRepository;
 
     @Override
     public void run(@NonNull ApplicationArguments args) throws Exception {
@@ -142,6 +144,36 @@ public class DataSeeder implements ApplicationRunner {
                 this.jobGradeRepository.saveAll(jobGrades);
                 log.info("Seeded {} job grades", jobGrades.size());
             }
+        }
+
+        // 03.3 -- the AREAS. The table has existed since V1 and `members.area_id`
+        // points at it, but nothing has ever put a row in it. So "Area Recruited"
+        // (RE-3) would have been a drop-down over an empty table: a decorative field,
+        // exactly the shape CM-37 had for job grades.
+        //
+        // The real areas are already on file -- they are the distinct `area` values of
+        // the seeded bank branches, which is the same universe the union means by an
+        // area. Derived rather than transcribed, so a new branch in a new area brings
+        // its area with it instead of needing a second edit somewhere else.
+        //
+        // ⚠️ Seeded HERE and not in a migration on purpose: `bank_branches` is itself
+        // populated by this seeder, and Flyway runs before any ApplicationRunner -- a
+        // migration reading that table would find it empty.
+        if (this.areaRepository.count() == 0) {
+            List<Area> areas = this.bankBranchRepository.findAll().stream()
+                    .map(BankBranch::getArea)
+                    .filter(name -> name != null && !name.isBlank())
+                    .map(String::trim)
+                    .distinct()
+                    .sorted()
+                    .map(name -> {
+                        Area area = new Area();
+                        area.setName(name);
+                        return area;
+                    })
+                    .toList();
+            this.areaRepository.saveAll(areas);
+            log.info("Seeded {} areas", areas.size());
         }
 
         ClassPathResource subscriptionsResource = new ClassPathResource("data/subscriptions.json");

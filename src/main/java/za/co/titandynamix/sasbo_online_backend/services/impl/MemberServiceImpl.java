@@ -9,6 +9,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
+import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.JobGradeRepository;
@@ -40,6 +41,7 @@ public class MemberServiceImpl implements MemberService {
     private final UnionStructureRepository unionStructureRepository;
     private final JobGradeRepository jobGradeRepository;
     private final JobGradeService jobGradeService;
+    private final AreaRepository areaRepository;
 
     @Override
     public List<Member> findAll() {
@@ -55,6 +57,8 @@ public class MemberServiceImpl implements MemberService {
     public Member create(Member member) {
         member.setId(null);
         resolveStructureAndRole(member);
+        resolveRecruiter(member);
+        resolveAreaRecruited(member);
         autoPopulateIdDerivedFields(member);
         autoPopulateBankDerivedFields(member);
         resolveJobGrade(member);
@@ -68,6 +72,10 @@ public class MemberServiceImpl implements MemberService {
             resolveStructureAndRole(updated);
             this.memberMapper.updateFromMember(updated, existing);
             resolveAreasRep(updated.getAreasRep(), existing);
+            existing.setRecruitmentRep(updated.getRecruitmentRep());
+            resolveRecruiter(existing);
+            existing.setAreaRecruited(updated.getAreaRecruited());
+            resolveAreaRecruited(existing);
             autoPopulateIdDerivedFields(existing);
             autoPopulateBankDerivedFields(existing);
             resolveJobGrade(existing);
@@ -166,6 +174,50 @@ public class MemberServiceImpl implements MemberService {
         JobGrade captured = this.jobGradeService.capture(member.getBankName(), grade);
         member.setJobGrade(captured);
         member.setJobGradeOutcome(captured != null ? JobGradeOutcome.CAPTURED : JobGradeOutcome.CLEARED);
+    }
+
+    /**
+     * Resolves the RECRUITER -- the person who signed the member up (R1, R5).
+     *
+     * <p>🔴 Nothing on this entity was called {@code recruitmentRep} before 03.3, so
+     * the name the capture form had always sent was ignored as an unknown property and
+     * the recruiter was dropped on every capture, with the save reporting success.
+     *
+     * <p>A blank value CLEARS the link; an absent one leaves it alone. Those are
+     * different requests and conflating them is how an edit that never mentioned a
+     * field ends up wiping it.
+     */
+    private void resolveRecruiter(Member member) {
+        String name = member.getRecruitmentRep();
+        if (name == null) {
+            return;
+        }
+        if (name.isBlank()) {
+            member.setRecruitmentRepresentative(null);
+            return;
+        }
+        member.setRecruitmentRepresentative(
+                this.representativeRepository.findByFullName(name.trim()).orElse(null));
+    }
+
+    /**
+     * Resolves the AREA the member was recruited in (R2, RE-3).
+     *
+     * <p>🔑 The old field captured a PERSON under an area-shaped name. This one
+     * resolves to the {@code areas} table -- the FK {@code members.area_id} has pointed
+     * at since V1 and which nothing had ever populated. The areas are seeded from the
+     * distinct areas of the bank branches; see {@code DataSeeder}.
+     */
+    private void resolveAreaRecruited(Member member) {
+        String name = member.getAreaRecruited();
+        if (name == null) {
+            return;
+        }
+        if (name.isBlank()) {
+            member.setArea(null);
+            return;
+        }
+        member.setArea(this.areaRepository.findByNameIgnoreCase(name.trim()).orElse(null));
     }
 
     /**
