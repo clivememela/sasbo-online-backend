@@ -120,6 +120,52 @@ class LayeringTest {
                 .isEmpty();
     }
 
+    /**
+     * CM-32, generalised past the class that produced it.
+     *
+     * <p>{@code JobGradeService} was refactored into an EMPTY interface:
+     * {@code findByBankIdentifier} moved to {@code JobGradeServiceImpl} and was not
+     * declared on the interface, so {@code JobGradeController} and
+     * {@code MemberServiceImpl} were both changed to inject the concrete class.
+     * The abstraction still existed, was still implemented, and could no longer be
+     * used -- and {@code MemberServiceImpl}, which had taken the interface before,
+     * came to depend on an implementation. <b>The refactor inverted the point of
+     * the thing it refactored.</b>
+     *
+     * <p>It has since been repaired upstream. This guard is what stops it
+     * happening to the next service instead: it names no class, so all of them are
+     * covered. An implementation is free to reference its own siblings' interfaces
+     * and itself -- what is convicted is a DEPENDENCY on a concrete
+     * {@code *ServiceImpl} from anywhere.
+     */
+    @Test
+    @DisplayName("nothing depends on a concrete *ServiceImpl -- the interface is the contract")
+    void nobodyInjectsAConcreteServiceImplementation() {
+        List<MainClassSource> all = MainSourceInventory.all();
+
+        // Without this, a walker that found no sources would report no offenders
+        // and pass while asserting nothing.
+        assertNonVacuousScan(all, Floors.TRACKED_FILES, "main sources");
+
+        List<String> offenders = new ArrayList<>();
+        for (MainClassSource source : all) {
+            // A class may of course refer to itself.
+            if (source.name().endsWith("ServiceImpl")) {
+                continue;
+            }
+            for (Integer line : source.linesContaining("ServiceImpl")) {
+                offenders.add(source.at(line));
+            }
+        }
+
+        assertThat(offenders)
+                .as("depending on a concrete *ServiceImpl defeats the interface it implements: "
+                        + "the abstraction still exists, is still implemented, and can no longer "
+                        + "be substituted in a test or a configuration. If a method is missing "
+                        + "from the interface, DECLARE IT there -- do not reach past it")
+                .isEmpty();
+    }
+
     @Test
     @DisplayName("no entity or DTO depends on a service or a repository")
     void dataTypesDependOnNothingAboveThem() {
