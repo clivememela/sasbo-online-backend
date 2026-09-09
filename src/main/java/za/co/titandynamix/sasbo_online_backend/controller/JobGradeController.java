@@ -43,6 +43,9 @@ public class JobGradeController {
                                                        dto.setGrade(jobGrade.getGrade());
                                                        dto.setDescription(jobGrade.getDescription());
                                                        dto.setContractType(jobGrade.getContractType());
+                                                       dto.setBargainingUnit(jobGrade.getBargainingUnit() == null
+                                                               ? null : jobGrade.getBargainingUnit().name());
+                                                       dto.setBargainingUnitCondition(jobGrade.getBargainingUnitCondition());
 
                                                        // Defensively catch structural errors here
                                                        try {

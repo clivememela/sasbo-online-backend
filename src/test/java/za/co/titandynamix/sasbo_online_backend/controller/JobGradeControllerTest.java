@@ -74,7 +74,26 @@ class JobGradeControllerTest {
                 // wire. Asserting the shape alone would pass on a response that
                 // ALSO carried `id`, `description` and `bank` -- and the reason
                 // this endpoint returns a projection at all is that it must not.
-                .andExpect(jsonPath("$[0].length()").value(2));
+                //
+                // 02.6 widened the projection from {value,label} by two DELIBERATE
+                // fields, so the count moved from 2 to 4. The count is now asserted
+                // as an exact KEY SET rather than a number: a count catches a leak
+                // but says nothing about which field leaked, and it would also have
+                // been satisfied by swapping one intended field for `bank`.
+                .andExpect(jsonPath("$[0].length()").value(4))
+                // The two added fields are PRESENT and null, not absent. That
+                // distinction is the contract: null means "the union has not told us
+                // what this grade is", which is the true state for twelve seeded
+                // grades. Omitting the key would make an unclassified grade
+                // indistinguishable from an older server that cannot classify at all.
+                .andExpect(jsonPath("$[0].bargainingUnit").hasJsonPath())
+                .andExpect(jsonPath("$[0].bargainingUnitCondition").hasJsonPath())
+                // And none of the entity's own columns may ride along.
+                .andExpect(jsonPath("$[0].id").doesNotExist())
+                .andExpect(jsonPath("$[0].bank").doesNotExist())
+                .andExpect(jsonPath("$[0].description").doesNotExist())
+                .andExpect(jsonPath("$[0].contractType").doesNotExist())
+                .andExpect(jsonPath("$[0].verified").doesNotExist());
     }
 
     @Test

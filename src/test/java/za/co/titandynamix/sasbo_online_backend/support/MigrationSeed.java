@@ -78,7 +78,8 @@ public final class MigrationSeed {
             "V17__seed_recruiters.sql",
             "V18__recruiter_members_recruited_to_integer.sql",
             "V19__add_cosatu_structure_fields.sql",
-            "V20__job_grade_verified_flag.sql");
+            "V20__job_grade_verified_flag.sql",
+            "V21__job_grade_bargaining_unit.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

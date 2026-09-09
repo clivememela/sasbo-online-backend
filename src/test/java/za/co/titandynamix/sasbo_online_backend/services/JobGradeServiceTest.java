@@ -41,7 +41,12 @@ class JobGradeServiceTest {
     }
 
     private static JobGrade grade(Integer id, Bank bank, String value) {
-        return new JobGrade(id, bank, value, null, null, true);
+        JobGrade jobGrade = new JobGrade();
+        jobGrade.setId(id);
+        jobGrade.setBank(bank);
+        jobGrade.setGrade(value);
+        jobGrade.setVerified(true);
+        return jobGrade;
     }
 
     @Test

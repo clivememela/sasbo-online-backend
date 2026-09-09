@@ -19,6 +19,8 @@ import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
+import za.co.titandynamix.sasbo_online_backend.enums.BargainingUnit;
+import za.co.titandynamix.sasbo_online_backend.enums.GradingSystem;
 import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 
@@ -114,10 +116,26 @@ public class DataSeeder implements ApplicationRunner {
                                 log.warn("Skipping job grade '{}' for unknown bank '{}'", seed.grade(), seed.bankName());
                                 return null;
                             }
+                            JobGrade jobGrade = new JobGrade();
+                            jobGrade.setBank(bank);
+                            jobGrade.setGrade(seed.grade());
+                            jobGrade.setContractType(seed.contractType());
+                            jobGrade.setDescription(seed.description());
                             // Seeded rows ARE the master list, so they are verified. A grade an
                             // administrator types later is captured with verified=false and is
                             // not offered to anyone else until it is confirmed (02.5, V20).
-                            return new JobGrade(null, bank, seed.grade(), seed.contractType(), seed.description(), true);
+                            jobGrade.setVerified(true);
+                            // 02.6. Absent in the seed means "the union has not told us", which
+                            // is a real answer and is why the column is nullable.
+                            jobGrade.setBargainingUnit(seed.bargainingUnit() == null
+                                    ? null
+                                    : BargainingUnit.valueOf(seed.bargainingUnit()));
+                            jobGrade.setBargainingUnitCondition(seed.bargainingUnitCondition());
+                            jobGrade.setGradingSystem(seed.gradingSystem() == null
+                                    ? GradingSystem.BANK_SPECIFIC
+                                    : GradingSystem.valueOf(seed.gradingSystem()));
+                            jobGrade.setBand(seed.band());
+                            return jobGrade;
                         })
                         .filter(Objects::nonNull)
                         .toList();
@@ -207,6 +225,8 @@ public class DataSeeder implements ApplicationRunner {
     }
 
     /** Shape of the entries in data/job_grades.json; the bank is resolved by name. */
-    private record JobGradeSeed(String bankName, String grade, String contractType, String description) {
+    private record JobGradeSeed(String bankName, String grade, String contractType, String description,
+                                String bargainingUnit, String bargainingUnitCondition,
+                                String gradingSystem, String band) {
     }
 }

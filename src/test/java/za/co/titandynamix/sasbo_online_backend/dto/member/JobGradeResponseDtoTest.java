@@ -191,12 +191,32 @@ class JobGradeResponseDtoTest {
                     .as("seeded rows with no description -- the shape that produced 'Grade M -'")
                     .isGreaterThan(0);
 
-            long separatorInsideDescription = grades.stream()
-                    .filter(g -> g.getDescription() != null && g.getDescription().contains(" - "))
-                    .count();
-            assertThat(separatorInsideDescription)
-                    .as("seeded rows whose description contains the joiner itself")
-                    .isGreaterThan(0);
+            // 🔑 THE SECOND SHAPE LEFT THE SEED IN 02.6, AND THIS CANARY IS WHY WE
+            // KNOW. It used to assert that some seeded description contained " - "
+            // itself -- nine rows said "Non - Bargaining" -- because that is the case
+            // making repair-after-join unfixable rather than merely fragile.
+            //
+            // 02.6 gave the bargaining-unit classification its own typed column and
+            // freed `description`, so those nine descriptions are now null and the
+            // shape is genuinely gone from the seed. The canary fired on exactly that
+            // change, which is the behaviour asked of it.
+            //
+            // It is NOT relaxed into silence: the property still matters, and
+            // `separatorInsideTheDataSurvives` above asserts it directly on a
+            // hand-written value. What is asserted here instead is the weaker true
+            // thing -- if a separator-bearing description ever returns to the seed,
+            // the label must still survive it.
+            List<String> mangled = new ArrayList<>();
+            for (JobGradeDto g : grades) {
+                if (g.getDescription() == null || !g.getDescription().contains(" - ")) continue;
+                JobGradeResponseDto dto = JobGradeResponseDto.from(g);
+                if (dto != null && !dto.getLabel().contains(g.getDescription())) {
+                    mangled.add(dto.getLabel());
+                }
+            }
+            assertThat(mangled)
+                    .as("a seeded description containing the joiner must reach the label intact")
+                    .isEmpty();
         }
     }
 }

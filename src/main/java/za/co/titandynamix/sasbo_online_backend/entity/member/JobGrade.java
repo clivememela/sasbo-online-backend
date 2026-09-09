@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
+import za.co.titandynamix.sasbo_online_backend.enums.BargainingUnit;
+import za.co.titandynamix.sasbo_online_backend.enums.GradingSystem;
 
 @Entity
 @Getter
@@ -47,6 +49,42 @@ public class JobGrade {
      */
     @Column(name = "verified", nullable = false)
     private Boolean verified = Boolean.FALSE;
+
+    /**
+     * Whether this grade places a member inside the bargaining unit (02.6, V21).
+     *
+     * <p>NULLABLE ON PURPOSE -- null means the union has not told us, which is the
+     * true state for nine OM Bank grades and Standard Bank's three manager rows.
+     * Inferring a value from the Paterson C-D pattern would be a guess wearing a
+     * fact's clothing.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "bargaining_unit", length = 16)
+    private BargainingUnit bargainingUnit;
+
+    /**
+     * What else has to be true, in words, when {@code bargainingUnit} is
+     * CONDITIONAL -- "Only Assistant Branch Manager", "subject to the guaranteed
+     * package threshold". Shown beside the grade: a rule nobody can read is a rule
+     * nobody applies.
+     */
+    @Column(name = "bargaining_unit_condition", length = 500)
+    private String bargainingUnitCondition;
+
+    /** Which scheme this grade belongs to. SBV alone uses two. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "grading_system", length = 32)
+    private GradingSystem gradingSystem;
+
+    /**
+     * The Paterson band letter, STORED rather than parsed from {@code grade}.
+     *
+     * <p>{@code grade} has at least three notations across the banks on file --
+     * "C", "C3", "D Upper" -- so slicing the first character is wrong for two of
+     * the three. Null for a bank-specific scheme that has no band.
+     */
+    @Column(name = "band", length = 8)
+    private String band;
 
     /**
      * Allows clients (and the seed data) to send the grade as a plain string,
