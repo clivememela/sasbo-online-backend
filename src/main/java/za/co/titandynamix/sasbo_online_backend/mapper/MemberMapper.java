@@ -47,7 +47,7 @@ public abstract class MemberMapper {
     // explicitly for the same reason as the line above: an unmapped target is dropped
     // without a word, and this arc has already paid for that once.
     @Mapping(target = "recruitedHow", source = "recruitmentChannel.name")
-    @Mapping(target = "areaRecruited", source = "area.name")
+    @Mapping(target = "areaRecruited", source = "recruitedArea.name")
     public abstract MemberDto toDto(Member member);
 
     // ============================================================

@@ -292,13 +292,18 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         JsonNode read = readBack(capture(payloadWith(
                 "\"areaRecruited\": \"" + area + "\"")));
 
-        assertThat(read.get("areaName").asText())
+        assertThat(read.get("areaRecruited").asText())
                 .as("Area Recruited must resolve to a row in `areas`, not be stored as loose text")
                 .isEqualTo(area);
+
+        // 🔴 AND IT MUST NOT TOUCH THE MEMBER'S OWN AREA. `area_id` means "the area this
+        // member BELONGS to" -- organisational, ongoing, and read by
+        // RepresentativeServiceImpl as exactly that. 03.3 wrote the recruitment area
+        // there until V24 separated them, so this half is the correction, asserted.
+        // Without it the two facts silently overwrite one another and nothing fails.
         assertThat(read.hasNonNull("areaId"))
-                .as("the FK itself must be set -- a name that matched nothing would still "
-                        + "round-trip as text and look correct")
-                .isTrue();
+                .as("capture records where a member JOINED, not where they BELONG")
+                .isFalse();
     }
 
     @Test
@@ -307,7 +312,7 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         JsonNode read = readBack(capture(payloadWith(
                 "\"areaRecruited\": \"Atlantis-On-Sea\"")));
 
-        assertThat(read.hasNonNull("areaId"))
+        assertThat(read.hasNonNull("areaRecruited"))
                 .as("an unmatched area must not create or imply a row")
                 .isFalse();
     }

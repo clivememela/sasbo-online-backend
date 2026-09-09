@@ -130,10 +130,33 @@ public class Member {
 
     private LocalDate electionDate;
 
-    /** Area this member belongs to. */
+    /**
+     * Area this member BELONGS to -- organisational, ongoing, and it changes when a
+     * member transfers.
+     *
+     * <p>⚠️ NOT the area they were recruited in. See {@link #recruitedArea}: 03.3
+     * briefly wrote the recruitment area here, and V24 separated them.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "area_id")
     private Area area;
+
+    /**
+     * The area the member was RECRUITED in (RE-3) -- historical, fixed at capture.
+     *
+     * <p>🔴 Its own column since V24. 03.3 wired this into {@link #area}, whose own
+     * javadoc already said "Area this member belongs to" and which
+     * {@code RepresentativeServiceImpl} reads as exactly that. Overloading the one
+     * column meant a member transferring area would silently rewrite where they were
+     * recruited, and a capture would overwrite the organisational area a
+     * representative is listed under. Neither would have failed anything.
+     *
+     * <p>🔑 The same defect V21 fixed on {@code job_grades.description}: one column
+     * carrying two meanings.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruited_area_id")
+    private Area recruitedArea;
 
     /**
      * Transient field carrying the area representative's display name.

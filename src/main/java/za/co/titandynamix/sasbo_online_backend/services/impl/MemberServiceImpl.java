@@ -260,9 +260,12 @@ public class MemberServiceImpl implements MemberService {
      * Resolves the AREA the member was recruited in (R2, RE-3).
      *
      * <p>🔑 The old field captured a PERSON under an area-shaped name. This one
-     * resolves to the {@code areas} table -- the FK {@code members.area_id} has pointed
-     * at since V1 and which nothing had ever populated. The areas are seeded from the
-     * distinct areas of the bank branches; see {@code DataSeeder}.
+     * resolves to the {@code areas} table, through {@code members.recruited_area_id}.
+     *
+     * <p>🔴 It briefly wrote to {@code area_id} instead, and V24 corrected that:
+     * {@code Member.area} means "the area this member BELONGS to", which is a different
+     * fact with a different lifetime. The areas themselves are seeded from the distinct
+     * areas of the bank branches; see {@code DataSeeder}.
      */
     private void resolveAreaRecruited(Member member) {
         String name = member.getAreaRecruited();
@@ -270,10 +273,10 @@ public class MemberServiceImpl implements MemberService {
             return;
         }
         if (name.isBlank()) {
-            member.setArea(null);
+            member.setRecruitedArea(null);
             return;
         }
-        member.setArea(this.areaRepository.findByNameIgnoreCase(name.trim()).orElse(null));
+        member.setRecruitedArea(this.areaRepository.findByNameIgnoreCase(name.trim()).orElse(null));
     }
 
     /**

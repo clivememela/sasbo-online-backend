@@ -92,9 +92,10 @@ class MemberServiceImplTest {
             Map.entry("recruitmentRepresentative",
                     "resolved from the recruiter name -- `areasRep` on update, and from 03.3 "
                             + "`recruitmentRep` on create, which nothing had ever bound"),
-            Map.entry("area",
-                    "resolved from `areaRecruited` (03.3, R2/RE-3). The FK has existed since "
-                            + "V1 and nothing wrote to it until this unit"),
+            Map.entry("recruitedArea",
+                    "resolved from `areaRecruited` (RE-3), into its OWN column since V24. It "
+                            + "briefly wrote to `area`, which means 'the area this member "
+                            + "belongs to' -- a different fact with a different lifetime"),
             Map.entry("recruitmentChannel",
                     "resolved from `recruitedHow` (03.8) -- HOW the member was recruited. The "
                             + "reference table was seeded and served all along with no member "

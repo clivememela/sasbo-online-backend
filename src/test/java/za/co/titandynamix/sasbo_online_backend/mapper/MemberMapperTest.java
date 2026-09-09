@@ -42,11 +42,14 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
                         .sourcePath("areaId", "area.id")
                         .sourcePath("areaName", "area.name")
                         // 03.3 / 03.8 -- the Recruitment Channel tab reads back the three
-                        // things it wrote. `areaRecruited` deliberately shares a source with
-                        // `areaName`: they are the same area under the name each screen uses
-                        // for it, and saying so here is what stops the guard reading a second
-                        // mapping to one source as a crossed wire.
-                        .sourcePath("areaRecruited", "area.name")
+                        // things it wrote.
+                        //
+                        // 🔴 `areaRecruited` reads `recruitedArea`, NOT `area`. It used to
+                        // share a source with `areaName`, and this declaration is where that
+                        // was visible: two DTO fields claiming one relation. They are two
+                        // different facts -- where a member belongs, and where they joined --
+                        // and V24 gave the second its own column.
+                        .sourcePath("areaRecruited", "recruitedArea.name")
                         .sourcePath("recruitedHow", "recruitmentChannel.name")
                         .sourcePath("userId", "user.id")
                         .sourcePath("recruitmentRepresentativeId",

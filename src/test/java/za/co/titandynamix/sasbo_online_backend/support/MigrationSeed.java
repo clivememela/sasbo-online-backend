@@ -81,7 +81,8 @@ public final class MigrationSeed {
             "V20__job_grade_verified_flag.sql",
             "V21__job_grade_bargaining_unit.sql",
             "V22__membership_number_sequence.sql",
-            "V23__member_recruitment_channel.sql");
+            "V23__member_recruitment_channel.sql",
+            "V24__member_recruited_area.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in
