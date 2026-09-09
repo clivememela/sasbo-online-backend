@@ -68,14 +68,22 @@ public class JobGradeServiceImpl implements JobGradeService {
         // Idempotence first, and it is not an optimisation: `resolveJobGrade` runs on
         // create AND update, so without this, editing a member who carries a captured
         // grade would insert a fresh near-duplicate row on every single save.
-        Optional<JobGrade> existing = findByBankIdentifier(bankCodeOrNameOrId).stream()
+        List<JobGrade> existingGrades = findByBankIdentifier(bankCodeOrNameOrId);
+        Optional<JobGrade> existing = existingGrades.stream()
                 .filter(jg -> JobGradeMatcher.matches(grade, jg.getGrade()))
                 .findFirst();
         if (existing.isPresent()) {
             return existing.get();
         }
 
-        Bank bank = resolveBank(bankCodeOrNameOrId);
+        // ♻️ The bank is taken off the grades we already loaded whenever there are any.
+        // `resolveBank` re-ran the whole identifier ladder -- including the very
+        // `findByBank_UniversalBranchCode` query the line above had just issued -- so
+        // the common path cost three redundant round trips. It is now reached only in
+        // the genuinely uncovered case: a bank with no grades at all.
+        Bank bank = existingGrades.isEmpty()
+                ? resolveBank(bankCodeOrNameOrId)
+                : existingGrades.get(0).getBank();
         if (bank == null) {
             // A grade with no bank has nowhere to live. Returning null lets the caller
             // record CLEARED rather than failing the whole save over a reference field.
@@ -93,17 +101,27 @@ public class JobGradeServiceImpl implements JobGradeService {
         return jobGradeRepository.save(captured);
     }
 
-    /** The same three-step identifier resolution, returning the bank rather than its grades. */
+    /**
+     * The bank behind an identifier, for the one case the grade lookup cannot answer:
+     * a bank with no grades yet, against which the first one is about to be captured.
+     *
+     * <p>♻️ This deliberately no longer repeats the universal-code step. Its only caller
+     * reaches it when {@code findByBankIdentifier} has ALREADY returned an empty list,
+     * and that lookup's first step IS the universal-code query -- so re-issuing it here
+     * could only ever come back empty a second time.
+     *
+     * <p>📌 RECORDED, NOT FIXED HERE: the id/name ladder below is still a second copy of
+     * the tail of {@code findByBankIdentifier}. Collapsing them properly needs
+     * {@code Optional<Bank> findByUniversalBranchCode(String)} on {@code BankRepository},
+     * so bank resolution stops travelling through the grade table at all -- and that file
+     * is not in this phase's diff, so it is a finding for {@code RF} rather than an edit
+     * this pass is allowed to make.
+     */
     private Bank resolveBank(String bankCodeOrNameOrId) {
         if (bankCodeOrNameOrId == null || bankCodeOrNameOrId.isBlank()) {
             return null;
         }
         String candidate = bankCodeOrNameOrId.trim();
-
-        var byCode = jobGradeRepository.findByBank_UniversalBranchCode(candidate);
-        if (byCode != null && !byCode.isEmpty()) {
-            return byCode.get(0).getBank();
-        }
 
         if (candidate.matches("\\d+") && candidate.length() < 5) {
             try {

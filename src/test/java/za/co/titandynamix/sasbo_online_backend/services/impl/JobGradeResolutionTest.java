@@ -17,6 +17,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
+import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 
 import java.util.List;
 import java.util.Optional;
@@ -153,7 +154,10 @@ class JobGradeResolutionTest {
     @DisplayName("a grade the master list does not contain is CAPTURED, never discarded")
     void unknownGradesAreCaptured(String submitted) {
         JobGrade stored = new JobGrade();
-        stored.setGrade(submitted.trim().replaceAll("\\s+", " "));
+        // The rule itself, not a transcription of it. This file's own header argues the
+        // rule must live in exactly one place; hand-inlining `trim().replaceAll(...)`
+        // here would have been the very drift it exists to catch.
+        stored.setGrade(JobGradeMatcher.storedForm(submitted));
         stored.setVerified(false);
         when(this.jobGradeService.capture(any(), any())).thenReturn(stored);
 

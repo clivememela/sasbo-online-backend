@@ -133,16 +133,11 @@ public class MemberServiceImpl implements MemberService {
             return;
         }
         if (submitted.getId() != null) {
-            this.jobGradeRepository.findById(submitted.getId())
-                    .ifPresentOrElse(
-                            resolved -> {
-                                member.setJobGrade(resolved);
-                                member.setJobGradeOutcome(JobGradeOutcome.MATCHED);
-                            },
-                            () -> {
-                                member.setJobGrade(null);
-                                member.setJobGradeOutcome(JobGradeOutcome.CLEARED);
-                            });
+            // Flat rather than two two-statement lambdas: it sets the same pair of
+            // fields either way, and this now reads like the string branch below.
+            JobGrade byId = this.jobGradeRepository.findById(submitted.getId()).orElse(null);
+            member.setJobGrade(byId);
+            member.setJobGradeOutcome(byId != null ? JobGradeOutcome.MATCHED : JobGradeOutcome.CLEARED);
             return;
         }
 
