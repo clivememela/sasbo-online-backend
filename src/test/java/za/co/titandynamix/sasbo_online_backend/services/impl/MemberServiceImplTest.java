@@ -20,6 +20,8 @@ import za.co.titandynamix.sasbo_online_backend.repository.JobGradeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
+import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
+import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
@@ -304,5 +306,79 @@ class MemberServiceImplTest {
 
         assertThat(this.service.update(99, MemberFixture.aMember())).isEmpty();
         verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+    }
+
+    // ============================================================
+    // 🗣️ THE DEBIT DAY — settled by the owner 2026-09-09
+    //
+    // The service used to overwrite `debitDay` from the bank's subscription row
+    // unconditionally, and MemberValidator then rejected the result against the
+    // permitted 20-31 range — for ELEVEN of the fifteen seeded rows. A debit-order
+    // member could not be captured for most banks, and the error blamed a day the
+    // administrator never entered.
+    //
+    // The range is authoritative; the banks' seeded ACB days are placeholder data.
+    // So the assignment is conditional now, and these two tests are what stop it
+    // silently going back — DebitDayOverwriteConflictTest guards the RULE, but only
+    // a service test can catch the service forgetting to apply it.
+    // ============================================================
+
+    /** Wires the bank + subscription lookup the service performs, with a given ACB day. */
+    private void bankOffers(String bankName, int acbDebitDay) {
+        Bank bank = new Bank();
+        bank.setId(7);
+        bank.setName(bankName);
+
+        Subscriptions subscription = new Subscriptions();
+        subscription.setBank(bank);
+        subscription.setAcbDebitDay(acbDebitDay);
+        subscription.setSubscriptionAmount(new java.math.BigDecimal("120.00"));
+
+        when(this.bankRepository.findByNameIgnoreCase(bankName)).thenReturn(Optional.of(bank));
+        when(this.subscriptionsRepository.findByBankIdWithBank(7L))
+                .thenReturn(List.of(subscription));
+    }
+
+    @Test
+    @DisplayName("🔴 a bank whose ACB day is out of range does not overwrite the member's own choice")
+    void anUnusableBankDayLeavesTheMembersChoiceAlone() {
+        // Absa's seeded row says the 5th. Before the fix this call threw, and the
+        // message named a debit day the administrator had not chosen.
+        bankOffers("Absa Bank Limited", 5);
+
+        Member member = MemberFixture.aMember();
+        member.setPaymentType("Debit Order");
+        member.setBankAccountNumber("1234567890");
+        member.setBankName("Absa Bank Limited");
+        member.setDebitDay(25);
+
+        Member saved = this.service.create(member);
+
+        assertThat(saved.getDebitDay())
+                .as("the member chose the 25th, which is legal; the bank's 5th is not, "
+                        + "so it must not replace it")
+                .isEqualTo(25);
+        // And the subscription STILL comes from the same row -- declining one derived
+        // field must not silently abandon the other two.
+        assertThat(saved.getMonthlySubscription()).isEqualTo("120.00");
+    }
+
+    @Test
+    @DisplayName("a bank whose ACB day IS in range still overwrites, as it always did")
+    void aUsableBankDayIsStillApplied() {
+        // The non-vacuity half. Without it the test above passes just as well against
+        // a service that has stopped deriving the debit day at all -- which would be a
+        // different defect wearing the same green.
+        bankOffers("Nedbank Limited", 20);
+
+        Member member = MemberFixture.aMember();
+        member.setPaymentType("Debit Order");
+        member.setBankAccountNumber("1234567890");
+        member.setBankName("Nedbank Limited");
+        member.setDebitDay(31);
+
+        assertThat(this.service.create(member).getDebitDay())
+                .as("the bank's day is usable, so it is authoritative over the default")
+                .isEqualTo(20);
     }
 }

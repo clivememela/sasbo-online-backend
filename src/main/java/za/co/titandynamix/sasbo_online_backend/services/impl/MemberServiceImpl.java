@@ -1,12 +1,14 @@
 package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
+import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
@@ -32,6 +34,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class MemberServiceImpl implements MemberService {
 
@@ -400,6 +403,32 @@ public class MemberServiceImpl implements MemberService {
      * - debitDay (pre-selected by bank)
      * - bankAddress (auto-generated from BankBranch)
      */
+    /**
+     * Fills the three fields the bank decides: subscription, debit day, address.
+     *
+     * <h2>🔴 The debit day is conditional now, and that is the whole point</h2>
+     * This method used to assign {@code s.getAcbDebitDay()} unconditionally, and
+     * {@link MemberValidator} then rejected the result against {@link DebitDay}'s
+     * permitted range — <b>for eleven of the fifteen seeded subscription rows</b>
+     * (Absa 5, FNB 10, Capitec 1, Standard Bank 15…). So the service overwrote a
+     * value the administrator had chosen, which WAS valid, with one that was not,
+     * and then threw a message blaming a debit day they never entered and could not
+     * change. A debit-order member could not be captured for most banks at all.
+     *
+     * <p>🗣️ <b>Settled by the owner, 2026-09-09: the 20–31 range is right and the
+     * banks' seeded ACB days are placeholder data.</b> So an out-of-range day is not
+     * applied, and the administrator's own choice stands.
+     *
+     * <p>🔑 <b>The invariant, stated because it is the thing worth keeping:</b> this
+     * service never assigns a debit day that its own validator would refuse.
+     * Whichever way the reference data is corrected later, assigning-then-rejecting
+     * is incoherent, and {@code DebitDayOverwriteConflictTest} now guards that
+     * property rather than pinning the defect.
+     *
+     * <p>⚠️ It is NOT silent. When the bank's day cannot be used the fact is logged,
+     * because a derivation that quietly declines to derive is the shape
+     * {@code autoPopulateBankAddress} spent this whole arc being caught by.
+     */
     private void autoPopulateBankDerivedFields(Member member) {
         if (member.getBankName() == null || member.getBankName().isBlank()) {
             return;
@@ -408,7 +437,15 @@ public class MemberServiceImpl implements MemberService {
         Optional<Subscriptions> sub = resolveSubscriptionByBankName(member.getBankName());
         sub.ifPresent(s -> {
             member.setMonthlySubscription(s.getSubscriptionAmount().toPlainString());
-            member.setDebitDay(s.getAcbDebitDay());
+            Integer bankDay = s.getAcbDebitDay();
+            if (bankDay != null && DebitDay.isInRange(bankDay)) {
+                member.setDebitDay(bankDay);
+            } else {
+                log.warn("{} has an ACB debit day of {}, outside {} - the member's own "
+                                + "choice of {} stands. The bank's subscription record and the "
+                                + "permitted range disagree; the range is authoritative.",
+                        member.getBankName(), bankDay, DebitDay.message(), member.getDebitDay());
+            }
         });
         autoPopulateBankAddress(member);
     }
