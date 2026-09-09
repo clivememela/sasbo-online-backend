@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
+import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.RepresentativeRole;
@@ -154,6 +155,23 @@ public class Member {
      */
     @Transient
     private Integer roleId;
+
+    /**
+     * What the server did with the submitted job grade -- MATCHED, CAPTURED or
+     * CLEARED (02.5, ux.md 6c clause 2).
+     *
+     * <p>READ_ONLY on purpose. The client never decides what counts as a custom
+     * grade: it sends the string it always sent, the server resolves it, and the
+     * answer travels back here. Nothing new is accepted on the request, so a stale
+     * client has nothing to lie about.
+     *
+     * <p>Transient because it describes THIS save, not the member. It is deliberately
+     * not persisted: a stored flag would still be sitting there, stale, on the next
+     * read of a member nobody had touched.
+     */
+    @Transient
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private JobGradeOutcome jobGradeOutcome;
 
     // ─── History & Remarks (§5 — retained pending clarification) ───
     // §5: "Remarks / Comments" — needs clarification on business purpose

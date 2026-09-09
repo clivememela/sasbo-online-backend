@@ -61,7 +61,7 @@ class JobGradeControllerTest {
     @Test
     @DisplayName("GET /api/job-grades returns {value,label} objects, not the entities")
     void returnsValueLabelObjects() throws Exception {
-        when(this.jobGradeService.findByBankIdentifier("632005"))
+        when(this.jobGradeService.findVerifiedByBankIdentifier("632005"))
                 .thenReturn(List.of(new JobGrade("BA1"), new JobGrade("BA2")));
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
@@ -84,7 +84,7 @@ class JobGradeControllerTest {
         // worth asserting. `value` is what gets submitted and `label` is what a
         // human picks from; a label that silently equalled the value would make
         // the dropdown useless while every shape assertion above still passed.
-        when(this.jobGradeService.findByBankIdentifier("632005"))
+        when(this.jobGradeService.findVerifiedByBankIdentifier("632005"))
                 .thenReturn(List.of(grade("C1", "Clerk", "Permanent")));
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
@@ -100,7 +100,7 @@ class JobGradeControllerTest {
         // submitted, and `Map.of` would throw on a null value before that --
         // turning a data problem into a 500. The controller filters instead, so
         // assert the filter rather than trusting it.
-        when(this.jobGradeService.findByBankIdentifier("632005"))
+        when(this.jobGradeService.findVerifiedByBankIdentifier("632005"))
                 .thenReturn(List.of(new JobGrade(null), new JobGrade("BA1")));
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
@@ -110,25 +110,48 @@ class JobGradeControllerTest {
     }
 
     @Test
+    @DisplayName("🔴 the drop-down asks for the VERIFIED list, never every grade")
+    void theDropdownOnlyOffersVerifiedGrades() throws Exception {
+        // 02.5, ux.md §6c clause ③. Opening this field to free text means an
+        // administrator can now create a grade by typing it. Those are stored
+        // against the bank and are reviewable -- but offering them here would turn
+        // one person's typo into everyone's drop-down option, and consistency is the
+        // whole reason the field is a list first.
+        //
+        // 🔑 This is asserted on the CALL, not on the response, because the two
+        // lists are stubbed here and would look identical either way. The
+        // distinction lives in WHICH question the controller asks; a response
+        // assertion would pass with the wrong one.
+        when(this.jobGradeService.findVerifiedByBankIdentifier("632005")).thenReturn(List.of());
+
+        this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
+                .andExpect(status().isOk());
+
+        verify(this.jobGradeService).findVerifiedByBankIdentifier("632005");
+        verify(this.jobGradeService, org.mockito.Mockito.never())
+                .findByBankIdentifier(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
     @DisplayName("bankCode wins when both parameters are sent")
     void bankCodeTakesPrecedence() throws Exception {
         // The controller's only real decision, and nothing was asserting it.
         // Without this, it could read either parameter and the stubbed response
         // would look identical.
-        when(this.jobGradeService.findByBankIdentifier("632005")).thenReturn(List.of());
+        when(this.jobGradeService.findVerifiedByBankIdentifier("632005")).thenReturn(List.of());
 
         this.mockMvc.perform(get("/api/job-grades")
                         .param("bankCode", "632005")
                         .param("bank", "Absa"))
                 .andExpect(status().isOk());
 
-        verify(this.jobGradeService).findByBankIdentifier("632005");
+        verify(this.jobGradeService).findVerifiedByBankIdentifier("632005");
     }
 
     @Test
     @DisplayName("falls back to bank when bankCode is absent or blank")
     void fallsBackToBankName() throws Exception {
-        when(this.jobGradeService.findByBankIdentifier("Absa")).thenReturn(List.of());
+        when(this.jobGradeService.findVerifiedByBankIdentifier("Absa")).thenReturn(List.of());
 
         this.mockMvc.perform(get("/api/job-grades").param("bank", "Absa"))
                 .andExpect(status().isOk());
@@ -136,13 +159,13 @@ class JobGradeControllerTest {
                 .andExpect(status().isOk());
 
         verify(this.jobGradeService, org.mockito.Mockito.times(2))
-                .findByBankIdentifier("Absa");
+                .findVerifiedByBankIdentifier("Absa");
     }
 
     @Test
     @DisplayName("answers with an empty array, not a 404, when the bank has no grades")
     void emptyIsASuccessfulAnswer() throws Exception {
-        when(this.jobGradeService.findByBankIdentifier("632005")).thenReturn(List.of());
+        when(this.jobGradeService.findVerifiedByBankIdentifier("632005")).thenReturn(List.of());
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
                 .andExpect(status().isOk())
@@ -159,7 +182,7 @@ class JobGradeControllerTest {
         // shape a join-then-scrub implementation gets wrong in a way neither
         // neighbour can see. Upstream shipped exactly that implementation and
         // both neighbours would have passed on the "A -  - C" it produced.
-        when(this.jobGradeService.findByBankIdentifier("632005"))
+        when(this.jobGradeService.findVerifiedByBankIdentifier("632005"))
                 .thenReturn(List.of(grade("C1", null, "Permanent")));
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))

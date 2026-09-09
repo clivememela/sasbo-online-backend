@@ -8,6 +8,8 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import za.co.titandynamix.sasbo_online_backend.dto.member.PaymentTypeMetadataDto;
 import za.co.titandynamix.sasbo_online_backend.exception.ApiErrorResponse;
+import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
+import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -218,9 +220,60 @@ public final class ApiSurface {
                   "paymentTypes": [
                 %s
                   ],
-                  "errorEnvelopeKeys": [%s]
+                  "errorEnvelopeKeys": [%s],
+                  "jobGradeMatching": {
+                    "outcomes": [%s],
+                    "cases": [
+                %s
+                    ]
+                  }
                 }
-                """.formatted(regenerateCommand(), types, keys);
+                """.formatted(regenerateCommand(), types, keys, jobGradeOutcomeNames(), jobGradeMatchingCases());
+    }
+
+    /**
+     * The job-grade matching rule, published so the browser cannot re-invent it
+     * (02.5, ux.md 6c clause 1).
+     *
+     * <h2>Why the RULE is published and not just the values</h2>
+     * This project carries four registered defects that are all one rule implemented
+     * twice and left to drift -- A6, A7, A17, A9. The job-grade fallback needs both
+     * halves to agree on what "the same grade" means: if the browser collapses double
+     * spaces and the server does not, {@code "Grade  c"} matches in the form, is
+     * treated as a brand-new grade on save, and the user is told it worked.
+     *
+     * <p>So these rows are not transcribed. Each is COMPUTED by calling
+     * {@link JobGradeMatcher} -- the very code the server resolves with -- and the
+     * browser's suite asserts its own implementation reproduces every one. Change the
+     * rule on either side and the artifact goes stale or the browser guard reddens.
+     *
+     * <p>The inputs are the fixture from 6c clause 5, plus the whitespace and casing
+     * shapes that are the actual drift risk.
+     */
+    private static String jobGradeMatchingCases() {
+        List<String> inputs = List.of(
+                "ba2", "BA2", "BA2 ", " ba2",
+                "grade c", "Grade c", "Grade  c",
+                "SBG4", "SBG04", "Prokureur", "  Senior   Clerk  ", "");
+
+        return inputs.stream()
+                .map(input -> "      {\"input\": %s, \"comparisonKey\": %s, \"storedForm\": %s, \"blank\": %s}"
+                        .formatted(quote(input),
+                                quote(JobGradeMatcher.comparisonKey(input)),
+                                quote(JobGradeMatcher.storedForm(input)),
+                                JobGradeMatcher.isBlank(input)))
+                .collect(Collectors.joining(",\n"));
+    }
+
+    /**
+     * The outcome names the server can report on a save. Read off the enum rather than
+     * typed out, so adding a fourth outcome cannot leave the browser unaware of it.
+     */
+    private static String jobGradeOutcomeNames() {
+        return Arrays.stream(JobGradeOutcome.values())
+                .map(Enum::name)
+                .map(ApiSurface::quote)
+                .collect(Collectors.joining(", "));
     }
 
     /**

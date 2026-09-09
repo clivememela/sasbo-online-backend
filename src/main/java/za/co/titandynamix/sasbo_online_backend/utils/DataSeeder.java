@@ -114,7 +114,10 @@ public class DataSeeder implements ApplicationRunner {
                                 log.warn("Skipping job grade '{}' for unknown bank '{}'", seed.grade(), seed.bankName());
                                 return null;
                             }
-                            return new JobGrade(null, bank, seed.grade(), seed.contractType(), seed.description());
+                            // Seeded rows ARE the master list, so they are verified. A grade an
+                            // administrator types later is captured with verified=false and is
+                            // not offered to anyone else until it is confirmed (02.5, V20).
+                            return new JobGrade(null, bank, seed.grade(), seed.contractType(), seed.description(), true);
                         })
                         .filter(Objects::nonNull)
                         .toList();

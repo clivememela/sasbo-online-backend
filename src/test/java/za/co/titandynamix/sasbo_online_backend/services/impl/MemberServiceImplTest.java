@@ -83,6 +83,10 @@ class MemberServiceImplTest {
             Map.entry("structure", "resolved from structureId"),
             Map.entry("role", "resolved from roleId"),
             Map.entry("jobGrade", "resolved against the bank's grades"),
+            Map.entry("jobGradeOutcome",
+                    "REPORTED by the service -- it is the answer to what resolveJobGrade did "
+                            + "(MATCHED/CAPTURED/CLEARED), not something the client sends. "
+                            + "Asserted in JobGradeResolutionTest"),
             Map.entry("recruitmentRepresentative", "resolved from the representative name"),
             Map.entry("bankName", "derived from the branch"),
             Map.entry("branch", "derived from the banking details"),

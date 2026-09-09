@@ -4,5 +4,22 @@
     {"name":"DEBIT_ORDER","displayName":"Debit Order","requiresBankAccount":true},
     {"name":"PAYROLL","displayName":"Payroll Deduction","requiresBankAccount":false}
   ],
-  "errorEnvelopeKeys": ["timestamp", "status", "error", "message", "path", "validationErrors"]
+  "errorEnvelopeKeys": ["timestamp", "status", "error", "message", "path", "validationErrors"],
+  "jobGradeMatching": {
+    "outcomes": ["MATCHED", "CAPTURED", "CLEARED"],
+    "cases": [
+      {"input": "ba2", "comparisonKey": "ba2", "storedForm": "ba2", "blank": false},
+      {"input": "BA2", "comparisonKey": "ba2", "storedForm": "BA2", "blank": false},
+      {"input": "BA2 ", "comparisonKey": "ba2", "storedForm": "BA2", "blank": false},
+      {"input": " ba2", "comparisonKey": "ba2", "storedForm": "ba2", "blank": false},
+      {"input": "grade c", "comparisonKey": "grade c", "storedForm": "grade c", "blank": false},
+      {"input": "Grade c", "comparisonKey": "grade c", "storedForm": "Grade c", "blank": false},
+      {"input": "Grade  c", "comparisonKey": "grade c", "storedForm": "Grade c", "blank": false},
+      {"input": "SBG4", "comparisonKey": "sbg4", "storedForm": "SBG4", "blank": false},
+      {"input": "SBG04", "comparisonKey": "sbg04", "storedForm": "SBG04", "blank": false},
+      {"input": "Prokureur", "comparisonKey": "prokureur", "storedForm": "Prokureur", "blank": false},
+      {"input": "  Senior   Clerk  ", "comparisonKey": "senior clerk", "storedForm": "Senior Clerk", "blank": false},
+      {"input": "", "comparisonKey": "", "storedForm": "", "blank": true}
+    ]
+  }
 }

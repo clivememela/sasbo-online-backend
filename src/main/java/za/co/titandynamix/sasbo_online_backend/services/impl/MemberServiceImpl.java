@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
+import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
@@ -99,32 +101,76 @@ public class MemberServiceImpl implements MemberService {
     }
 
     /**
-     * Resolves the client-supplied job grade to the persisted, bank-specific JobGrade row.
-     * The API accepts the grade as a plain string (the value shown in the dropdown, which is
-     * sourced from the job_grades table for the selected bank), deserialized into a transient
-     * JobGrade. Grades are bank-specific, so the member's bankName is used for the lookup;
-     * a grade that cannot be resolved is cleared instead of persisted as a detached entity.
+     * Resolves the client-supplied job grade, and SAYS WHAT IT DID (ux.md 6c, clause 2).
+     *
+     * <p>The API accepts the grade as a plain string -- the value shown in the drop-down,
+     * sourced from the job_grades table for the selected bank -- deserialized into a
+     * transient JobGrade. Grades are bank-specific, so the member's bankName is the
+     * lookup key.
+     *
+     * <h2>What changed in 02.5, and why</h2>
+     * This method used to end {@code .orElse(null)}: a grade the master list did not
+     * contain was discarded in silence, the save returned success, and the field came
+     * back empty. That was tolerable only while the field was a closed drop-down. It is
+     * not tolerable now: the seeded list covers 3 banks of 68, the stakeholder asked for
+     * free text precisely because of the other 65, and "type a grade, be told it saved,
+     * find it gone" is the A31 class of defect in the field we were asked to open up.
+     *
+     * <p>So the three outcomes are named, and the outcome travels back on the member:
+     * MATCHED (resolved to a master row, the user's spelling quietly corrected),
+     * CAPTURED (genuinely new, stored against this bank and flagged unverified), and
+     * CLEARED (blank or unusable -- said out loud rather than being a silent null).
+     *
+     * <p>🔑 The comparison is {@link JobGradeMatcher}'s, not a local {@code equalsIgnoreCase}.
+     * The client mirrors the same rule against the same fixture. A matching rule living
+     * in two files is how A6, A7, A17 and A9 all happened.
      */
     private void resolveJobGrade(Member member) {
         JobGrade submitted = member.getJobGrade();
         if (submitted == null) {
+            // Nothing was supplied. That is not the same as clearing a value, so no
+            // outcome is reported and whatever the member already had is left alone.
             return;
         }
         if (submitted.getId() != null) {
             this.jobGradeRepository.findById(submitted.getId())
-                    .ifPresentOrElse(member::setJobGrade, () -> member.setJobGrade(null));
+                    .ifPresentOrElse(
+                            resolved -> {
+                                member.setJobGrade(resolved);
+                                member.setJobGradeOutcome(JobGradeOutcome.MATCHED);
+                            },
+                            () -> {
+                                member.setJobGrade(null);
+                                member.setJobGradeOutcome(JobGradeOutcome.CLEARED);
+                            });
             return;
         }
+
         String grade = submitted.getGrade();
-        if (grade == null || grade.isBlank()) {
+        if (JobGradeMatcher.isBlank(grade)) {
             member.setJobGrade(null);
+            member.setJobGradeOutcome(JobGradeOutcome.CLEARED);
             return;
         }
-        JobGrade resolved = this.jobGradeService.findByBankIdentifier(member.getBankName()).stream()
-                .filter(jg -> grade.equalsIgnoreCase(jg.getGrade()))
+
+        JobGrade matched = this.jobGradeService.findByBankIdentifier(member.getBankName()).stream()
+                .filter(jg -> JobGradeMatcher.matches(grade, jg.getGrade()))
                 .findFirst()
                 .orElse(null);
-        member.setJobGrade(resolved);
+        if (matched != null) {
+            member.setJobGrade(matched);
+            // A grade that resolves to a row somebody typed earlier is still CAPTURED
+            // from the user's point of view -- it is not yet part of the master list,
+            // and telling them "matched" would imply a confirmation that has not happened.
+            member.setJobGradeOutcome(Boolean.TRUE.equals(matched.getVerified())
+                    ? JobGradeOutcome.MATCHED
+                    : JobGradeOutcome.CAPTURED);
+            return;
+        }
+
+        JobGrade captured = this.jobGradeService.capture(member.getBankName(), grade);
+        member.setJobGrade(captured);
+        member.setJobGradeOutcome(captured != null ? JobGradeOutcome.CAPTURED : JobGradeOutcome.CLEARED);
     }
 
     /**

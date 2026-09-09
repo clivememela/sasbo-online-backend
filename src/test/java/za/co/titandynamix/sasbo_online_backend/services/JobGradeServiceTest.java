@@ -41,7 +41,7 @@ class JobGradeServiceTest {
     }
 
     private static JobGrade grade(Integer id, Bank bank, String value) {
-        return new JobGrade(id, bank, value, null, null);
+        return new JobGrade(id, bank, value, null, null, true);
     }
 
     @Test
@@ -141,5 +141,82 @@ class JobGradeServiceTest {
 
         // Assert
         assertThat(result).isEmpty();
+    }
+
+    // ─── 02.5: the master list and the captured list are two different lists ───
+
+    @Test
+    @DisplayName("🔴 the verified list EXCLUDES a grade somebody typed; the resolution list keeps it")
+    void verifiedAndResolutionListsDiffer() {
+        // The pair of assertions is the point, and neither half is sufficient alone.
+        //
+        // If the drop-down showed captured grades, one typo would become everyone's
+        // option and the field would stop delivering the consistency it exists for.
+        // If RESOLUTION excluded them, then re-saving a member who carries a captured
+        // grade would fail to find it and capture a near-duplicate every single time.
+        Bank bank = new Bank();
+        bank.setId(1);
+
+        JobGrade master = grade(1, bank, "BA1");
+        JobGrade typed = grade(2, bank, "Prokureur");
+        typed.setVerified(false);
+
+        when(this.jobGradeRepository.findByBank_UniversalBranchCode("632005"))
+                .thenReturn(List.of(master, typed));
+
+        assertThat(this.jobGradeService.findByBankIdentifier("632005"))
+                .as("resolution sees every grade, or a captured one would be captured twice")
+                .containsExactly(master, typed);
+
+        assertThat(this.jobGradeService.findVerifiedByBankIdentifier("632005"))
+                .as("the drop-down sees the master list only")
+                .containsExactly(master);
+    }
+
+    @Test
+    @DisplayName("capturing a grade that already exists returns the existing row")
+    void captureIsIdempotentUnderTheMatchingRule() {
+        // `resolveJobGrade` runs on create AND update, so without this, editing a
+        // member who carries a captured grade would insert a fresh near-duplicate on
+        // every save. Idempotence here is correctness, not tidiness.
+        Bank bank = new Bank();
+        bank.setId(1);
+        JobGrade typed = grade(2, bank, "Prokureur");
+        typed.setVerified(false);
+
+        when(this.jobGradeRepository.findByBank_UniversalBranchCode("632005"))
+                .thenReturn(List.of(typed));
+
+        // Different case and spacing -- the matching rule folds both.
+        assertThat(this.jobGradeService.capture("632005", "  prokureur ")).isSameAs(typed);
+        verify(this.jobGradeRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("a blank grade is never captured")
+    void blankIsNeverCaptured() {
+        assertThat(this.jobGradeService.capture("632005", "   ")).isNull();
+        assertThat(this.jobGradeService.capture("632005", null)).isNull();
+        verifyNoInteractions(this.jobGradeRepository, this.bankRepository);
+    }
+
+    @Test
+    @DisplayName("a captured grade keeps the case it was typed in, and is stored unverified")
+    void capturedGradeKeepsItsCaseAndIsUnverified() {
+        Bank bank = new Bank();
+        bank.setId(1);
+        when(this.jobGradeRepository.findByBank_UniversalBranchCode("Old Mutual")).thenReturn(List.of());
+        when(this.bankRepository.findByNameIgnoreCase("Old Mutual")).thenReturn(Optional.of(bank));
+        when(this.jobGradeRepository.save(org.mockito.ArgumentMatchers.any(JobGrade.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        JobGrade captured = this.jobGradeService.capture("Old Mutual", "  Grade   c  ");
+
+        // Whitespace is collapsed; CASE IS NOT TOUCHED. "Grade c" is a real grade
+        // with a lowercase c sitting beside "Grade K" -- upper-casing it to tidy the
+        // data would corrupt the union's own reference values.
+        assertThat(captured.getGrade()).isEqualTo("Grade c");
+        assertThat(captured.getVerified()).isFalse();
+        assertThat(captured.getBank()).isSameAs(bank);
     }
 }

@@ -37,6 +37,18 @@ public class JobGrade {
     private String description;
 
     /**
+     * FALSE for a grade an administrator typed that the master list did not
+     * contain (02.5). Captured grades are stored and reviewable, but are NOT
+     * offered in the drop-down -- otherwise one typo becomes everyone's option
+     * and the field loses the consistency that is its whole purpose.
+     *
+     * <p>Seeded master-list rows are TRUE; see V20 for the backfill and why the
+     * column defaults to FALSE rather than TRUE.
+     */
+    @Column(name = "verified", nullable = false)
+    private Boolean verified = Boolean.FALSE;
+
+    /**
      * Allows clients (and the seed data) to send the grade as a plain string,
      * e.g. {@code "jobGrade": "BA1"}. The resulting instance is transient and is
      * resolved to the persisted, bank-specific row in the service layer before saving.
