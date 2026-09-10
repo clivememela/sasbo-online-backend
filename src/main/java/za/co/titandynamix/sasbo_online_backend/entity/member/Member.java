@@ -86,7 +86,7 @@ public class Member {
      * Values: "Debit Order" (requires bankAccountNumber)
      *         "Payroll" (bankAccountNumber optional)
      * @see PaymentType
-     * @see MemberValidator#validatePaymentType(Member)
+     * @see MemberValidator#validatePaymentType(Member, Integer)
      */
     private String paymentType;
     private Integer debitDay;

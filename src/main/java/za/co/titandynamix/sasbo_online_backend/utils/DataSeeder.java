@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
-import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
@@ -20,14 +19,11 @@ import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
-import za.co.titandynamix.sasbo_online_backend.enums.BargainingUnit;
-import za.co.titandynamix.sasbo_online_backend.enums.GradingSystem;
 import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 
 import java.io.InputStream;
 import java.util.List;
-import java.util.Objects;
 
 @Slf4j
 @Component
@@ -42,7 +38,7 @@ public class DataSeeder implements ApplicationRunner {
     private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final RecruiterRepository recruiterRepository;
     private final SubscriptionsRepository subscriptionsRepository;
-    private final JobGradeRepository jobGradeRepository;
+    private final JobGradeSeeder jobGradeSeeder;
     private final AreaRepository areaRepository;
 
     @Override
@@ -103,48 +99,13 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
-        if (this.jobGradeRepository.count() == 0) {
-            ClassPathResource jobGradesResource = new ClassPathResource("data/job_grades.json");
-            try (InputStream stream = jobGradesResource.getInputStream()) {
-                List<JobGradeSeed> seeds = mapper.readValue(stream, new TypeReference<>() {});
-                List<Bank> allBanks = this.bankRepository.findAll();
-                List<JobGrade> jobGrades = seeds.stream()
-                        .map(seed -> {
-                            Bank bank = allBanks.stream()
-                                    .filter(b -> b.getName().equalsIgnoreCase(seed.bankName()))
-                                    .findFirst()
-                                    .orElse(null);
-                            if (bank == null) {
-                                log.warn("Skipping job grade '{}' for unknown bank '{}'", seed.grade(), seed.bankName());
-                                return null;
-                            }
-                            JobGrade jobGrade = new JobGrade();
-                            jobGrade.setBank(bank);
-                            jobGrade.setGrade(seed.grade());
-                            jobGrade.setContractType(seed.contractType());
-                            jobGrade.setDescription(seed.description());
-                            // Seeded rows ARE the master list, so they are verified. A grade an
-                            // administrator types later is captured with verified=false and is
-                            // not offered to anyone else until it is confirmed (02.5, V20).
-                            jobGrade.setVerified(true);
-                            // 02.6. Absent in the seed means "the union has not told us", which
-                            // is a real answer and is why the column is nullable.
-                            jobGrade.setBargainingUnit(seed.bargainingUnit() == null
-                                    ? null
-                                    : BargainingUnit.valueOf(seed.bargainingUnit()));
-                            jobGrade.setBargainingUnitCondition(seed.bargainingUnitCondition());
-                            jobGrade.setGradingSystem(seed.gradingSystem() == null
-                                    ? GradingSystem.BANK_SPECIFIC
-                                    : GradingSystem.valueOf(seed.gradingSystem()));
-                            jobGrade.setBand(seed.band());
-                            return jobGrade;
-                        })
-                        .filter(Objects::nonNull)
-                        .toList();
-                this.jobGradeRepository.saveAll(jobGrades);
-                log.info("Seeded {} job grades", jobGrades.size());
-            }
-        }
+        // 🔴 R2-F4. This was `if (this.jobGradeRepository.count() == 0)` with the
+        // whole seed inline -- a TABLE-EMPTY guard on a PER-ROW question. A database
+        // already holding the original 27 rows never received the 31 Nedbank and
+        // Capitec grades the seed file gained afterwards, and said nothing about it.
+        // JobGradeSeeder upserts row by row, and is a bean the integration lane can
+        // call directly -- which this class, being a @MockitoBean there, cannot.
+        this.jobGradeSeeder.seed();
 
         // 03.3 -- the AREAS. The table has existed since V1 and `members.area_id`
         // points at it, but nothing has ever put a row in it. So "Area Recruited"
@@ -256,9 +217,4 @@ public class DataSeeder implements ApplicationRunner {
 
     }
 
-    /** Shape of the entries in data/job_grades.json; the bank is resolved by name. */
-    private record JobGradeSeed(String bankName, String grade, String contractType, String description,
-                                String bargainingUnit, String bargainingUnitCondition,
-                                String gradingSystem, String band) {
-    }
 }

@@ -16,9 +16,13 @@ public class MemberValidator {
      * If payment type is Payroll, bank account is not required.
      *
      * @param member The member to validate
+     * @param previousDebitDay the debit day this member was STORED with before this
+     *        request, or {@code null} on create. 🗣️ Decision ⑥, 2026-09-10: the
+     *        20–31 range is enforced on a day the caller CHANGED, never on one it
+     *        merely sent back unchanged — see {@link #debitDayWasChanged}.
      * @throws IllegalArgumentException if validation fails
      */
-    public static void validatePaymentType(Member member) {
+    public static void validatePaymentType(Member member, Integer previousDebitDay) {
         String paymentTypeStr = member.getPaymentType();
         
         if (paymentTypeStr == null || paymentTypeStr.isBlank()) {
@@ -50,9 +54,33 @@ public class MemberValidator {
             // validator runs on create, update AND updateBanking, so writing a
             // debit-order member back UNCHANGED was a 400 for most of them.
             Integer debitDay = member.getDebitDay();
-            if (debitDay != null && !DebitDay.isInRange(debitDay)) {
+            if (debitDay != null && !DebitDay.isInRange(debitDay)
+                    && debitDayWasChanged(debitDay, previousDebitDay)) {
                 throw new IllegalArgumentException(DebitDay.message());
             }
         }
+    }
+
+    /**
+     * Whether this request CHOSE the debit day it is carrying.
+     *
+     * <p>🔴 R7-F2, and the reason this parameter exists. 38 of the 57 seeded
+     * debit-order members are stored with a day outside the range, because the
+     * seed took the banks' ACB days and those are placeholder data. The range was
+     * checked on every write, so opening one of those members and saving it
+     * <b>unchanged</b> was a 400 — naming a day the administrator never entered
+     * and cannot correct from the screen. Two thirds of the population was
+     * uneditable, and the error blamed the user for the seed.
+     *
+     * <p>🗣️ Settled by the owner on 2026-09-10: leave the seed, change the rule.
+     * A value sent back unchanged was not chosen by this caller, so there is
+     * nothing to refuse; the first deliberate change still has to land in range,
+     * which is what the rule is for.
+     *
+     * <p>A {@code null} {@code previousDebitDay} means create: nothing was stored,
+     * so every day is a new choice and the range binds all of them.
+     */
+    private static boolean debitDayWasChanged(Integer submitted, Integer previousDebitDay) {
+        return !submitted.equals(previousDebitDay);
     }
 }

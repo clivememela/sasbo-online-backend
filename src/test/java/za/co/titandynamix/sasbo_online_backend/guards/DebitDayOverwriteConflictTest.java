@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -88,60 +87,35 @@ class DebitDayOverwriteConflictTest {
                 .isNotEmpty();
     }
 
-    @Test
-    @DisplayName("🔴 the invariant: a day the service assigns always passes the validator")
-    void theServiceNeverAssignsAValueItWouldRefuse() {
-        // The two halves of the rule, checked against every seeded row rather than one.
-        for (Row row : ROWS) {
-            Member member = debitOrderMember();
-
-            // What autoPopulateBankDerivedFields now does: apply the bank's day ONLY
-            // when it is usable. This mirrors the service's condition rather than
-            // calling it, because the method is private and the property under test is
-            // the RULE, not the call.
-            if (DebitDay.isInRange(row.acbDebitDay())) {
-                member.setDebitDay(row.acbDebitDay());
-            }
-
-            assertThatCode(() -> MemberValidator.validatePaymentType(member))
-                    .as("%s (ACB day %d) must be capturable as a debit-order member",
-                            row.bankName(), row.acbDebitDay())
-                    .doesNotThrowAnyException();
-        }
-    }
-
-    @Test
-    @DisplayName("the administrator's own choice survives a bank whose day cannot be used")
-    void theUsersChoiceStandsWhenTheBankDayIsUnusable() {
-        Row offender = ROWS.stream()
-                .filter(row -> !DebitDay.isInRange(row.acbDebitDay()))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("no out-of-range row -- see the fixture test"));
-
-        Member member = debitOrderMember();
-        member.setDebitDay(25);   // a legal choice the administrator made
-
-        // The service declines the bank's day rather than overwriting with it, so 25
-        // is still what gets saved. This is the behaviour change the owner's decision
-        // bought: before it, capturing this member was a 400.
-        if (DebitDay.isInRange(offender.acbDebitDay())) {
-            member.setDebitDay(offender.acbDebitDay());
-        }
-
-        assertThat(member.getDebitDay())
-                .as("%s's ACB day is %d, so the member's own 25 stands",
-                        offender.bankName(), offender.acbDebitDay())
-                .isEqualTo(25);
-        assertThatCode(() -> MemberValidator.validatePaymentType(member))
-                .doesNotThrowAnyException();
-    }
+    // 🔴 T1 — TWO TESTS WERE RETIRED FROM HERE, 2026-09-10, and what they claimed is
+    // now asserted by calling the service instead of re-implementing it.
+    //
+    // `theServiceNeverAssignsAValueItWouldRefuse` and
+    // `theUsersChoiceStandsWhenTheBankDayIsUnusable` both wrote the service's own
+    // condition out by hand -- `if (DebitDay.isInRange(row)) member.setDebitDay(row)`
+    // -- and then asserted the value they had just set themselves. The file said why:
+    // the method is private, and the property under test was taken to be the RULE
+    // rather than the call.
+    //
+    // 🔑 THE COST OF THAT SUBSTITUTION, MEASURED. A mirrored condition passes whatever
+    // the service does, and `updateBanking` never had the guard at all -- it called an
+    // unguarded second derivation, assigned a day the validator refuses, and 38 of the
+    // 57 seeded debit-order members could not be edited. Four tests in this file were
+    // green throughout. A test that re-implements the code under test cannot fail for
+    // the reason it exists.
+    //
+    // What replaced them: `MemberServiceImplTest` drives `create`, `update` AND
+    // `updateBanking` through a stubbed subscription row, with the in-range half beside
+    // each out-of-range one. What stays here is what always touched production code --
+    // the seed fixture this guard needs, and the canary.
 
     @Test
     @DisplayName("the guard can fail — the OLD behaviour still reproduces the 400")
     void theCanary() {
-        // 🔑 Without this, the three tests above pass just as well against a validator
-        // that has stopped checking anything at all. This reproduces exactly what the
-        // service used to do -- assign unconditionally -- and requires it to throw.
+        // 🔑 Without this, the fixture test above passes just as well against a
+        // validator that has stopped checking anything at all. This reproduces exactly
+        // what the service used to do -- assign unconditionally -- and requires it to
+        // throw.
         Row offender = ROWS.stream()
                 .filter(row -> !DebitDay.isInRange(row.acbDebitDay()))
                 .findFirst()
@@ -150,7 +124,7 @@ class DebitDayOverwriteConflictTest {
         Member member = debitOrderMember();
         member.setDebitDay(offender.acbDebitDay());   // the unconditional overwrite
 
-        assertThatThrownBy(() -> MemberValidator.validatePaymentType(member))
+        assertThatThrownBy(() -> MemberValidator.validatePaymentType(member, null))
                 .as("the validator still refuses %d, which is why the assignment is "
                         + "conditional rather than the check being relaxed",
                         offender.acbDebitDay())

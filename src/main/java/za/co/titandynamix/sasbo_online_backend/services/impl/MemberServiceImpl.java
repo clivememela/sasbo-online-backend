@@ -98,7 +98,8 @@ public class MemberServiceImpl implements MemberService {
         autoPopulateBankDerivedFields(member);
         resolveJobGrade(member);
         assignMembershipNumber(member);
-        MemberValidator.validatePaymentType(member);
+        // No previous day: on create, every out-of-range day is a new choice.
+        MemberValidator.validatePaymentType(member, null);
         return this.memberRepository.save(member);
     }
 
@@ -131,8 +132,17 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
-            resolveStructureAndRole(updated);
+            // 🗣️ Decision ⑥. Read BEFORE the merge overwrites it: the range is
+            // enforced on a day the caller changed, not on one it sent back unchanged.
+            Integer previousDebitDay = existing.getDebitDay();
             this.memberMapper.updateFromMember(updated, existing);
+            // 🔴 R1-F1. This resolved onto `updated` -- the TRANSIENT request object --
+            // one line ABOVE the merge that deliberately ignores `structure` and
+            // `role`. So the resolved associations were thrown away with the object
+            // that carried them: a PUT promoting a member to a role, or demoting one,
+            // answered 200 and changed nothing. It has to run on `existing`, AFTER the
+            // merge has carried `isRepresentative`, `roleId` and `structureId` across.
+            resolveStructureAndRole(existing);
             resolveAreasRep(updated.getAreasRep(), existing);
             // ♻️ Each of these was two statements before P3's refactor pass: copy the
             // transient name from `updated` onto `existing`, then resolve `existing`.
@@ -145,7 +155,7 @@ public class MemberServiceImpl implements MemberService {
             autoPopulateIdDerivedFields(existing);
             autoPopulateBankDerivedFields(existing);
             resolveJobGrade(existing);
-            MemberValidator.validatePaymentType(existing);
+            MemberValidator.validatePaymentType(existing, previousDebitDay);
             return this.memberRepository.save(existing);
         });
     }
@@ -371,6 +381,8 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> updateBanking(Integer id, Member banking) {
         return this.memberRepository.findById(id).map(existing -> {
+            // 🗣️ Decision ⑥, as in `update`: read the stored day before it is replaced.
+            Integer previousDebitDay = existing.getDebitDay();
             existing.setBankName(banking.getBankName());
             existing.setBankAccountNumber(banking.getBankAccountNumber());
             existing.setBranch(banking.getBranch());
@@ -387,9 +399,8 @@ public class MemberServiceImpl implements MemberService {
             }
             // Auto-populate bank address and debit day from reference data
             // (monthly subscription is NOT auto-set here — only through maintenance)
-            autoPopulateBankAddress(existing);
-            autoPopulateDebitDay(existing);
-            MemberValidator.validatePaymentType(existing);
+            applyBankDebitDayAndAddress(existing);
+            MemberValidator.validatePaymentType(existing, previousDebitDay);
             return this.memberRepository.save(existing);
         });
     }
@@ -474,49 +485,75 @@ public class MemberServiceImpl implements MemberService {
      * {@code autoPopulateBankAddress} spent this whole arc being caught by.
      */
     private void autoPopulateBankDerivedFields(Member member) {
-        if (member.getBankName() == null || member.getBankName().isBlank()) {
-            return;
-        }
         // Single lookup for Subscriptions by bank name
-        Optional<Subscriptions> sub = resolveSubscriptionByBankName(member.getBankName());
-        sub.ifPresent(s -> {
+        resolveSubscriptionFor(member).ifPresent(s -> {
             member.setMonthlySubscription(s.getSubscriptionAmount().toPlainString());
-            Integer bankDay = s.getAcbDebitDay();
-            if (bankDay != null && DebitDay.isInRange(bankDay)) {
-                member.setDebitDay(bankDay);
-            } else {
-                log.warn("{} has an ACB debit day of {}, outside {} - the member's own "
-                                + "choice of {} stands. The bank's subscription record and the "
-                                + "permitted range disagree; the range is authoritative.",
-                        member.getBankName(), bankDay, DebitDay.message(), member.getDebitDay());
-            }
+            applyBankDebitDay(member, s);
         });
         autoPopulateBankAddress(member);
     }
 
     /**
-     * Resolves the Subscriptions reference record for a given bank name.
-     * Returns the first match (a bank typically has one active subscription).
+     * The bank-derived fields a BANKING edit may touch: the debit day and the
+     * address, and deliberately <b>not</b> the subscription amount.
+     *
+     * <p>🔴 R1-F2. {@code updateBanking} used to call a second, UNGUARDED
+     * derivation — {@code autoPopulateDebitDay} — which assigned
+     * {@code acbDebitDay} whatever its value, so the service set a day and then
+     * its own validator refused it. That is the assign-then-reject defect the
+     * owner settled on 2026-09-09, fixed on {@code create} and {@code update} and
+     * left standing on the third write path, where no test called the service.
+     *
+     * <p>🔑 It does not simply delegate to {@code autoPopulateBankDerivedFields}.
+     * That method also re-prices the member from the bank's subscription row, and
+     * the amount is maintenance's to change — not a side effect of correcting a
+     * bank account number. {@code updateBankingLeavesTheSubscriptionAlone} is the
+     * test that holds the two apart.
      */
-    private Optional<Subscriptions> resolveSubscriptionByBankName(String bankName) {
-        return this.bankRepository.findByNameIgnoreCase(bankName)
+    private void applyBankDebitDayAndAddress(Member member) {
+        resolveSubscriptionFor(member).ifPresent(s -> applyBankDebitDay(member, s));
+        autoPopulateBankAddress(member);
+    }
+
+    /**
+     * Applies the bank's ACB day ONLY when this API would accept it.
+     *
+     * <p>⚠️ It is NOT silent. When the bank's day cannot be used the fact is
+     * logged, because a derivation that quietly declines to derive is the shape
+     * {@code autoPopulateBankAddress} spent this whole arc being caught by.
+     */
+    private void applyBankDebitDay(Member member, Subscriptions subscription) {
+        Integer bankDay = subscription.getAcbDebitDay();
+        if (bankDay != null && DebitDay.isInRange(bankDay)) {
+            member.setDebitDay(bankDay);
+        } else {
+            log.warn("{} has an ACB debit day of {}, outside {} - the member's own "
+                            + "choice of {} stands. The bank's subscription record and the "
+                            + "permitted range disagree; the range is authoritative.",
+                    member.getBankName(), bankDay, DebitDay.message(), member.getDebitDay());
+        }
+    }
+
+    /**
+     * The subscription row for this member's bank, or empty when no bank is named.
+     *
+     * <p>Returns the first match — a bank typically has one active subscription.
+     *
+     * <p>♻️ Batch 0's refactor pass folded two methods into this one. Extracting the
+     * guarded debit-day derivation left a `resolveSubscriptionFor(Member)` wrapping a
+     * `resolveSubscriptionByBankName(String)` that nothing else called: a name, a
+     * javadoc and a hop, all to move one field out of the object both callers already
+     * had. Every caller on this path holds a Member.
+     */
+    private Optional<Subscriptions> resolveSubscriptionFor(Member member) {
+        if (member.getBankName() == null || member.getBankName().isBlank()) {
+            return Optional.empty();
+        }
+        return this.bankRepository.findByNameIgnoreCase(member.getBankName())
                 .flatMap(bank -> this.subscriptionsRepository
                         .findByBankIdWithBank(bank.getId().longValue())
                         .stream()
                         .findFirst());
-    }
-
-    /**
-     * Auto-populates debitDay from the Subscriptions reference table
-     * based on the member's bank. This is the default value; it can be
-     * overridden if the member requests a change.
-     */
-    private void autoPopulateDebitDay(Member member) {
-        if (member.getBankName() == null || member.getBankName().isBlank()) {
-            return;
-        }
-        resolveSubscriptionByBankName(member.getBankName())
-                .ifPresent(s -> member.setDebitDay(s.getAcbDebitDay()));
     }
 
     /**

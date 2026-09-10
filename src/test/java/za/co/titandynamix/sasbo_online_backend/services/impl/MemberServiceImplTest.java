@@ -22,6 +22,8 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeReposito
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.RepresentativeRole;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.UnionStructure;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
@@ -366,6 +368,99 @@ class MemberServiceImplTest {
     }
 
     // ============================================================
+    // T3 — a PUT that changes a representative's role.
+    //
+    // 🔴 Nothing tested this. `MemberServiceImplTest` had exactly one `update` test
+    // (the missing member above), the create round-trip EXEMPTS `structure`/`role`
+    // from its field sweep, and both integration PUTs send `isRepresentative: false`
+    // -- so the one combination that exercises the resolver was covered nowhere.
+    //
+    // 🔑 WHY THE MAPPER IS STUBBED RATHER THAN LEFT AS A BARE MOCK. `updateFromMember`
+    // ignores `structure` and `role` deliberately -- they are resolved from transient
+    // ids by the service -- but it DOES copy `isRepresentative`, `roleId` and
+    // `structureId`, because MapStruct maps same-named properties and only those four
+    // associations are @Mapping(ignore). A bare mock copies nothing, which would make
+    // these tests fail for a reason production does not have. The stub below is that
+    // contract, written out; `MemberMapperTest` and the IT prove the real mapper keeps
+    // it. Get this wrong in the other direction and the test is vacuous.
+    // ============================================================
+
+    /** What MapStruct really does with the three transients the resolver reads. */
+    private void mapperCarriesTheTransientIds() {
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Member source = invocation.getArgument(0);
+            Member target = invocation.getArgument(1);
+            target.setIsRepresentative(source.getIsRepresentative());
+            target.setRoleId(source.getRoleId());
+            target.setStructureId(source.getStructureId());
+            return null;
+        }).when(this.memberMapper).updateFromMember(any(Member.class), any(Member.class));
+    }
+
+    @Test
+    @DisplayName("🔴 a PUT that promotes a member to a role stores that role — R1-F1")
+    void updateResolvesANewlyChosenRole() {
+        // 🔴 RED ON THE BRANCH. `update` calls `resolveStructureAndRole(updated)` --
+        // the TRANSIENT object -- and then `updateFromMember` ignores `role`, so the
+        // resolved association is thrown away with the object that carried it. The
+        // member is saved with whatever role it already had, and the API answers 200.
+        mapperCarriesTheTransientIds();
+
+        RepresentativeRole role = new RepresentativeRole();
+        role.setId(3);
+        role.setName("Shop Steward");
+        when(this.representativeRoleRepository.findById(3)).thenReturn(Optional.of(role));
+
+        Member existing = MemberFixture.aMember();
+        existing.setIsRepresentative(false);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member updated = MemberFixture.aMember();
+        updated.setIsRepresentative(true);
+        updated.setRoleId(3);
+
+        Member saved = this.service.update(4, updated).orElseThrow();
+
+        assertThat(saved.getRole())
+                .as("the PUT chose role 3; the stored member must carry it")
+                .isSameAs(role);
+    }
+
+    @Test
+    @DisplayName("...and a PUT that demotes one clears the role it used to hold")
+    void updateClearsTheRoleOnDemotion() {
+        // The other direction, and the one with a data-protection edge: a member who
+        // stops being a representative keeps the title on every screen that reads it.
+        // Without this case the fix above is satisfied by resolving only when a roleId
+        // is present, which leaves a demotion silently ignored.
+        mapperCarriesTheTransientIds();
+
+        RepresentativeRole held = new RepresentativeRole();
+        held.setId(3);
+        held.setName("Shop Steward");
+        UnionStructure structure = new UnionStructure();
+        structure.setId(9);
+
+        Member existing = MemberFixture.aMember();
+        existing.setIsRepresentative(true);
+        existing.setRole(held);
+        existing.setStructure(structure);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member updated = MemberFixture.aMember();
+        updated.setIsRepresentative(false);
+
+        Member saved = this.service.update(4, updated).orElseThrow();
+
+        assertThat(saved.getRole())
+                .as("the member is no longer a representative, so the role must go")
+                .isNull();
+        assertThat(saved.getStructure())
+                .as("and the structure with it -- they are one decision")
+                .isNull();
+    }
+
+    // ============================================================
     // 🗣️ THE DEBIT DAY — settled by the owner 2026-09-09
     //
     // The service used to overwrite `debitDay` from the bank's subscription row
@@ -437,5 +532,192 @@ class MemberServiceImplTest {
         assertThat(this.service.create(member).getDebitDay())
                 .as("the bank's day is usable, so it is authoritative over the default")
                 .isEqualTo(20);
+    }
+
+    // ============================================================
+    // T1 — the same rule, on all THREE write paths.
+    //
+    // 🔑 WHY THESE EXIST AT ALL. `DebitDayOverwriteConflictTest` asserted this rule
+    // by RE-IMPLEMENTING it -- `if (DebitDay.isInRange(row)) member.setDebitDay(row)`
+    // -- because the service method is private. A test that mirrors the condition
+    // passes whatever the service does, and it did: `updateBanking` never had the
+    // guard at all, and four green tests said the rule held. The two mirrors are
+    // retired with this batch; what replaces them is the service being CALLED.
+    //
+    // `create` is covered by the two tests above. These are the other two paths.
+    // ============================================================
+
+    @Test
+    @DisplayName("update declines a bank day it would then refuse, as create does")
+    void updateKeepsALegalDayWhenTheBanksIsUnusable() {
+        bankOffers("Absa Bank Limited", 5);
+
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setDebitDay(25);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member saved = this.service.update(4, MemberFixture.aMember()).orElseThrow();
+
+        assertThat(saved.getDebitDay())
+                .as("Absa's ACB day is the 5th, which this API refuses; the member's "
+                        + "own 25 is legal and must survive the edit")
+                .isEqualTo(25);
+    }
+
+    @Test
+    @DisplayName("🔴 updateBanking declines a bank day it would then refuse — R1-F2")
+    void updateBankingKeepsALegalDayWhenTheBanksIsUnusable() {
+        // 🔴 RED ON THE BRANCH. `updateBanking` called `autoPopulateDebitDay`, which
+        // assigns the bank's day UNCONDITIONALLY -- the exact shape `create` and
+        // `update` were fixed out of on 2026-09-09, left in place on the third path.
+        // The member below cannot be saved at all today: the service sets the 5th and
+        // its own validator then throws, naming a day nobody entered.
+        bankOffers("Absa Bank Limited", 5);
+
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setDebitDay(25);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member saved = this.service.updateBanking(4, bankingPayloadFor(existing, 25)).orElseThrow();
+
+        assertThat(saved.getDebitDay())
+                .as("the administrator's 25 is legal; Absa's 5 is not, so it must not "
+                        + "replace it -- and saving an unchanged member must not 400")
+                .isEqualTo(25);
+    }
+
+    @Test
+    @DisplayName("...and updateBanking still applies a bank day that IS usable")
+    void updateBankingStillAppliesAUsableBankDay() {
+        // The non-vacuity half. Without it the test above is satisfied by an
+        // `updateBanking` that has stopped deriving the debit day at all, which is a
+        // different defect wearing the same green.
+        bankOffers("Nedbank Limited", 20);
+
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setBankName("Nedbank Limited");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member saved = this.service.updateBanking(4, bankingPayloadFor(existing, 31)).orElseThrow();
+
+        assertThat(saved.getDebitDay())
+                .as("Nedbank's 20 is inside the range, so it is authoritative")
+                .isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("🔑 updateBanking does NOT re-derive the monthly subscription")
+    void updateBankingLeavesTheSubscriptionAlone() {
+        // 🔑 THE MUST-PASS THAT CONSTRAINS THE FIX. The obvious repair for the test
+        // above is to point `updateBanking` at `autoPopulateBankDerivedFields`, which
+        // already carries the guard -- but that method ALSO assigns
+        // `monthlySubscription` from the same row, and this path is documented not to:
+        // the amount is maintenance's to change, not a side effect of editing a bank
+        // account number. Without this test, the fix for R1-F2 silently makes a
+        // banking edit re-price the member.
+        bankOffers("Nedbank Limited", 20);
+
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setBankName("Nedbank Limited");
+        existing.setMonthlySubscription("999.99");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member saved = this.service.updateBanking(4, bankingPayloadFor(existing, 31)).orElseThrow();
+
+        assertThat(saved.getMonthlySubscription())
+                .as("the bank's subscription row says 120.00; a banking edit must not "
+                        + "re-price the member, so what was stored still stands")
+                .isEqualTo("999.99");
+    }
+
+    // ============================================================
+    // R7-F1 / 🗣️ decision ⑦ — absent is not blank, and this is the pin.
+    //
+    // 🔴 WHAT WENT WRONG, AND WHERE. The Recruiters screen sent
+    // `recruitmentRep: member.recruitmentRep || ''` on every PUT. It does not hold the
+    // field, so the value was always `''` -- which this service reads as "clear it".
+    // Every bulk edit from that screen wiped the recruiter the capture form had just
+    // been fixed to store. The arc gave `recruitmentRep` a new meaning and an existing
+    // caller was already sending the one value that meant "delete".
+    //
+    // 🗣️ The owner's decision, 2026-09-10: no change to the rule; fix the caller. The
+    // absent-vs-blank distinction is right -- it is what makes a PUT that never
+    // mentioned a field safe -- and the screen sending a key it does not own is the
+    // thing that was wrong. The caller half is done on the design arc's branch and
+    // arrives on merge.
+    //
+    // 🔑 SO THESE TWO ARE PINS, NOT REPAIRS, and that is exactly why they are needed:
+    // the rule they protect has no test, and the obvious "fix" for the defect above is
+    // to make the service ignore a blank -- which would remove the only way a user can
+    // clear a recruiter, and special-case one field instead of one screen. Proved
+    // non-vacuous by collapsing the distinction in `resolveByName` (`name == null` ->
+    // `""`): the first test reddens, which is the defect reproduced.
+    // ============================================================
+
+    @Test
+    @DisplayName("🔑 a PUT that never mentions the recruiter leaves the captured one — R7-F1")
+    void aPutWithoutARecruiterLeavesTheCapturedRecruiterAlone() {
+        Recruiter captured = new Recruiter();
+        captured.setId(11);
+        captured.setName("Thandi Mokoena");
+
+        Member existing = MemberFixture.aMember();
+        existing.setRecruiter(captured);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member updated = MemberFixture.aMember();
+        updated.setRecruitmentRep(null);   // the field is absent from the request
+
+        Member saved = this.service.update(4, updated).orElseThrow();
+
+        assertThat(saved.getRecruiter())
+                .as("the request said nothing about the recruiter, so there is nothing "
+                        + "to change -- a screen that does not hold the field must not "
+                        + "be able to erase it by omission")
+                .isSameAs(captured);
+    }
+
+    @Test
+    @DisplayName("...and a PUT that sends it BLANK clears it, which is the deliberate way")
+    void aPutWithABlankRecruiterClearsIt() {
+        // The other half, and the reason the caller is what had to change: blank really
+        // does mean clear. Without this the pin above is satisfied by a service that
+        // has stopped reading the field at all, and a user could never remove a
+        // recruiter attributed in error.
+        Recruiter captured = new Recruiter();
+        captured.setId(11);
+        captured.setName("Thandi Mokoena");
+
+        Member existing = MemberFixture.aMember();
+        existing.setRecruiter(captured);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member updated = MemberFixture.aMember();
+        updated.setRecruitmentRep("");   // an explicit, deliberate clear
+
+        Member saved = this.service.update(4, updated).orElseThrow();
+
+        assertThat(saved.getRecruiter())
+                .as("an explicit empty string is a request to clear, and stays one")
+                .isNull();
+    }
+
+    /** A member the debit-day rule applies to, banked where the seed's day is unusable. */
+    private static Member debitOrderMemberAtAbsa() {
+        Member member = MemberFixture.aMember();
+        member.setPaymentType("Debit Order");
+        member.setBankAccountNumber("1234567890");
+        member.setBankName("Absa Bank Limited");
+        return member;
+    }
+
+    /** What the banking screen submits: the flat banking fields and a chosen day. */
+    private static Member bankingPayloadFor(Member existing, int debitDay) {
+        Member banking = new Member();
+        banking.setBankName(existing.getBankName());
+        banking.setBankAccountNumber(existing.getBankAccountNumber());
+        banking.setPaymentType(existing.getPaymentType());
+        banking.setDebitDay(debitDay);
+        return banking;
     }
 }
