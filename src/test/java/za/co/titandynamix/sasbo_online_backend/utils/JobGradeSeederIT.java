@@ -157,6 +157,41 @@ class JobGradeSeederIT extends AbstractWritingIT {
     }
 
     @Test
+    @DisplayName("🔴 grades for a bank that does not exist are SKIPPED and counted, not lost")
+    void gradesForAnUnknownBankAreSkippedAndCounted() throws IOException {
+        // 🗣️ THE LIVE CASE, 2026-09-10. Stephne Anders' email supplies grades for SARB
+        // and SBV; neither employer has a row in data/banks.json, and their universal
+        // branch codes are not ours to invent. The grades are carried in the seed file
+        // anyway so they are not lost in an inbox — which only works if the seeder
+        // treats an unknown bank as a DATA QUESTION rather than a crash or a silent drop.
+        //
+        // This test removes one bank from the fixture and asserts the three properties
+        // that make carrying those rows safe: nothing throws, nothing is inserted for
+        // the missing bank, and the count comes back so the gap can be measured.
+        Map<String, Object> orphan = this.seedRows.get(0);
+        String missingBank = String.valueOf(orphan.get("bankName"));
+        long expectedOrphans = this.seedRows.stream()
+                .filter(r -> missingBank.equals(String.valueOf(r.get("bankName"))))
+                .count();
+
+        this.bankRepository.findByNameIgnoreCase(missingBank)
+                .ifPresent(b -> this.bankRepository.delete(b));
+
+        JobGradeSeeder.Outcome outcome = this.seeder.seed();
+
+        assertThat(outcome.skipped())
+                .as("every grade for %s is counted as skipped, so the gap is measurable "
+                        + "rather than invisible", missingBank)
+                .isEqualTo((int) expectedOrphans);
+        assertThat(outcome.inserted())
+                .as("and the rest still land -- a missing bank must not stop the seed")
+                .isEqualTo(this.seedRows.size() - (int) expectedOrphans);
+        assertThat(this.jobGradeRepository.count())
+                .as("nothing was written for the bank that does not exist")
+                .isEqualTo(this.seedRows.size() - expectedOrphans);
+    }
+
+    @Test
     @DisplayName("the fixture is non-vacuous — both halves of the catch-up are real")
     void theCatchUpIsNotEmpty() {
         int preloadable = 0;

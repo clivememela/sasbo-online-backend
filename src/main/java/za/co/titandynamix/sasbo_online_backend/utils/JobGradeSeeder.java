@@ -92,6 +92,7 @@ public class JobGradeSeeder {
         int promoted = 0;
         int unchanged = 0;
         int skipped = 0;
+        Map<String, Integer> skippedByBank = new java.util.TreeMap<>();
         List<JobGrade> toSave = new ArrayList<>();
 
         for (JobGradeSeed seed : seeds) {
@@ -99,10 +100,14 @@ public class JobGradeSeeder {
                     ? null
                     : banksByName.get(seed.bankName().toLowerCase(Locale.ROOT));
             if (bank == null) {
-                // Unchanged behaviour, and still worth saying out loud: a seed row for
-                // a bank the bank seed does not contain is a data question, not a crash.
-                log.warn("Skipping job grade '{}' for unknown bank '{}'",
-                        seed.grade(), seed.bankName());
+                // A seed row for a bank the bank seed does not contain is a DATA
+                // QUESTION, not a crash — and it is currently the state of 24 rows.
+                //
+                // ⚠️ Counted per bank and reported ONCE below, rather than a warning
+                // per row. SARB and SBV between them are 24 grades; twenty-four
+                // near-identical WARN lines at every boot is how a real signal becomes
+                // scenery, and this one is a live gap somebody has to close.
+                skippedByBank.merge(String.valueOf(seed.bankName()), 1, Integer::sum);
                 skipped++;
                 continue;
             }
@@ -131,6 +136,22 @@ public class JobGradeSeeder {
 
         if (!toSave.isEmpty()) {
             this.jobGradeRepository.saveAll(toSave);
+        }
+        if (!skippedByBank.isEmpty()) {
+            // 🔴 NOT noise, and not a failure either. These are grades the union has
+            // GIVEN US whose employer has no row in data/banks.json, so there is no
+            // bank_id to hang them on. Stephne Anders' email of 2026-09-09 supplies
+            // SARB (7 levels) and SBV (17: TASK Grade 1-11 in the bargaining unit,
+            // Paterson D/E/F Lower and Upper out of it); neither employer is in the
+            // bank seed, and their universal branch codes are not ours to invent.
+            //
+            // Adding those two banks makes all of them land with no further change
+            // here — which is the whole reason the rows are carried rather than left
+            // in an inbox. See planning/branches/capture-member/jobGrades.md.
+            log.warn("{} job grade(s) are waiting for a bank that does not exist in the "
+                            + "bank seed, by employer: {}. They are NOT lost — add the "
+                            + "bank and they seed themselves.",
+                    skipped, skippedByBank);
         }
         Outcome outcome = new Outcome(inserted, promoted, unchanged, skipped);
         if (outcome.changedNothing()) {
