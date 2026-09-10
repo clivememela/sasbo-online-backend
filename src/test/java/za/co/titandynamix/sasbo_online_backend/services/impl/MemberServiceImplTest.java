@@ -21,6 +21,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
@@ -295,6 +296,55 @@ class MemberServiceImplTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+    }
+
+    /** A recruiter row as the table holds it, named. */
+    private static Recruiter recruiterNamed(String name) {
+        Recruiter recruiter = new Recruiter();
+        recruiter.setName(name);
+        return recruiter;
+    }
+
+    @Test
+    @DisplayName("🗣️ a POST naming a VACANT post does not attribute the member to it")
+    void createRefusesToAttributeAMemberToAVacancy() {
+        // 🔴 THE HALF THE DROP-DOWN CANNOT ENFORCE. The owner decided on 2026-09-10
+        // that an unfilled post is not selectable, and GET /api/recruiters now leaves
+        // the three VACANT rows out. That is a suggestion: this endpoint takes a NAME,
+        // it is permitAll(), and the row is still in the table -- so without the rule
+        // here, one curl attributes a member to a vacancy and the count is credited to
+        // nobody.
+        Member incoming = MemberFixture.aMember();
+        incoming.setRecruitmentRep("VACANT");
+        when(this.recruiterRepository.findFirstByNameIgnoreCaseOrderByIdAsc("VACANT"))
+                .thenReturn(Optional.of(recruiterNamed("VACANT")));
+
+        this.service.create(incoming);
+
+        verify(this.memberRepository).save(this.saved.capture());
+        assertThat(this.saved.getValue().getRecruiter())
+                .as("the member is captured with NO recruiter rather than with a vacancy")
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("...and a real recruiter with the same shape of lookup still lands")
+    void createStillAttributesARealRecruiter() {
+        // 🔑 THE MUST-PASS BESIDE THE MUST-FAIL. The assertion above is satisfied by a
+        // resolver that stopped attributing ANY recruiter -- which is exactly the
+        // regression 03.10 spent a session undoing, twice, and it would read as green.
+        // This is what tells "vacancies are excluded" apart from "the recruiter is
+        // dropped again".
+        Recruiter real = recruiterNamed("SYDNEY BIYELA");
+        Member incoming = MemberFixture.aMember();
+        incoming.setRecruitmentRep("SYDNEY BIYELA");
+        when(this.recruiterRepository.findFirstByNameIgnoreCaseOrderByIdAsc("SYDNEY BIYELA"))
+                .thenReturn(Optional.of(real));
+
+        this.service.create(incoming);
+
+        verify(this.memberRepository).save(this.saved.capture());
+        assertThat(this.saved.getValue().getRecruiter()).isSameAs(real);
     }
 
     @Test

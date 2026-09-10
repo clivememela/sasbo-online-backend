@@ -83,7 +83,12 @@ public final class MigrationSeed {
             "V22__membership_number_sequence.sql",
             "V23__member_recruitment_channel.sql",
             "V24__member_recruited_area.sql",
-            "V25__member_recruiter.sql");
+            "V25__member_recruiter.sql",
+            // SR-5. A PARTIAL unique index -- passport holders have no South African
+            // identity number, and the capture form sends "" rather than NULL for a
+            // field left alone, so both are excluded or the second passport holder
+            // captured is rejected as a duplicate of the first.
+            "V26__member_identity_number_unique.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

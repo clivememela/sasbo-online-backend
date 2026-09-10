@@ -8,7 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
+import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -219,7 +221,10 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
     @DisplayName("a PUT cannot retarget the write at a different member (SR-4)")
     void aPutCannotRetargetAnotherMember() throws Exception {
         JsonNode first = capture();
-        JsonNode second = capture();
+        // Two different people, per SR-5 -- and the test is stronger for it: a PUT
+        // retargeted at "the other member" now means something, where two records of
+        // one person made "different member" ambiguous.
+        JsonNode second = captureAnotherPerson(2);
         int firstId = first.get("id").asInt();
         int secondId = second.get("id").asInt();
 
@@ -255,6 +260,31 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
 
     private JsonNode capture() throws Exception {
         return capture(captureFormPayload());
+    }
+
+    /**
+     * Capture a DIFFERENT person -- same form, its own identity number.
+     *
+     * <p>🔴 SR-5 IS WHY THIS EXISTS, and the reason is worth keeping. Every payload
+     * in this class carries the one identity number {@code 9001010000080}, which was
+     * harmless while {@code members.identity_number} had no unique constraint: a test
+     * that captured twice quietly created the same person twice. {@code V26} makes
+     * that a 409, and two tests here went red -- correctly. Their subject is the
+     * membership-number SEQUENCE and PUT targeting; capturing one person twice was
+     * incidental to both, and a coincidence of the fixture rather than a claim.
+     *
+     * <p>🔑 THE PLAN MISSED THIS FILE, and the reason it did is the useful part. SR-5's
+     * blast radius was recorded as "nine test files, 23 save sites in
+     * {@code MemberRepositoryIT} alone" -- all of them counted because they go through
+     * {@code MemberFixture}. This class builds its payloads as raw JSON text, so it
+     * never touched the fixture and never appeared in the sweep. **A survey of the
+     * callers of one builder cannot see the callers that hand-roll their own.** Only
+     * running it against a real database found these two.
+     */
+    private JsonNode captureAnotherPerson(int sequence) throws Exception {
+        ObjectNode payload = formPayload();
+        payload.put("identityNumber", MemberFixture.syntheticIdFor(sequence));
+        return capture(payload.toString());
     }
 
     // ─── 03.3: the two Recruitment Channel fields that STAY ───
@@ -403,8 +433,11 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         // This asserts the PROPERTY -- distinct numbers, strictly increasing -- rather
         // than specific values, because the values depend on how many members this test
         // class captured before it and asserting those would be asserting the fixture.
+        // Two DIFFERENT people. Before SR-5 both captures carried one identity number
+        // and this test was quietly capturing the same person twice -- which is not
+        // what "two captures" means, and is now a 409.
         String first = readBack(capture()).get("membershipNumber").asText();
-        String second = readBack(capture()).get("membershipNumber").asText();
+        String second = readBack(captureAnotherPerson(1)).get("membershipNumber").asText();
 
         assertThat(second).isNotEqualTo(first);
         assertThat(numberIn(second)).isGreaterThan(numberIn(first));
@@ -470,14 +503,34 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         return base.substring(0, base.lastIndexOf('}')) + ",\n  " + extraJsonField + "\n}";
     }
 
+    /**
+     * POST the payload and return the created member.
+     *
+     * <p>🔴 THE STATUS IS ASSERTED, AND IT WAS NOT BEFORE. This discarded the status
+     * and returned whatever body came back, so a REJECTED capture flowed on as an
+     * error envelope and died later in {@code readBack} as
+     * {@code NullPointerException: ... "JsonNode.get(String)" is null} -- three frames
+     * from the cause, naming neither the rejection nor its reason.
+     *
+     * <p>That is exactly what happened when {@code V26} landed: two tests here began
+     * capturing a duplicate, the server correctly answered 409 with a sentence saying
+     * so, and the lane reported a null-pointer in a helper. **01.2's whole subject is
+     * that a failure should say what went wrong**, and this file was quietly doing the
+     * opposite to itself. The server's own message is put in the assertion, so a
+     * rejected capture now reads as the rejection it is.
+     */
     private JsonNode capture(String payload) throws Exception {
-        String response = this.mockMvc.perform(post("/api/members")
+        MockHttpServletResponse response = this.mockMvc.perform(post("/api/members")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return this.objectMapper.readTree(response);
+                .getResponse();
+
+        assertThat(response.getStatus())
+                .as("the capture was rejected, and the server said: %s", response.getContentAsString())
+                .isEqualTo(200);
+
+        return this.objectMapper.readTree(response.getContentAsString());
     }
 
     private JsonNode readBack(JsonNode created) throws Exception {

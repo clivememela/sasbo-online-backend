@@ -48,16 +48,17 @@ public class RecruiterController {
     private final RecruiterService recruiterService;
 
     /**
-     * Every recruiter, by name.
+     * The recruiters a member may be attributed to, by name.
      *
      * <p>⚠️ Straight through to the service, deliberately. The first draft queried
      * {@code RecruiterRepository} here and {@code LayeringTest} refused it: a
      * controller that queries a repository directly puts query logic where no
-     * service test can see it. The ordering rule lives in {@code RecruiterServiceImpl}
-     * with its reason.
+     * service test can see it. The ordering rule -- and the vacancy exclusion the
+     * owner decided on 2026-09-10 -- live in {@code RecruiterServiceImpl} with
+     * their reasons.
      */
     @GetMapping
-    public List<Recruiter> getAllRecruiters() {
-        return this.recruiterService.findAll();
+    public List<Recruiter> getSelectableRecruiters() {
+        return this.recruiterService.findSelectable();
     }
 }

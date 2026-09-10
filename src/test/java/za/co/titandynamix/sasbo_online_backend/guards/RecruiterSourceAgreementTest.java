@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.MainClassSource;
 
@@ -147,6 +148,24 @@ class RecruiterSourceAgreementTest {
                 .as("recruiters.json is what fills the capture form's Recruiter field")
                 .hasSizeGreaterThan(20)
                 .doesNotContainNull();
+    }
+
+    @Test
+    @DisplayName("🗣️ the seed really does carry vacancies — the exclusion is not guarding nothing")
+    void theSeedCarriesVacancies() {
+        // 🔑 THE NON-VACUITY HALF OF THE OWNER'S 2026-09-10 DECISION. The filter in
+        // RecruiterServiceImpl and MemberServiceImpl is absence-shaped: it is proved
+        // by unit tests against hand-built lists, which would go on passing to the
+        // end of time if recruiters.json stopped containing a single VACANT row.
+        // Then the rule would be guarding a case that no longer arises, and nobody
+        // would know it had stopped meaning anything.
+        //
+        // If this goes RED, the seed changed. Decide whether vacancies are gone for
+        // good -- in which case the exclusion and its tests come out together, with
+        // a sentence saying so -- rather than deleting this assertion.
+        assertThat(SEEDED_RECRUITERS)
+                .as("recruiters.json still carries the unfilled posts the exclusion is about")
+                .contains(Recruiter.VACANCY);
     }
 
     @Test

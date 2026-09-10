@@ -55,7 +55,7 @@ class RecruiterControllerTest {
     @Test
     @DisplayName("serves the recruiters the drop-down needs, with the name the form submits back")
     void servesTheRecruiters() throws Exception {
-        when(this.recruiterService.findAll())
+        when(this.recruiterService.findSelectable())
                 .thenReturn(List.of(recruiter(1, "Phindile Moloti"), recruiter(2, "SYDNEY BIYELA")));
 
         this.mockMvc.perform(get("/api/recruiters"))
@@ -74,7 +74,7 @@ class RecruiterControllerTest {
         // The ordering rule lives in RecruiterServiceImpl, with its reason. Asserted
         // here as an ABSENCE so that a second sort added in the controller -- the
         // obvious "helpful" change -- shows up as two places deciding one thing.
-        when(this.recruiterService.findAll())
+        when(this.recruiterService.findSelectable())
                 .thenReturn(List.of(recruiter(1, "Zulu"), recruiter(2, "Adams")));
 
         org.assertj.core.api.Assertions.assertThatCode(() ->
@@ -111,7 +111,7 @@ class RecruiterControllerTest {
         // honestly if it ever returns: the browser distinguishes "no recruiters have
         // been set up yet" from "could not be loaded", and it can only do that if an
         // empty table is a 200.
-        when(this.recruiterService.findAll()).thenReturn(List.of());
+        when(this.recruiterService.findSelectable()).thenReturn(List.of());
 
         this.mockMvc.perform(get("/api/recruiters"))
                 .andExpect(status().isOk())

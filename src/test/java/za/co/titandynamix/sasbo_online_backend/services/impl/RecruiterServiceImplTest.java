@@ -51,7 +51,7 @@ class RecruiterServiceImplTest {
         when(this.recruiterRepository.findAll())
                 .thenReturn(List.of(named("alice smith"), named("SYDNEY BIYELA"), named("Bob Jones")));
 
-        assertThat(this.service.findAll())
+        assertThat(this.service.findSelectable())
                 .extracting(Recruiter::getName)
                 .containsExactly("alice smith", "Bob Jones", "SYDNEY BIYELA");
     }
@@ -65,9 +65,40 @@ class RecruiterServiceImplTest {
         when(this.recruiterRepository.findAll())
                 .thenReturn(List.of(named(null), named("Alice Smith")));
 
-        assertThat(this.service.findAll())
+        assertThat(this.service.findSelectable())
                 .extracting(Recruiter::getName)
                 .containsExactly("Alice Smith", null);
+    }
+
+    @Test
+    @DisplayName("🗣️ a vacancy is not offered — an unfilled post is not a person")
+    void excludesVacancies() {
+        // The owner's decision, 2026-09-10. recruiters.json really carries three rows
+        // named VACANT (Cape Town, Durban twice). Recruiter figures are what these
+        // records get totalled into, so a member attributed to an empty post is a
+        // number credited to nobody.
+        when(this.recruiterRepository.findAll())
+                .thenReturn(List.of(named("Alice Smith"), named("VACANT"), named("Bob Jones")));
+
+        assertThat(this.service.findSelectable())
+                .extracting(Recruiter::getName)
+                .containsExactly("Alice Smith", "Bob Jones");
+    }
+
+    @Test
+    @DisplayName("...and the exclusion is exact, not a substring")
+    void excludesOnlyTheVacancyItself() {
+        // 🔑 THE HALF THAT STOPS THE FILTER EATING PEOPLE. A predicate written as
+        // `contains("VACANT")` passes the test above and quietly hides anyone whose
+        // name happens to contain it; a case-sensitive one passes it too and lets
+        // "Vacant" straight through. Both are wrong in a direction the first test
+        // cannot see, so both are named here.
+        when(this.recruiterRepository.findAll())
+                .thenReturn(List.of(named("  vacant  "), named("VACANTER"), named("Vacant Ndlovu")));
+
+        assertThat(this.service.findSelectable())
+                .extracting(Recruiter::getName)
+                .containsExactly("Vacant Ndlovu", "VACANTER");
     }
 
     @Test
@@ -78,6 +109,6 @@ class RecruiterServiceImplTest {
         // only do that if an empty table comes back as an ordinary empty list.
         when(this.recruiterRepository.findAll()).thenReturn(List.of());
 
-        assertThat(this.service.findAll()).isEmpty();
+        assertThat(this.service.findSelectable()).isEmpty();
     }
 }

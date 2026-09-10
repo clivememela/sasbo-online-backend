@@ -13,6 +13,15 @@ import java.util.List;
  */
 public interface RecruiterService {
 
-    /** Every recruiter, ordered by name. */
-    List<Recruiter> findAll();
+    /**
+     * The recruiters a member may be attributed to, ordered by name.
+     *
+     * <p>🔑 <b>NOT {@code findAll()}, and the rename is the point.</b> It excludes the
+     * seed's {@code VACANT} rows — see {@link Recruiter#isVacancy} for the owner's
+     * decision and for why those rows stay in the table. A method called
+     * {@code findAll} that returns fewer than all is one name meaning two things,
+     * which is this codebase's most repeated defect ({@code area_id},
+     * {@code job_grades.description}, {@code Recruiter}/{@code Representative}).
+     */
+    List<Recruiter> findSelectable();
 }

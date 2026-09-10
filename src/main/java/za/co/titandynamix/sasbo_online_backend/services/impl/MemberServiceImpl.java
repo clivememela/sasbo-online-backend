@@ -10,6 +10,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
@@ -292,7 +293,37 @@ public class MemberServiceImpl implements MemberService {
      * Edit Member's business. Two concepts that one column had been serving.
      */
     private void resolveRecruiter(String name, Member target) {
-        resolveByName(name, this.recruiterRepository::findFirstByNameIgnoreCaseOrderByIdAsc, target::setRecruiter);
+        resolveByName(name, this::selectableRecruiterNamed, target::setRecruiter);
+    }
+
+    /**
+     * A recruiter a member may actually be attributed to, or nothing.
+     *
+     * <p>🗣️ 🔴 <b>THE VACANCY RULE HAS TO LIVE HERE TOO, and the drop-down is not
+     * where it holds.</b> The owner decided on 2026-09-10 that an unfilled post is
+     * not selectable, and {@code RecruiterServiceImpl.findSelectable()} takes the
+     * three {@code VACANT} rows out of {@code GET /api/recruiters}. That is a
+     * SUGGESTION. {@code POST /api/members} accepts a name, not a chosen option, so
+     * a filter that exists only in the browser is one {@code curl} away from being
+     * no rule at all -- and this API is {@code permitAll()}.
+     *
+     * <p>One predicate, {@link Recruiter#isVacancy}, shared by both sides rather
+     * than written twice. This arc has now found the same shape three times
+     * ({@code area_id}, {@code job_grades.description}, recruiter/representative):
+     * a rule stated in two places drifts, and the copy nobody is looking at is the
+     * one that ends up wrong.
+     *
+     * <p>⚠️ An excluded name resolves to EMPTY, so {@code resolveByName} stores
+     * {@code null} -- the member is captured with no recruiter rather than rejected.
+     * Deliberate, and narrower than it looks: the recruiter is optional by the
+     * stakeholder's own instruction ("where applicable"), so a member with none is
+     * an ordinary member, whereas a 400 would fail a save over a field that was
+     * never required. The silent-null behaviour of unmatched names is unchanged and
+     * still recorded as an {@code RF} finding.
+     */
+    private Optional<Recruiter> selectableRecruiterNamed(String name) {
+        return this.recruiterRepository.findFirstByNameIgnoreCaseOrderByIdAsc(name)
+                .filter(recruiter -> !Recruiter.isVacancy(recruiter));
     }
 
     /**
