@@ -533,6 +533,119 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         return this.objectMapper.readTree(response.getContentAsString());
     }
 
+    // ═══ 🗣️ DECISION ⑨(b) — PUT SEMANTICS, BOTH HALVES ═══════════════════════
+    //
+    // The mapper used to copy NULLS, so a field a PUT never mentioned was ERASED.
+    // Safe only by convention, stated in no contract, and the exact opposite of the
+    // `absent = keep` rule the resolvers apply on the same request. The owner took
+    // (b) on 2026-09-10: absent keeps, blank clears, everywhere.
+    //
+    // 🔑 BOTH HALVES, IN ONE PLACE, ON PURPOSE. Each is satisfied by a broken
+    // implementation of the other: "absent keeps" alone passes against a mapper that
+    // ignores the field entirely and can never clear it; "blank clears" alone passes
+    // against the old copy-everything mapper. Only the pair pins the rule, and the
+    // pair is what the decision actually says.
+
+    @Test
+    @DisplayName("🗣️ ⑨ a PUT that omits a field KEEPS the stored value")
+    void aPutThatOmitsAFieldKeepsIt() throws Exception {
+        JsonNode created = captureAnotherPerson(91);
+        int id = created.get("id").asInt();
+
+        ObjectNode edit = formPayload();
+        edit.put("identityNumber", MemberFixture.syntheticIdFor(91));
+        edit.remove("phone");                      // the field this PUT never mentions
+        edit.put("surname", "Absent");             // and one it does, so the PUT is real
+
+        this.mockMvc.perform(put("/api/members/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edit.toString()))
+                .andReturn();
+
+        JsonNode read = readBack(created);
+        assertThat(read.get("surname").asText())
+                .as("the field the PUT DID send must change, or this test is asserting "
+                        + "that a request which did nothing changed nothing")
+                .isEqualTo("Absent");
+        assertThat(read.get("phone").asText())
+                .as("the request said nothing about the phone number, so there is "
+                        + "nothing to change -- a caller that does not hold a field must "
+                        + "not be able to erase it by omission")
+                .isEqualTo(created.get("phone").asText());
+    }
+
+    @Test
+    @DisplayName("🗣️ ⑨ ...and a PUT that sends a field BLANK clears it")
+    void aPutThatSendsAFieldBlankClearsIt() throws Exception {
+        // The other half. Without it the rule above is satisfied by a mapper that has
+        // stopped copying the field at all, and a user could never clear a value they
+        // entered by mistake -- which would be a worse defect than the one ⑨ fixes.
+        JsonNode created = captureAnotherPerson(92);
+        int id = created.get("id").asInt();
+        assertThat(created.get("phone").asText())
+                .as("the fixture must START with a phone number, or clearing it proves nothing")
+                .isNotEmpty();
+
+        ObjectNode edit = formPayload();
+        edit.put("identityNumber", MemberFixture.syntheticIdFor(92));
+        edit.put("phone", "");                     // an explicit, deliberate clear
+
+        this.mockMvc.perform(put("/api/members/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edit.toString()))
+                .andReturn();
+
+        assertThat(readBack(created).get("phone").asText())
+                .as("an explicit empty string is a request to clear, and stays one")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("🔒 H8 — a PUT cannot set the money fields, even when it sends them")
+    void aPutCannotSetTheMoneyFields() throws Exception {
+        // The Recruiters screen's builder sends `currentBalance: member.currentBalance
+        // || 0` on every PUT, so a member whose balance was empty was written as `0` by
+        // a bulk assign action. `monthlySubscription` was only ever harmless because
+        // `update()` overwrote it from the bank -- the derivation R1-F4 removes, which
+        // is why H8 is sequenced BEFORE it.
+        //
+        // PATCH /subscription stays the one door for the amount.
+        JsonNode created = captureAnotherPerson(93);
+        int id = created.get("id").asInt();
+        String storedSubscription = created.get("monthlySubscription").asText();
+
+        ObjectNode edit = formPayload();
+        edit.put("identityNumber", MemberFixture.syntheticIdFor(93));
+        edit.put("currentBalance", "999999");
+        edit.put("arrearsBalance", "888888");
+        edit.put("lastMonthBalance", "777777");
+        edit.put("monthlySubscription", "0.01");
+        edit.put("status", "Inactive");            // NOT ignored -- two screens set it
+
+        this.mockMvc.perform(put("/api/members/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edit.toString()))
+                .andReturn();
+
+        JsonNode read = readBack(created);
+        assertThat(read.get("currentBalance").asText())
+                .as("a client-sent balance is not authoritative").isNotEqualTo("999999");
+        assertThat(read.get("arrearsBalance").asText())
+                .as("nor an arrears balance").isNotEqualTo("888888");
+        assertThat(read.get("lastMonthBalance").asText())
+                .as("nor last month's").isNotEqualTo("777777");
+        assertThat(read.get("monthlySubscription").asText())
+                .as("the subscription amount changes through PATCH /subscription and "
+                        + "nowhere else")
+                .isEqualTo(storedSubscription);
+        assertThat(read.get("status").asText())
+                .as("🔑 the non-vacuity half: `status` is DELIBERATELY still writable, "
+                        + "because Edit Member edits it and the Recruiters screen sets "
+                        + "Inactive through PUT. Without this the test above passes "
+                        + "against a mapper that has stopped copying anything at all")
+                .isEqualTo("Inactive");
+    }
+
     private JsonNode readBack(JsonNode created) throws Exception {
         String body = this.mockMvc.perform(get("/api/members/{id}", created.get("id").asInt()))
                 .andReturn()

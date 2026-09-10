@@ -88,4 +88,107 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
         assertThat(MAPPER.toDto(member).isRepresentative()).isTrue();
     }
 
+    // ═══ `updateFromMember` — THE PUT MERGE CONTRACT (H8 · BR2-6 · decision ⑨) ═══
+    //
+    // 🔴 BR2-6: NOTHING ON EITHER SIDE TESTED THIS METHOD AT ALL. The contract above
+    // is a `MapperContract` over `toDto` only; Run 1 recorded that the mapper test
+    // "asserts the regression", and Run 2 corrected it -- the test neither asserted
+    // nor contradicted the ignores, because it never looked at the write path. The
+    // method that decides what a PUT is allowed to change had no test.
+    //
+    // 🔑 ASSERTED BEHAVIOURALLY, NOT TRANSCRIBED. Listing the @Mapping(ignore)
+    // annotations here would be a copy of the source that passes whenever it matches
+    // itself -- the mirrored-rule shape this pass retired two tests for in Batch 0.
+    // These call the mapper and read what it did.
+
+    /** A persisted member with a value in every field this contract is about. */
+    private static Member stored() {
+        Member stored = new Member();
+        stored.setSurname("Stored");
+        stored.setPhone("0115550000");
+        stored.setStatus("Active");
+        stored.setMonthlySubscription("120.00");
+        stored.setCurrentBalance("50.00");
+        stored.setArrearsBalance("10.00");
+        stored.setLastMonthBalance("20.00");
+        stored.setJoinDate(java.time.LocalDate.of(2020, 1, 31));
+        stored.setMembershipNumber("M-1");
+        return stored;
+    }
+
+    @Test
+    @DisplayName("🔒 H8 — money and provenance survive a PUT that tries to set them")
+    void theMergeRefusesTheFieldsACallerMayNotSet() {
+        Member target = stored();
+
+        Member submitted = new Member();
+        submitted.setMonthlySubscription("0.01");
+        submitted.setCurrentBalance("999999");
+        submitted.setArrearsBalance("888888");
+        submitted.setLastMonthBalance("777777");
+        submitted.setJoinDate(java.time.LocalDate.of(1999, 12, 31));
+        submitted.setMembershipNumber("M-HIJACKED");
+        submitted.setStatus("Inactive");
+        submitted.setSurname("Submitted");
+
+        MAPPER.updateFromMember(submitted, target);
+
+        assertThat(target.getMonthlySubscription())
+                .as("PATCH /subscription is the one door for the amount")
+                .isEqualTo("120.00");
+        assertThat(target.getCurrentBalance())
+                .as("the Recruiters screen sends `currentBalance || 0` on every PUT, so a "
+                        + "bulk assign would write 0 over an empty balance")
+                .isEqualTo("50.00");
+        assertThat(target.getArrearsBalance()).isEqualTo("10.00");
+        assertThat(target.getLastMonthBalance()).isEqualTo("20.00");
+        assertThat(target.getJoinDate())
+                .as("when a member joined is a historical fact, not an editable field")
+                .isEqualTo(java.time.LocalDate.of(2020, 1, 31));
+        assertThat(target.getMembershipNumber())
+                .as("server-allocated, and there is no DELETE on this API")
+                .isEqualTo("M-1");
+
+        // 🔑 The two non-vacuity halves. Without them every assertion above is
+        // satisfied by a merge that copies NOTHING.
+        assertThat(target.getStatus())
+                .as("`status` is DELIBERATELY writable -- Edit Member edits it and the "
+                        + "Recruiters screen sets Inactive through PUT (BR3-1)")
+                .isEqualTo("Inactive");
+        assertThat(target.getSurname())
+                .as("and an ordinary field still merges")
+                .isEqualTo("Submitted");
+    }
+
+    @Test
+    @DisplayName("🗣️ ⑨ a field the request omits keeps its stored value; a blank one clears")
+    void theMergeTreatsAbsentAndBlankDifferently() {
+        Member target = stored();
+
+        Member submitted = new Member();
+        submitted.setSurname("Changed");   // sent
+        // `phone` is NOT set -> absent -> must keep "0115550000"
+
+        MAPPER.updateFromMember(submitted, target);
+
+        assertThat(target.getPhone())
+                .as("absent means keep -- this is the half that was backwards, and it is "
+                        + "the opposite of what the resolvers do on the same request")
+                .isEqualTo("0115550000");
+        assertThat(target.getSurname())
+                .as("a field that WAS sent still changes")
+                .isEqualTo("Changed");
+
+        Member clearing = new Member();
+        clearing.setPhone("");             // sent, empty -> a deliberate clear
+
+        MAPPER.updateFromMember(clearing, target);
+
+        assertThat(target.getPhone())
+                .as("blank means clear, so a user can still remove a value entered by "
+                        + "mistake -- without this half, ⑨ would be satisfied by a mapper "
+                        + "that has simply stopped copying the field")
+                .isEmpty();
+    }
+
 }
