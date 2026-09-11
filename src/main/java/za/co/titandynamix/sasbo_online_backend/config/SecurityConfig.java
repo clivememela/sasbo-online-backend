@@ -18,8 +18,15 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth.requestMatchers("/api/**").permitAll().anyRequest().authenticated());
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                                                       // Allow Render's health checks and standard error handling to bypass authentication
+                                                       .requestMatchers("/actuator/health", "/error").permitAll()
+                                                       // Keep your existing rule for public API endpoints
+                                                       .requestMatchers("/api/**").permitAll()
+                                                       // Secure everything else
+                                                       .anyRequest().authenticated()
+                );
         return http.build();
     }
 
@@ -27,9 +34,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-            "http://localhost:5173",
-            "https://sasbo-online-ashy.vercel.app",
-            "https://dev.sasbo.online"
+                "http://localhost:5173",
+                "https://vercel.app",
+                "https://sasbo.online"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(List.of("*"));
