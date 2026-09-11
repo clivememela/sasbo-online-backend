@@ -20,24 +20,35 @@ public class SecurityConfig {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                                                       // Allow Render's health checks and standard error handling to bypass authentication
+                                                       // 1. Allow Render's internal deployment bots
                                                        .requestMatchers("/actuator/health", "/error").permitAll()
-                                                       // Keep your existing rule for public API endpoints
+
+                                                       // 2. Open ALL nested sub-paths under /api/ using standard Ant/MVC wildcards
                                                        .requestMatchers("/api/**").permitAll()
-                                                       // Secure everything else
+                                                       .requestMatchers("/api/banks/**").permitAll()
+                                                       .requestMatchers("/api/members/**").permitAll()
+                                                       .requestMatchers("/api/representatives/**").permitAll()
+
+                                                       // 3. Authenticate anything else
                                                        .anyRequest().authenticated()
                 );
         return http.build();
     }
 
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
+
+        // Use allowed origin PATTERNS to support wildcards for Vercel and sasbo online previews
+        config.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
                 "https://vercel.app",
-                "https://sasbo.online"
+                "https://*.vercel.app", // This allows any Vercel deployment URL
+                "https://sasbo.online",
+                "https://*.sasbo.online"
         ));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
