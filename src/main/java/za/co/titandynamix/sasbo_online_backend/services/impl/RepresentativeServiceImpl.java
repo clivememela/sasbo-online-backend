@@ -17,7 +17,6 @@ import za.co.titandynamix.sasbo_online_backend.repository.*;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +34,32 @@ public class RepresentativeServiceImpl implements RepresentativeService {
     @Override
     @Transactional(readOnly = true)
     public List<RepresentativeDto> findAll() {
-        return this.representativeRepository.findAll().stream().map(this.representativeMapper::toDto).toList();
+        // 1. Pull directly from the members table where is_representative is true
+        List<Member> representativeMembers = this.memberRepository.findByIsRepresentativeTrue();
+
+        // 2. Map the member entities straight into your existing RepresentativeDtos
+        return representativeMembers.stream().map(member -> {
+            String combinedName = buildName(member);
+
+            return RepresentativeDto.builder()
+                           .id(member.getId()) // Keeping the unique member identifier as the DTO ID
+                           .memberId(member.getId())
+                           .firstNames(member.getFirstNames())
+                           .surname(member.getSurname())
+                           .name(combinedName)
+                           .personalEmail(member.getPersonalEmail())
+                           .workEmail(member.getWorkEmail())
+                           .preferredEmail(member.getPreferredEmail())
+                           .phone(member.getPhone())
+                           .isElectedRep(member.getIsRepresentative())
+                           .electionDate(member.getElectionDate())
+                           .areaId(member.getArea() != null ? member.getArea().getId() : null)
+                           .roleId(member.getRole() != null ? member.getRole().getId() : null)
+                           // If your structure setup uses a multi-select list, wrap the single ID in a list
+                           .structureIds(member.getStructure() != null ? List.of(member.getStructure().getId()) : List.of())
+                           .membersCount(0) // Safe placeholder value
+                           .build();
+        }).toList();
     }
 
     @Override

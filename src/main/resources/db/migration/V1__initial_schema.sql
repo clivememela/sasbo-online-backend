@@ -189,7 +189,6 @@ CREATE TABLE IF NOT EXISTS members (
     bank_account_number           VARCHAR(255),
     branch                        VARCHAR(255),
     ibt_no                        VARCHAR(255),
-    work_ibt_no                   VARCHAR(255),
     bank_address                  VARCHAR(255),
     work_bank_address             VARCHAR(255),
     employment_type               VARCHAR(255),
