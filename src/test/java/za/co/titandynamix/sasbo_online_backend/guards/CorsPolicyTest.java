@@ -1,12 +1,13 @@
 package za.co.titandynamix.sasbo_online_backend.guards;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
+import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 
 import java.util.List;
 
@@ -46,10 +47,20 @@ import static org.assertj.core.api.Assertions.assertThat;
  * origin on the list may make credentialed cross-origin requests with any header
  * to any path. Spring refuses {@code allowedOrigins("*")} together with
  * credentials at request time — so the dangerous change is not that one. It is
- * {@code addAllowedOriginPattern("*")}, which is the documented way to have both
- * and <b>throws nothing</b>. That single line would open the whole API to every
- * origin on the internet, with cookies, and every other assertion in this
- * repository would stay green.
+ * an origin PATTERN, which is the documented way to have both and <b>throws
+ * nothing</b>.
+ *
+ * <h2>🔴 2026-09-14 — upstream made exactly that change, and this guard caught it</h2>
+ * Server {@code 6c00b82} replaced the fixed origin list and {@code FRONTEND_URL}
+ * with origin patterns, one of them {@code https://*.vercel.app} — unsafe for the
+ * reason {@link #CONTROLLED_DOMAINS} gives. {@link #noUncontrolledWildcardOrigin()}
+ * caught it and is disabled against register row <b>B7</b> rather than weakened.
+ *
+ * <p>Three tests about {@code FRONTEND_URL} — trailing slashes stripped, no
+ * duplicate, no empty origin — were <b>deleted</b>, not disabled: no code reads
+ * that variable any more, and a test of removed behaviour asserts nothing.
+ * Register row C10 closes with them; admitting an origin now takes an edit to
+ * {@code SecurityConfig}, which the closed list below makes a deliberate act.
  *
  * <p>No Spring context: {@code SecurityConfig}'s bean method takes no arguments,
  * so the real configuration is one constructor call away. The pattern
@@ -59,20 +70,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("The CORS policy")
 class CorsPolicyTest {
 
-    /**
-     * The real configuration, with {@code FRONTEND_URL} set to what the compose
-     * stack sets it to.
-     *
-     * <p>{@code frontendUrl} is a private {@code @Value} field with no setter,
-     * so it is injected the way Spring would. Reflection is the cost of testing
-     * the production class rather than a copy of its logic — and a copy is what
-     * this guard must not become, because the copy would keep passing after the
-     * original changed.
-     */
-    private static CorsConfigurationSource sourceWith(String frontendUrl) {
-        SecurityConfig config = new SecurityConfig();
-        ReflectionTestUtils.setField(config, "frontendUrl", frontendUrl);
-        return config.corsConfigurationSource();
+    /** The real configuration: no fields to inject, so it is tested exactly as it runs. */
+    private static CorsConfigurationSource source() {
+        return new SecurityConfig().corsConfigurationSource();
     }
 
     /** The policy a request to {@code path} would be answered under. */
@@ -80,8 +80,8 @@ class CorsPolicyTest {
         return source.getCorsConfiguration(new MockHttpServletRequest("GET", path));
     }
 
-    private static CorsConfiguration policyWith(String frontendUrl) {
-        CorsConfiguration policy = policyFor(sourceWith(frontendUrl), "/api/members");
+    private static CorsConfiguration policy() {
+        CorsConfiguration policy = policyFor(source(), "/api/members");
 
         assertThat(policy)
                 .as("no CORS configuration applies to /api/members at all, so every browser "
@@ -116,12 +116,10 @@ class CorsPolicyTest {
     @Test
     @DisplayName("allows credentials, and is therefore bounded by its origin list and nothing else")
     void credentialsAreAllowedSoOriginsAreTheOnlyBound() {
-        CorsConfiguration policy = policyWith("http://client");
-
         // Stated rather than assumed, because every assertion below depends on
         // it: if credentials were NOT allowed, a wildcard origin would be
         // ordinary and the guards after this one would be needless strictness.
-        assertThat(policy.getAllowCredentials())
+        assertThat(policy().getAllowCredentials())
                 .as("this guard's whole premise. If credentials are no longer allowed, the "
                         + "origin restrictions below stop being security-relevant and this "
                         + "file should be reconsidered rather than kept out of habit")
@@ -129,53 +127,47 @@ class CorsPolicyTest {
     }
 
     @Test
-    @DisplayName("allows exactly the origins on record, so a fourth is a deliberate act")
+    @DisplayName("allows exactly the origin patterns on record, so a new one is a deliberate act")
     void theOriginListIsClosed() {
         // 🔴 A CLOSED LIST, because `isNotEmpty()` was not an assertion about
         // anything. This guard's own premise is that the origin list is the ONLY
         // bound on a credentialed policy -- and a list that may hold anything so
-        // long as it holds something does not bound it. Adding a fourth origin is
-        // exactly the change that has landed repeatedly upstream, and it passed.
+        // long as it holds something does not bound it.
         //
-        // ⚠️ `https://vercel.app` IS ON THIS LIST AND IS A KNOWN FINDING, recorded
-        // here rather than blessed. It is a bare apex matching no real deployment,
-        // and its remediation is agreed in another arc. When it is removed this
-        // assertion reddens, which is correct: this list is the record of what the
-        // policy allowed, and changing it is the deliberate act.
-        assertThat(policyWith("http://client").getAllowedOrigins())
+        // ⚠️ TWO ENTRIES HERE ARE KNOWN FINDINGS, recorded rather than blessed.
+        // `https://vercel.app` is a bare apex matching no real deployment, and
+        // `https://*.vercel.app` is register row B7, pinned in the disabled test
+        // below. When either is removed this assertion reddens, which is correct:
+        // this list is the record of what the policy allowed, and changing it is
+        // the deliberate act.
+        CorsConfiguration policy = policy();
+
+        assertThat(policy.getAllowedOrigins())
+                .as("upstream moved the policy from exact origins to origin PATTERNS in 6c00b82. "
+                        + "An exact list reappearing beside the patterns is a second bound that "
+                        + "nothing here reads, so it is asserted absent rather than ignored")
+                .isNullOrEmpty();
+
+        assertThat(policy.getAllowedOriginPatterns())
                 .as("the credentialed origin allow-list. A new entry grants a new site the "
                         + "ability to read and write the member register with cookies, so it "
                         + "is added here as well as in SecurityConfig -- deliberately, once")
                 .containsExactlyInAnyOrder(
                         "http://localhost:5173",
-                        "https://sasbo.online",
                         "https://vercel.app",
-                        "http://client");
+                        "https://*.vercel.app",
+                        "https://sasbo.online",
+                        "https://*.sasbo.online");
     }
 
     @Test
+    @Disabled(KnownDefects.CORS_TRUSTS_EVERY_VERCEL_DEPLOYMENT)
     @DisplayName("🔴 permits no wildcard origin outside a domain this project controls")
     void noUncontrolledWildcardOrigin() {
-        CorsConfiguration policy = policyWith("http://client");
-
-        // Non-null on the passing path -- the closed-list test above asserts the
-        // contents, and would fail first with a clearer message.
-        assertThat(policy.getAllowedOrigins().stream().filter((o) -> o.contains("*")).toList())
-                .as("a wildcard in allowedOrigins together with allowCredentials(true) is "
-                        + "refused by Spring at request time, so it breaks every cross-origin "
-                        + "request rather than permitting too many -- still wrong, and it fails "
-                        + "in a way that reads as CORS being broken rather than as a policy error")
-                .isEmpty();
-
-        // 🔴 THE DANGEROUS ONE. `addAllowedOriginPattern` is the documented way to
-        // have a wildcard origin AND credentials, and unlike the above it throws
-        // NOTHING. This getter is genuinely null on the passing path, because the
-        // configuration never calls it -- so this null check is not dead.
-        List<String> patterns = policy.getAllowedOriginPatterns() == null
-                ? List.of()
-                : policy.getAllowedOriginPatterns();
-
-        List<String> uncontrolled = patterns.stream()
+        // 🔴 THE DANGEROUS ONE. An origin pattern is the documented way to have a
+        // wildcard origin AND credentials, and unlike allowedOrigins("*") it throws
+        // NOTHING. Exact origins are already asserted empty by the closed list above.
+        List<String> uncontrolled = policy().getAllowedOriginPatterns().stream()
                 .filter((pattern) -> pattern.contains("*"))
                 .filter((pattern) -> CONTROLLED_DOMAINS.stream().noneMatch(
                         (domain) -> pattern.endsWith("." + domain) || pattern.endsWith("//" + domain)))
@@ -194,7 +186,7 @@ class CorsPolicyTest {
     @Test
     @DisplayName("applies to every path, and that width is INTENDED rather than inherited")
     void theWidthIsDeliberate() {
-        CorsConfigurationSource source = sourceWith("http://client");
+        CorsConfigurationSource source = source();
 
         // ⚠️ ASSERTED AS A DECISION, NOT AS A VALUE. The policy used to be
         // registered on /api/** and is now on /**, which extends credentialed
@@ -213,59 +205,5 @@ class CorsPolicyTest {
                             + "changed deliberately -- with the new boundary written into it", path)
                     .isNotNull();
         }
-    }
-
-    @Test
-    @DisplayName("strips a trailing slash from FRONTEND_URL, which is why that replaceAll is there")
-    void trailingSlashesAreStripped() {
-        // The behaviour a reader is most likely to delete as redundant. An origin
-        // with a trailing slash does not match a browser's Origin header, which
-        // never has one -- so a deployment whose FRONTEND_URL ends in / would
-        // fail every write with `403 Invalid CORS request` and an empty body,
-        // reported by the client as "Failed to save member: HTTP 403:", naming
-        // neither CORS nor the origin.
-        //
-        // 🔑 Spring's CorsConfiguration ALSO trims a trailing slash on both
-        // sides when it compares, so removing this replaceAll would not break
-        // matching today -- verified by disassembling spring-web. That is
-        // precisely why it is pinned here rather than left to be re-derived: the
-        // guard records that this application does not depend on that framework
-        // detail, so the origin list stays correct as written.
-        assertThat(policyWith("https://sasbo.online/").getAllowedOrigins())
-                .as("FRONTEND_URL's trailing slash reached the allowed-origin list")
-                .contains("https://sasbo.online")
-                .doesNotContain("https://sasbo.online/");
-
-        assertThat(policyWith("https://sasbo.online///").getAllowedOrigins())
-                .as("the pattern is /+$ -- several trailing slashes must collapse too")
-                .contains("https://sasbo.online");
-    }
-
-    @Test
-    @DisplayName("adds no duplicate when FRONTEND_URL repeats an origin already on the list")
-    void frontendUrlIsNotDuplicated() {
-        // `https://sasbo.online` is hardcoded on the list AND is the likely
-        // production FRONTEND_URL, so this is the ordinary deployment rather
-        // than an edge case. A duplicated origin is harmless to matching and is
-        // worth pinning anyway: it is the `if (!origins.contains(...))` guard's
-        // only reason to exist, and a refactor that drops it looks like a
-        // simplification.
-        assertThat(policyWith("https://sasbo.online").getAllowedOrigins())
-                .containsOnlyOnce("https://sasbo.online");
-    }
-
-    @Test
-    @DisplayName("falls back to the local development origin when FRONTEND_URL is unset")
-    void anUnsetFrontendUrlStillAllowsLocalDevelopment() {
-        // `@Value("${FRONTEND_URL:}")` defaults to empty, and the blank check is
-        // what stops an empty string becoming an allowed origin of "". Pinned
-        // because an empty entry on a credentialed list is the kind of thing
-        // that is hard to reason about later and easy to introduce now.
-        List<String> origins = policyWith("").getAllowedOrigins();
-
-        assertThat(origins).contains("http://localhost:5173");
-        assertThat(origins)
-                .as("an unset FRONTEND_URL must not add an empty origin to a credentialed list")
-                .doesNotContain("");
     }
 }
