@@ -10,6 +10,8 @@ import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,7 +56,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Server {@code 6c00b82} replaced the fixed origin list and {@code FRONTEND_URL}
  * with origin patterns, one of them {@code https://*.vercel.app} — unsafe for the
  * reason {@link #CONTROLLED_DOMAINS} gives. {@link #noUncontrolledWildcardOrigin()}
- * caught it and is disabled against register row <b>B7</b> rather than weakened.
+ * caught it and is disabled against register row <b>B7</b> rather than weakened;
+ * {@link #theVercelWildcardIsStillTheOnlyUncontrolledOne()} is its live pin.
  *
  * <p>Three tests about {@code FRONTEND_URL} — trailing slashes stripped, no
  * duplicate, no empty origin — were <b>deleted</b>, not disabled: no code reads
@@ -113,6 +116,31 @@ class CorsPolicyTest {
      */
     private static final List<String> CONTROLLED_DOMAINS = List.of("sasbo.online");
 
+    /**
+     * An https entry bounded to a domain this project controls. An {@code http://}
+     * wildcard is not, even on a domain this project owns: it is a plaintext origin
+     * trusted with credentials.
+     */
+    private static boolean isControlled(String entry) {
+        return entry.startsWith("https://") && CONTROLLED_DOMAINS.stream().anyMatch(
+                (domain) -> entry.endsWith("." + domain) || entry.endsWith("//" + domain));
+    }
+
+    /**
+     * Every uncontrolled wildcard the policy allows, read from BOTH lists and
+     * null-safely: Spring keeps exact origins and patterns apart and answers
+     * {@code null} for whichever was never set, and B7's agreed fix -- naming real
+     * hosts with {@code setAllowedOrigins} -- leaves the pattern list null.
+     */
+    private static List<String> uncontrolledWildcards(CorsConfiguration policy) {
+        return Stream.of(policy.getAllowedOrigins(), policy.getAllowedOriginPatterns())
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter((entry) -> entry.contains("*"))
+                .filter((entry) -> !isControlled(entry))
+                .toList();
+    }
+
     @Test
     @DisplayName("allows credentials, and is therefore bounded by its origin list and nothing else")
     void credentialsAreAllowedSoOriginsAreTheOnlyBound() {
@@ -136,16 +164,17 @@ class CorsPolicyTest {
         //
         // ⚠️ TWO ENTRIES HERE ARE KNOWN FINDINGS, recorded rather than blessed.
         // `https://vercel.app` is a bare apex matching no real deployment, and
-        // `https://*.vercel.app` is register row B7, pinned in the disabled test
-        // below. When either is removed this assertion reddens, which is correct:
-        // this list is the record of what the policy allowed, and changing it is
-        // the deliberate act.
+        // `https://*.vercel.app` is register row B7, guarded by the disabled test
+        // below and pinned by the live one after it. When either is removed this
+        // assertion reddens, which is correct: this list is the record of what the
+        // policy allowed, and changing it is the deliberate act.
         CorsConfiguration policy = policy();
 
         assertThat(policy.getAllowedOrigins())
-                .as("upstream moved the policy from exact origins to origin PATTERNS in 6c00b82. "
-                        + "An exact list reappearing beside the patterns is a second bound that "
-                        + "nothing here reads, so it is asserted absent rather than ignored")
+                .as("the policy is expressed as origin PATTERNS since 6c00b82, and the list "
+                        + "below is the record of them. If exact origins now appear -- B7's agreed "
+                        + "fix may name hosts with setAllowedOrigins -- move the record here and "
+                        + "update both lists in the same change")
                 .isNullOrEmpty();
 
         assertThat(policy.getAllowedOriginPatterns())
@@ -166,21 +195,32 @@ class CorsPolicyTest {
     void noUncontrolledWildcardOrigin() {
         // 🔴 THE DANGEROUS ONE. An origin pattern is the documented way to have a
         // wildcard origin AND credentials, and unlike allowedOrigins("*") it throws
-        // NOTHING. Exact origins are already asserted empty by the closed list above.
-        List<String> uncontrolled = policy().getAllowedOriginPatterns().stream()
-                .filter((pattern) -> pattern.contains("*"))
-                .filter((pattern) -> CONTROLLED_DOMAINS.stream().noneMatch(
-                        (domain) -> pattern.endsWith("." + domain) || pattern.endsWith("//" + domain)))
-                .toList();
-
-        assertThat(uncontrolled)
+        // NOTHING.
+        assertThat(uncontrolledWildcards(policy()))
                 .as("a wildcard origin pattern not bounded to a domain this project controls. "
                         + "`https://*.sasbo.online` is fine -- every host it matches is one "
                         + "somebody here created. `*`, `https://*` and `*.vercel.app` are not: "
                         + "the last trusts every site ever deployed to Vercel, with credentials, "
-                        + "on an API whose every route is permitAll. Extend CONTROLLED_DOMAINS "
+                        + "on an API whose every route is permitAll. An http:// wildcard is a "
+                        + "plaintext origin trusted with credentials. Extend CONTROLLED_DOMAINS "
                         + "only for a domain this project actually owns")
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("🔴 B7 still reproduces: the only uncontrolled wildcard is https://*.vercel.app")
+    void theVercelWildcardIsStillTheOnlyUncontrolledOne() {
+        // The defect stated positively -- this file's counterpart to
+        // MemberControllerSecurityTest.theRealSecurityConfigIsLoaded. The test above
+        // is disabled, so it runs nowhere; this runs everywhere, and it reddens in
+        // both directions that matter. EMPTY: B7 is fixed. LONGER: a second
+        // uncontrolled wildcard arrived, which the closed list only catches when
+        // nobody updates it in the same commit.
+        assertThat(uncontrolledWildcards(policy()))
+                .as("B7 has changed. If this is empty, B7 is fixed: enable "
+                        + "noUncontrolledWildcardOrigin and delete the KnownDefects row. If it "
+                        + "has grown, another uncontrolled wildcard is on a credentialed policy")
+                .containsExactly("https://*.vercel.app");
     }
 
     @Test
