@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -11,27 +12,61 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
-import za.co.titandynamix.sasbo_online_backend.dto.member.MemberDto;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.RepresentativeRole;
+import za.co.titandynamix.sasbo_online_backend.entity.representative.UnionStructure;
+import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
-import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
+import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapperImpl;
+import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Rewritten. The previous version mocked {@code MemberMapper}, so every
+ * {@code jsonPath} content assertion returned the value the test had stubbed --
+ * a circular assertion, one layer down. And no write endpoint checked what the
+ * JSON had bound to: {@code when(service.create(any(Member.class)))} is
+ * satisfied by a payload of {@code {}}, which is "a field that reads but does
+ * not write" at the transport seam, on the application's capture path.
+ *
+ * <p>Two changes, both from the reference pattern:
+ * <ul>
+ *   <li>The <b>real</b> {@code MemberMapperImpl} is used, so a content
+ *       assertion is about the response the browser actually receives.
+ *   <li>Every write endpoint <b>captures its bound argument</b> and asserts the
+ *       fields, so a payload that did not bind fails here rather than in
+ *       production.
+ * </ul>
+ */
 @WebMvcTest(MemberController.class)
-@Import({GlobalExceptionHandler.class, JacksonConfig.class})
+@Import({GlobalExceptionHandler.class, JacksonConfig.class, MemberMapperImpl.class})
 @AutoConfigureMockMvc(addFilters = false)
+// The @Nested blocks below name the outer fields bare -- mockMvc, not
+// this.mockMvc. Inside a nested class `this` is the INNER instance, so the
+// qualified form does not compile and MemberControllerTest.this.mockMvc is
+// noise on every line. Nothing shadows them.
 class MemberControllerTest {
 
     @Autowired
@@ -41,52 +76,79 @@ class MemberControllerTest {
     private MemberService memberService;
 
     @MockitoBean
-    private MemberMapper memberMapper;
+    private RepresentativeService representativeService;
+
+    // MemberMapperImpl is imported for real, so its three @Autowired
+    // repositories have to exist. They are only used on the toEntity path,
+    // which this slice does not exercise -- but the context will not start
+    // without them.
+    @MockitoBean
+    private RepresentativeRepository representativeRepository;
 
     @MockitoBean
-    private RepresentativeService representativeService;
+    private UnionStructureRepository unionStructureRepository;
+
+    @MockitoBean
+    private RepresentativeRoleRepository representativeRoleRepository;
+
+    private static Member member(Integer id, String surname) {
+        Member member = new Member();
+        member.setId(id);
+        member.setSurname(surname);
+        member.setFirstNames("Thandi");
+        member.setIdentityNumber("9404275800086");
+        member.setPaymentType("Payroll");
+        return member;
+    }
 
     @Nested
     @DisplayName("GET /api/members")
     class GetAllMembers {
-        @Test
-        @DisplayName("should return a list of member DTOs")
-        void shouldReturnList() throws Exception {
-            Member member = new Member();
-            MemberDto dto = new MemberDto();
-            dto.setSurname("Smith");
 
-            when(memberService.findAll()).thenReturn(List.of(member));
-            when(memberMapper.toDto(any(Member.class))).thenReturn(dto);
+        @Test
+        @DisplayName("serialises real DTOs, so the field names are the ones the client reads")
+        void serialisesRealDtos() throws Exception {
+            when(memberService.findAll())
+                    .thenReturn(List.of(member(1, "Khumalo")));
 
             mockMvc.perform(get("/api/members"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(1)))
-                    .andExpect(jsonPath("$[0].surname").value("Smith"));
+                    .andExpect(jsonPath("$[0].id").value(1))
+                    .andExpect(jsonPath("$[0].surname").value("Khumalo"))
+                    .andExpect(jsonPath("$[0].firstNames").value("Thandi"));
+        }
+
+        @Test
+        @DisplayName("answers with an empty array, not a 404, when there are no members")
+        void emptyIsASuccessfulAnswer() throws Exception {
+            when(memberService.findAll()).thenReturn(List.of());
+
+            mockMvc.perform(get("/api/members"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$").isEmpty());
         }
     }
 
     @Nested
     @DisplayName("GET /api/members/{id}")
     class GetMemberById {
-        @Test
-        @DisplayName("should return member DTO when record exists")
-        void shouldReturnMemberWhenFound() throws Exception {
-            Member member = new Member();
-            MemberDto dto = new MemberDto();
-            dto.setSurname("Doe");
 
-            when(memberService.findById(1)).thenReturn(Optional.of(member));
-            when(memberMapper.toDto(any(Member.class))).thenReturn(dto);
+        @Test
+        @DisplayName("returns the member when the record exists")
+        void returnsTheMember() throws Exception {
+            when(memberService.findById(1))
+                    .thenReturn(Optional.of(member(1, "Naidoo")));
 
             mockMvc.perform(get("/api/members/1"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.surname").value("Doe"));
+                    .andExpect(jsonPath("$.surname").value("Naidoo"));
         }
 
         @Test
-        @DisplayName("should return 404 when record does not exist")
-        void shouldReturn404WhenNotFound() throws Exception {
+        @DisplayName("returns 404 when the record does not exist")
+        void returns404WhenMissing() throws Exception {
             when(memberService.findById(99)).thenReturn(Optional.empty());
 
             mockMvc.perform(get("/api/members/99"))
@@ -97,86 +159,208 @@ class MemberControllerTest {
     @Nested
     @DisplayName("POST /api/members")
     class CreateMember {
+
         @Test
-        @DisplayName("should create a new member and return the saved member DTO")
-        void shouldCreateMemberAndReturnDto() throws Exception {
-            Member savedMember = new Member();
-            MemberDto responseDto = new MemberDto();
-            responseDto.setSurname("NewMember");
-
-            when(memberService.create(any(Member.class))).thenReturn(savedMember);
-            when(memberMapper.toDto(any(Member.class))).thenReturn(responseDto);
-
-            // Fixed: Changed "firstName" to "firstNames" to match entity
-            String jsonPayload = "{\"surname\": \"NewMember\", \"firstNames\": \"John\"}";
+        @DisplayName("binds every field of the payload it was sent")
+        void bindsThePayload() throws Exception {
+            // The assertion the previous version was missing entirely. Without
+            // the captor, this endpoint could discard the whole body and the
+            // test would pass on the stubbed response.
+            when(memberService.create(any(Member.class)))
+                    .thenReturn(member(3, "Botha"));
 
             mockMvc.perform(post("/api/members")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(jsonPayload))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\",\"firstNames\":\"Thandi\","
+                                    + "\"identityNumber\":\"9404275800086\","
+                                    + "\"paymentType\":\"Payroll\"}"))
+                    .andExpect(status().isOk());
+
+            ArgumentCaptor<Member> bound = ArgumentCaptor.forClass(Member.class);
+            verify(memberService).create(bound.capture());
+            assertThat(bound.getValue().getSurname()).isEqualTo("Botha");
+            assertThat(bound.getValue().getFirstNames()).isEqualTo("Thandi");
+            assertThat(bound.getValue().getIdentityNumber()).isEqualTo("9404275800086");
+            assertThat(bound.getValue().getPaymentType()).isEqualTo("Payroll");
+        }
+
+        @Test
+        @DisplayName("answers 200 with no Location header -- today's behaviour, not the intended one")
+        void answers200Today() throws Exception {
+            // THE ONE DELIBERATE ASSERTION OF CURRENT BEHAVIOUR IN THIS SUITE.
+            //
+            // A created resource should answer 201 with a Location header, and
+            // this one answers 200 with neither. Correcting that is a production
+            // change and a breaking one for the browser, which reads the status.
+            //
+            // It is asserted AS IT IS rather than left untested, because
+            // untested it is invisible: the day someone does fix it, this test
+            // goes red and points straight at this comment. A test written to
+            // 201 instead would be red from day one for something nobody is
+            // going to change in a testing pass -- and a permanently red box
+            // teaches everyone to ignore red boxes.
+            //
+            // Intended shape: 201 Created, Location: /api/members/{id}.
+            when(memberService.create(any(Member.class)))
+                    .thenReturn(member(3, "Botha"));
+
+            mockMvc.perform(post("/api/members")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\"}"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.surname").value("NewMember"));
+                    .andExpect(header().doesNotExist("Location"));
+        }
+
+        @Test
+        @DisplayName("rejects an elected role with no election date, as a 400")
+        void rejectsAnElectedRoleWithNoDate() throws Exception {
+            // A real business rule in the controller, and one nothing covered.
+            // It throws IllegalArgumentException, which the handler turns into
+            // a 400 -- so this also proves the two are wired together.
+            RepresentativeRole elected = new RepresentativeRole();
+            elected.setIsElectedRole(true);
+
+            stubResolveToRole(elected);
+
+            mockMvc.perform(post("/api/members")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\",\"isRepresentative\":true}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400));
+
+            verify(memberService,
+                    never()).create(any(Member.class));
+        }
+
+        @Test
+        @DisplayName("rejects a structure-requiring role with no structure, as a 400")
+        void rejectsAStructureRequiringRoleWithNoStructure() throws Exception {
+            RepresentativeRole needsStructure = new RepresentativeRole();
+            needsStructure.setRequiresStructure(true);
+
+            stubResolveToRole(needsStructure);
+
+            mockMvc.perform(post("/api/members")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\",\"isRepresentative\":true}"))
+                    .andExpect(status().isBadRequest());
+
+            verify(memberService,
+                    never()).create(any(Member.class));
+        }
+
+        @Test
+        @DisplayName("accepts a structure-requiring role once a structure is resolved")
+        void acceptsWhenTheStructureIsPresent() throws Exception {
+            // The positive half. Without it, the two rejections above would
+            // still pass against a controller that rejected every
+            // representative unconditionally.
+            RepresentativeRole needsStructure = new RepresentativeRole();
+            needsStructure.setRequiresStructure(true);
+
+            doAnswer(invocation -> {
+                Member incoming = invocation.getArgument(0);
+                incoming.setRole(needsStructure);
+                incoming.setStructure(new UnionStructure());
+                return null;
+            }).when(memberService)
+                    .resolveStructureAndRole(any(Member.class));
+
+            when(memberService.create(any(Member.class)))
+                    .thenReturn(member(3, "Botha"));
+
+            mockMvc.perform(post("/api/members")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\",\"isRepresentative\":true}"))
+                    .andExpect(status().isOk());
         }
     }
 
     @Nested
     @DisplayName("PUT /api/members/{id}")
     class UpdateMember {
+
         @Test
-        @DisplayName("should update member details and return updated DTO")
-        void shouldUpdateAndReturnDto() throws Exception {
-            Member member = new Member();
-            MemberDto dto = new MemberDto();
-            dto.setSurname("UpdatedSurname");
-
-            when(memberService.update(eq(1), any(Member.class))).thenReturn(Optional.of(member));
-            when(memberMapper.toDto(any(Member.class))).thenReturn(dto);
-
-            String json = "{\"surname\": \"UpdatedSurname\"}";
+        @DisplayName("passes the path id and the bound payload through")
+        void bindsIdAndPayload() throws Exception {
+            when(memberService.update(eq(1), any(Member.class)))
+                    .thenReturn(Optional.of(member(1, "Abrahams")));
 
             mockMvc.perform(put("/api/members/1")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(json))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Abrahams\",\"firstNames\":\"Thandi\"}"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.surname").value("UpdatedSurname"));
+                    .andExpect(jsonPath("$.surname").value("Abrahams"));
+
+            ArgumentCaptor<Member> bound = ArgumentCaptor.forClass(Member.class);
+            verify(memberService).update(eq(1), bound.capture());
+            assertThat(bound.getValue().getSurname()).isEqualTo("Abrahams");
+            assertThat(bound.getValue().getFirstNames()).isEqualTo("Thandi");
+        }
+
+        @Test
+        @DisplayName("answers 404 when the member does not exist")
+        void notFound() throws Exception {
+            when(memberService.update(eq(99), any(Member.class)))
+                    .thenReturn(Optional.empty());
+
+            mockMvc.perform(put("/api/members/99")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Nobody\"}"))
+                    .andExpect(status().isNotFound());
         }
     }
 
     @Nested
     @DisplayName("PATCH /api/members/{id}/banking")
     class UpdateBanking {
+
         @Test
-        @DisplayName("should update financial metadata configurations successfully")
-        void shouldUpdateBankingDetails() throws Exception {
-            Member member = new Member();
-            MemberDto dto = new MemberDto();
-            dto.setSurname("Doe");
-
-            when(memberService.updateBanking(eq(1), any(Member.class))).thenReturn(Optional.of(member));
-            when(memberMapper.toDto(any(Member.class))).thenReturn(dto);
-
-            // Fixed: Changed "accountNumber" to "bankAccountNumber" to match entity
-            String json = "{\"bankName\": \"FNB\", \"bankAccountNumber\": \"123456\"}";
+        @DisplayName("binds the banking fields it was sent")
+        void bindsTheBankingFields() throws Exception {
+            when(memberService.updateBanking(eq(1), any(Member.class)))
+                    .thenReturn(Optional.of(member(1, "Zulu")));
 
             mockMvc.perform(patch("/api/members/1/banking")
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(json))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.surname").value("Doe"));
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"bankName\":\"Absa\",\"bankAccountNumber\":\"62001234567\","
+                                    + "\"debitDay\":25}"))
+                    .andExpect(status().isOk());
+
+            ArgumentCaptor<Member> bound = ArgumentCaptor.forClass(Member.class);
+            verify(memberService).updateBanking(eq(1), bound.capture());
+            assertThat(bound.getValue().getBankAccountNumber()).isEqualTo("62001234567");
+            assertThat(bound.getValue().getDebitDay()).isEqualTo(25);
         }
     }
 
     @Nested
     @DisplayName("GET /api/members/metadata/payment-types")
     class GetPaymentTypeMetadata {
+
         @Test
-        @DisplayName("should return static application setup options for payment types")
-        void shouldReturnMetadataList() throws Exception {
-            mockMvc.perform(get("/api/members/metadata/payment-types"))
+        @DisplayName("describes every payment type the enum defines")
+        void describesEveryPaymentType() throws Exception {
+            // Discovered from the enum rather than counted by hand, so a new
+            // payment type is covered the day it is added.
+            int defined = PaymentType.values().length;
+
+            mockMvc.perform(
+                            get("/api/members/metadata/payment-types"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$", hasSize(defined)))
                     .andExpect(jsonPath("$[0].name").exists())
                     .andExpect(jsonPath("$[0].displayName").exists())
                     .andExpect(jsonPath("$[0].requiresBankAccount").exists());
         }
+    }
+
+    /** Makes {@code resolveStructureAndRole} attach the given role, as the real service would. */
+    private void stubResolveToRole(RepresentativeRole role) {
+        doAnswer(invocation -> {
+            Member incoming = invocation.getArgument(0);
+            incoming.setRole(role);
+            return null;
+        }).when(memberService).resolveStructureAndRole(any(Member.class));
     }
 }

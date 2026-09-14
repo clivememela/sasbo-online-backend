@@ -1,0 +1,36 @@
+# Verification profile: prove the migration chain alone produces a schema the
+# entity model validates against.
+#
+# Nothing here is a runtime profile and nothing here is read by the running
+# application -- src/test/resources is not on the main runtime classpath, which
+# is precisely why this verification is a TEST and not `bootRun --profile`.
+#
+# The target database is a throwaway container, addressed by environment
+# variable so the same test points at a local container or a CI service without
+# a code change. The defaults are the local ones.
+spring:
+  datasource:
+    url: ${P0_DB_URL:jdbc:postgresql://localhost:5434/sasbo_membership_test}
+    username: ${P0_DB_USER:sasbo}
+    password: ${P0_DB_PASSWORD:sasbo}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    # Deliberately the opposite of the incumbent application.yaml on all three:
+    # a baseline flag is how V16 got skipped, validate-on-migrate off is how a
+    # tampered migration goes unnoticed, and clean-disabled false is a loaded
+    # gun pointed at whatever database the URL happens to name.
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    clean-disabled: true
+  jpa:
+    hibernate:
+      # The judge. If the migrated schema does not match the entity model, the
+      # application context fails to start and the test fails with it.
+      ddl-auto: validate
+    open-in-view: false
+
+logging:
+  level:
+    root: WARN
+    org.flywaydb: INFO

@@ -21,6 +21,7 @@ public class JobGradeServiceImpl implements JobGradeService {
      * Find job grades by a bank identifier. Accepts either a bankCode (universalBranchCode),
      * a numeric bank id, or a human-readable bank name.
      */
+    @Override
     public List<JobGrade> findByBankIdentifier(String bankCodeOrNameOrId) {
         if (bankCodeOrNameOrId == null || bankCodeOrNameOrId.isBlank()) return Collections.emptyList();
 
