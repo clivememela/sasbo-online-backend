@@ -1,0 +1,152 @@
+# CI for the SASBO Online backend: the gate on every pull request and on every push to `main`.
+#
+# ADVISORY. This workflow deploys nothing and references no secret: Render still deploys `main` exactly as
+# before. A deploy job is added later, in its own pull request, and only runs on `main` after both gate
+# jobs are green.
+#
+# Two gate jobs in parallel, because they are two diagnoses: `build` is `./gradlew build` (Checkstyle +
+# the fast H2 lane, no Docker — the everyday command), `integration` is `./gradlew integrationTest`
+# (Testcontainers Postgres; needs Docker, which the hosted runner has).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A PR's superseded run is cancelled; a running `main` run never is.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25 # 2 vCPU; the first run also fills the Gradle cache
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # `cache: gradle` caches the Gradle USER HOME (dependencies, wrapper) only. Never the BUILD cache: a
+      # `Test` task is cacheable, and a from-cache green ran nothing. No `--build-cache`, no
+      # `org.gradle.caching=true`, ever, here.
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21' # the toolchain build.gradle already declares
+          cache: gradle
+      - name: Every `uses:` is pinned to a commit SHA
+        run: |
+          set -euo pipefail
+          if grep -nE 'uses:[[:space:]]*[^@[:space:]]+@(v[0-9][^[:space:]]*|main|master)([[:space:]]|$)' .github/workflows/*.yml; then
+            echo "::error::An action above is pinned to a tag or branch. Pin it to a 40-character commit SHA."; exit 1; fi
+          grep -qE 'uses:[[:space:]]*[^@[:space:]]+@[0-9a-f]{40}' .github/workflows/*.yml \
+            || { echo "::error::No SHA-pinned uses: line found at all — the check is broken, not the file."; exit 1; }
+      # Exactly the everyday command. `check` deliberately has no Docker dependency.
+      - name: Build (Checkstyle + the fast lane)
+        run: ./gradlew build --no-daemon
+      # Non-vacuity canary: a lane that ran ZERO tests is green for the wrong reason — a tag that excluded
+      # everything, a glob that matched nothing. The floor sits well BELOW the real count and is never raised
+      # to match it. Set from the first measured `main` run; warns until then.
+      - name: The fast lane actually ran tests
+        env:
+          FLOOR: 0 # ← set from the first main run's count, with headroom
+        run: |
+          set -euo pipefail
+          n=$( (grep -rho '<testcase ' reports/junit/test --include='*.xml' 2>/dev/null || true) | wc -l)
+          echo "testcases: $n (floor $FLOOR)"
+          [ "$FLOOR" -gt 0 ] || echo "::warning::The fast-lane test-count floor is not set yet; set FLOOR from this run's count."
+          [ "$n" -ge "$FLOOR" ] || { echo "::error::Only $n test cases ran in the fast lane; the floor is $FLOOR. The lane is green for the wrong reason."; exit 1; }
+      - name: Upload the JUnit report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-server-test-${{ github.sha }}
+          path: reports/junit/test/
+          retention-days: 7
+          if-no-files-found: warn
+
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      # A named infra check so a Docker failure reddens on its own line, not as a wall of red tests.
+      - name: Docker is reachable (Testcontainers needs it)
+        run: docker info --format '{{.ServerVersion}}'
+      - name: Integration tests (Testcontainers Postgres)
+        run: ./gradlew integrationTest --no-daemon
+      - name: The integration lane actually ran tests
+        env:
+          FLOOR: 0 # ← set from the first main run's count, with headroom
+        run: |
+          set -euo pipefail
+          n=$( (grep -rho '<testcase ' reports/junit/integrationTest --include='*.xml' 2>/dev/null || true) | wc -l)
+          echo "testcases: $n (floor $FLOOR)"
+          [ "$FLOOR" -gt 0 ] || echo "::warning::The integration-lane test-count floor is not set yet; set FLOOR from this run's count."
+          [ "$n" -ge "$FLOOR" ] || { echo "::error::Only $n integration test cases ran; the floor is $FLOOR. The lane is green for the wrong reason."; exit 1; }
+      - name: Upload the JUnit report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-server-integration-${{ github.sha }}
+          path: reports/junit/integrationTest/
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ------------------------------------------------------------------------------------------------
+  # changes — the path filter, in its own job (see the client repository's ci.yml: the same script).
+  # Every ambiguous case resolves to DEPLOY. The skip set is `*.md`. Nothing consumes the output yet.
+  # ------------------------------------------------------------------------------------------------
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.decide.outputs.deploy }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      - if: github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether this push changes anything that ships
+        id: decide
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          decide() {
+            echo "deploy=$1" >> "$GITHUB_OUTPUT"
+            echo "reason=$2" >> "$GITHUB_OUTPUT"
+            printf '### Deploy decision\n\n- deploy: `%s`\n- reason: %s\n' "$1" "$2" >> "$GITHUB_STEP_SUMMARY"
+            echo "deploy=$1 — $2"
+            exit 0
+          }
+          [ "$EVENT" = "push" ] || decide true "not a push; the deploy job's ref guard decides"
+          case "${BEFORE:-}" in ""|0000000000000000000000000000000000000000)
+            decide true "no base commit on the event — a diff cannot be computed" ;; esac
+          git cat-file -e "${BEFORE}^{commit}" 2>/dev/null \
+            || decide true "base commit ${BEFORE} is not in this clone (force-push or expired)"
+          changed="$RUNNER_TEMP/changed.txt"
+          git diff --name-only "$BEFORE" "$GITHUB_SHA" > "$changed"
+          echo "changed files:"; sed 's/^/  /' "$changed"
+          [ -s "$changed" ] || decide true "the diff came back EMPTY on a push — refusing to skip on a computation that plainly failed"
+          if grep -qvE '\.md$' "$changed"; then
+            decide true "at least one changed path ships (list above)"
+          fi
+          decide false "every changed path ends in .md — nothing that ships changed"
