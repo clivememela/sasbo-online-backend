@@ -29,6 +29,8 @@ RUN chown app:app /app.jar
 USER app
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+# Force the JVM to respect container memory limits and use a max of 75% of available RAM
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+
 
 
