@@ -11,5 +11,6 @@ public class JobGradeDto {
     private String grade;
     private String contractType;
     private String description;
+    private Boolean isBargainingCouncil;
 
 }

@@ -14,7 +14,7 @@ spring:
     validate-on-migrate: false
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     open-in-view: false
     properties:
       hibernate:

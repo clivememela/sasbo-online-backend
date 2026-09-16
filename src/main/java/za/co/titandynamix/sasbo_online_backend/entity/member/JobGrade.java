@@ -36,9 +36,12 @@ public class JobGrade {
     @Column(name = "description")
     private String description;
 
+    @Column(name = "is_bargaining_council")
+    private Boolean isBargainingCouncil;
+
     /**
      * Allows clients (and the seed data) to send the grade as a plain string,
-     * e.g. {@code "jobGrade": "BA1"}. The resulting instance is transient and is
+     * e.g. { @grade} "jobGrade": "BA1"} . The resulting instance is transient and is
      * resolved to the persisted, bank-specific row in the service layer before saving.
      */
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)

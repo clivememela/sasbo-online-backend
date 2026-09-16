@@ -38,6 +38,7 @@ public class JobGradeController {
                                                        dto.setGrade(jobGrade.getGrade());
                                                        dto.setDescription(jobGrade.getDescription());
                                                        dto.setContractType(jobGrade.getContractType());
+                                                       dto.setIsBargainingCouncil(jobGrade.getIsBargainingCouncil());
 
                                                        // Defensively catch structural errors here
                                                        try {

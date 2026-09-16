@@ -39,7 +39,7 @@ class JobGradeServiceTest {
     }
 
     private static JobGrade grade(Integer id, Bank bank, String value) {
-        return new JobGrade(id, bank, value, null, null);
+        return new JobGrade(id, bank, value, null, null,null);
     }
 
     @Test

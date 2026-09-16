@@ -54,15 +54,6 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
-    /**
-     * Date of birth of the user.
-     */
-    private LocalDate dob;
-
-    /**
-     * Telephone number of the user.
-     */
-    private long tel;
 
     /**
      * Additional tag for the user.
@@ -76,11 +67,6 @@ public class User {
     private String password;
 
     /**
-     * Gender of the user.
-     */
-    private String gender;
-
-    /**
      * Timestamp of when the user was created.
      */
     @CreationTimestamp
@@ -91,10 +77,6 @@ public class User {
      */
     @UpdateTimestamp
     private LocalDateTime updatedAt;
-
-    @Builder.Default
-    @Embedded
-    private TwoFactorAuthentication twoFactorAuthentication = new TwoFactorAuthentication();
 
     @Builder.Default
     @Column(name = "is_enabled")
@@ -124,7 +106,7 @@ public class User {
     }
 
     @Override
-    public final boolean equals(Object o) {
+    public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
         if (Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
@@ -133,7 +115,7 @@ public class User {
     }
 
     @Override
-    public final int hashCode() {
+    public int hashCode() {
         return Objects.hash(Hibernate.getClass(this), getUsername());
     }
 

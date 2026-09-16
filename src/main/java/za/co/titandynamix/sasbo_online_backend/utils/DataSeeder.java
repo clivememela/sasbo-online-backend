@@ -114,7 +114,7 @@ public class DataSeeder implements ApplicationRunner {
                                 log.warn("Skipping job grade '{}' for unknown bank '{}'", seed.grade(), seed.bankName());
                                 return null;
                             }
-                            return new JobGrade(null, bank, seed.grade(), seed.contractType(), seed.description());
+                            return new JobGrade(null, bank, seed.grade(), seed.contractType(), seed.description(), seed.isBargainingCouncil());
                         })
                         .filter(Objects::nonNull)
                         .toList();
@@ -204,6 +204,6 @@ public class DataSeeder implements ApplicationRunner {
     }
 
     /** Shape of the entries in data/job_grades.json; the bank is resolved by name. */
-    private record JobGradeSeed(String bankName, String grade, String contractType, String description) {
+    private record JobGradeSeed(String bankName, String grade, String contractType, String description, Boolean isBargainingCouncil) {
     }
 }
