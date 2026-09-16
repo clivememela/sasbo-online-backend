@@ -18,6 +18,7 @@ GET /api/members/{id}
 PUT /api/members/{id}
 PATCH /api/members/{id}/banking
 PATCH /api/members/{id}/subscription
+POST /api/members/{id}/send-welcome
 GET /api/provinces
 GET /api/recruitment-channels
 POST /api/recruitment-channels

@@ -13,6 +13,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.representative.UnionStructure
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
+import za.co.titandynamix.sasbo_online_backend.services.EmailService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
@@ -26,8 +27,8 @@ public class MemberController {
 
     private final MemberService memberService;
     private final MemberMapper memberMapper;
-
     private final RepresentativeService representativeService;
+    private final EmailService emailService;
 
     @GetMapping
     @Transactional(readOnly = true)
@@ -134,6 +135,16 @@ public class MemberController {
             @RequestBody SubscriptionUpdateRequest request) {
         return this.memberService.updateMonthlySubscription(id, request.getMonthlySubscription())
                        .map(updated -> ResponseEntity.ok(this.memberMapper.toDto(updated)))
+                       .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/send-welcome")
+    public ResponseEntity<Void> sendWelcomeLetter(@PathVariable Integer id) {
+        return this.memberService.findById(id)
+                       .map(member -> {
+                           this.emailService.sendWelcomeLetter(member);
+                           return ResponseEntity.ok().<Void>build();
+                       })
                        .orElse(ResponseEntity.notFound().build());
     }
 
