@@ -248,4 +248,90 @@ public final class KnownDefects {
                     + "may read and write the member register cross-origin with credentials. "
                     + "This test asserts that no wildcard origin pattern escapes a domain this "
                     + "project controls.";
+
+    /**
+     * Production runs {@code spring.jpa.hibernate.ddl-auto: update}, so Hibernate
+     * alters the live schema at boot to match the entities -- outside the
+     * migration chain, and without ever dropping a column. A mapped field with no
+     * migration becomes a column in production that no migration-built database
+     * has. Register row C1; {@code is_bargaining_council} (C13) is the instance
+     * that arrived on 2026-09-16.
+     */
+    public static final String PRODUCTION_HIBERNATE_WRITES_THE_SCHEMA =
+            "KNOWN DEFECT: production runs ddl-auto: update, so Hibernate alters the live schema "
+                    + "outside the migration chain and production drifts from every database "
+                    + "the migrations build. This test asserts production only validates.";
+
+    /**
+     * Production sets {@code spring.flyway.clean-disabled: false}. One
+     * {@code flyway clean} against the production URL drops every object in the
+     * schema. Register row C4 -- the one-line fix is deleting the line.
+     */
+    public static final String PRODUCTION_PERMITS_FLYWAY_CLEAN =
+            "KNOWN DEFECT: production sets flyway clean-disabled: false, so a single flyway clean "
+                    + "drops every object in the live schema. This test asserts clean is not "
+                    + "permitted.";
+
+    /**
+     * {@code ace7297} turned on {@code spring.jpa.show-sql}, which prints every
+     * statement to stdout regardless of the {@code org.hibernate.SQL} level set
+     * beside it, and the root logger has run at DEBUG since before this suite
+     * existed. Register row C11.
+     */
+    public static final String PRODUCTION_LOGS_EVERY_STATEMENT =
+            "KNOWN DEFECT: production echoes every SQL statement (show-sql: true) and runs the "
+                    + "root logger at DEBUG, on a service holding identity and bank account "
+                    + "numbers. This test asserts neither is on.";
+
+    /**
+     * {@code SBV Services (Pty) Ltd} and {@code South African Reserve Bank} were
+     * both seeded with the placeholder branch code {@code 000000}, and both carry
+     * job grades. The client resolves a bank name to its code and asks for
+     * grades by code; {@code JobGradeServiceImpl.findByBankIdentifier} tries the
+     * code first -- so choosing either bank offers both banks' grades. Register
+     * row A44.
+     */
+    public static final String BANKS_WITH_GRADES_SHARE_A_BRANCH_CODE =
+            "KNOWN DEFECT: two banks that carry job grades share one universal branch code, and "
+                    + "grades are looked up by code first, so choosing either bank offers both "
+                    + "banks' grades. This test asserts every bank with grades has its own code.";
+
+    /**
+     * {@code job_grades.json} gained {@code isBargainingCouncil}, and two Absa
+     * rows whose description states a status -- AVP "Non - Bargaining", BA3
+     * "Bargaining unit" -- carry {@code null}, while their siblings with the same
+     * description carry the matching boolean. Register row A45.
+     */
+    public static final String BARGAINING_FLAG_CONTRADICTS_ITS_DESCRIPTION =
+            "KNOWN DEFECT: seeded job grades whose description states a bargaining status carry "
+                    + "a missing or contrary isBargainingCouncil flag. This test asserts every "
+                    + "stated status and its flag agree.";
+
+    /**
+     * Twelve seeded members name a bank as no bank on record is named --
+     * "Nedbank", "Standard Bank", "Absa Bank" and four more. The server resolves
+     * a member's subscription, debit day and job grade by bank NAME, so all
+     * three miss for those members. Main's Capitec rename fixed one such name.
+     * Register row A46.
+     */
+    public static final String SEEDED_MEMBERS_NAME_BANKS_NOT_ON_RECORD =
+            "KNOWN DEFECT: seeded members name banks that match no bank on record, so every "
+                    + "by-name lookup for them (subscription, debit day, job grade) misses. This "
+                    + "test asserts every seeded member's bank is on record.";
+
+    /**
+     * No migration puts a unique constraint on {@code members.membership_number} or
+     * {@code members.identity_number}, so the database stores the same member twice
+     * without complaint. On 2026-09-16 production held all 160 seeded members twice
+     * (ids 1-160 and 161-320) after its tables were dropped (C12) and re-seeded.
+     * Register row A48.
+     *
+     * <p>⚠️ Fixing it touches the tests too: {@code MemberFixture} gives every member
+     * the same {@code SYNTHETIC_ID}, and several integration tests save many of them.
+     */
+    public static final String DUPLICATE_MEMBERS_ARE_ACCEPTED =
+            "KNOWN DEFECT: neither members.membership_number nor members.identity_number is "
+                    + "unique in the schema, so the same member can be stored twice -- production "
+                    + "held every member twice on 2026-09-16. This test asserts the database "
+                    + "refuses the duplicate.";
 }
