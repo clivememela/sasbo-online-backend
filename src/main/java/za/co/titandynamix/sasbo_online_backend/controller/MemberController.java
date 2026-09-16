@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,8 @@ public class MemberController {
     private final MemberService memberService;
     private final MemberMapper memberMapper;
     private final RepresentativeService representativeService;
-    private final EmailService emailService;
+    @Autowired(required = false)
+    private EmailService emailService;
 
     @GetMapping
     @Transactional(readOnly = true)
@@ -46,6 +48,7 @@ public class MemberController {
     }
 
     @PostMapping
+    @Transactional
     @ResponseStatus(HttpStatus.OK)
     public MemberDto create(@RequestBody Member member) {
         if (member.getUser() != null) {
@@ -140,6 +143,9 @@ public class MemberController {
 
     @PostMapping("/{id}/send-welcome")
     public ResponseEntity<Void> sendWelcomeLetter(@PathVariable Integer id) {
+        if (this.emailService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
         return this.memberService.findById(id)
                        .map(member -> {
                            this.emailService.sendWelcomeLetter(member);

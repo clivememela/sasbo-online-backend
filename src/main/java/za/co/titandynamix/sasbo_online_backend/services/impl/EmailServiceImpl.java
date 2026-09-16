@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -25,6 +26,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@ConditionalOnExpression("'${spring.mail.username:}'.length() > 0")
 public class EmailServiceImpl implements EmailService {
 
     private static final String TEMPLATE = "documents/Sasbo Welcome Letter.docx";
@@ -173,7 +175,7 @@ public class EmailServiceImpl implements EmailService {
         return """
                 Dear %s,
 
-                Welcome to SASBO – South African Buried Services Officers.
+                Welcome to SASBO – Sasbo – The Finance Union.
 
                 Your membership has been successfully captured. Please find your personalised welcome letter attached.
 
