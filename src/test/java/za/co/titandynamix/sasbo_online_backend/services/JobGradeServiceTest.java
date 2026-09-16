@@ -4,6 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
@@ -78,6 +80,24 @@ class JobGradeServiceTest {
                 .hasSize(1)
                 .extracting(JobGrade::getGrade)
                 .containsExactly("BA1");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"12345", "632005"})
+    @DisplayName("Should not read a numeric candidate of five digits or more as a bank id when no universal code matches")
+    void testFindByLongNumericCodeWithNoMatch(String candidate) {
+        // Arrange — a universal branch code shape that matches no bank. The universal-code
+        // test above stubs the code lookup to SUCCEED, so its never() holds with or without
+        // the length gate; starving the lookup leaves the gate as the only thing in the way.
+        // "12345" is the boundary the gate defines, "632005" the real-world shape.
+        when(this.jobGradeRepository.findByBank_UniversalBranchCode(candidate)).thenReturn(List.of());
+
+        // Act
+        List<JobGrade> result = this.jobGradeService.findByBankIdentifier(candidate);
+
+        // Assert — the candidate is not a primary key, so it is never tried as one
+        assertThat(result).isEmpty();
+        verify(this.jobGradeRepository, never()).findByBank_Id(Integer.valueOf(candidate));
     }
 
     @Test

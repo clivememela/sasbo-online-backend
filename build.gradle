@@ -3,6 +3,7 @@ plugins {
 	id 'org.springframework.boot' version '3.4.5'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'checkstyle'
+	id 'jacoco'
 }
 
 group = 'za.co.titandynamix'
@@ -24,6 +25,21 @@ configurations {
 repositories {
 	mavenCentral()
 }
+
+// Testcontainers, deliberately ahead of the version Spring Boot 3.4.5 manages.
+//
+// Boot 3.4.5 manages 1.20.6, and 1.20.6 CANNOT TALK TO THIS DOCKER. Engine 29.6.2
+// (Desktop 4.84) answers its /info call with HTTP 400 on every named pipe it tries,
+// so Testcontainers reports "Could not find a valid Docker environment" on a machine
+// where `docker info` works perfectly. 1.21.4 connects first time. Same 1.x API, so
+// spring-boot-testcontainers is unaffected.
+//
+// It is an `ext` property rather than a platform() constraint because
+// io.spring.dependency-management FORCES its managed version: with
+// `testImplementation platform('org.testcontainers:testcontainers-bom:1.21.4')` the
+// build silently kept resolving 1.20.6. Overriding the managed property is the only
+// thing that actually moves it.
+ext['testcontainers.version'] = '1.21.4'
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -47,15 +63,247 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'com.h2database:h2'
 
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	// Integration lane: a real, throwaway PostgreSQL with the migration chain applied.
+	// Versions are deliberately absent. io.spring.dependency-management already imports
+	// the Testcontainers BOM that Boot 3.4.5 was built and tested against (1.20.6), and
+	// an explicit testcontainers-bom here was silently losing to it -- the file said
+	// 1.20.4 and the build resolved 1.20.6. One source of truth is better than a pin
+	// that does not hold.
+	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+
+	// Promoted from testRuntimeOnly: the same artifact, now also on the test
+	// COMPILE path, so LoggingBootstrap can implement LauncherSessionListener.
+	// That listener binds SLF4J to Logback once, on the launcher thread, before
+	// the parallel phase starts -- without it, a log-capturing test that lands
+	// beside a class booting a Spring context is handed SLF4J's substitute
+	// factory and fails in its own setup. No new dependency is resolved.
+	testImplementation 'org.junit.platform:junit-platform-launcher'
 }
 
 jar {
 	enabled = false
 }
 
-tasks.named('test') {
+// ---------------------------------------------------------------------------
+// Two lanes.
+//
+//   test             fast, H2, no Docker. The pre-commit loop. Untagged tests.
+//   integrationTest  a real PostgreSQL container with the migration chain
+//                    applied. Tagged `integration`.
+//   verify           both, in one command.
+//
+// `check` deliberately still depends on `test` alone, so `./gradlew build`
+// keeps working with no Docker daemon. Hanging integrationTest off `check`
+// would add a Docker requirement to a task everyone already runs -- see the
+// integrationTest description below.
+// ---------------------------------------------------------------------------
+
+def junitXmlInto = { Test t, String name ->
+	def dir = layout.projectDirectory.dir("reports/junit/${name}")
+	t.reports.junitXml.outputLocation = dir
+	// Gradle overwrites the files it produces and removes nothing else, so a
+	// deleted or renamed test leaves its last result behind forever. That stale
+	// XML is then counted by every report reader and uploaded by CI as a test
+	// that still exists -- observed here: a temporary class deleted from the
+	// source tree kept appearing in the totals. Clear the directory first.
+	t.doFirst {
+		delete dir
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The forked test JVM's heap, DECLARED rather than inherited -- CI-5.
+//
+// 🔴 IT WAS UNDECLARED, so every Test task took the JVM's host-derived default:
+// one quarter of physical RAM, measured at 4018 MB on this machine. That is not
+// a tuning question, it is a REPRODUCIBILITY one -- the same suite was given a
+// different heap on every machine it ran on, and nobody had chosen any of them.
+// A memory-shaped failure is then unattributable, which matters here more than
+// most places: F9 and F11 are both host-starvation incidents that presented as
+// failing suites.
+//
+// `withType(Test)` rather than the two tasks separately, so `generateApiSurface`
+// -- also a Test task -- cannot be the one that quietly keeps the old default.
+//
+// 🔴 DECLARED AT THE VALUE THIS HOST WAS ALREADY USING, WHICH MAKES THIS A
+// NO-OP HERE ON PURPOSE -- and the first draft got that wrong in a way worth
+// recording. It set `2g`, halving the ceiling, with a comment calling the
+// number "a ceiling chosen for portability". That is a TUNING decision, and
+// choosing it properly is a six-run timing experiment on a quiet host, which
+// this box has not been for days. Changing heap on a memory-pressured machine
+// is how the false red this suite has already been bitten by gets manufactured.
+//
+// Measured on this host: the fork's ergonomic default was `MaxHeapSize` 4018 MB
+// (a quarter of 16 GB). `4g` is that value, written down. So the suite behaves
+// exactly as it did, and the number is now a choice somebody can find and
+// change rather than a property of whichever machine ran it.
+//
+// ⚠️ `minHeapSize` IS DELIBERATELY NOT SET. The first draft set `512m`, which
+// RAISES the up-front commitment from this JVM's ~252 MB default -- the wrong
+// direction on a box measured between 1.0 and 2.7 GB free, and a second
+// unargued tuning decision riding along with the first. A short-lived test JVM
+// gains almost nothing from a large initial heap.
+//
+// ⏳ The real ceiling belongs to the timing experiment, on a quiet host, with
+// the daemon's own heap and `org.gradle.workers.max` considered at the same
+// time -- this declares one of the three JVMs in play.
+tasks.withType(Test).configureEach {
+	maxHeapSize = '4g'
+}
+
+tasks.named('test', Test) {
+	useJUnitPlatform {
+		excludeTags 'integration'
+	}
+	junitXmlInto(delegate, 'test')
+}
+
+tasks.register('integrationTest', Test) {
+	group = 'verification'
+	description = 'Runs the `integration`-tagged tests against a real PostgreSQL container. Needs Docker.'
+
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+
+	useJUnitPlatform {
+		includeTags 'integration'
+	}
+	junitXmlInto(delegate, 'integrationTest')
+
+	// These tests read a database, and Gradle's up-to-date check cannot see one.
+	// Without this, a second run with unchanged sources reports success in seconds
+	// without executing anything -- including against a database that has since
+	// been broken. A green result that ran nothing is the failure this lane exists
+	// to prevent.
+	outputs.upToDateWhen { false }
+
+	// 🔴 `mustRunAfter`, NOT `shouldRunAfter` -- the hard form, and the soft one
+	// was a foot-gun that only fires on the machine it hurts most.
+	//
+	// `shouldRunAfter` is explicitly advisory: Gradle is permitted to ignore it
+	// to improve parallelism or to break a cycle. Both lanes are `Test` tasks and
+	// each forks a JVM; the integration lane also starts a PostgreSQL container.
+	// Ordered concurrently -- which `--parallel` is allowed to do -- that is two
+	// forked JVMs plus a database on a host this project has repeatedly measured
+	// between 1.0 and 2.7 GB free.
+	//
+	// 🔑 AND THE FAILURE WOULD NOT LOOK LIKE A CONFIGURATION MISTAKE. It is
+	// F11's signature: workers failing to start under memory pressure, reported
+	// as ordinary failures, in the other repository. It reads as flake. The hard
+	// ordering costs nothing in the normal case -- the lanes already run in this
+	// order -- and removes the only path to that state.
+	mustRunAfter tasks.named('test')
+}
+
+tasks.register('verify') {
+	group = 'verification'
+	description = 'Both lanes: everything `check` runs, plus the integration tests.'
+	dependsOn tasks.named('check'), tasks.named('integrationTest')
+}
+
+// ---------------------------------------------------------------------------
+// The API contract artifacts.
+//
+// `api-surface.txt` and `api-vocabulary.json` at the PROJECT ROOT -- not under
+// src/main/resources, which is packaged into the deployable JAR. They are test
+// artifacts; shipping a map of the whole API to production serves no runtime
+// purpose.
+//
+// This task and ApiSurfaceSnapshotTest are THE SAME CLASS, run two ways:
+//
+//     ./gradlew generateApiSurface   writes the artifacts   (-DapiSurface.write=true)
+//     ./gradlew test                 asserts they match     (the fast lane)
+//
+// One class rather than a generator plus a checker, on purpose. Two separate
+// implementations of the same format drift from each other, and the symptom is
+// a freshness test that reddens on a file the generator just wrote.
+//
+// Needs no Docker and no database: the handler mapping is populated at context
+// refresh, before any query runs.
+// ---------------------------------------------------------------------------
+tasks.register('generateApiSurface', Test) {
+	group = 'documentation'
+	description = 'Rewrites api-surface.txt and api-vocabulary.json from the live routing table. Commit the diff.'
+
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+
 	useJUnitPlatform()
+	filter {
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.guards.ApiSurfaceSnapshotTest'
+	}
+
+	systemProperty 'apiSurface.write', 'true'
+
+	// Regenerating is something you ask for explicitly. Gradle's up-to-date
+	// check would otherwise skip it whenever the test sources had not changed
+	// -- including the case that matters most, where a CONTROLLER changed and
+	// the artifact is exactly what needs rewriting.
+	outputs.upToDateWhen { false }
+}
+
+// ---------------------------------------------------------------------------
+// JaCoCo: a REPORT, never a gate.
+//
+// No violationRules, no threshold, and nothing wired into `check`. Coverage is
+// a DISCOVERY tool here -- it answers "which of the twelve controllers has no
+// test" as a command rather than a hand count, and it catches the one case a
+// hand count cannot: a test that exists and exercises nothing.
+//
+// As a TARGET it is Goodhart bait, and as a build gate it would redden the
+// incumbent developer's pushes for a number nobody agreed to.
+//
+// It does not replace CoverageFloorTest. A line-coverage percentage cannot tell
+// you a controller has no test FILE -- it will happily report 60% while two
+// controllers are untouched. The floor is the contract; this is the map.
+//
+// Off on `test` by default, deliberately. MEASURED 2026-09-04 on this suite,
+// two runs of `./gradlew test --rerun` each way:
+//
+//     without the agent   70s, 64s
+//     with the agent      87s, 91s      -- about +22s, roughly a THIRD slower
+//
+// That is material, and materially more than it was assumed to be before it
+// was measured: the first estimate written here was "+8s, ~13%", from nowhere.
+// The fast lane is the pre-commit loop and is already at its budget, so a
+// third of it for a report nobody reads on every commit is the wrong trade.
+//
+// Ask for it when you want it:  ./gradlew test -Pcoverage jacocoTestReport
+// ---------------------------------------------------------------------------
+jacoco {
+	toolVersion = '0.8.12'
+}
+
+tasks.named('test', Test) {
+	// The agent costs ~13% of the fast lane. Off by default, on when asked for.
+	jacoco.enabled = providers.gradleProperty('coverage').isPresent()
+}
+
+tasks.named('jacocoTestReport', JacocoReport) {
+	// The .exec files by path, and only the ones that exist. Passing the TASKS
+	// here resolves to their binary results directory instead, which JaCoCo
+	// cannot read -- it fails with 'Unable to read execution data file'.
+	//
+	// filter() rather than a hard list, because `test` writes no .exec unless
+	// -Pcoverage was passed. Without it, asking for a report after a plain
+	// `test` run fails on a missing file rather than reporting what it has.
+	executionData.setFrom(files(
+		layout.buildDirectory.file('jacoco/test.exec'),
+		layout.buildDirectory.file('jacoco/integrationTest.exec')
+	).filter { it.exists() })
+	sourceSets sourceSets.main
+	reports {
+		html.required = true
+		xml.required = true
+		html.outputLocation = layout.projectDirectory.dir('reports/coverage')
+		xml.outputLocation = layout.projectDirectory.file('reports/coverage/jacoco.xml')
+	}
+	// Both lanes have run, or the report is a partial picture presented as a
+	// whole one -- which is worse than no report, because it reads as coverage
+	// the integration lane already provides.
+	mustRunAfter tasks.named('integrationTest')
 }
 
 // Enable compiler lint warnings to simulate IDE inspections

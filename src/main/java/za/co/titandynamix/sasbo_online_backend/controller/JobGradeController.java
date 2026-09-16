@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import za.co.titandynamix.sasbo_online_backend.dto.member.JobGradeDto;
 import za.co.titandynamix.sasbo_online_backend.dto.member.JobGradeResponseDto;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
-import za.co.titandynamix.sasbo_online_backend.services.impl.JobGradeServiceImpl;
+import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/job-grades")
 @RequiredArgsConstructor
 public class JobGradeController {
-    private final JobGradeServiceImpl jobGradeService;
+    private final JobGradeService jobGradeService;
 
     @GetMapping
     public ResponseEntity<List<JobGradeResponseDto>> getByBank(

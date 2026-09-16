@@ -512,28 +512,78 @@ Representatives are **not** seeded — they are managed via the API.
 
 ## Testing
 
-Tests use JUnit 5 (Spring Boot Test) with H2 in-memory at test runtime (`testRuntimeOnly 'com.h2database:h2'`).
-
 ```bash
-./gradlew test          # Run all tests
-./gradlew build        # Compile + Checkstyle + tests + package the JAR
+./gradlew verify
 ```
 
-Existing test classes:
+That is the command. `verify` runs **both lanes** — everything `check` runs, plus the integration
+tests against a real PostgreSQL — and it is the one to run before pushing.
 
-- `SasboOnlineBackendApplicationTests` — Spring context load smoke test
-- `config/DotEnvEnvironmentPostProcessorTest` — dotenv parsing/precedence unit tests
-- `controller/DeletionCodeControllerTest`, `controller/MemberControllerTest` — controller layer tests
-- `services/JobGradeServiceTest`, `services/impl/BankServiceImplTest` — service layer tests
-- `validator/MemberValidatorTest` — member validation rules
+### Two lanes, and why the split is deliberate
 
-The `DotEnvEnvironmentPostProcessor.parse(...)` method is package-private and static specifically so it can
-be unit tested without a Spring context.
+| Command | What runs | Needs Docker |
+| --- | --- | --- |
+| `./gradlew verify` | **both lanes** — the fast lane and the integration lane | **yes** |
+| `./gradlew check` | the fast lane only | **no** |
+| `./gradlew build` | compile, `check`, and package | **no** |
 
-Checkstyle runs as part of the build (`id 'checkstyle'`); violations fail the build. Compiler lint warnings
-are enabled (`-Xlint:all`).
+🔴 **`check` and `build` deliberately do NOT depend on the integration lane.** The everyday build
+must never acquire a Docker dependency: someone compiling this project should not need a running
+daemon to do it. The integration tests hang off `verify` alone, and that is the whole reason
+`verify` exists as a separate task rather than being folded into `check`.
 
----
+The integration lane starts a real PostgreSQL container per run via Testcontainers, applies the
+Flyway migration chain to an **empty** database, and tests against the result. It never touches a
+developer database.
+
+### What it needs
+
+- **Java 21.** The build declares a toolchain, so Gradle will fetch a matching JDK rather than
+  failing on whatever happens to be on `PATH`.
+- **Gradle 9.7.1**, pinned by the wrapper. Use `./gradlew`, never a locally installed `gradle`.
+- **Docker**, for `verify` only — see the table above.
+- **No credentials, and no `.env.local`.** That file is git-ignored, so a fresh clone has none; the
+  tests must run without one and do.
+
+### What it produces
+
+| Path | What it is |
+| --- | --- |
+| `reports/junit/test/*.xml` | JUnit XML, fast lane |
+| `reports/junit/integrationTest/*.xml` | JUnit XML, integration lane |
+| `build/reports/tests/` | Gradle's browsable HTML report — the place to start when something is red |
+| `reports/coverage/` | JaCoCo, only when asked for: `./gradlew test -Pcoverage jacocoTestReport` |
+
+All of it is build output and all of it is git-ignored. The JUnit XML directories are **cleared at
+the start of each run**: Gradle overwrites what it produces and removes nothing else, so a deleted
+or renamed test would otherwise leave its last result on disk to be counted forever.
+
+### The exit code is the whole result
+
+`0` means every test passed. Anything else means it did not, and there is no third meaning. A run
+that prints a green summary and exits non-zero has still failed.
+
+### Some tests are disabled on purpose, and none of them is flaky
+
+A `@Disabled` test in this project means exactly one thing: **a test written to the correct
+behaviour, against a real defect, left visibly failing by design.** Fixing the defect is a
+production change; this suite's job is to make it visible rather than to repair it quietly.
+
+Every one of them cites a constant in
+[`KnownDefects`](src/test/java/za/co/titandynamix/sasbo_online_backend/support/KnownDefects.java),
+which carries the whole finding as its text, and
+[`DisabledPopulationTest`](src/test/java/za/co/titandynamix/sasbo_online_backend/guards/DisabledPopulationTest.java)
+asserts the correspondence **in both directions** — a disabled test with no constant reddens, and so
+does a constant whose test has been fixed and left disabled. That second half is the one that
+actually rots, because nothing else in a suite ever complains about it.
+
+**Nothing here is skipped for being unreliable**, no test is retried, and a flaky test is a bug to
+fix in the session that finds it.
+
+> ⚠️ **The disabled reasons do not reach the JUnit XML.** `@Disabled` takes a compile-time constant
+> carrying the full explanation, and Gradle's XML writer emits a bare `<skipped/>` — no message, and
+> a display name that does not name the defect either. So any tool reading only the XML sees *that*
+> a test was skipped and can never see *why*. Read `KnownDefects` for the reasons.
 
 ## Error handling
 
@@ -590,6 +640,12 @@ Timestamps are UTC. The catch-all 500 handler logs the full stack trace before r
 
 To allow a production frontend, set `FRONTEND_URL` to the deployed SPA origin (and ensure it is allow-listed
 here).
+
+> ⚠️ **Getting this wrong does not look like a CORS problem.** The application starts perfectly and every
+> read works — only `POST`, `PUT`, `PATCH` and `DELETE` are refused, with `403 Invalid CORS request` and an
+> empty body. The client surfaces that as `Failed to save member: HTTP 403:`, which names neither CORS nor
+> the origin, so it reads as a permissions bug in the application. Note that the origin the browser sends is
+> the one it loaded the SPA from: inside a container network that is the service name, not `localhost`.
 
 ---
 

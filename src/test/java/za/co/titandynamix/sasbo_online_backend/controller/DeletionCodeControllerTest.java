@@ -11,6 +11,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.deletion.DeletionCodeCreateDto;
 import za.co.titandynamix.sasbo_online_backend.dto.deletion.DeletionCodeResponseDto;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
@@ -24,7 +25,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(DeletionCodeController.class)
-@Import(GlobalExceptionHandler.class)
+// JacksonConfig belongs here with GlobalExceptionHandler, as on every other
+// controller slice. Without it this one slice ran against Boot's default
+// ObjectMapper while the other eleven ran against the application's -- so it
+// was asserting a wire format the application does not produce.
+@Import({GlobalExceptionHandler.class, JacksonConfig.class})
 @AutoConfigureMockMvc(addFilters = false)
 class DeletionCodeControllerTest {
 
