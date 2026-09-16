@@ -318,4 +318,20 @@ public final class KnownDefects {
             "KNOWN DEFECT: seeded members name banks that match no bank on record, so every "
                     + "by-name lookup for them (subscription, debit day, job grade) misses. This "
                     + "test asserts every seeded member's bank is on record.";
+
+    /**
+     * No migration puts a unique constraint on {@code members.membership_number} or
+     * {@code members.identity_number}, so the database stores the same member twice
+     * without complaint. On 2026-09-16 production held all 160 seeded members twice
+     * (ids 1-160 and 161-320) after its tables were dropped (C12) and re-seeded.
+     * Register row A48.
+     *
+     * <p>⚠️ Fixing it touches the tests too: {@code MemberFixture} gives every member
+     * the same {@code SYNTHETIC_ID}, and several integration tests save many of them.
+     */
+    public static final String DUPLICATE_MEMBERS_ARE_ACCEPTED =
+            "KNOWN DEFECT: neither members.membership_number nor members.identity_number is "
+                    + "unique in the schema, so the same member can be stored twice -- production "
+                    + "held every member twice on 2026-09-16. This test asserts the database "
+                    + "refuses the duplicate.";
 }
