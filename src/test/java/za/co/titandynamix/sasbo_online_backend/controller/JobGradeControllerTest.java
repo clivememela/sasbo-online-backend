@@ -78,7 +78,7 @@ class JobGradeControllerTest {
     }
 
     @Test
-    @DisplayName("the label is the grade, its description and its contract type, joined")
+    @DisplayName("the label is grade-only even when description and contract type exist")
     void labelIsComposed() throws Exception {
         // 🔑 THE LABEL IS THE WHOLE REASON THE SHAPE CHANGED, so it is the thing
         // worth asserting. `value` is what gets submitted and `label` is what a
@@ -90,7 +90,7 @@ class JobGradeControllerTest {
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].value").value("C1"))
-                .andExpect(jsonPath("$[0].label").value("C1 - Clerk - Permanent"));
+                .andExpect(jsonPath("$[0].label").value("C1"));
     }
 
     @Test
@@ -151,7 +151,7 @@ class JobGradeControllerTest {
     }
 
     @Test
-    @DisplayName("a missing middle part leaves no doubled separator in the label")
+    @DisplayName("the label remains grade-only when optional fields are missing")
     void labelSkipsAbsentPartsRatherThanPaddingThem() throws Exception {
         // 🔑 THE GAP BETWEEN THE TWO LABEL TESTS ABOVE. One covers a grade with
         // nothing else, one covers a grade with everything -- and between them
@@ -165,7 +165,7 @@ class JobGradeControllerTest {
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].value").value("C1"))
-                .andExpect(jsonPath("$[0].label").value("C1 - Permanent"));
+                .andExpect(jsonPath("$[0].label").value("C1"));
     }
 
     /**

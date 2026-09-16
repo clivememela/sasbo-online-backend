@@ -18,7 +18,6 @@ import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/members")
@@ -35,7 +34,7 @@ public class MemberController {
     public List<MemberDto> getAll() {
         return this.memberService.findAll().stream()
                        .map(this.memberMapper::toDto)
-                       .collect(Collectors.toList());
+                       .toList();
     }
 
     @GetMapping("/{id}")
@@ -148,7 +147,7 @@ public class MemberController {
                                                             dto.setRequiresBankAccount(type.requiresBankAccount());
                                                             return dto;
                                                         })
-                                                        .collect(Collectors.toList());
+                                                        .toList();
 
         return ResponseEntity.ok(metadata);
     }
