@@ -273,8 +273,11 @@ class MemberRepositoryIT extends AbstractWritingIT {
     /**
      * 🔴 A48. Production on 2026-09-16 held every one of its 160 members TWICE -- ids 1-160
      * and 161-320, the same identity and membership numbers -- after the database was
-     * rebuilt from empty and the seeder ran twice. Nothing in the schema objected:
-     * neither column carries a unique constraint in any migration.
+     * rebuilt from empty and the seeder ran twice.
+     *
+     * <p>HALF FIXED: V26's partial unique index refuses a repeated identity number, which
+     * {@code MemberIdentityUniquenessIT} asserts. What is still open is the membership
+     * number, so this pair now covers that half only.
      *
      * <p>Asserted here and not in the fast lane for the reason {@code BankRepositoryIT}
      * gives: H2's schema is one Hibernate invents, so only the migration chain can say
@@ -282,8 +285,8 @@ class MemberRepositoryIT extends AbstractWritingIT {
      */
     @Test
     @Disabled(KnownDefects.DUPLICATE_MEMBERS_ARE_ACCEPTED)
-    @DisplayName("🔴 A48: refuses a second member with a membership or identity number already on record")
-    void membersAreUnique() {
+    @DisplayName("🔴 A48: refuses a second member with a membership number already on record")
+    void membershipNumbersAreUnique() {
         Member first = MemberFixture.withSurname("Mokoena");
         first.setMembershipNumber("M-100002");
         first.setIdentityNumber("8001015009087");
@@ -295,31 +298,26 @@ class MemberRepositoryIT extends AbstractWritingIT {
         assertThatThrownBy(() -> this.memberRepository.saveAndFlush(sameMembershipNumber))
                 .as("a membership number identifies one member")
                 .isInstanceOf(DataIntegrityViolationException.class);
-
-        Member samePerson = MemberFixture.withSurname("Mokoena");
-        samePerson.setMembershipNumber("M-100999");
-        samePerson.setIdentityNumber("8001015009087");
-        assertThatThrownBy(() -> this.memberRepository.saveAndFlush(samePerson))
-                .as("an identity number identifies one person")
-                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
-    @DisplayName("🔴 A48 still reproduces: the same member can be stored twice")
-    void theSameMemberCanStillBeStoredTwice() {
-        for (int copy = 0; copy < 2; copy++) {
+    @DisplayName("🔴 A48 still reproduces: two members can share a membership number")
+    void aMembershipNumberCanStillBeStoredTwice() {
+        // Different identity numbers, or V26 refuses the second save for the other reason
+        // and this pin would stop observing the half that is still open.
+        String[] identities = {"8001015009087", "9001015009086"};
+        for (String identity : identities) {
             Member member = MemberFixture.withSurname("Mokoena");
             member.setMembershipNumber("M-100002");
-            member.setIdentityNumber("8001015009087");
+            member.setIdentityNumber(identity);
             this.memberRepository.saveAndFlush(member);
         }
 
         assertThat(this.jdbc.queryForObject(
-                "SELECT count(*) FROM members WHERE membership_number = 'M-100002' AND identity_number = '8001015009087'",
+                "SELECT count(*) FROM members WHERE membership_number = 'M-100002'",
                 Integer.class))
-                .as("A48 has changed. If the second save was refused, A48 is fixed: enable "
-                        + "membersAreUnique, delete the KnownDefects row, and give MemberFixture "
-                        + "distinct identity numbers -- it reuses one SYNTHETIC_ID for every member")
+                .as("A48 has changed. If the second save was refused, the membership-number half is "
+                        + "fixed: enable membershipNumbersAreUnique and delete the KnownDefects row")
                 .isEqualTo(2);
     }
 
