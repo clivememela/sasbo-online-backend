@@ -1,5 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.mapper;
 
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -107,10 +109,10 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
         stored.setSurname("Stored");
         stored.setPhone("0115550000");
         stored.setStatus("Active");
-        stored.setMonthlySubscription("120.00");
-        stored.setCurrentBalance("50.00");
-        stored.setArrearsBalance("10.00");
-        stored.setLastMonthBalance("20.00");
+        stored.setMonthlySubscription(new BigDecimal("120.00"));
+        stored.setCurrentBalance(new BigDecimal("50.00"));
+        stored.setArrearsBalance(new BigDecimal("10.00"));
+        stored.setLastMonthBalance(new BigDecimal("20.00"));
         stored.setJoinDate(java.time.LocalDate.of(2020, 1, 31));
         stored.setMembershipNumber("M-1");
         return stored;
@@ -122,10 +124,10 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
         Member target = stored();
 
         Member submitted = new Member();
-        submitted.setMonthlySubscription("0.01");
-        submitted.setCurrentBalance("999999");
-        submitted.setArrearsBalance("888888");
-        submitted.setLastMonthBalance("777777");
+        submitted.setMonthlySubscription(new BigDecimal("0.01"));
+        submitted.setCurrentBalance(new BigDecimal("999999"));
+        submitted.setArrearsBalance(new BigDecimal("888888"));
+        submitted.setLastMonthBalance(new BigDecimal("777777"));
         submitted.setJoinDate(java.time.LocalDate.of(1999, 12, 31));
         submitted.setMembershipNumber("M-HIJACKED");
         submitted.setStatus("Inactive");

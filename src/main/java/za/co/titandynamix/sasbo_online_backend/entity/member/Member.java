@@ -18,6 +18,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.member.StringArrayToCommaSepa
 import za.co.titandynamix.sasbo_online_backend.entity.user.User;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -92,13 +93,18 @@ public class Member {
     private Integer debitDay;
 
     // Subscriptions
-    private String monthlySubscription;
+    // 🔴 NUMERIC(12,2) since V40, not text. These four were VARCHAR(255) from V1, which is
+    // why '100.00' < '9.00' was true in this database: money held as text cannot be summed,
+    // compared or ordered, and the ACB module's whole output is a control total the bureau
+    // reconciles against. V40 renamed the text columns `*_text` and kept every byte of them;
+    // V49 drops those once production's own counts have been read (D16, two steps).
+    private BigDecimal monthlySubscription;
     private String subscriptionFrequency;
 
     // Balances
-    private String currentBalance;
-    private String arrearsBalance;
-    private String lastMonthBalance;
+    private BigDecimal currentBalance;
+    private BigDecimal arrearsBalance;
+    private BigDecimal lastMonthBalance;
     private LocalDate dateLastChanged;
 
     @Column(name = "is_representative")
