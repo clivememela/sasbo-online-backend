@@ -25,15 +25,15 @@ package za.co.titandynamix.sasbo_online_backend.utils;
  * source offers a reason to allow earlier.
  *
  * <h2>The business-day rule is NOT here yet</h2>
- * Not computed on the server. The direction was CORRECTED on 2026-09-17: a
- * legacy SASBO re-debit letter (planning/branches/acb/legacy/) and the spec's
- * 18 August worked example both move a weekend or holiday FORWARD (a Sunday
- * 20th is debited Monday the 21st). The rule to implement is therefore: move
- * forward, except where forward would leave the month, then move backward --
- * so a date never falls below the 20th nor past month end. An earlier note here
- * said "backwards, never forwards", which would put a Saturday 20th on the
- * 19th, outside the window. The client's debitDate.js carries the rule and is
- * corrected in the capture-member re-port; the ACB arc computes collection dates.
+ * Not computed on the server. The rule, as the signed specification states it (18 August session,
+ * "SASBO Membership System" line 1862, and the A.7 glossary): a weekend or non-business day moves
+ * BACKWARD to the most recent business day in the same month; only where backward would fall below the
+ * 20th does it move FORWARD (the session's example: a Sunday 20th is processed on Monday the 21st, which
+ * SASBO's re-debit letter matches). So a date never falls below the 20th nor leaves its month.
+ * An earlier note here said "forward, backward only at month end" -- that matched all three worked
+ * examples and disagreed with the rule on 56 of 288 cells in 2026-2027 (day 25 in July 2026: Friday
+ * the 24th, not Monday the 27th). The client's debitDate.js carries the rule (A57); the ACB arc computes
+ * collection dates.
  */
 public final class DebitDay {
 
