@@ -91,7 +91,9 @@ public final class MigrationSeed {
             "V26__member_identity_number_unique.sql",
             // main's is_bargaining_council had no migration (C13); derived from V21's
             // bargaining_unit and backfilled, IF NOT EXISTS because production has it.
-            "V27__job_grade_bargaining_council.sql");
+            "V27__job_grade_bargaining_council.sql",
+            // CM-05: Shop Steward / BEC had no column; COSATU Local / Regional as yes/no.
+            "V29__member_structure_participation.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

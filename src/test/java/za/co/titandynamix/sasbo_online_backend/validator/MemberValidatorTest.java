@@ -194,4 +194,54 @@ class MemberValidatorTest {
         member.setDebitDay(debitDay);
         return member;
     }
+
+    // ─── SASBO structures (stakeholder, 2026-09-17) ───
+
+    private static Member structures(Boolean bec, String cosatu, Boolean local, Boolean regional) {
+        Member member = new Member();
+        member.setIsBec(bec);
+        member.setIsCosatu(cosatu);
+        member.setIsCosatuLocal(local);
+        member.setIsCosatuRegional(regional);
+        return member;
+    }
+
+    @Test
+    @DisplayName("🔴 COSATU with an explicit 'not a BEC member' is refused, on create and on update")
+    void cosatuRequiresBec() {
+        IllegalArgumentException onCreate = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateStructures(structures(false, "Y", null, null), null));
+        org.assertj.core.api.Assertions.assertThat(onCreate.getMessage()).contains("BEC");
+        // Already COSATU before this request -- still refused, because false is a stated answer.
+        assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateStructures(structures(false, "Y", null, null), "Y"));
+    }
+
+    @Test
+    @DisplayName("a BEC member may be COSATU, and sit on a Local and a Regional structure")
+    void becMemberMayBeCosatu() {
+        assertDoesNotThrow(() -> MemberValidator.validateStructures(structures(true, "Y", true, true), null));
+        assertDoesNotThrow(() -> MemberValidator.validateStructures(structures(false, "N", null, null), null));
+    }
+
+    @Test
+    @DisplayName("🔑 a legacy COSATU member with NO BEC answer can still be saved unchanged")
+    void legacyCosatuWithoutABecAnswerIsNotLockedOut() {
+        // Stored before V29 gave BEC a column: nobody could have answered it.
+        assertDoesNotThrow(() -> MemberValidator.validateStructures(structures(null, "Y", null, null), "Y"));
+        // ...but TURNING COSATU ON still needs the BEC answer.
+        assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateStructures(structures(null, "Y", null, null), "N"));
+    }
+
+    @Test
+    @DisplayName("a Local or Regional structure without COSATU membership is refused")
+    void localOrRegionalRequiresCosatu() {
+        assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateStructures(structures(true, "N", true, null), null));
+        assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateStructures(structures(true, null, null, true), null));
+        // An explicit "no" is not a structure.
+        assertDoesNotThrow(() -> MemberValidator.validateStructures(structures(true, "N", false, false), null));
+    }
 }

@@ -100,6 +100,7 @@ public class MemberServiceImpl implements MemberService {
         assignMembershipNumber(member);
         // No previous day: on create, every out-of-range day is a new choice.
         MemberValidator.validatePaymentType(member, null);
+        MemberValidator.validateStructures(member, null);
         return this.memberRepository.save(member);
     }
 
@@ -135,6 +136,7 @@ public class MemberServiceImpl implements MemberService {
             // 🗣️ Decision ⑥. Read BEFORE the merge overwrites it: the range is
             // enforced on a day the caller changed, not on one it sent back unchanged.
             Integer previousDebitDay = existing.getDebitDay();
+            String previousIsCosatu = existing.getIsCosatu();
             this.memberMapper.updateFromMember(updated, existing);
             // 🔴 R1-F1. This resolved onto `updated` -- the TRANSIENT request object --
             // one line ABOVE the merge that deliberately ignores `structure` and
@@ -156,6 +158,7 @@ public class MemberServiceImpl implements MemberService {
             autoPopulateBankDerivedFields(existing);
             resolveJobGrade(existing);
             MemberValidator.validatePaymentType(existing, previousDebitDay);
+            MemberValidator.validateStructures(existing, previousIsCosatu);
             return this.memberRepository.save(existing);
         });
     }

@@ -130,10 +130,16 @@ public class MemberDto {
 
     private String userId;
 
+    // ─── SASBO structures (V29, CM-05) ───
+    private Boolean isShopSteward;
+    private Boolean isBec;
+
     // ─── COSATU Structure ───
     private String isCosatu;
     private String cosatuLocal;
     private String cosatuRegion;
+    private Boolean isCosatuLocal;
+    private Boolean isCosatuRegional;
     /**
      * Stored as comma-separated string internally (e.g. "PEC,CEC,Treasurer").
      * Deserialized from a JSON array sent by the frontend.

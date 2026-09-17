@@ -327,10 +327,33 @@ public class Member {
     @JoinColumn(name = "user_id", unique = true)
     private User user;
 
+    // ─── SASBO structures: the three Edit Member questions ───
+    /**
+     * 🔴 CM-05: Shop Steward? and BEC Member? had no column, so both answers were
+     * dropped on save while the screen reported success. V29 adds them. Null means
+     * "never answered" (legacy rows), which is not the same as {@code false}.
+     */
+    @Column(name = "is_shop_steward")
+    private Boolean isShopSteward;
+
+    @Column(name = "is_bec")
+    private Boolean isBec;
+
     // ─── COSATU Structure ───
     private String isCosatu;
     private String cosatuLocal;
     private String cosatuRegion;
+    /**
+     * Stakeholder, 2026-09-17: a COSATU Local and a COSATU Region are STRUCTURES a
+     * member sits on, recorded yes/no. The free-text {@code cosatuLocal} /
+     * {@code cosatuRegion} above are kept (no data is discarded) but no screen asks
+     * for them any more.
+     */
+    @Column(name = "is_cosatu_local")
+    private Boolean isCosatuLocal;
+
+    @Column(name = "is_cosatu_regional")
+    private Boolean isCosatuRegional;
     /**
      * Comma-separated list of held positions: PEC, CEC, Treasurer, Chairperson, Secretary.
      * <p>

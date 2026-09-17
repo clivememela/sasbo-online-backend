@@ -287,6 +287,64 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         return capture(payload.toString());
     }
 
+    // ─── Edit Member · SASBO structures: what the three questions store ───
+
+    /**
+     * 🔴 CM-05. Edit Member asks Shop Steward?, BEC Member? and COSATU Member?, and
+     * until V29 only the COSATU answer had a column: {@code isShopSteward} and
+     * {@code isBec} were unknown properties, ignored by Jackson, and the save still
+     * said success. Stakeholder, 2026-09-17: COSATU participation requires BEC
+     * membership, and a COSATU member is recorded as sitting on a Local and/or a
+     * Regional structure (yes/no each).
+     */
+    @Test
+    @DisplayName("🔴 CM-05 — Shop Steward, BEC, and COSATU Local / Regional persist through an edit")
+    void theStructureAnswersPersist() throws Exception {
+        JsonNode created = capture();
+
+        ObjectNode edit = formPayload();
+        edit.put("isShopSteward", true);
+        edit.put("isBec", true);
+        edit.put("isCosatu", "Y");
+        edit.put("isCosatuLocal", true);
+        edit.put("isCosatuRegional", false);
+
+        int status = this.mockMvc.perform(put("/api/members/{id}", created.get("id").asInt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edit.toString()))
+                .andReturn().getResponse().getStatus();
+        assertThat(status).as("a BEC member may be COSATU; the edit is accepted").isEqualTo(200);
+
+        JsonNode read = readBack(created);
+        assertThat(read.path("isShopSteward").asText()).as("Shop Steward?").isEqualTo("true");
+        assertThat(read.path("isBec").asText()).as("BEC Member?").isEqualTo("true");
+        assertThat(read.path("isCosatu").asText()).as("COSATU Member?").isEqualTo("Y");
+        assertThat(read.path("isCosatuLocal").asText()).as("sits on a COSATU Local structure").isEqualTo("true");
+        // The must-pass half: `false` is an ANSWER and must come back as false, not
+        // vanish into null the way an unmapped field does.
+        assertThat(read.path("isCosatuRegional").asText()).as("does not sit on a Regional structure").isEqualTo("false");
+    }
+
+    @Test
+    @DisplayName("🔴 COSATU without BEC membership is refused with a 400 that says why")
+    void cosatuWithoutBecIsRefused() throws Exception {
+        JsonNode created = capture();
+
+        ObjectNode edit = formPayload();
+        edit.put("isBec", false);
+        edit.put("isCosatu", "Y");
+
+        MockHttpServletResponse response = this.mockMvc.perform(put("/api/members/{id}", created.get("id").asInt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edit.toString()))
+                .andReturn().getResponse();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).containsIgnoringCase("BEC");
+        assertThat(readBack(created).path("isCosatu").asText())
+                .as("and nothing was written").isNotEqualTo("Y");
+    }
+
     // ─── 03.3: the two Recruitment Channel fields that STAY ───
 
     @Test

@@ -164,6 +164,11 @@ class MemberServiceImplTest {
         // paymentType has to resolve, or validation rejects the whole member
         // before the save and this test would prove nothing about the fields.
         captured.setPaymentType("Payroll");
+        // Likewise the structure answers: Synthetic sets every Boolean, so COSATU Local
+        // arrives true beside a synthetic isCosatu that is not "Y", which
+        // validateStructures correctly refuses (COSATU requires BEC; Local requires COSATU).
+        captured.setIsBec(Boolean.TRUE);
+        captured.setIsCosatu("Y");
 
         List<Field> fields = Synthetic.fieldsOf(Member.class);
         assertNonVacuousScan(fields, 40, "Member fields");

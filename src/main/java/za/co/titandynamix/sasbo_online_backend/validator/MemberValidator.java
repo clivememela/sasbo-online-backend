@@ -83,4 +83,44 @@ public class MemberValidator {
     private static boolean debitDayWasChanged(Integer submitted, Integer previousDebitDay) {
         return !submitted.equals(previousDebitDay);
     }
+
+    /**
+     * The SASBO-structure answers must agree with each other.
+     *
+     * <p>🗣️ Stakeholder, 2026-09-17: <i>"For a member to participate in COSATU
+     * structures, they have to be within the BEC structure."</i> And a COSATU Local
+     * or Regional structure is only something a COSATU member sits on.
+     *
+     * <p>🔑 An explicit {@code isBec = false} beside COSATU is a contradiction and is
+     * always refused. A {@code null} BEC answer is different: rows stored before V29
+     * hold {@code is_cosatu = 'Y'} and no BEC answer at all, because the column did
+     * not exist. Refusing those would make every such member unsaveable over a
+     * question nobody could have answered -- decision ⑥'s lesson, one rule over. So
+     * a null BEC answer is refused only when THIS request turns COSATU on.
+     *
+     * @param previousIsCosatu the stored {@code isCosatu} before this request, or
+     *        {@code null} on create
+     * @throws IllegalArgumentException naming the rule, for the screen to show
+     */
+    public static void validateStructures(Member member, String previousIsCosatu) {
+        boolean cosatu = isYes(member.getIsCosatu());
+        if (cosatu && !Boolean.TRUE.equals(member.getIsBec())) {
+            boolean contradicted = Boolean.FALSE.equals(member.getIsBec());
+            if (contradicted || !isYes(previousIsCosatu)) {
+                throw new IllegalArgumentException(
+                        "A member must be a BEC member to take part in COSATU structures");
+            }
+        }
+        if (!cosatu && (Boolean.TRUE.equals(member.getIsCosatuLocal())
+                || Boolean.TRUE.equals(member.getIsCosatuRegional()))) {
+            throw new IllegalArgumentException(
+                    "A COSATU Local or Regional structure can only be recorded for a COSATU member");
+        }
+    }
+
+    /** {@code isCosatu} is stored as Y/N (V19); older clients sent "true". */
+    private static boolean isYes(String flag) {
+        return flag != null && (flag.equalsIgnoreCase("Y") || flag.equalsIgnoreCase("true")
+                || flag.equalsIgnoreCase("Yes"));
+    }
 }
