@@ -109,20 +109,6 @@ public final class KnownDefects {
                     + "no match, and unmappedTargetPolicy = IGNORE silences the warning. This "
                     + "test asserts the value arrives.";
 
-    /**
-     * The catch-all handler is registered for {@code Exception}, and Spring
-     * raises {@code NoResourceFoundException} for a path no controller handles.
-     * So it is caught, and <b>every unknown URL answers 500 instead of 404</b>.
-     *
-     * <p>Found on 2026-09-04 by a test asserting that a controller with no
-     * methods exposes nothing.
-     */
-    public static final String UNKNOWN_PATH_ANSWERS_500_NOT_404 =
-            "KNOWN DEFECT: a request to a path no controller handles answers 500, not 404. "
-                    + "Spring raises NoResourceFoundException, the catch-all handler is "
-                    + "registered for Exception and catches it. Every typo in a URL therefore "
-                    + "looks like a server fault, and real 500s cannot be told apart from "
-                    + "wrong addresses in any log or alert. This test asserts the 404.";
 
     /**
      * {@code JacksonConfig} replaces Spring Boot's auto-configured

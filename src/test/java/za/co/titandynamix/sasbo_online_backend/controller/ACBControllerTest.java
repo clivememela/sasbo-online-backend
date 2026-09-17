@@ -1,6 +1,5 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,7 +9,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
-import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -32,12 +30,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * writes the real tests here. A missing test file would have been a silent gap;
  * this one answers back.
  *
- * <h2>What it found on its first run</h2>
- * The obvious assertion -- that an unhandled path is a <b>404</b> -- fails,
- * because it answers <b>500</b>. Spring raises {@code NoResourceFoundException}
+ * <h2>What it found on its first run, and what became of it</h2>
+ * The obvious assertion -- that an unhandled path is a <b>404</b> -- failed,
+ * because it answered <b>500</b>: Spring raises {@code NoResourceFoundException}
  * for a path no controller handles, and the catch-all handler is registered for
- * {@code Exception}, so it catches it. That is a defect in the exception
- * handler rather than anything to do with ACB, and it is asserted below.
+ * {@code Exception}, so it claimed it. A defect in the exception handler rather
+ * than anything to do with ACB, and it is why every mistyped URL in this
+ * application looked like a server fault -- register row <b>A18</b>.
+ *
+ * <p>✅ <b>Fixed by the ACB arc's {@code 00.4}</b> (2026-09-17):
+ * {@code GlobalExceptionHandler} now declares a handler for
+ * {@code NoResourceFoundException}, so the second test below runs rather than
+ * being {@code @Disabled}. It was watched failing on {@code 829f252} first --
+ * <i>expected:&lt;404&gt; but was:&lt;500&gt;</i> -- and the known-defect
+ * constant it was pinned to is deleted.
  */
 @WebMvcTest(ACBController.class)
 @Import({GlobalExceptionHandler.class, JacksonConfig.class})
@@ -63,7 +69,6 @@ class ACBControllerTest {
     }
 
     @Test
-    @Disabled(KnownDefects.UNKNOWN_PATH_ANSWERS_500_NOT_404)
     @DisplayName("a path no controller handles is a 404, not a 500")
     void anUnhandledPathIsNotFound() throws Exception {
         // Nothing to do with ACB in particular -- it is simply where this

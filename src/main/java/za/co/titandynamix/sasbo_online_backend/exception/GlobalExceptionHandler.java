@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -147,6 +148,43 @@ public class GlobalExceptionHandler {
                 null
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
+     * A path no controller handles is a <b>404</b>, not a 500 -- register row A18.
+     *
+     * <h2>Why a second not-found handler was needed</h2>
+     * {@code NoHandlerFoundException} below is only ever raised when Boot is
+     * configured to throw it. By default the dispatcher passes an unmatched path to
+     * the resource handler, which raises {@code NoResourceFoundException} -- a
+     * {@code ServletException}, and therefore something the catch-all registered for
+     * {@code Exception} claimed. So <b>every mistyped URL in this application
+     * answered 500</b>, and no log or alert could tell a wrong address from a real
+     * server fault. It surfaced through ACB only because {@code ACBController} is
+     * the one controller with no endpoints to hit.
+     *
+     * <p>Declaring this handler <i>is</i> the fix: Spring dispatches an exception to
+     * the most specific handler for its type, so the catch-all keeps everything it
+     * should have had and loses only what was never its.
+     *
+     * <p>🔒 The body is written here rather than taken from {@code ex.getMessage()},
+     * for the reason the catch-all gives at length: this API is {@code permitAll()},
+     * so a 404 answers anyone. The path the caller asked for is already in the
+     * envelope's {@code path} field, put there deliberately.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
+            NoResourceFoundException ex, HttpServletRequest request) {
+        log.warn("No resource for {} {}", request.getMethod(), request.getRequestURI());
+        ApiErrorResponse response = new ApiErrorResponse(
+                LocalDateTime.now(ZoneId.of("UTC")),
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                "The requested resource was not found",
+                request.getRequestURI(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
     @ExceptionHandler(NoHandlerFoundException.class)
