@@ -38,6 +38,7 @@ public class DataSeeder implements ApplicationRunner {
     private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final RecruiterRepository recruiterRepository;
     private final SubscriptionsRepository subscriptionsRepository;
+    private final BankSeeder bankSeeder;
     private final JobGradeSeeder jobGradeSeeder;
     private final AreaRepository areaRepository;
 
@@ -70,15 +71,8 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
-        if (this.bankRepository.count() == 0) {
-            ClassPathResource banksMasterResource = new ClassPathResource("data/banks_master.json");
-            try (InputStream bankStream = banksMasterResource.getInputStream()) {
-                List<Bank> banks = mapper.readValue(bankStream, new TypeReference<>() {});
-                banks.forEach(b -> b.setId(null));
-                this.bankRepository.saveAll(banks);
-                log.info("Seeded {} banks", banks.size());
-            }
-        }
+        // Row by row, not behind a table-empty guard: see BankSeeder and BankSeederIT.
+        this.bankSeeder.seed();
 
         if (this.bankBranchRepository.count() == 0) {
             ClassPathResource banksBranchResource = new ClassPathResource("data/banks.json");
