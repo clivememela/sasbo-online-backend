@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
@@ -51,9 +52,32 @@ public class SubscriptionsServiceImpl implements SubscriptionsService {
         return this.subscriptionsMapper.toDto(saved);
     }
 
+    /**
+     * 🔴 Register row <b>A33</b>: this answered <b>500 after committing the write</b>.
+     *
+     * <p>Two things were wrong and both are fixed here. It loaded the row with
+     * {@code findById}, leaving {@code bank} a lazy proxy, and it carried no
+     * transaction — so {@code save} committed in its own unit of work and the
+     * mapping below then ran with <b>no session</b> to initialise that proxy. The
+     * caller was told the save had failed while the money table had already
+     * changed, which is worse than either failure alone: the screen kept showing
+     * the old value, and the obvious response was to try again.
+     *
+     * <p>{@code @Transactional} makes the read, the write and <b>the mapping</b>
+     * one unit, which is the contract; {@code findByIdWithBank} — the fetch join
+     * already sitting in the repository for exactly this — means the mapping does
+     * not depend on lazy loading at all. Either alone would fix the symptom; both
+     * together mean the DTO is built from data that is provably present.
+     *
+     * <p>⚠️ {@code create} above has the same shape and does <b>not</b> fail today,
+     * because the bank it sets is an entity it just loaded rather than a proxy.
+     * That is luck rather than design, and it is left for {@code 00.7}'s refactor
+     * pass rather than changed here on no failing test.
+     */
     @Override
+    @Transactional
     public Optional<SubscriptionsDto> update(Long id, SubscriptionsDto dto) {
-        return this.subscriptionRepository.findById(id)
+        return this.subscriptionRepository.findByIdWithBank(id)
                 .map(existing -> {
                     this.subscriptionsMapper.updateFromDto(dto, existing);
                     if (dto.bankName() != null) {
