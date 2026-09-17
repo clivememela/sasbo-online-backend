@@ -216,4 +216,113 @@ public final class KnownDefects {
                     + "sends \"I.D. Number\". Neither side is wrong on its own; they simply do "
                     + "not agree. This test sends what the browser sends and asserts the "
                     + "derivation happens.";
+
+    /**
+     * {@code SecurityConfig} allows the origin PATTERN {@code https://*.vercel.app}
+     * on a policy with {@code allowCredentials(true)}, registered on every path of
+     * an API whose every route is {@code permitAll}. {@code vercel.app} is a public
+     * suffix, so the pattern matches every site anybody has ever deployed to
+     * Vercel, and any of them may make credentialed cross-origin requests that
+     * read and write the member register.
+     *
+     * <p>Introduced upstream by server {@code 6c00b82} (2026-09-10), which
+     * replaced a fixed origin list with patterns. The remediation this project
+     * had already agreed -- name the real hosts; {@code *.sasbo.online} is fine,
+     * because every host it matches is one somebody here created -- is the shape
+     * it should have taken. Register row B7.
+     */
+    public static final String CORS_TRUSTS_EVERY_VERCEL_DEPLOYMENT =
+            "KNOWN DEFECT: the credentialed CORS policy allows https://*.vercel.app, and "
+                    + "vercel.app is a public suffix, so every site ever deployed to Vercel "
+                    + "may read and write the member register cross-origin with credentials. "
+                    + "This test asserts that no wildcard origin pattern escapes a domain this "
+                    + "project controls.";
+
+    /**
+     * Production runs {@code spring.jpa.hibernate.ddl-auto: update}, so Hibernate
+     * alters the live schema at boot to match the entities -- outside the
+     * migration chain, and without ever dropping a column. A mapped field with no
+     * migration becomes a column in production that no migration-built database
+     * has. Register row C1; {@code is_bargaining_council} (C13) is the instance
+     * that arrived on 2026-09-16.
+     */
+    public static final String PRODUCTION_HIBERNATE_WRITES_THE_SCHEMA =
+            "KNOWN DEFECT: production runs ddl-auto: update, so Hibernate alters the live schema "
+                    + "outside the migration chain and production drifts from every database "
+                    + "the migrations build. This test asserts production only validates.";
+
+    /**
+     * {@code ace7297} turned on {@code spring.jpa.show-sql}, which prints every
+     * statement to stdout regardless of the {@code org.hibernate.SQL} level set
+     * beside it, and the root logger has run at DEBUG since before this suite
+     * existed. Register row C11.
+     */
+    public static final String PRODUCTION_LOGS_EVERY_STATEMENT =
+            "KNOWN DEFECT: production echoes every SQL statement (show-sql: true) and runs the "
+                    + "root logger at DEBUG, on a service holding identity and bank account "
+                    + "numbers. This test asserts neither is on.";
+
+    /**
+     * {@code SBV Services (Pty) Ltd} and {@code South African Reserve Bank} were
+     * both seeded with the placeholder branch code {@code 000000}, and both carry
+     * job grades. The client resolves a bank name to its code and asks for
+     * grades by code; {@code JobGradeServiceImpl.findByBankIdentifier} tries the
+     * code first -- so choosing either bank offers both banks' grades. Register
+     * row A44.
+     */
+    public static final String BANKS_WITH_GRADES_SHARE_A_BRANCH_CODE =
+            "KNOWN DEFECT: two banks that carry job grades share one universal branch code, and "
+                    + "grades are looked up by code first, so choosing either bank offers both "
+                    + "banks' grades. This test asserts every bank with grades has its own code.";
+
+    /**
+     * Twelve seeded members name a bank as no bank on record is named --
+     * "Nedbank", "Standard Bank", "Absa Bank" and four more. The server resolves
+     * a member's subscription, debit day and job grade by bank NAME, so all
+     * three miss for those members. Main's Capitec rename fixed one such name.
+     * Register row A46.
+     */
+    public static final String SEEDED_MEMBERS_NAME_BANKS_NOT_ON_RECORD =
+            "KNOWN DEFECT: seeded members name banks that match no bank on record, so every "
+                    + "by-name lookup for them (subscription, debit day, job grade) misses. This "
+                    + "test asserts every seeded member's bank is on record.";
+
+    /**
+     * The welcome letter template's "Your Sasbo Membership No: >>>Number<<" banner
+     * (twice) sits in a text box. {@code EmailServiceImpl} replaces placeholders
+     * only in {@code doc.getParagraphs()} and {@code doc.getTables()}, which do not
+     * include text boxes, so every letter is emailed with the literal placeholder.
+     * Register row A55. Read from the attachment's raw document.xml, 2026-09-17.
+     */
+    public static final String WELCOME_LETTER_LEAVES_THE_NUMBER_PLACEHOLDER =
+            "KNOWN DEFECT: the emailed welcome letter still reads \">>>Number<<\" (twice), because the "
+                    + "membership-number banner is in a text box and placeholder replacement only visits "
+                    + "body paragraphs and tables. This test asserts no placeholder survives.";
+
+    /**
+     * {@code EmailServiceImpl} wraps a failed send as "Failed to send welcome letter
+     * to &lt;address&gt;"; the catch-all handler copies that into a 500 body, on an
+     * endpoint that is anonymous (B1). Register row B8.
+     */
+    public static final String WELCOME_FAILURE_NAMES_THE_RECIPIENT =
+            "KNOWN DEFECT: EmailServiceImpl wraps a failed send as \"Failed to send welcome letter to "
+                    + "<address>\", and the catch-all handler copies exception messages into the 500 "
+                    + "body of an endpoint anyone may call. This test asserts the error names no "
+                    + "address. Register row B8, whose other half is that the endpoint is anonymous.";
+
+    /**
+     * Nothing makes {@code members.membership_number} unique, so two members can be
+     * stored under one membership number. On 2026-09-16 production held all 160 seeded
+     * members twice (ids 1-160 and 161-320) after its tables were dropped (C12) and
+     * re-seeded. Register row A48.
+     *
+     * <p>HALF FIXED on capture-member: V26 adds a partial unique index on
+     * {@code identity_number} (SR-5), asserted by {@code MemberIdentityUniquenessIT}, so
+     * the same PERSON can no longer be stored twice. The membership-number half is open.
+     */
+    public static final String DUPLICATE_MEMBERS_ARE_ACCEPTED =
+            "KNOWN DEFECT: members.membership_number is not unique in the schema, so two members "
+                    + "can be stored under one membership number -- production held every member "
+                    + "twice on 2026-09-16. (The identity-number half is fixed by V26.) This test "
+                    + "asserts the database refuses a repeated membership number.";
 }

@@ -66,5 +66,7 @@
   { "name": "Sumitomo Mitsui Banking", "universalBranchCode": "910026" },
   { "name": "The Export & Import Bank of China", "universalBranchCode": "910027" },
   { "name": "The Mauritius Commercial Bank Limited", "universalBranchCode": "910028" },
-  { "name": "Union Bancaire Privee, UBP SA", "universalBranchCode": "910029" }
+  { "name": "Union Bancaire Privee, UBP SA", "universalBranchCode": "910029" },
+  { "name": "SBV Services (Pty) Ltd", "universalBranchCode": "000000" },
+  { "name": "South African Reserve Bank", "universalBranchCode": "000000" }
 ]

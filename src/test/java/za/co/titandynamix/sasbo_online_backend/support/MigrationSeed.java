@@ -88,7 +88,10 @@ public final class MigrationSeed {
             // identity number, and the capture form sends "" rather than NULL for a
             // field left alone, so both are excluded or the second passport holder
             // captured is rejected as a duplicate of the first.
-            "V26__member_identity_number_unique.sql");
+            "V26__member_identity_number_unique.sql",
+            // main's is_bargaining_council had no migration (C13); derived from V21's
+            // bargaining_unit and backfilled, IF NOT EXISTS because production has it.
+            "V27__job_grade_bargaining_council.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

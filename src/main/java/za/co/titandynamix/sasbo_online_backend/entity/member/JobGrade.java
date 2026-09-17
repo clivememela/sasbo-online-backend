@@ -39,6 +39,15 @@ public class JobGrade {
     private String description;
 
     /**
+     * Whether the grade is inside the bargaining unit (main, 74fdd09). DERIVED from
+     * {@link #bargainingUnit} by {@code JobGradeSeeder} and backfilled by {@code V27}:
+     * BU true, NBU false, CONDITIONAL or unknown null. Kept for existing readers; the
+     * enum is the source of truth.
+     */
+    @Column(name = "is_bargaining_council")
+    private Boolean isBargainingCouncil;
+
+    /**
      * FALSE for a grade an administrator typed that the master list did not
      * contain (02.5). Captured grades are stored and reviewable, but are NOT
      * offered in the drop-down -- otherwise one typo becomes everyone's option

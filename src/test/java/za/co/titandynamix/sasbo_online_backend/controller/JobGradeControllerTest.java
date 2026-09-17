@@ -97,19 +97,19 @@ class JobGradeControllerTest {
     }
 
     @Test
-    @DisplayName("the label is the grade, its description and its contract type, joined")
+    @DisplayName("the label is grade-only even when description and contract type exist")
     void labelIsComposed() throws Exception {
-        // 🔑 THE LABEL IS THE WHOLE REASON THE SHAPE CHANGED, so it is the thing
-        // worth asserting. `value` is what gets submitted and `label` is what a
-        // human picks from; a label that silently equalled the value would make
-        // the dropdown useless while every shape assertion above still passed.
+        // 🔑 The label is the grade alone (main 1206c76, client a23fb81): description
+        // and contract type made the drop-down unreadable, and the bargaining
+        // classification now travels in its own fields. Asserted with both extra
+        // columns present, so a return to joining them into the label fails here.
         when(this.jobGradeService.findVerifiedByBankIdentifier("632005"))
                 .thenReturn(List.of(grade("C1", "Clerk", "Permanent")));
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].value").value("C1"))
-                .andExpect(jsonPath("$[0].label").value("C1 - Clerk - Permanent"));
+                .andExpect(jsonPath("$[0].label").value("C1"));
     }
 
     @Test
@@ -193,21 +193,18 @@ class JobGradeControllerTest {
     }
 
     @Test
-    @DisplayName("a missing middle part leaves no doubled separator in the label")
+    @DisplayName("the label remains grade-only when optional fields are missing")
     void labelSkipsAbsentPartsRatherThanPaddingThem() throws Exception {
-        // 🔑 THE GAP BETWEEN THE TWO LABEL TESTS ABOVE. One covers a grade with
-        // nothing else, one covers a grade with everything -- and between them
-        // sits the case where a part in the MIDDLE is absent, which is the only
-        // shape a join-then-scrub implementation gets wrong in a way neither
-        // neighbour can see. Upstream shipped exactly that implementation and
-        // both neighbours would have passed on the "A -  - C" it produced.
+        // The shape that broke the old join-then-scrub label ("A -  - C", a missing
+        // MIDDLE part), kept as an input: the grade-only label must be unaffected by
+        // which of the other columns happen to be absent.
         when(this.jobGradeService.findVerifiedByBankIdentifier("632005"))
                 .thenReturn(List.of(grade("C1", null, "Permanent")));
 
         this.mockMvc.perform(get("/api/job-grades").param("bankCode", "632005"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].value").value("C1"))
-                .andExpect(jsonPath("$[0].label").value("C1 - Permanent"));
+                .andExpect(jsonPath("$[0].label").value("C1"));
     }
 
     /**

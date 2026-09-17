@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,12 +14,12 @@ import za.co.titandynamix.sasbo_online_backend.dto.representative.UnionStructure
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
+import za.co.titandynamix.sasbo_online_backend.services.EmailService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/members")
@@ -27,15 +28,16 @@ public class MemberController {
 
     private final MemberService memberService;
     private final MemberMapper memberMapper;
-
     private final RepresentativeService representativeService;
+    @Autowired(required = false)
+    private EmailService emailService;
 
     @GetMapping
     @Transactional(readOnly = true)
     public List<MemberDto> getAll() {
         return this.memberService.findAll().stream()
                        .map(this.memberMapper::toDto)
-                       .collect(Collectors.toList());
+                       .toList();
     }
 
     @GetMapping("/{id}")
@@ -46,6 +48,7 @@ public class MemberController {
     }
 
     @PostMapping
+    @Transactional
     @ResponseStatus(HttpStatus.OK)
     public MemberDto create(@RequestBody Member member) {
         // The user-id scrub that stood here is gone because it is now unreachable:
@@ -139,6 +142,19 @@ public class MemberController {
                        .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/{id}/send-welcome")
+    public ResponseEntity<Void> sendWelcomeLetter(@PathVariable Integer id) {
+        if (this.emailService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        return this.memberService.findById(id)
+                       .map(member -> {
+                           this.emailService.sendWelcomeLetter(member);
+                           return ResponseEntity.ok().<Void>build();
+                       })
+                       .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/metadata/payment-types")
     public ResponseEntity<List<PaymentTypeMetadataDto>> getPaymentTypeMetadata() {
         List<PaymentTypeMetadataDto> metadata = Arrays.stream(PaymentType.values())
@@ -149,7 +165,7 @@ public class MemberController {
                                                             dto.setRequiresBankAccount(type.requiresBankAccount());
                                                             return dto;
                                                         })
-                                                        .collect(Collectors.toList());
+                                                        .toList();
 
         return ResponseEntity.ok(metadata);
     }

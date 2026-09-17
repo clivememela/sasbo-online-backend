@@ -580,7 +580,7 @@
         "band": "F"
     },
     {
-        "bankName": "SARB",
+        "bankName": "South African Reserve Bank",
         "grade": "M3/M4/SP6",
         "contractType": null,
         "description": null,
@@ -590,7 +590,7 @@
         "band": null
     },
     {
-        "bankName": "SARB",
+        "bankName": "South African Reserve Bank",
         "grade": "M2/SP5",
         "contractType": null,
         "description": null,
@@ -600,7 +600,7 @@
         "band": null
     },
     {
-        "bankName": "SARB",
+        "bankName": "South African Reserve Bank",
         "grade": "M1/FC4/SP4",
         "contractType": null,
         "description": null,
@@ -610,7 +610,7 @@
         "band": null
     },
     {
-        "bankName": "SARB",
+        "bankName": "South African Reserve Bank",
         "grade": "SP3/SP2/SP1",
         "contractType": null,
         "description": null,
@@ -620,7 +620,7 @@
         "band": null
     },
     {
-        "bankName": "SARB",
+        "bankName": "South African Reserve Bank",
         "grade": "FC3",
         "contractType": null,
         "description": null,
@@ -630,7 +630,7 @@
         "band": null
     },
     {
-        "bankName": "SARB",
+        "bankName": "South African Reserve Bank",
         "grade": "FC2",
         "contractType": null,
         "description": null,
@@ -640,7 +640,7 @@
         "band": null
     },
     {
-        "bankName": "SARB",
+        "bankName": "South African Reserve Bank",
         "grade": "FC1",
         "contractType": null,
         "description": null,
@@ -650,7 +650,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 1",
         "contractType": null,
         "description": null,
@@ -660,7 +660,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 2",
         "contractType": null,
         "description": null,
@@ -670,7 +670,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 3",
         "contractType": null,
         "description": null,
@@ -680,7 +680,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 4",
         "contractType": null,
         "description": null,
@@ -690,7 +690,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 5",
         "contractType": null,
         "description": null,
@@ -700,7 +700,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 6",
         "contractType": null,
         "description": null,
@@ -710,7 +710,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 7",
         "contractType": null,
         "description": null,
@@ -720,7 +720,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 8",
         "contractType": null,
         "description": null,
@@ -730,7 +730,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 9",
         "contractType": null,
         "description": null,
@@ -740,7 +740,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 10",
         "contractType": null,
         "description": null,
@@ -750,7 +750,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 11",
         "contractType": null,
         "description": null,
@@ -760,7 +760,7 @@
         "band": null
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "D Lower",
         "contractType": null,
         "description": "Managerial",
@@ -770,7 +770,7 @@
         "band": "D"
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "D Upper",
         "contractType": null,
         "description": "Managerial",
@@ -780,7 +780,7 @@
         "band": "D"
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "E Lower",
         "contractType": null,
         "description": "Managerial",
@@ -790,7 +790,7 @@
         "band": "E"
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "E Upper",
         "contractType": null,
         "description": "Managerial",
@@ -800,7 +800,7 @@
         "band": "E"
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "F Lower",
         "contractType": null,
         "description": "Managerial",
@@ -810,7 +810,7 @@
         "band": "F"
     },
     {
-        "bankName": "SBV",
+        "bankName": "SBV Services (Pty) Ltd",
         "grade": "F Upper",
         "contractType": null,
         "description": "Managerial",

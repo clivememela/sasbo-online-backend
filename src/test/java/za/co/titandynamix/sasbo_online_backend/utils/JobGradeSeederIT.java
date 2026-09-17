@@ -217,6 +217,37 @@ class JobGradeSeederIT extends AbstractWritingIT {
                 .isGreaterThan(0);
     }
 
+    @Test
+    @DisplayName("🔴 is_bargaining_council is DERIVED from bargainingUnit, never left null")
+    void theBargainingCouncilFlagFollowsTheBargainingUnit() throws IOException {
+        // main (74fdd09) added is_bargaining_council and set it by hand in the seed file,
+        // beside the description that ALSO said it -- two copies of one fact, which is
+        // how A45 happened (two Absa grades whose flag contradicted their description).
+        // This arc stores the classification once, as bargainingUnit, and derives the
+        // Boolean: BU -> true, NBU -> false, CONDITIONAL or unknown -> null, because a
+        // yes/no cannot say "only for Assistant Branch Managers".
+        this.seeder.seed();
+
+        int yes = 0;
+        int no = 0;
+        for (JobGrade row : this.jobGradeRepository.findAll()) {
+            Boolean expected = row.getBargainingUnit() == null ? null : switch (row.getBargainingUnit()) {
+                case BU -> Boolean.TRUE;
+                case NBU -> Boolean.FALSE;
+                default -> null;
+            };
+            assertThat(row.getIsBargainingCouncil())
+                    .as("%s / %s is %s", row.getBank().getName(), row.getGrade(), row.getBargainingUnit())
+                    .isEqualTo(expected);
+            if (Boolean.TRUE.equals(expected)) yes++;
+            if (Boolean.FALSE.equals(expected)) no++;
+        }
+        // The must-pass half: an all-null table satisfies the loop for CONDITIONAL rows
+        // and proves nothing, so both answers have to actually occur.
+        assertThat(yes).as("grades inside the bargaining unit").isGreaterThan(0);
+        assertThat(no).as("grades outside it").isGreaterThan(0);
+    }
+
     /** Inserts the seed rows an older database would already be holding. */
     private int preloadTheRowsThatWereAlreadyThere() {
         List<JobGrade> existing = new ArrayList<>();

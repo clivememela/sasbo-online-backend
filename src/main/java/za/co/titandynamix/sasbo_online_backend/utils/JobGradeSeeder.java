@@ -170,7 +170,7 @@ public class JobGradeSeeder {
      *
      * <p>Scanned in memory rather than queried: the comparison collapses internal
      * whitespace and case, which no index on {@code grade} can express, and the
-     * per-bank row count is in the tens. {@code V27}'s partial unique index makes
+     * per-bank row count is in the tens. {@code V28}'s partial unique index (planned) makes
      * the database agree with this rule; it does not replace it.
      */
     private JobGrade findByMatchKey(Bank bank, String grade) {
@@ -200,11 +200,26 @@ public class JobGradeSeeder {
                 ? null
                 : BargainingUnit.valueOf(seed.bargainingUnit()));
         jobGrade.setBargainingUnitCondition(seed.bargainingUnitCondition());
+        // main's is_bargaining_council (74fdd09), DERIVED rather than read from the file:
+        // one fact stored twice is how A45 happened. A yes/no cannot say CONDITIONAL.
+        jobGrade.setIsBargainingCouncil(isBargainingCouncil(jobGrade.getBargainingUnit()));
         jobGrade.setGradingSystem(seed.gradingSystem() == null
                 ? GradingSystem.BANK_SPECIFIC
                 : GradingSystem.valueOf(seed.gradingSystem()));
         jobGrade.setBand(seed.band());
         return jobGrade;
+    }
+
+    /** BU true, NBU false, CONDITIONAL or unknown null -- the same rule as V27's backfill. */
+    static Boolean isBargainingCouncil(BargainingUnit unit) {
+        if (unit == null) {
+            return null;
+        }
+        return switch (unit) {
+            case BU -> Boolean.TRUE;
+            case NBU -> Boolean.FALSE;
+            case CONDITIONAL -> null;
+        };
     }
 
     private List<JobGradeSeed> readSeedFile() throws IOException {

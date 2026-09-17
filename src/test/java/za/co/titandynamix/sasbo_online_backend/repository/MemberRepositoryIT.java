@@ -1,9 +1,11 @@
 package za.co.titandynamix.sasbo_online_backend.repository;
 
 import jakarta.persistence.EntityManagerFactory;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
@@ -12,11 +14,13 @@ import za.co.titandynamix.sasbo_online_backend.fixtures.LocationFixture;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
+import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The nine declared methods on {@code MemberRepository}, including the one
@@ -264,6 +268,57 @@ class MemberRepositoryIT extends AbstractWritingIT {
                 this::seedTo,
                 () -> this.memberRepository.findAll().forEach(Member::getSurname),
                 5, 50);
+    }
+
+    /**
+     * 🔴 A48. Production on 2026-09-16 held every one of its 160 members TWICE -- ids 1-160
+     * and 161-320, the same identity and membership numbers -- after the database was
+     * rebuilt from empty and the seeder ran twice.
+     *
+     * <p>HALF FIXED: V26's partial unique index refuses a repeated identity number, which
+     * {@code MemberIdentityUniquenessIT} asserts. What is still open is the membership
+     * number, so this pair now covers that half only.
+     *
+     * <p>Asserted here and not in the fast lane for the reason {@code BankRepositoryIT}
+     * gives: H2's schema is one Hibernate invents, so only the migration chain can say
+     * whether the database refuses a duplicate.
+     */
+    @Test
+    @Disabled(KnownDefects.DUPLICATE_MEMBERS_ARE_ACCEPTED)
+    @DisplayName("🔴 A48: refuses a second member with a membership number already on record")
+    void membershipNumbersAreUnique() {
+        Member first = MemberFixture.withSurname("Mokoena");
+        first.setMembershipNumber("M-100002");
+        first.setIdentityNumber("8001015009087");
+        this.memberRepository.saveAndFlush(first);
+
+        Member sameMembershipNumber = MemberFixture.withSurname("Mokoena");
+        sameMembershipNumber.setMembershipNumber("M-100002");
+        sameMembershipNumber.setIdentityNumber("9001015009086");
+        assertThatThrownBy(() -> this.memberRepository.saveAndFlush(sameMembershipNumber))
+                .as("a membership number identifies one member")
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("🔴 A48 still reproduces: two members can share a membership number")
+    void aMembershipNumberCanStillBeStoredTwice() {
+        // Different identity numbers, or V26 refuses the second save for the other reason
+        // and this pin would stop observing the half that is still open.
+        String[] identities = {"8001015009087", "9001015009086"};
+        for (String identity : identities) {
+            Member member = MemberFixture.withSurname("Mokoena");
+            member.setMembershipNumber("M-100002");
+            member.setIdentityNumber(identity);
+            this.memberRepository.saveAndFlush(member);
+        }
+
+        assertThat(this.jdbc.queryForObject(
+                "SELECT count(*) FROM members WHERE membership_number = 'M-100002'",
+                Integer.class))
+                .as("A48 has changed. If the second save was refused, the membership-number half is "
+                        + "fixed: enable membershipNumbersAreUnique and delete the KnownDefects row")
+                .isEqualTo(2);
     }
 
     /** Rebuilds the table with exactly {@code rows} members. */

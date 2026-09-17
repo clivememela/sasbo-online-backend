@@ -15,5 +15,6 @@ public class JobGradeDto {
     private String bargainingUnit;
     /** What else must be true when the classification is CONDITIONAL. */
     private String bargainingUnitCondition;
+    private Boolean isBargainingCouncil;
 
 }
