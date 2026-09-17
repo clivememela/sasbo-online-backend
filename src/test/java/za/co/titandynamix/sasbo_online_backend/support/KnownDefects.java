@@ -329,6 +329,29 @@ public final class KnownDefects {
      * <p>⚠️ Fixing it touches the tests too: {@code MemberFixture} gives every member
      * the same {@code SYNTHETIC_ID}, and several integration tests save many of them.
      */
+    /**
+     * The welcome letter template's "Your Sasbo Membership No: >>>Number<<" banner
+     * (twice) sits in a text box. {@code EmailServiceImpl} replaces placeholders
+     * only in {@code doc.getParagraphs()} and {@code doc.getTables()}, which do not
+     * include text boxes, so every letter is emailed with the literal placeholder.
+     * Register row A55. Read from the attachment's raw document.xml, 2026-09-17.
+     */
+    public static final String WELCOME_LETTER_LEAVES_THE_NUMBER_PLACEHOLDER =
+            "KNOWN DEFECT: the emailed welcome letter still reads \">>>Number<<\" (twice), because the "
+                    + "membership-number banner is in a text box and placeholder replacement only visits "
+                    + "body paragraphs and tables. This test asserts no placeholder survives.";
+
+    /**
+     * {@code EmailServiceImpl} wraps a failed send as "Failed to send welcome letter
+     * to &lt;address&gt;"; the catch-all handler copies that into a 500 body, on an
+     * endpoint that is anonymous (B1). Register row B8.
+     */
+    public static final String WELCOME_FAILURE_NAMES_THE_RECIPIENT =
+            "KNOWN DEFECT: EmailServiceImpl wraps a failed send as \"Failed to send welcome letter to "
+                    + "<address>\", and the catch-all handler copies exception messages into the 500 "
+                    + "body of an endpoint anyone may call. This test asserts the error names no "
+                    + "address. Register row B8, whose other half is that the endpoint is anonymous.";
+
     public static final String DUPLICATE_MEMBERS_ARE_ACCEPTED =
             "KNOWN DEFECT: neither members.membership_number nor members.identity_number is "
                     + "unique in the schema, so the same member can be stored twice -- production "
