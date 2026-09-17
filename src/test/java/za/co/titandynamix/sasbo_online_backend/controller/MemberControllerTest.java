@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -386,6 +387,21 @@ class MemberControllerTest {
                             .isEmpty());
 
             verify(emailService).sendWelcomeLetter(member);
+        }
+
+        @Test
+        @DisplayName("answers 400 naming the reason when the member has no email address")
+        void noAddressIs400() throws Exception {
+            // Not a defect, and pinned so it stays that way: the client's dialog offers Send
+            // for a member with no address (register A56), and this is what it gets back.
+            Member member = member(8, "Dlamini");
+            when(memberService.findById(8)).thenReturn(Optional.of(member));
+            doThrow(new IllegalArgumentException("No email address is available for this member."))
+                    .when(emailService).sendWelcomeLetter(member);
+
+            mockMvc.perform(post("/api/members/8/send-welcome"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("No email address is available for this member."));
         }
 
         @Test
