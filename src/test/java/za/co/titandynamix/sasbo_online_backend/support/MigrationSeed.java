@@ -93,7 +93,14 @@ public final class MigrationSeed {
             // bargaining_unit and backfilled, IF NOT EXISTS because production has it.
             "V27__job_grade_bargaining_council.sql",
             // CM-05: Shop Steward / BEC had no column; COSATU Local / Regional as yes/no.
-            "V29__member_structure_participation.sql");
+            "V29__member_structure_participation.sql",
+            // 🔑 The ACB arc starts at V40, leaving the capture arc room (V28 is reserved for a
+            // job_grades unique index). The gap is deliberate and this list is closed, so it is
+            // asserted rather than assumed.
+            //
+            // Step ONE of the money migration: the four member money columns become
+            // NUMERIC(12,2) beside the text they came from, which V49 drops later (D16).
+            "V40__member_money_columns_to_numeric_step_one.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

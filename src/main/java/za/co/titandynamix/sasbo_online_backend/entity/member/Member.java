@@ -18,6 +18,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.member.StringArrayToCommaSepa
 import za.co.titandynamix.sasbo_online_backend.entity.user.User;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -92,13 +93,33 @@ public class Member {
     private Integer debitDay;
 
     // Subscriptions
-    private String monthlySubscription;
+    // 🔴 NUMERIC(12,2) since V40, not text. These four were VARCHAR(255) from V1, which is
+    // why '100.00' < '9.00' was true in this database: money held as text cannot be summed,
+    // compared or ordered, and the ACB module's whole output is a control total the bureau
+    // reconciles against.
+    //
+    // 🔑 THE COLUMN NAMES ARE TRANSITIONAL, AND THAT IS DELIBERATE. V40 adds these NUMERIC
+    // columns BESIDE the original VARCHAR ones and leaves those untouched, so a build that
+    // predates this change keeps reading and writing exactly what it always did -- which
+    // matters because Flyway runs at boot, before the new instance passes its health check,
+    // so the old build is still serving live traffic when the migration commits (F38).
+    // V49 drops the text columns and renames these into their final names, and this entity
+    // then moves once more. Two renames is the price of a deploy that cannot break the
+    // running build; an earlier version of V40 renamed instead and would have broken it.
+    @Column(name = "monthly_subscription_numeric")
+    private BigDecimal monthlySubscription;
+
     private String subscriptionFrequency;
 
     // Balances
-    private String currentBalance;
-    private String arrearsBalance;
-    private String lastMonthBalance;
+    @Column(name = "current_balance_numeric")
+    private BigDecimal currentBalance;
+
+    @Column(name = "arrears_balance_numeric")
+    private BigDecimal arrearsBalance;
+
+    @Column(name = "last_month_balance_numeric")
+    private BigDecimal lastMonthBalance;
     private LocalDate dateLastChanged;
 
     @Column(name = "is_representative")

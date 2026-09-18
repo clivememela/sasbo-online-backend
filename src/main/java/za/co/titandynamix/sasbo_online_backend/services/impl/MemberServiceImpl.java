@@ -29,6 +29,7 @@ import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.utils.SaIdParser;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -409,7 +410,7 @@ public class MemberServiceImpl implements MemberService {
     }
 
     @Override
-    public Optional<Member> updateMonthlySubscription(Integer id, String monthlySubscription) {
+    public Optional<Member> updateMonthlySubscription(Integer id, BigDecimal monthlySubscription) {
         return this.memberRepository.findById(id).map(existing -> {
             existing.setMonthlySubscription(monthlySubscription);
             return this.memberRepository.save(existing);
@@ -490,7 +491,7 @@ public class MemberServiceImpl implements MemberService {
     private void autoPopulateBankDerivedFields(Member member) {
         // Single lookup for Subscriptions by bank name
         resolveSubscriptionFor(member).ifPresent(s -> {
-            member.setMonthlySubscription(s.getSubscriptionAmount().toPlainString());
+            member.setMonthlySubscription(s.getSubscriptionAmount());
             applyBankDebitDay(member, s);
         });
         autoPopulateBankAddress(member);

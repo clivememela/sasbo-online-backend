@@ -1,5 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.dto.member;
 
+import java.math.BigDecimal;
+
 import lombok.Data;
 
 /**
@@ -8,5 +10,5 @@ import lombok.Data;
  */
 @Data
 public class SubscriptionUpdateRequest {
-    private String monthlySubscription;
+    private BigDecimal monthlySubscription;
 }
