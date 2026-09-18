@@ -180,6 +180,32 @@ class ProductionConfigTest {
     }
 
     @Test
+    @DisplayName("🔴 D11: answers an unmatched path itself, rather than mapping it to a static resource")
+    void productionDispatchesUnmatchedPathsToTheHandler() {
+        // 🔴 THESE TWO KEYS DECIDE WHICH EXCEPTION AN UNKNOWN URL RAISES, and the test
+        // profile sets NEITHER -- which is how register row A18 came to describe a 500 that
+        // production has never produced (probed 2026-09-18: /api/acb and two nonsense paths
+        // each answered 404 with the error envelope). With `add-mappings` back at Boot's
+        // default of true, an unmatched path becomes a static-resource lookup and raises
+        // NoResourceFoundException, which the catch-all claims -- the 500 the slice saw.
+        //
+        // Pinned here because this file is the only place that reads the file that DEPLOYS.
+        // The handler on `phase/acb-00-groundwork` answers both exception types, so the fix
+        // does not depend on these keys; this says the keys are what production relies on
+        // today, and that dropping one is a deliberate act rather than a quiet one.
+        Map<String, String> config = production();
+
+        assertThat(config.get("spring.mvc.throwexceptionifnohandlerfound"))
+                .as("without this, Spring answers an unmatched path with a static-resource lookup "
+                        + "instead of raising NoHandlerFoundException (D11, A18)")
+                .isEqualTo("true");
+        assertThat(config.get("spring.web.resources.addmappings"))
+                .as("Boot's default is true; with mappings on, an unknown URL raises "
+                        + "NoResourceFoundException and the catch-all turns it into a 500")
+                .isEqualTo("false");
+    }
+
+    @Test
     @Disabled(KnownDefects.PRODUCTION_HIBERNATE_WRITES_THE_SCHEMA)
     @DisplayName("🔴 C1: never lets Hibernate write the live schema -- migrations own it")
     void productionNeverWritesTheSchema() {
