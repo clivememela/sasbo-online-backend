@@ -46,9 +46,13 @@ public final class KnownDefects {
     // #theCatchAllDoesNotLeakInternals -- is enabled and is now the guard.
 
     /**
-     * Two of nineteen services carry {@code @Transactional}. A service method
+     * Most services carry no {@code @Transactional} at all. A service method
      * issuing more than one repository write without a boundary can half-land,
      * and this is a data-capture system holding records for real people.
+     *
+     * <p>Which ones do is in {@code TransactionBoundaryTest}, measured rather than
+     * counted here: this sentence said "two of nineteen" while the answer was four
+     * of twenty-four, and nothing failed, because a comment cannot.
      */
     public static final String MULTI_WRITE_WITHOUT_A_TRANSACTION =
             "KNOWN DEFECT: service methods issue more than one repository write with no "
@@ -64,7 +68,6 @@ public final class KnownDefects {
             "KNOWN DEFECT: no list endpoint paginates or caps its result, so each returns the "
                     + "whole table and the response grows with the data. This test asserts a "
                     + "bound exists, and fails until one does.";
-
 
     /**
      * {@code handleValidationFailures} casts every element of

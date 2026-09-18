@@ -5,14 +5,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
-import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
 import za.co.titandynamix.sasbo_online_backend.fixtures.BankFixture;
+import za.co.titandynamix.sasbo_online_backend.fixtures.SubscriptionsFixture;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,9 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DisplayName("SubscriptionsRepository against the real migration chain")
 class SubscriptionsRepositoryIT extends AbstractWritingIT {
-
-    /** Fixed. Nothing here reads the wall clock. */
-    private static final LocalDateTime REGISTERED = LocalDateTime.of(2024, 3, 1, 9, 0);
 
     @Autowired
     private SubscriptionsRepository subscriptionsRepository;
@@ -121,27 +115,12 @@ class SubscriptionsRepositoryIT extends AbstractWritingIT {
     }
 
     /**
-     * Inserts a subscription with a chosen id, through SQL.
-     *
-     * <p>Not {@code repository.save()}, and the reason is worth writing down:
-     * {@code Subscriptions} carries an <b>assigned</b> {@code @Id} with no
-     * {@code @GeneratedValue} and does not implement {@code Persistable}, so
-     * Spring Data sees a non-null id, decides the entity is not new, and issues
-     * a {@code merge} -- an {@code UPDATE} that matches no row, which surfaces
-     * as an optimistic-locking failure rather than as an insert.
-     *
-     * <p>Production never hits that, because the mapper ignores the id on
-     * create and Hibernate then persists. It is only a problem for a test that
-     * wants to choose its own ids, which this one does -- so the insert goes
-     * through SQL and the entity mapping is left out of a test that is about
-     * the queries.
+     * Inserts a subscription with a chosen id, through SQL rather than
+     * {@code repository.save()} -- {@link SubscriptionsFixture} says why, and owns
+     * the column list so that this test and the controller round-trip lane cannot
+     * disagree about what a valid subscription is.
      */
     private void save(Long id, Bank bank) {
-        this.jdbc.update(
-                "INSERT INTO subscriptions "
-                        + "(id, acb_debit_day, core_banking, registration_date, status, "
-                        + " subscription_amount, bank_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                id, 25, true, REGISTERED, SubscriptionsStatus.ACTIVE.name(),
-                new BigDecimal("120.50"), bank == null ? null : bank.getId());
+        SubscriptionsFixture.insert(this.jdbc, id, bank);
     }
 }

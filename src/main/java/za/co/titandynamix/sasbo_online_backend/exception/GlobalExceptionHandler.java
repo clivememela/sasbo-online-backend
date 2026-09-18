@@ -151,45 +151,50 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * A path no controller handles is a <b>404</b>, not a 500 -- register row A18.
+     * A path no controller handles is a <b>404</b> -- whichever of the two
+     * exceptions Spring raises for it. Register row A18.
      *
-     * <h2>Why a second not-found handler was needed</h2>
-     * {@code NoHandlerFoundException} below is only ever raised when Boot is
-     * configured to throw it. By default the dispatcher passes an unmatched path to
-     * the resource handler, which raises {@code NoResourceFoundException} -- a
-     * {@code ServletException}, and therefore something the catch-all registered for
-     * {@code Exception} claimed. So <b>every mistyped URL in this application
-     * answered 500</b>, and no log or alert could tell a wrong address from a real
-     * server fault. It surfaced through ACB only because {@code ACBController} is
-     * the one controller with no endpoints to hit.
+     * <h2>🔴 Which exception you get depends on configuration, and that is the
+     * whole of A18</h2>
+     * Spring has two ways to say "no handler", and this application's own settings
+     * decide which one it uses:
      *
-     * <p>Declaring this handler <i>is</i> the fix: Spring dispatches an exception to
-     * the most specific handler for its type, so the catch-all keeps everything it
-     * should have had and loses only what was never its.
+     * <ul>
+     *   <li>{@code NoHandlerFoundException}, when
+     *       {@code spring.mvc.throw-exception-if-no-handler-found} is true -- which
+     *       {@code src/main/resources/application.yaml} sets, along with
+     *       {@code spring.web.resources.add-mappings: false}. <b>This is what the
+     *       deployed application raises</b>, and it has answered 404 all along.</li>
+     *   <li>{@code NoResourceFoundException}, when the resource handler is mapped
+     *       and takes the unmatched path. It is a {@code ServletException}, so the
+     *       catch-all registered for {@code Exception} claimed it and answered
+     *       <b>500</b>.</li>
+     * </ul>
+     *
+     * <p>⚠️ <b>So A18's "every unknown URL answers 500" was true of the TEST SLICE,
+     * not of production.</b> {@code src/test/resources/application.yaml} <b>shadows</b>
+     * the production file of the same name and carries neither MVC key -- it is an H2
+     * datasource and nothing else -- so a {@code @WebMvcTest} maps resources, raises
+     * {@code NoResourceFoundException}, and gets the 500 that the deployed application
+     * does not. Measured against the deployed API on 2026-09-18:
+     * {@code GET /api/acb}, {@code /api/acb/no-such-path} and
+     * {@code /api/definitely-not-a-route} each answered <b>404</b> with this
+     * envelope. That shadowing is the same mechanism as register row <b>C12</b>,
+     * and it is the second defect it has produced.
+     *
+     * <p>Both types are handled here anyway, and deliberately: Boot's default for
+     * {@code add-mappings} is <i>true</i>, so the day anyone removes that line the
+     * 500 returns. One handler for both means the two paths cannot answer
+     * differently -- they were two byte-identical methods before this.
      *
      * <p>🔒 The body is written here rather than taken from {@code ex.getMessage()},
      * for the reason the catch-all gives at length: this API is {@code permitAll()},
      * so a 404 answers anyone. The path the caller asked for is already in the
      * envelope's {@code path} field, put there deliberately.
      */
-    @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
-            NoResourceFoundException ex, HttpServletRequest request) {
-        log.warn("No resource for {} {}", request.getMethod(), request.getRequestURI());
-        ApiErrorResponse response = new ApiErrorResponse(
-                LocalDateTime.now(ZoneId.of("UTC")),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                "The requested resource was not found",
-                request.getRequestURI(),
-                null
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-    }
-
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleNoHandlerFound(NoHandlerFoundException ex, HttpServletRequest request) {
-        log.warn("Resource not found: {} {}", ex.getHttpMethod(), ex.getRequestURL());
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ApiErrorResponse> handleNotFound(HttpServletRequest request) {
+        log.warn("No handler for {} {}", request.getMethod(), request.getRequestURI());
         ApiErrorResponse response = new ApiErrorResponse(
                 LocalDateTime.now(ZoneId.of("UTC")),
                 HttpStatus.NOT_FOUND.value(),

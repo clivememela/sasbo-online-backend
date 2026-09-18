@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.testcontainers.containers.PostgreSQLContainer;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractPostgresIT;
 
 import java.math.BigDecimal;
@@ -17,8 +18,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 /**
  * 🔴 <b>V40 — the member's four money columns become {@code NUMERIC(12,2)}, step one of two.</b>
@@ -43,11 +46,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  * carries what it must become and what the migration must say about it, so the
  * expectation is one table rather than a dozen scattered literals.
  *
+ * <p>Every shape is written to <b>all four</b> money columns and every column is
+ * read back, because V40 converts them in a single {@code UPDATE} and a test that
+ * looked at one of them would pass just as happily if the other three had been
+ * left out of that statement.
+ *
  * <h2>The non-vacuity half</h2>
- * {@code lexicalOrderingIsWhatTheTextColumnStillDoes} asserts the OLD behaviour
- * on the {@code *_text} column that V40 leaves behind — in the same database,
- * from the same bytes. Without it, "ordered numerically" is a claim about a
- * column that might simply have been empty.
+ * {@code moneyOrdersNumerically} asserts the OLD behaviour on the {@code *_text}
+ * column that V40 leaves behind — in the same database, from the same bytes.
+ * Without it, "ordered numerically" is a claim about a column that might simply
+ * have been empty.
  */
 @DisplayName("V40 against the real migration chain")
 class MemberMoneyMigrationIT extends AbstractPostgresIT {
@@ -57,24 +65,54 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
 
     private static final String PROBE_DATABASE = "v40_money_probe";
 
+    /** The one table V40 creates. */
+    private static final String REPORT_TABLE = "members_money_migration_report";
+
+    /** The four columns V40 converts. Named here so the assertions cover all of them, not one. */
+    private static final List<String> MONEY_COLUMNS =
+            List.of("monthly_subscription", "current_balance", "arrears_balance", "last_month_balance");
+
     /**
-     * surname · the raw text · what the numeric column must hold · what the report must say.
-     * A {@code null} expectation means NULL; a {@code null} outcome means "not reported".
+     * One row of the migration's own rule table.
+     *
+     * @param surname how the row is found again; the shape's name, not a person's
+     * @param raw     the text the column holds before V40, or {@code null} for no value at all
+     * @param numeric what the NUMERIC column must hold afterwards, or {@code null} for NULL
+     * @param outcome what the report must say about it, or {@code null} for "not reported"
      */
-    private static final List<Object[]> EDGE_SHAPES = List.of(
-            new Object[] {"ordinary", "174.00", new BigDecimal("174.00"), null},
-            new Object[] {"padded", " 174 ", new BigDecimal("174.00"), null},
-            new Object[] {"negative", "-5", new BigDecimal("-5.00"), null},
-            new Object[] {"rounding", "174.005", new BigDecimal("174.01"), "rounded"},
-            new Object[] {"blank", "", null, "blank"},
-            new Object[] {"whitespace", "   ", null, "blank"},
-            new Object[] {"letters", "abc", null, "unparseable"},
-            new Object[] {"comma", "174,00", null, "unparseable"},
-            new Object[] {"exponent", "1e3", null, "unparseable"},
-            new Object[] {"currency", "R174", null, "unparseable"},
-            new Object[] {"absent", null, null, null});
+    private record Shape(String surname, String raw, BigDecimal numeric, String outcome) {
+
+        /** The raw text as the report stores it: trimmed, because the report trims. */
+        String reportedValue() {
+            return this.raw == null ? null : this.raw.trim();
+        }
+    }
+
+    private static final List<Shape> EDGE_SHAPES = List.of(
+            new Shape("ordinary", "174.00", new BigDecimal("174.00"), null),
+            new Shape("padded", " 174 ", new BigDecimal("174.00"), null),
+            new Shape("negative", "-5", new BigDecimal("-5.00"), null),
+            new Shape("rounding", "174.005", new BigDecimal("174.01"), "rounded"),
+            new Shape("blank", "", null, "blank"),
+            new Shape("whitespace", "   ", null, "blank"),
+            new Shape("letters", "abc", null, "unparseable"),
+            new Shape("comma", "174,00", null, "unparseable"),
+            new Shape("exponent", "1e3", null, "unparseable"),
+            new Shape("currency", "R174", null, "unparseable"),
+            new Shape("absent", null, null, null));
+
+    /** Derived, not written down: the number of shapes that put text in a column at all. */
+    private static final long SHAPES_WITH_TEXT =
+            EDGE_SHAPES.stream().filter(shape -> shape.raw() != null).count();
 
     private JdbcTemplate probe;
+
+    /**
+     * The last version before V40, read from the chain once per test rather than on each use —
+     * {@code info()} opens a connection and scans the classpath, and the answer cannot change
+     * while a test is running.
+     */
+    private MigrationVersion beforeV40;
 
     @BeforeEach
     void createAnEmptyDatabaseOfItsOwn() {
@@ -82,64 +120,74 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         shared.execute("DROP DATABASE IF EXISTS " + PROBE_DATABASE);
         shared.execute("CREATE DATABASE " + PROBE_DATABASE);
         this.probe = jdbcFor(probeUrl());
+        this.beforeV40 = lastVersionBeforeV40();
     }
 
     @AfterEach
     void dropIt() {
-        this.probe = null;
-        JdbcTemplate shared = jdbcFor(POSTGRES.getJdbcUrl());
-        shared.execute("DROP DATABASE IF EXISTS " + PROBE_DATABASE + " WITH (FORCE)");
+        jdbcFor(POSTGRES.getJdbcUrl()).execute("DROP DATABASE IF EXISTS " + PROBE_DATABASE + " WITH (FORCE)");
     }
 
     @Test
     @DisplayName("every shape is converted or reported, and nothing is silently nulled")
     void everyShapeIsConvertedOrReported() {
-        migrateTo(lastVersionBeforeV40());
-        assertThat(columnType("monthly_subscription"))
+        migrateTo(this.beforeV40);
+        assertThat(columnType("members", "monthly_subscription"))
                 .as("the precondition: before V40 the money column is text")
                 .isEqualTo("character varying");
         insertTheEdgeShapes();
 
         migrateTo(MigrationVersion.LATEST);
 
-        assertThat(columnType("monthly_subscription"))
-                .as("after V40 it is numeric")
-                .isEqualTo("numeric");
+        // Softly, because the first disagreeing shape is rarely the only one, and
+        // the whole point of a rule table is to see the rule's shape when it breaks.
+        assertSoftly(softly -> {
+            for (String column : MONEY_COLUMNS) {
+                softly.assertThat(columnType("members", column))
+                        .as("after V40 %s is numeric", column)
+                        .isEqualTo("numeric");
 
-        for (Object[] shape : EDGE_SHAPES) {
-            String surname = (String) shape[0];
-            BigDecimal expected = (BigDecimal) shape[2];
-            String outcome = (String) shape[3];
+                for (Shape shape : EDGE_SHAPES) {
+                    BigDecimal actual = this.probe.queryForObject(
+                            "SELECT " + column + " FROM members WHERE surname = ?",
+                            BigDecimal.class, shape.surname());
+                    if (shape.numeric() == null) {
+                        softly.assertThat(actual)
+                                .as("%s.%s (%s) must not be converted", column, shape.surname(), shape.raw())
+                                .isNull();
+                    } else {
+                        softly.assertThat(actual)
+                                .as("%s.%s (%s)", column, shape.surname(), shape.raw())
+                                .isEqualByComparingTo(shape.numeric());
+                    }
 
-            BigDecimal actual = this.probe.queryForObject(
-                    "SELECT monthly_subscription FROM members WHERE surname = ?",
-                    BigDecimal.class, surname);
-            if (expected == null) {
-                assertThat(actual).as("%s (%s) must not be converted", surname, shape[1]).isNull();
-            } else {
-                assertThat(actual).as("%s (%s)", surname, shape[1]).isEqualByComparingTo(expected);
+                    List<Map<String, Object>> reported = reportRowsFor(column, shape.surname());
+                    if (shape.outcome() == null) {
+                        softly.assertThat(reported)
+                                .as("%s.%s must not be reported", column, shape.surname())
+                                .isEmpty();
+                    } else {
+                        softly.assertThat(reported)
+                                .as("%s.%s must be reported once", column, shape.surname())
+                                .hasSize(1);
+                        if (reported.size() == 1) {
+                            softly.assertThat(reported.get(0).get("outcome"))
+                                    .as("%s.%s", column, shape.surname())
+                                    .isEqualTo(shape.outcome());
+                            softly.assertThat(reported.get(0).get("raw_value"))
+                                    .as("the report keeps the raw text, so a human can decide what it meant")
+                                    .isEqualTo(shape.reportedValue());
+                        }
+                    }
+                }
+
+                softly.assertThat(this.probe.queryForObject(
+                                "SELECT count(*) FROM members WHERE " + column + "_text IS NOT NULL", Long.class))
+                        .as("nothing was destroyed: every %s text value is still readable in %s_text",
+                                column, column)
+                        .isEqualTo(SHAPES_WITH_TEXT);
             }
-
-            List<Map<String, Object>> reported = this.probe.queryForList(
-                    "SELECT outcome, raw_value FROM members_money_migration_report r"
-                            + " JOIN members m ON m.id = r.member_id"
-                            + " WHERE m.surname = ? AND r.column_name = 'monthly_subscription_text'",
-                    surname);
-            if (outcome == null) {
-                assertThat(reported).as("%s must not be reported", surname).isEmpty();
-            } else {
-                assertThat(reported).as("%s must be reported once", surname).hasSize(1);
-                assertThat(reported.get(0).get("outcome")).isEqualTo(outcome);
-                assertThat(reported.get(0).get("raw_value"))
-                        .as("the report keeps the raw text, so a human can decide what it meant")
-                        .isEqualTo(((String) shape[1]).trim());
-            }
-        }
-
-        assertThat(this.probe.queryForObject(
-                "SELECT count(*) FROM members WHERE monthly_subscription_text IS NOT NULL", Integer.class))
-                .as("nothing was destroyed: every text value is still readable in its *_text column")
-                .isEqualTo(10);
+        });
     }
 
     @Test
@@ -149,7 +197,7 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         // same database, ordered by the numeric column and by the text column V40
         // left behind. If the numeric assertion below could pass on an empty
         // table, the text one would too -- and it does not.
-        migrateTo(lastVersionBeforeV40());
+        migrateTo(this.beforeV40);
         insertMember("nine", "9.00");
         insertMember("hundred", "100.00");
 
@@ -166,6 +214,28 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
                         + " ORDER BY monthly_subscription_text", String.class))
                 .as("lexical, which is what this column did for every one of its rows until now")
                 .containsExactly("hundred", "nine");
+    }
+
+    @Test
+    @DisplayName("V40 adds one table and drops none -- the report, and nothing else")
+    void v40AddsOnlyTheReportTable() {
+        // 🔑 This is what earns MigrationChainContentTest's table count going from 24
+        // to 25. That test is gated behind P0_DB_URL and does not run in either
+        // ordinary lane, so on its own the new number would be an edit nobody checked.
+        // Here the same claim is a measured delta, in a lane that runs.
+        //
+        // It is also the check a data migration most needs and least often gets: the
+        // difference between renaming a column and dropping one is invisible in a
+        // report of converted values, and catastrophic.
+        migrateTo(this.beforeV40);
+        List<String> before = publicTables();
+
+        migrateTo(MigrationVersion.LATEST);
+
+        assertThat(publicTables())
+                .as("every table that existed before V40, plus its report, and nothing else")
+                .containsExactlyInAnyOrderElementsOf(
+                        Stream.concat(before.stream(), Stream.of(REPORT_TABLE)).toList());
     }
 
     // ── the machinery ────────────────────────────────────────────────────────────────────────
@@ -200,28 +270,58 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
                         "no migration below V40 -- the chain cannot be wound to before the one under test"));
     }
 
+    private List<Map<String, Object>> reportRowsFor(String column, String surname) {
+        return this.probe.queryForList(
+                "SELECT outcome, raw_value FROM members_money_migration_report r"
+                        + " JOIN members m ON m.id = r.member_id"
+                        + " WHERE m.surname = ? AND r.column_name = ?",
+                surname, column + "_text");
+    }
+
     private void insertTheEdgeShapes() {
-        for (Object[] shape : EDGE_SHAPES) {
-            insertMember((String) shape[0], (String) shape[1]);
+        for (Shape shape : EDGE_SHAPES) {
+            insertMember(shape.surname(), shape.raw());
         }
     }
 
+    /** The same raw text in all four money columns, so all four are under test. */
     private void insertMember(String surname, String rawMoney) {
         this.probe.update(
-                "INSERT INTO members (surname, monthly_subscription, current_balance,"
-                        + " created_at, updated_at) VALUES (?, ?, ?, now(), now())",
-                surname, rawMoney, rawMoney);
+                "INSERT INTO members (surname, monthly_subscription, current_balance, arrears_balance,"
+                        + " last_month_balance, created_at, updated_at)"
+                        + " VALUES (?, ?, ?, ?, ?, now(), now())",
+                surname, rawMoney, rawMoney, rawMoney, rawMoney);
     }
 
-    private String columnType(String column) {
+    /**
+     * {@code information_schema.columns} lists every schema the session can see, so the schema is
+     * named: without it a second {@code members} anywhere on the search path could answer instead,
+     * and {@code queryForObject} would fail on two rows rather than on the wrong one.
+     */
+    private String columnType(String table, String column) {
         return this.probe.queryForObject(
                 "SELECT data_type FROM information_schema.columns"
-                        + " WHERE table_name = 'members' AND column_name = ?",
-                String.class, column);
+                        + " WHERE table_schema = 'public' AND table_name = ? AND column_name = ?",
+                String.class, table, column);
+    }
+
+    /**
+     * Built from the container's host and port rather than by editing the database name out of
+     * {@code getJdbcUrl()}: that string substitution also rewrites any other occurrence of the
+     * name, and the name is the container's to choose.
+     */
+    /** Every base table in {@code public}, Flyway's own history included -- it is one too. */
+    private List<String> publicTables() {
+        return this.probe.queryForList(
+                "SELECT table_name FROM information_schema.tables"
+                        + " WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
+                        + " ORDER BY table_name",
+                String.class);
     }
 
     private String probeUrl() {
-        return POSTGRES.getJdbcUrl().replace("/" + POSTGRES.getDatabaseName(), "/" + PROBE_DATABASE);
+        return "jdbc:postgresql://" + POSTGRES.getHost() + ":"
+                + POSTGRES.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT) + "/" + PROBE_DATABASE;
     }
 
     private static JdbcTemplate jdbcFor(String url) {

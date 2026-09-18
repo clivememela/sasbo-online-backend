@@ -11,13 +11,10 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
-import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
 import za.co.titandynamix.sasbo_online_backend.fixtures.BankFixture;
+import za.co.titandynamix.sasbo_online_backend.fixtures.SubscriptionsFixture;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -62,10 +59,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @DisplayName("PUT /api/subscriptions/{id} against a real database")
 class SubscriptionsUpdateRoundTripIT extends AbstractWritingIT {
 
-    /** Fixed. Nothing here reads the wall clock. */
-    private static final LocalDateTime REGISTERED = LocalDateTime.of(2024, 3, 1, 9, 0);
-
     private static final long SUBSCRIPTION_ID = 1L;
+
+    /** An id nothing seeds, for the must-pass twin below. */
+    private static final long ABSENT_SUBSCRIPTION_ID = 999_999L;
+
+    private static final String BANK_NAME = "Absa";
 
     @Autowired
     private MockMvc mockMvc;
@@ -82,7 +81,7 @@ class SubscriptionsUpdateRoundTripIT extends AbstractWritingIT {
         seedSubscription();
         JsonNode before = readSubscription();
 
-        MockHttpServletResponse response = putSubscription(before);
+        MockHttpServletResponse response = putSubscription(SUBSCRIPTION_ID, before);
 
         assertThat(response.getStatus())
                 .as("PUT of an unchanged subscription, whose body the API itself just produced")
@@ -91,11 +90,14 @@ class SubscriptionsUpdateRoundTripIT extends AbstractWritingIT {
         JsonNode answered = this.objectMapper.readTree(response.getContentAsString());
         assertThat(answered.get("bankName").asText())
                 .as("the bank survives the round trip -- the lazy proxy A33 could not initialise")
-                .isEqualTo("Absa");
-        assertThat(answered.get("acbDebitDay").asInt()).isEqualTo(before.get("acbDebitDay").asInt());
-        assertThat(answered.get("subscriptionAmount").decimalValue())
-                .isEqualByComparingTo(before.get("subscriptionAmount").decimalValue());
-        assertThat(answered.get("status").asText()).isEqualTo(before.get("status").asText());
+                .isEqualTo(BANK_NAME);
+
+        // Then the whole node, rather than the three or four fields an author
+        // happened to think of: "unchanged" is a claim about all of them, and a
+        // field added to the DTO tomorrow is exactly the one nobody would list.
+        assertThat(answered)
+                .as("an unchanged round trip answers the body it was given, field for field")
+                .isEqualTo(before);
     }
 
     @Test
@@ -104,10 +106,10 @@ class SubscriptionsUpdateRoundTripIT extends AbstractWritingIT {
         // The automation suite's @defect:A33 scenario, in the lane that can prove
         // it without a browser: "the A.C.B. debit day on <bank> is corrected to 21".
         seedSubscription();
-        ObjectNode corrected = (ObjectNode) readSubscription();
+        ObjectNode corrected = readSubscription();
         corrected.put("acbDebitDay", 21);
 
-        MockHttpServletResponse response = putSubscription(corrected);
+        MockHttpServletResponse response = putSubscription(SUBSCRIPTION_ID, corrected);
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(this.objectMapper.readTree(response.getContentAsString()).get("acbDebitDay").asInt())
@@ -124,41 +126,39 @@ class SubscriptionsUpdateRoundTripIT extends AbstractWritingIT {
         // The must-pass twin. Without it, a route that answered 404 to everything
         // would satisfy neither test above and nobody would know which half broke:
         // this one fails the moment the endpoint stops finding rows at all.
+        //
+        // The body is a real row's, so the 404 can only be about the missing id --
+        // a hand-written payload could be refused for being malformed and look
+        // like the same answer.
         seedSubscription();
-        ObjectNode body = (ObjectNode) readSubscription();
 
-        MockHttpServletResponse response = this.mockMvc.perform(
-                        put("/api/subscriptions/999999")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(this.objectMapper.writeValueAsString(body)))
-                .andReturn().getResponse();
+        MockHttpServletResponse response = putSubscription(ABSENT_SUBSCRIPTION_ID, readSubscription());
 
         assertThat(response.getStatus()).isEqualTo(404);
     }
 
     private void seedSubscription() {
-        Bank absa = this.bankRepository.save(BankFixture.named("Absa"));
-        this.jdbc.update(
-                "INSERT INTO subscriptions "
-                        + "(id, acb_debit_day, core_banking, registration_date, status, "
-                        + " subscription_amount, bank_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                SUBSCRIPTION_ID, 25, true, REGISTERED, SubscriptionsStatus.ACTIVE.name(),
-                new BigDecimal("120.50"), absa.getId());
+        Bank absa = this.bankRepository.save(BankFixture.named(BANK_NAME));
+        SubscriptionsFixture.insert(this.jdbc, SUBSCRIPTION_ID, absa);
     }
 
-    private JsonNode readSubscription() throws Exception {
+    /**
+     * The row as the API itself renders it, typed as {@code ObjectNode} so a test that wants to
+     * change one field can, without each of them repeating the cast.
+     */
+    private ObjectNode readSubscription() throws Exception {
         MockHttpServletResponse response = this.mockMvc
                 .perform(get("/api/subscriptions/" + SUBSCRIPTION_ID))
                 .andReturn().getResponse();
         assertThat(response.getStatus())
                 .as("reading the row back is the precondition of every test here")
                 .isEqualTo(200);
-        return this.objectMapper.readTree(response.getContentAsString());
+        return (ObjectNode) this.objectMapper.readTree(response.getContentAsString());
     }
 
-    private MockHttpServletResponse putSubscription(JsonNode body) throws Exception {
+    private MockHttpServletResponse putSubscription(long id, JsonNode body) throws Exception {
         return this.mockMvc.perform(
-                        put("/api/subscriptions/" + SUBSCRIPTION_ID)
+                        put("/api/subscriptions/" + id)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(this.objectMapper.writeValueAsString(body)))
                 .andReturn().getResponse();
