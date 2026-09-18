@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 /**
- * 🔴 <b>V40 — the member's four money columns become {@code NUMERIC(12,2)}, step one of two.</b>
+ * 🔴 <b>V40 — the member's four money columns gain {@code NUMERIC(12,2)} twins, step one of two.</b>
  *
  * <h2>Why this runs the chain itself, in a database of its own</h2>
  * A data migration can only be tested by having data in front of it. Every other
@@ -39,6 +39,19 @@ import static org.assertj.core.api.SoftAssertions.assertSoftly;
  * the chain is not schema-agnostic, and a test that pretended otherwise would
  * either fail confusingly or quietly migrate the shared schema.
  *
+ * <h2>🔴 The assertion that matters most is {@code theOldColumnsAreUntouched}</h2>
+ * V40's first version RENAMED the text columns and gave their names to the new
+ * NUMERIC ones. That retypes the exact column a running old build writes to, and
+ * Flyway runs at boot — before the new instance passes its health check — so the
+ * old build is still serving when the migration commits. Measured on PostgreSQL
+ * 18.3: inserting a parameter declared {@code varchar} into a {@code numeric}
+ * column fails outright (<b>42804</b>), so every member save would have failed
+ * for the length of that window. Register-side it is blast-radius <b>F38</b>.
+ *
+ * <p>So the guard is not "the new columns are right" — it is <b>"the old columns
+ * are exactly as they were"</b>, which is the property the deploy depends on and
+ * the one a future simplification would quietly remove.
+ *
  * <h2>The fixture is the rule's own table</h2>
  * {@link #EDGE_SHAPES} is the list the gate names (R0-6) — the shapes the seed
  * does not contain, because all 640 seeded values are clean numeric text and
@@ -50,12 +63,6 @@ import static org.assertj.core.api.SoftAssertions.assertSoftly;
  * read back, because V40 converts them in a single {@code UPDATE} and a test that
  * looked at one of them would pass just as happily if the other three had been
  * left out of that statement.
- *
- * <h2>The non-vacuity half</h2>
- * {@code moneyOrdersNumerically} asserts the OLD behaviour on the {@code *_text}
- * column that V40 leaves behind — in the same database, from the same bytes.
- * Without it, "ordered numerically" is a claim about a column that might simply
- * have been empty.
  */
 @DisplayName("V40 against the real migration chain")
 class MemberMoneyMigrationIT extends AbstractPostgresIT {
@@ -68,16 +75,23 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
     /** The one table V40 creates. */
     private static final String REPORT_TABLE = "members_money_migration_report";
 
-    /** The four columns V40 converts. Named here so the assertions cover all of them, not one. */
+    /**
+     * The four money columns as they exist BEFORE V40 and, deliberately, after it.
+     * V40's numeric twin of each is {@code <name>_numeric} until V49 renames it.
+     */
     private static final List<String> MONEY_COLUMNS =
             List.of("monthly_subscription", "current_balance", "arrears_balance", "last_month_balance");
+
+    private static String numericTwinOf(String column) {
+        return column + "_numeric";
+    }
 
     /**
      * One row of the migration's own rule table.
      *
      * @param surname how the row is found again; the shape's name, not a person's
      * @param raw     the text the column holds before V40, or {@code null} for no value at all
-     * @param numeric what the NUMERIC column must hold afterwards, or {@code null} for NULL
+     * @param numeric what the NUMERIC twin must hold afterwards, or {@code null} for NULL
      * @param outcome what the report must say about it, or {@code null} for "not reported"
      */
     private record Shape(String surname, String raw, BigDecimal numeric, String outcome) {
@@ -105,6 +119,16 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
     private static final long SHAPES_WITH_TEXT =
             EDGE_SHAPES.stream().filter(shape -> shape.raw() != null).count();
 
+    /**
+     * Derived, not written down: the shapes V49's gate must count -- a non-blank text that did not
+     * convert. Blanks are excluded (nothing in them to lose) and so is the absent value. Each shape is
+     * one member, whichever of its four columns qualifies, so this is a count of members.
+     */
+    private static final long SHAPES_ONLY_IN_TEXT = EDGE_SHAPES.stream()
+            .filter(shape -> shape.numeric() == null)
+            .filter(shape -> shape.raw() != null && !shape.raw().isBlank())
+            .count();
+
     private JdbcTemplate probe;
 
     /**
@@ -129,6 +153,115 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
     }
 
     @Test
+    @DisplayName("🔴 the four original columns are untouched -- same name, same type, same bytes")
+    void theOldColumnsAreUntouched() {
+        // THE backward-compatibility guard, and the reason this migration adds rather
+        // than renames. A build that predates V40 is still serving while V40 commits,
+        // and it reads and writes these four names as text. If any of them is renamed
+        // or retyped, that build's member saves fail with 42804 for the length of the
+        // deploy window. Delete this test and the next "simplification" back to a
+        // rename passes every other assertion in this file.
+        migrateTo(this.beforeV40);
+        insertTheEdgeShapes();
+
+        migrateTo(MigrationVersion.LATEST);
+
+        assertSoftly(softly -> {
+            for (String column : MONEY_COLUMNS) {
+                softly.assertThat(columnType("members", column))
+                        .as("%s must still be text after V40 -- an old build writes strings to it", column)
+                        .isEqualTo("character varying");
+
+                for (Shape shape : EDGE_SHAPES) {
+                    softly.assertThat(this.probe.queryForObject(
+                                    "SELECT " + column + " FROM members WHERE surname = ?",
+                                    String.class, shape.surname()))
+                            .as("%s.%s keeps its exact bytes", column, shape.surname())
+                            .isEqualTo(shape.raw());
+                }
+            }
+        });
+    }
+
+    @Test
+    @DisplayName("🔴 an OLD build's write reaches the numeric twin, so the new build never serves a stale value")
+    void anOldBuildWriteReachesTheNumericTwin() {
+        // Adding columns alongside is not enough on its own: during the deploy overlap
+        // the old build writes ONLY the text column, and without the trigger the numeric
+        // twin keeps its backfilled value -- so the new build serves a stale amount and
+        // nothing fails anywhere. That swaps a loud failure for a silent one.
+        migrateTo(this.beforeV40);
+        insertMember("existing", "100.00");
+        migrateTo(MigrationVersion.LATEST);
+
+        // What the old build does: it knows nothing of *_numeric and writes text.
+        this.probe.update("UPDATE members SET monthly_subscription = '174.50' WHERE surname = 'existing'");
+        this.probe.update(
+                "INSERT INTO members (surname, monthly_subscription, created_at, updated_at)"
+                        + " VALUES ('joined-during-overlap', '99.90', now(), now())");
+
+        assertThat(numericOf("monthly_subscription", "existing"))
+                .as("an old-build UPDATE to the text must reach the numeric twin")
+                .isEqualByComparingTo("174.50");
+        assertThat(numericOf("monthly_subscription", "joined-during-overlap"))
+                .as("an old-build INSERT must fill the numeric twin it never mentioned")
+                .isEqualByComparingTo("99.90");
+    }
+
+    @Test
+    @DisplayName("🔴 a NEW build's write reaches the text column, so a rollback shows the current value")
+    void aNewBuildWriteReachesTheTextColumn() {
+        // The rollback half. After the overlap the new build writes ONLY the numeric
+        // column; without the trigger, rolling back to the old build would show every
+        // member the amount they had before the deploy.
+        migrateTo(this.beforeV40);
+        insertMember("existing", "100.00");
+        migrateTo(MigrationVersion.LATEST);
+
+        // What the new build does: it no longer maps the text column at all.
+        this.probe.update("UPDATE members SET monthly_subscription_numeric = 250.00 WHERE surname = 'existing'");
+        this.probe.update(
+                "INSERT INTO members (surname, monthly_subscription_numeric, created_at, updated_at)"
+                        + " VALUES ('joined-after-deploy', 120.50, now(), now())");
+
+        assertThat(textOf("monthly_subscription", "existing"))
+                .as("a new-build UPDATE to the numeric must reach the text an old build would read")
+                .isEqualTo("250.00");
+        assertThat(textOf("monthly_subscription", "joined-after-deploy"))
+                .as("a new-build INSERT must fill the text it never mentioned")
+                .isEqualTo("120.50");
+    }
+
+    @Test
+    @DisplayName("🔴 V49's gate COUNTS the values that exist only as text -- it does not merely return zero")
+    void theV49GateCountsWhatExistsOnlyInText() {
+        // The gate's first draft was blind: for 'abc' both sides are NULL, and NULL IS
+        // DISTINCT FROM NULL is false, so it returned 0 over fixtures that included the
+        // very values it exists to protect -- and that 0 was once reported as a pass.
+        // So the assertion that matters is the non-zero one: the gate must SEE them.
+        migrateTo(this.beforeV40);
+        insertTheEdgeShapes();
+        migrateTo(MigrationVersion.LATEST);
+
+        assertThat(gate())
+                .as("every member with a non-blank, unparseable money value must be counted")
+                .isEqualTo(SHAPES_ONLY_IN_TEXT)
+                .isPositive();
+
+        // The must-pass twin: once a human has decided what each of those meant, the
+        // gate opens. Written as the new build would write it, so the trigger runs too.
+        this.probe.update(
+                "UPDATE members SET monthly_subscription_numeric = 0, current_balance_numeric = 0,"
+                        + " arrears_balance_numeric = 0, last_month_balance_numeric = 0"
+                        + " WHERE monthly_subscription_numeric IS NULL"
+                        + " AND nullif(btrim(monthly_subscription), '') IS NOT NULL");
+
+        assertThat(gate())
+                .as("with every text-only value resolved, nothing would be lost by dropping the text")
+                .isZero();
+    }
+
+    @Test
     @DisplayName("every shape is converted or reported, and nothing is silently nulled")
     void everyShapeIsConvertedOrReported() {
         migrateTo(this.beforeV40);
@@ -143,24 +276,27 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         // the whole point of a rule table is to see the rule's shape when it breaks.
         assertSoftly(softly -> {
             for (String column : MONEY_COLUMNS) {
-                softly.assertThat(columnType("members", column))
-                        .as("after V40 %s is numeric", column)
+                String twin = numericTwinOf(column);
+                softly.assertThat(columnType("members", twin))
+                        .as("after V40 %s is numeric", twin)
                         .isEqualTo("numeric");
 
                 for (Shape shape : EDGE_SHAPES) {
                     BigDecimal actual = this.probe.queryForObject(
-                            "SELECT " + column + " FROM members WHERE surname = ?",
+                            "SELECT " + twin + " FROM members WHERE surname = ?",
                             BigDecimal.class, shape.surname());
                     if (shape.numeric() == null) {
                         softly.assertThat(actual)
-                                .as("%s.%s (%s) must not be converted", column, shape.surname(), shape.raw())
+                                .as("%s.%s (%s) must not be converted", twin, shape.surname(), shape.raw())
                                 .isNull();
                     } else {
                         softly.assertThat(actual)
-                                .as("%s.%s (%s)", column, shape.surname(), shape.raw())
+                                .as("%s.%s (%s)", twin, shape.surname(), shape.raw())
                                 .isEqualByComparingTo(shape.numeric());
                     }
 
+                    // The report names the ORIGINAL column: that is where the raw value
+                    // lives, and it is what V49 drops.
                     List<Map<String, Object>> reported = reportRowsFor(column, shape.surname());
                     if (shape.outcome() == null) {
                         softly.assertThat(reported)
@@ -182,9 +318,8 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
                 }
 
                 softly.assertThat(this.probe.queryForObject(
-                                "SELECT count(*) FROM members WHERE " + column + "_text IS NOT NULL", Long.class))
-                        .as("nothing was destroyed: every %s text value is still readable in %s_text",
-                                column, column)
+                                "SELECT count(*) FROM members WHERE " + column + " IS NOT NULL", Long.class))
+                        .as("nothing was destroyed: every %s text value is still readable", column)
                         .isEqualTo(SHAPES_WITH_TEXT);
             }
         });
@@ -194,8 +329,8 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
     @DisplayName("money orders numerically afterwards -- and the text it came from still does not")
     void moneyOrdersNumerically() {
         // R0-1, with its own non-vacuity beside it: the same two values, in the
-        // same database, ordered by the numeric column and by the text column V40
-        // left behind. If the numeric assertion below could pass on an empty
+        // same database, ordered by the numeric twin and by the text column V40
+        // left in place. If the numeric assertion below could pass on an empty
         // table, the text one would too -- and it does not.
         migrateTo(this.beforeV40);
         insertMember("nine", "9.00");
@@ -204,15 +339,16 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         migrateTo(MigrationVersion.LATEST);
 
         assertThat(this.probe.queryForList(
-                "SELECT surname FROM members WHERE monthly_subscription IS NOT NULL"
-                        + " ORDER BY monthly_subscription", String.class))
+                "SELECT surname FROM members WHERE monthly_subscription_numeric IS NOT NULL"
+                        + " ORDER BY monthly_subscription_numeric", String.class))
                 .as("numeric: nine before a hundred")
                 .containsExactly("nine", "hundred");
 
         assertThat(this.probe.queryForList(
-                "SELECT surname FROM members WHERE monthly_subscription_text IS NOT NULL"
-                        + " ORDER BY monthly_subscription_text", String.class))
-                .as("lexical, which is what this column did for every one of its rows until now")
+                "SELECT surname FROM members WHERE monthly_subscription IS NOT NULL"
+                        + " ORDER BY monthly_subscription", String.class))
+                .as("lexical, which is what this column did for every one of its rows until now "
+                        + "-- and still does, because V40 leaves it alone")
                 .containsExactly("hundred", "nine");
     }
 
@@ -223,10 +359,6 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         // to 25. That test is gated behind P0_DB_URL and does not run in either
         // ordinary lane, so on its own the new number would be an edit nobody checked.
         // Here the same claim is a measured delta, in a lane that runs.
-        //
-        // It is also the check a data migration most needs and least often gets: the
-        // difference between renaming a column and dropping one is invisible in a
-        // report of converted values, and catastrophic.
         migrateTo(this.beforeV40);
         List<String> before = publicTables();
 
@@ -270,12 +402,27 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
                         "no migration below V40 -- the chain cannot be wound to before the one under test"));
     }
 
+    /** V49's gate, called exactly as V49 will call it -- one definition, in V40. */
+    private long gate() {
+        return this.probe.queryForObject("SELECT members_money_only_in_text()", Long.class);
+    }
+
+    private BigDecimal numericOf(String column, String surname) {
+        return this.probe.queryForObject(
+                "SELECT " + numericTwinOf(column) + " FROM members WHERE surname = ?", BigDecimal.class, surname);
+    }
+
+    private String textOf(String column, String surname) {
+        return this.probe.queryForObject(
+                "SELECT " + column + " FROM members WHERE surname = ?", String.class, surname);
+    }
+
     private List<Map<String, Object>> reportRowsFor(String column, String surname) {
         return this.probe.queryForList(
-                "SELECT outcome, raw_value FROM members_money_migration_report r"
+                "SELECT outcome, raw_value FROM " + REPORT_TABLE + " r"
                         + " JOIN members m ON m.id = r.member_id"
                         + " WHERE m.surname = ? AND r.column_name = ?",
-                surname, column + "_text");
+                surname, column);
     }
 
     private void insertTheEdgeShapes() {
@@ -305,11 +452,6 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
                 String.class, table, column);
     }
 
-    /**
-     * Built from the container's host and port rather than by editing the database name out of
-     * {@code getJdbcUrl()}: that string substitution also rewrites any other occurrence of the
-     * name, and the name is the container's to choose.
-     */
     /** Every base table in {@code public}, Flyway's own history included -- it is one too. */
     private List<String> publicTables() {
         return this.probe.queryForList(
@@ -319,6 +461,11 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
                 String.class);
     }
 
+    /**
+     * Built from the container's host and port rather than by editing the database name out of
+     * {@code getJdbcUrl()}: that string substitution also rewrites any other occurrence of the
+     * name, and the name is the container's to choose.
+     */
     private String probeUrl() {
         return "jdbc:postgresql://" + POSTGRES.getHost() + ":"
                 + POSTGRES.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT) + "/" + PROBE_DATABASE;
