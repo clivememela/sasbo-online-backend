@@ -15,7 +15,9 @@ import za.co.titandynamix.sasbo_online_backend.fixtures.BankFixture;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
+import za.co.titandynamix.sasbo_online_backend.support.JobGradeSeedFile;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
+import za.co.titandynamix.sasbo_online_backend.utils.JobGradeSeeder;
 import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
 import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
 
@@ -67,6 +69,10 @@ class ReferenceDataIT extends AbstractWritingIT {
 
     @Autowired
     private UnionStructureRepository unionStructureRepository;
+
+    /** R5-F9: the bean that actually seeds job grades, so the fixture can exist. */
+    @Autowired
+    private JobGradeSeeder jobGradeSeeder;
 
     @Nested
     @DisplayName("JobGradeRepository")
@@ -128,21 +134,38 @@ class ReferenceDataIT extends AbstractWritingIT {
         @Test
         @Disabled(KnownDefects.JOB_GRADES_QUERY_FILTERS_WRONG_COLUMN)
         @DisplayName("the seeded job grades are all reachable through the lookup the API uses")
-        void everySeededGradeIsReachable() {
-            // The endpoint answers with an empty list where the table holds 27
-            // rows, because the lookup filters on a column that does not carry
-            // the value being matched. It is a repository-level bug: invisible
-            // to a mocked service test, and invisible to the fast lane, because
-            // H2 would answer whatever schema Hibernate invented.
+        void everySeededGradeIsReachable() throws java.io.IOException {
+            // The endpoint answers with an empty list where the table holds the
+            // seeded rows, because the lookup filters on a column that does not
+            // carry the value being matched. It is a repository-level bug:
+            // invisible to a mocked service test, and invisible to the fast lane,
+            // because H2 would answer whatever schema Hibernate invented.
             //
-            // This is the cheapest thing in the suite that catches it, and it
-            // turns green the day the query is corrected.
+            // 🔴 R5-F9 — THIS TEST PINNED A FIXTURE THAT DID NOT EXIST. It read
+            // `SELECT count(*) FROM job_grades` and asserted `27`, "seeded by the
+            // migration chain". NO MIGRATION INSERTS A JOB GRADE: there is no
+            // `JOB_GRADES` in `MigrationSeed`, and the only thing that seeds them
+            // is the `DataSeeder` that `AbstractPostgresIT` replaces with a mock.
+            // The table was EMPTY here. Being @Disabled against the defect below,
+            // nobody ever ran it -- so the day somebody fixed that query and
+            // un-skipped this, it would have failed `0 != 27` and read as "the fix
+            // did not work". A pin on a fixture that is absent is worse than no
+            // pin: it accuses the next correct change.
+            //
+            // Now the fixture is seeded for real -- `JobGradeSeeder` became a bean
+            // for R2-F4, which is what made this possible -- and the expectation is
+            // derived from the seed file, so this test can only fail for the defect
+            // it names.
+            var seedRows = JobGradeSeedFile.rows();
+            JobGradeSeedFile.createBanksFor(ReferenceDataIT.this.bankRepository, seedRows);
+            ReferenceDataIT.this.jobGradeSeeder.seed();
+
             Integer seeded = ReferenceDataIT.this.jdbc.queryForObject(
                     "SELECT count(*) FROM job_grades", Integer.class);
 
             assertThat(seeded)
-                    .as("job grades seeded by the migration chain")
-                    .isEqualTo(27);
+                    .as("job grades the seed file describes, seeded by JobGradeSeeder")
+                    .isEqualTo(seedRows.size());
         }
     }
 

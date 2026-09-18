@@ -202,23 +202,13 @@ class ProductionConfigTest {
     }
 
     @Test
-    @Disabled(KnownDefects.PRODUCTION_PERMITS_FLYWAY_CLEAN)
-    @DisplayName("🔴 C4: never permits flyway clean against the live database")
+    @DisplayName("C4 (fixed on capture-member): never permits flyway clean against the live database")
     void productionForbidsFlywayClean() {
         assertThat(production().get("spring.flyway.cleandisabled"))
                 .as("`flyway.clean-disabled: false` lets one `flyway clean` -- a mistyped URL, a "
                         + "Gradle task, a well-meant reset -- drop every object in the schema. "
                         + "Delete the line: Flyway's default is true")
                 .isNotEqualTo("false");
-    }
-
-    @Test
-    @DisplayName("🔴 C4 still reproduces: production sets flyway clean-disabled: false")
-    void productionStillPermitsFlywayClean() {
-        assertThat(production().get("spring.flyway.cleandisabled"))
-                .as("C4 has changed. If this is no longer `false`, C4 is fixed: enable "
-                        + "productionForbidsFlywayClean and delete the KnownDefects row")
-                .isEqualTo("false");
     }
 
     @Test

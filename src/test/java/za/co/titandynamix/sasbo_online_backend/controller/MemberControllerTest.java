@@ -21,6 +21,7 @@ import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapperImpl;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
+import za.co.titandynamix.sasbo_online_backend.services.EmailService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
@@ -32,6 +33,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -90,6 +92,10 @@ class MemberControllerTest {
 
     @MockitoBean
     private RepresentativeRoleRepository representativeRoleRepository;
+
+    /** Present here, so the endpoint is configured; its absence is MemberControllerWithoutMailTest. */
+    @MockitoBean
+    private EmailService emailService;
 
     private static Member member(Integer id, String surname) {
         Member member = new Member();
@@ -362,5 +368,51 @@ class MemberControllerTest {
             incoming.setRole(role);
             return null;
         }).when(memberService).resolveStructureAndRole(any(Member.class));
+    }
+
+    @Nested
+    @DisplayName("POST /api/members/{id}/send-welcome")
+    class SendWelcome {
+
+        @Test
+        @DisplayName("sends the letter for THAT member and answers 200 with no body")
+        void sendsForThatMember() throws Exception {
+            Member member = member(7, "Mokoena");
+            when(memberService.findById(7)).thenReturn(Optional.of(member));
+
+            mockMvc.perform(post("/api/members/7/send-welcome"))
+                    .andExpect(status().isOk())
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .as("an EMPTY 200 -- the client must not parse it as JSON (register A50)")
+                            .isEmpty());
+
+            verify(emailService).sendWelcomeLetter(member);
+        }
+
+        @Test
+        @DisplayName("answers 400 naming the reason when the member has no email address")
+        void noAddressIs400() throws Exception {
+            // Not a defect, and pinned so it stays that way: the client's dialog offers Send
+            // for a member with no address (register A56), and this is what it gets back.
+            Member member = member(8, "Dlamini");
+            when(memberService.findById(8)).thenReturn(Optional.of(member));
+            doThrow(new IllegalArgumentException("No email address is available for this member."))
+                    .when(emailService).sendWelcomeLetter(member);
+
+            mockMvc.perform(post("/api/members/8/send-welcome"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("No email address is available for this member."));
+        }
+
+        @Test
+        @DisplayName("answers 404, and sends nothing, for a member that does not exist")
+        void unknownMemberSendsNothing() throws Exception {
+            when(memberService.findById(99)).thenReturn(Optional.empty());
+
+            mockMvc.perform(post("/api/members/99/send-welcome"))
+                    .andExpect(status().isNotFound());
+
+            verify(emailService, never()).sendWelcomeLetter(any());
+        }
     }
 }

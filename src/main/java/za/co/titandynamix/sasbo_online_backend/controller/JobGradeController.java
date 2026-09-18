@@ -28,7 +28,12 @@ public class JobGradeController {
 
         String identifier = (bankCode != null && !bankCode.isBlank()) ? bankCode : bank;
 
-        List<JobGrade> jobGradeList = jobGradeService.findByBankIdentifier(identifier);
+        // The DROP-DOWN gets the verified master list only. A grade an administrator
+        // typed is stored and reviewable, but offering it here would turn one typo into
+        // everyone's option -- and the drop-down exists for consistency (6c clause 3).
+        // Resolution on save still sees every grade, verified or not, via
+        // findByBankIdentifier; the two lists are deliberately different.
+        List<JobGrade> jobGradeList = jobGradeService.findVerifiedByBankIdentifier(identifier);
 
         if (jobGradeList == null || jobGradeList.isEmpty()) {
             return ResponseEntity.ok(List.of());
@@ -62,6 +67,9 @@ public class JobGradeController {
         dto.setDescription(jobGrade.getDescription());
         dto.setContractType(jobGrade.getContractType());
         dto.setIsBargainingCouncil(jobGrade.getIsBargainingCouncil());
+        dto.setBargainingUnit(jobGrade.getBargainingUnit() == null
+                ? null : jobGrade.getBargainingUnit().name());
+        dto.setBargainingUnitCondition(jobGrade.getBargainingUnitCondition());
         return dto;
     }
 

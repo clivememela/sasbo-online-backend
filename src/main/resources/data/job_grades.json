@@ -3,398 +3,820 @@
         "bankName": "Absa Bank Limited",
         "grade": "AVP",
         "contractType": null,
-        "description": "Non - Bargaining",
-        "isBargainingCouncil": null
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "Absa Bank Limited",
         "grade": "BA1",
         "contractType": null,
-        "description": "Bargaining unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "Absa Bank Limited",
         "grade": "BA2",
         "contractType": null,
-        "description": "Bargaining unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "Absa Bank Limited",
         "grade": "BA3",
         "contractType": null,
-        "description": "Bargaining unit",
-        "isBargainingCouncil": null
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "Absa Bank Limited",
         "grade": "BA4",
         "contractType": null,
-        "description": "Bargaining unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "Absa Bank Limited",
         "grade": "MP",
         "contractType": null,
-        "description": "Non - Bargaining",
-        "isBargainingCouncil": false
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "Absa Bank Limited",
         "grade": "P",
         "contractType": null,
-        "description": "Non - Bargaining",
-        "isBargainingCouncil": false
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "Absa Bank Limited",
         "grade": "VP",
         "contractType": null,
-        "description": "Non - Bargaining",
-        "isBargainingCouncil": false
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade c",
         "contractType": "PFA/DFA Sales",
         "description": null,
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade K",
         "contractType": "TGP/NON TGP",
         "description": null,
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade L",
         "contractType": "Omlacsa",
         "description": null,
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade M",
         "contractType": null,
         "description": null,
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade N",
         "contractType": null,
-        "description": null
+        "description": null,
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade O",
         "contractType": null,
         "description": null,
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade P",
         "contractType": null,
         "description": null,
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade PB",
         "contractType": null,
         "description": null,
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "OM Bank Limited",
         "grade": "Grade Q",
         "contractType": null,
         "description": null,
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG04",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG05",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG06",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG07",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG08",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG09",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG10",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG11",
         "contractType": null,
         "description": "Junior Managers",
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG12",
         "contractType": null,
         "description": "Middle Managers",
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
     },
     {
         "bankName": "The Standard Bank of South Africa Limited",
         "grade": "SBG13",
         "contractType": null,
         "description": "Senior Managers",
-        "isBargainingCouncil": null
+        "bargainingUnit": null,
+        "bargainingUnitCondition": null,
+        "gradingSystem": "BANK_SPECIFIC",
+        "band": null
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "B1",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "B"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "B2",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "B"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "B3",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "B"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "B4",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "B"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "B5",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "B"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "C1",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "C"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "C2",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "C"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "C3",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "C"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "C4",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "C"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "C5",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: BU.",
+        "gradingSystem": "PATERSON",
+        "band": "C"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "D1",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "D"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "D2",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "D"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "D3",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "D"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "D4",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "D"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "D5",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "D"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "E1",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "E"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "E2",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "E"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "E3",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "E"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "E4",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "E"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "E5",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "E"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "F1",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "F"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "F2",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "F"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "F3",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "F"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "F4",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "F"
+    },
+    {
+        "bankName": "Nedbank Limited",
+        "grade": "F5",
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Nedbank classifies on the grade AND a guaranteed-package threshold. The threshold table was promised in Stephne Anders' email of 2026-09-09 (\"see below\") and is not present on any page, so the grade alone does not decide. Grade half: NBU.",
+        "gradingSystem": "PATERSON",
+        "band": "F"
     },
     {
         "bankName": "Capitec Bank Limited",
         "grade": "A",
-        "contractType": "All",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "A"
     },
     {
         "bankName": "Capitec Bank Limited",
         "grade": "B",
-        "contractType": "All",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "B"
     },
     {
         "bankName": "Capitec Bank Limited",
         "grade": "C",
-        "contractType": "Only Assistant Branch Manager",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "CONDITIONAL",
+        "bargainingUnitCondition": "Bargaining unit ONLY for Assistant Branch Managers. This system does not store a job title, so grade C alone cannot decide.",
+        "gradingSystem": "PATERSON",
+        "band": "C"
     },
     {
         "bankName": "Capitec Bank Limited",
         "grade": "D",
-        "contractType": "Not applicable",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "D"
     },
     {
         "bankName": "Capitec Bank Limited",
         "grade": "E",
-        "contractType": "Not applicable",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "E"
     },
     {
         "bankName": "Capitec Bank Limited",
         "grade": "F",
-        "contractType": "Not applicable",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "F"
     },
     {
         "bankName": "South African Reserve Bank",
         "grade": "M3/M4/SP6",
         "contractType": null,
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "SARB_LEVELS",
+        "band": null
     },
     {
         "bankName": "South African Reserve Bank",
         "grade": "M2/SP5",
         "contractType": null,
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "SARB_LEVELS",
+        "band": null
     },
     {
         "bankName": "South African Reserve Bank",
         "grade": "M1/FC4/SP4",
         "contractType": null,
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "SARB_LEVELS",
+        "band": null
     },
     {
         "bankName": "South African Reserve Bank",
         "grade": "SP3/SP2/SP1",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "SARB_LEVELS",
+        "band": null
     },
     {
         "bankName": "South African Reserve Bank",
         "grade": "FC3",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "SARB_LEVELS",
+        "band": null
     },
     {
         "bankName": "South African Reserve Bank",
         "grade": "FC2",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "SARB_LEVELS",
+        "band": null
     },
     {
         "bankName": "South African Reserve Bank",
         "grade": "FC1",
         "contractType": null,
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "SARB_LEVELS",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 1",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 2",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 3",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 4",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 5",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 6",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 7",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 8",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 9",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 10",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "Grade 11",
-        "contractType": "TASK",
-        "description": "Bargaining Unit",
-        "isBargainingCouncil": true
+        "contractType": null,
+        "description": null,
+        "bargainingUnit": "BU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "TASK",
+        "band": null
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "D Lower",
-        "contractType": "Patterson",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": "Managerial",
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "D"
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "D Upper",
-        "contractType": "Patterson",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": "Managerial",
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "D"
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "E Lower",
-        "contractType": "Patterson",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": "Managerial",
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "E"
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "E Upper",
-        "contractType": "Patterson",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": "Managerial",
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "E"
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "F Lower",
-        "contractType": "Patterson",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": "Managerial",
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "F"
     },
     {
         "bankName": "SBV Services (Pty) Ltd",
         "grade": "F Upper",
-        "contractType": "Patterson",
-        "description": "Non Bargaining Unit",
-        "isBargainingCouncil": false
+        "contractType": null,
+        "description": "Managerial",
+        "bargainingUnit": "NBU",
+        "bargainingUnitCondition": null,
+        "gradingSystem": "PATERSON",
+        "band": "F"
     }
 ]
