@@ -5,4 +5,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentCha
 
 public interface RecruitmentChannelRepository extends JpaRepository<RecruitmentChannel, Long> {
     boolean existsByNameIgnoreCase(String name);
+
+    /** The channel a capture named, matched the way every other reference lookup here matches. */
+    java.util.Optional<RecruitmentChannel> findByNameIgnoreCase(String name);
 }

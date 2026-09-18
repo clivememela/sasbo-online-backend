@@ -12,8 +12,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
-import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
@@ -24,7 +24,6 @@ import za.co.titandynamix.sasbo_online_backend.repository.*;
 
 import java.io.InputStream;
 import java.util.List;
-import java.util.Objects;
 
 @Slf4j
 @Component
@@ -39,7 +38,9 @@ public class DataSeeder implements ApplicationRunner {
     private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final RecruiterRepository recruiterRepository;
     private final SubscriptionsRepository subscriptionsRepository;
-    private final JobGradeRepository jobGradeRepository;
+    private final BankSeeder bankSeeder;
+    private final JobGradeSeeder jobGradeSeeder;
+    private final AreaRepository areaRepository;
 
     @Override
     public void run(@NonNull ApplicationArguments args) throws Exception {
@@ -70,15 +71,8 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
-        if (this.bankRepository.count() == 0) {
-            ClassPathResource banksMasterResource = new ClassPathResource("data/banks_master.json");
-            try (InputStream bankStream = banksMasterResource.getInputStream()) {
-                List<Bank> banks = mapper.readValue(bankStream, new TypeReference<>() {});
-                banks.forEach(b -> b.setId(null));
-                this.bankRepository.saveAll(banks);
-                log.info("Seeded {} banks", banks.size());
-            }
-        }
+        // Row by row, not behind a table-empty guard: see BankSeeder and BankSeederIT.
+        this.bankSeeder.seed();
 
         if (this.bankBranchRepository.count() == 0) {
             ClassPathResource banksBranchResource = new ClassPathResource("data/banks.json");
@@ -99,28 +93,42 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
-        if (this.jobGradeRepository.count() == 0) {
-            ClassPathResource jobGradesResource = new ClassPathResource("data/job_grades.json");
-            try (InputStream stream = jobGradesResource.getInputStream()) {
-                List<JobGradeSeed> seeds = mapper.readValue(stream, new TypeReference<>() {});
-                List<Bank> allBanks = this.bankRepository.findAll();
-                List<JobGrade> jobGrades = seeds.stream()
-                        .map(seed -> {
-                            Bank bank = allBanks.stream()
-                                    .filter(b -> b.getName().equalsIgnoreCase(seed.bankName()))
-                                    .findFirst()
-                                    .orElse(null);
-                            if (bank == null) {
-                                log.warn("Skipping job grade '{}' for unknown bank '{}'", seed.grade(), seed.bankName());
-                                return null;
-                            }
-                            return new JobGrade(null, bank, seed.grade(), seed.contractType(), seed.description(), seed.isBargainingCouncil());
-                        })
-                        .filter(Objects::nonNull)
-                        .toList();
-                this.jobGradeRepository.saveAll(jobGrades);
-                log.info("Seeded {} job grades", jobGrades.size());
-            }
+        // 🔴 R2-F4. This was `if (this.jobGradeRepository.count() == 0)` with the
+        // whole seed inline -- a TABLE-EMPTY guard on a PER-ROW question. A database
+        // already holding the original 27 rows never received the 31 Nedbank and
+        // Capitec grades the seed file gained afterwards, and said nothing about it.
+        // JobGradeSeeder upserts row by row, and is a bean the integration lane can
+        // call directly -- which this class, being a @MockitoBean there, cannot.
+        this.jobGradeSeeder.seed();
+
+        // 03.3 -- the AREAS. The table has existed since V1 and `members.area_id`
+        // points at it, but nothing has ever put a row in it. So "Area Recruited"
+        // (RE-3) would have been a drop-down over an empty table: a decorative field,
+        // exactly the shape CM-37 had for job grades.
+        //
+        // The real areas are already on file -- they are the distinct `area` values of
+        // the seeded bank branches, which is the same universe the union means by an
+        // area. Derived rather than transcribed, so a new branch in a new area brings
+        // its area with it instead of needing a second edit somewhere else.
+        //
+        // ⚠️ Seeded HERE and not in a migration on purpose: `bank_branches` is itself
+        // populated by this seeder, and Flyway runs before any ApplicationRunner -- a
+        // migration reading that table would find it empty.
+        if (this.areaRepository.count() == 0) {
+            List<Area> areas = this.bankBranchRepository.findAll().stream()
+                    .map(BankBranch::getArea)
+                    .filter(name -> name != null && !name.isBlank())
+                    .map(String::trim)
+                    .distinct()
+                    .sorted()
+                    .map(name -> {
+                        Area area = new Area();
+                        area.setName(name);
+                        return area;
+                    })
+                    .toList();
+            this.areaRepository.saveAll(areas);
+            log.info("Seeded {} areas", areas.size());
         }
 
         ClassPathResource subscriptionsResource = new ClassPathResource("data/subscriptions.json");
@@ -203,7 +211,4 @@ public class DataSeeder implements ApplicationRunner {
 
     }
 
-    /** Shape of the entries in data/job_grades.json; the bank is resolved by name. */
-    private record JobGradeSeed(String bankName, String grade, String contractType, String description, Boolean isBargainingCouncil) {
-    }
 }

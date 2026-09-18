@@ -17,9 +17,10 @@ GET /api/members/userRoles
 GET /api/members/{id}
 PUT /api/members/{id}
 PATCH /api/members/{id}/banking
-PATCH /api/members/{id}/subscription
 POST /api/members/{id}/send-welcome
+PATCH /api/members/{id}/subscription
 GET /api/provinces
+GET /api/recruiters
 GET /api/recruitment-channels
 POST /api/recruitment-channels
 DELETE /api/recruitment-channels/{id}

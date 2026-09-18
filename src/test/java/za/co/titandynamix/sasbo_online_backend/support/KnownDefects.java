@@ -39,22 +39,11 @@ public final class KnownDefects {
     private KnownDefects() {
     }
 
-    /**
-     * {@code handleGeneralException} puts {@code ex.getMessage()} straight into
-     * the response body. For a constraint violation or any JDBC failure that
-     * string carries the SQL, the constraint name, the table and column names
-     * and often the bound parameter values -- which on this application means
-     * identity numbers and bank account numbers. Combined with
-     * {@code permitAll()}, a caller who can trigger a 500 reads internals
-     * anonymously.
-     */
-    public static final String CATCH_ALL_LEAKS_INTERNALS =
-            "KNOWN DEFECT: the catch-all exception handler copies the exception message into the "
-                    + "response body, so a 500 can carry SQL, table and column names and bound "
-                    + "parameter values to an anonymous caller. This test asserts the 500 body "
-                    + "carries none of them. The 404 and 400 handlers keep their messages "
-                    + "deliberately -- those are caller-facing, and narrowing the finding to the "
-                    + "catch-all is what makes it a one-line fix.";
+    // CATCH_ALL_LEAKS_INTERNALS was here. FIXED in 01.2: the catch-all now
+    // logs the exception against a short correlation id and returns only
+    // that id, so the 500 body carries no SQL, no column name and no bound
+    // value. The test it pinned -- GlobalExceptionHandlerTest
+    // #theCatchAllDoesNotLeakInternals -- is enabled and is now the guard.
 
     /**
      * Two of nineteen services carry {@code @Transactional}. A service method
@@ -263,16 +252,6 @@ public final class KnownDefects {
                     + "the migrations build. This test asserts production only validates.";
 
     /**
-     * Production sets {@code spring.flyway.clean-disabled: false}. One
-     * {@code flyway clean} against the production URL drops every object in the
-     * schema. Register row C4 -- the one-line fix is deleting the line.
-     */
-    public static final String PRODUCTION_PERMITS_FLYWAY_CLEAN =
-            "KNOWN DEFECT: production sets flyway clean-disabled: false, so a single flyway clean "
-                    + "drops every object in the live schema. This test asserts clean is not "
-                    + "permitted.";
-
-    /**
      * {@code ace7297} turned on {@code spring.jpa.show-sql}, which prints every
      * statement to stdout regardless of the {@code org.hibernate.SQL} level set
      * beside it, and the root logger has run at DEBUG since before this suite
@@ -297,17 +276,6 @@ public final class KnownDefects {
                     + "banks' grades. This test asserts every bank with grades has its own code.";
 
     /**
-     * {@code job_grades.json} gained {@code isBargainingCouncil}, and two Absa
-     * rows whose description states a status -- AVP "Non - Bargaining", BA3
-     * "Bargaining unit" -- carry {@code null}, while their siblings with the same
-     * description carry the matching boolean. Register row A45.
-     */
-    public static final String BARGAINING_FLAG_CONTRADICTS_ITS_DESCRIPTION =
-            "KNOWN DEFECT: seeded job grades whose description states a bargaining status carry "
-                    + "a missing or contrary isBargainingCouncil flag. This test asserts every "
-                    + "stated status and its flag agree.";
-
-    /**
      * Twelve seeded members name a bank as no bank on record is named --
      * "Nedbank", "Standard Bank", "Absa Bank" and four more. The server resolves
      * a member's subscription, debit day and job grade by bank NAME, so all
@@ -320,18 +288,41 @@ public final class KnownDefects {
                     + "test asserts every seeded member's bank is on record.";
 
     /**
-     * No migration puts a unique constraint on {@code members.membership_number} or
-     * {@code members.identity_number}, so the database stores the same member twice
-     * without complaint. On 2026-09-16 production held all 160 seeded members twice
-     * (ids 1-160 and 161-320) after its tables were dropped (C12) and re-seeded.
-     * Register row A48.
+     * The welcome letter template's "Your Sasbo Membership No: >>>Number<<" banner
+     * (twice) sits in a text box. {@code EmailServiceImpl} replaces placeholders
+     * only in {@code doc.getParagraphs()} and {@code doc.getTables()}, which do not
+     * include text boxes, so every letter is emailed with the literal placeholder.
+     * Register row A55. Read from the attachment's raw document.xml, 2026-09-17.
+     */
+    public static final String WELCOME_LETTER_LEAVES_THE_NUMBER_PLACEHOLDER =
+            "KNOWN DEFECT: the emailed welcome letter still reads \">>>Number<<\" (twice), because the "
+                    + "membership-number banner is in a text box and placeholder replacement only visits "
+                    + "body paragraphs and tables. This test asserts no placeholder survives.";
+
+    /**
+     * {@code EmailServiceImpl} wraps a failed send as "Failed to send welcome letter
+     * to &lt;address&gt;"; the catch-all handler copies that into a 500 body, on an
+     * endpoint that is anonymous (B1). Register row B8.
+     */
+    public static final String WELCOME_FAILURE_NAMES_THE_RECIPIENT =
+            "KNOWN DEFECT: EmailServiceImpl wraps a failed send as \"Failed to send welcome letter to "
+                    + "<address>\", and the catch-all handler copies exception messages into the 500 "
+                    + "body of an endpoint anyone may call. This test asserts the error names no "
+                    + "address. Register row B8, whose other half is that the endpoint is anonymous.";
+
+    /**
+     * Nothing makes {@code members.membership_number} unique, so two members can be
+     * stored under one membership number. On 2026-09-16 production held all 160 seeded
+     * members twice (ids 1-160 and 161-320) after its tables were dropped (C12) and
+     * re-seeded. Register row A48.
      *
-     * <p>⚠️ Fixing it touches the tests too: {@code MemberFixture} gives every member
-     * the same {@code SYNTHETIC_ID}, and several integration tests save many of them.
+     * <p>HALF FIXED on capture-member: V26 adds a partial unique index on
+     * {@code identity_number} (SR-5), asserted by {@code MemberIdentityUniquenessIT}, so
+     * the same PERSON can no longer be stored twice. The membership-number half is open.
      */
     public static final String DUPLICATE_MEMBERS_ARE_ACCEPTED =
-            "KNOWN DEFECT: neither members.membership_number nor members.identity_number is "
-                    + "unique in the schema, so the same member can be stored twice -- production "
-                    + "held every member twice on 2026-09-16. This test asserts the database "
-                    + "refuses the duplicate.";
+            "KNOWN DEFECT: members.membership_number is not unique in the schema, so two members "
+                    + "can be stored under one membership number -- production held every member "
+                    + "twice on 2026-09-16. (The identity-number half is fixed by V26.) This test "
+                    + "asserts the database refuses a repeated membership number.";
 }

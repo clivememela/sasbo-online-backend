@@ -77,7 +77,23 @@ public final class MigrationSeed {
             "V16__reseed_union_structures_hierarchy.sql",
             "V17__seed_recruiters.sql",
             "V18__recruiter_members_recruited_to_integer.sql",
-            "V19__add_cosatu_structure_fields.sql");
+            "V19__add_cosatu_structure_fields.sql",
+            "V20__job_grade_verified_flag.sql",
+            "V21__job_grade_bargaining_unit.sql",
+            "V22__membership_number_sequence.sql",
+            "V23__member_recruitment_channel.sql",
+            "V24__member_recruited_area.sql",
+            "V25__member_recruiter.sql",
+            // SR-5. A PARTIAL unique index -- passport holders have no South African
+            // identity number, and the capture form sends "" rather than NULL for a
+            // field left alone, so both are excluded or the second passport holder
+            // captured is rejected as a duplicate of the first.
+            "V26__member_identity_number_unique.sql",
+            // main's is_bargaining_council had no migration (C13); derived from V21's
+            // bargaining_unit and backfilled, IF NOT EXISTS because production has it.
+            "V27__job_grade_bargaining_council.sql",
+            // CM-05: Shop Steward / BEC had no column; COSATU Local / Regional as yes/no.
+            "V29__member_structure_participation.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

@@ -13,7 +13,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -100,20 +99,14 @@ class SeedDataTest {
     }
 
     /**
-     * Grades whose description states a bargaining status that their flag
-     * contradicts. A description that says nothing about bargaining -- a null,
-     * or "Junior Managers" -- is not evidence either way and is not reported.
+     * Seed rows that state {@code isBargainingCouncil} by hand. The column is DERIVED
+     * from {@code bargainingUnit} by {@code JobGradeSeeder} (and backfilled by V27), so a
+     * hand-set value here is a second copy of one fact -- the shape that produced A45,
+     * where two Absa grades' flags contradicted their own descriptions.
      */
-    static List<String> contradictedBargainingFlags(List<Map<String, Object>> grades) {
+    static List<String> gradesThatStateTheBargainingFlag(List<Map<String, Object>> grades) {
         return grades.stream()
-                .filter((g) -> {
-                    String description = fold(text(g, "description"));
-                    if (description == null || !description.contains("bargaining")) {
-                        return false;
-                    }
-                    boolean statedBargaining = !description.startsWith("non");
-                    return !Objects.equals(g.get("isBargainingCouncil"), statedBargaining);
-                })
+                .filter((g) -> g.containsKey("isBargainingCouncil"))
                 .map((g) -> text(g, "bankName") + " " + text(g, "grade"))
                 .toList();
     }
@@ -194,44 +187,25 @@ class SeedDataTest {
     }
 
     @Test
-    @DisplayName("the bargaining-flag check reports a contradiction, and passes a silent description")
-    void theBargainingCheckCanFail() {
-        assertThat(contradictedBargainingFlags(List.of(
-                Map.of("bankName", "B", "grade", "1", "description", "Bargaining Unit", "isBargainingCouncil", false),
-                Map.of("bankName", "B", "grade", "2", "description", "Non - Bargaining", "isBargainingCouncil", true))))
-                .as("both directions of contradiction").containsExactly("B 1", "B 2");
-
-        java.util.HashMap<String, Object> absent = new java.util.HashMap<>(Map.of(
-                "bankName", "B", "grade", "3", "description", "Bargaining unit"));
-        assertThat(contradictedBargainingFlags(List.of(absent)))
-                .as("a stated status with NO flag contradicts it -- a null is not an answer").containsExactly("B 3");
-
-        java.util.HashMap<String, Object> silent = new java.util.HashMap<>(Map.of("bankName", "B", "grade", "4"));
-        silent.put("description", null);
-        assertThat(contradictedBargainingFlags(List.of(silent,
-                Map.of("bankName", "B", "grade", "5", "description", "Junior Managers"),
-                Map.of("bankName", "B", "grade", "6", "description", "Non Bargaining Unit", "isBargainingCouncil", false))))
-                .as("must pass: no stated status, or a flag that agrees").isEmpty();
+    @DisplayName("the hand-set-flag check reports a row that states it, and passes one that does not")
+    void theHandSetFlagCheckCanFail() {
+        assertThat(gradesThatStateTheBargainingFlag(List.of(
+                Map.of("bankName", "B", "grade", "1", "bargainingUnit", "BU", "isBargainingCouncil", true))))
+                .as("a row carrying the flag, even one that agrees").containsExactly("B 1");
+        assertThat(gradesThatStateTheBargainingFlag(List.of(
+                Map.of("bankName", "B", "grade", "2", "bargainingUnit", "NBU"))))
+                .as("must pass: the classification stated once").isEmpty();
     }
 
     @Test
-    @Disabled(KnownDefects.BARGAINING_FLAG_CONTRADICTS_ITS_DESCRIPTION)
-    @DisplayName("🟠 A45: flags every grade the way its own description classifies it")
-    void everyBargainingFlagAgreesWithItsDescription() {
-        assertThat(contradictedBargainingFlags(jobGrades()))
-                .as("a grade described as bargaining (or non-bargaining) carries a "
-                        + "different or missing isBargainingCouncil flag")
+    @DisplayName("A45 (fixed): no grade states isBargainingCouncil by hand; it is derived from bargainingUnit")
+    void noGradeStatesTheBargainingFlagByHand() {
+        List<Map<String, Object>> grades = jobGrades();
+        assertNonVacuousScan(grades, 20, "job_grades.json rows");
+        assertThat(gradesThatStateTheBargainingFlag(grades))
+                .as("isBargainingCouncil is derived by JobGradeSeeder from bargainingUnit. A value "
+                        + "written here is a second copy that can contradict the first, which is A45")
                 .isEmpty();
-    }
-
-    @Test
-    @DisplayName("🟠 A45 still reproduces: two Absa grades state a status and carry no flag")
-    void twoAbsaGradesStillContradictTheirDescriptions() {
-        assertThat(contradictedBargainingFlags(jobGrades()))
-                .as("A45 has changed. If this is empty, A45 is fixed: enable "
-                        + "everyBargainingFlagAgreesWithItsDescription and delete the KnownDefects "
-                        + "row. If it grew, the new rows are the finding")
-                .containsExactlyInAnyOrder("Absa Bank Limited AVP", "Absa Bank Limited BA3");
     }
 
     @Test
