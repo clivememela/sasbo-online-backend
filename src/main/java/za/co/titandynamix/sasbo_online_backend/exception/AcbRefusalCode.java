@@ -52,6 +52,11 @@ public enum AcbRefusalCode {
      * fact about what the bank did: it is corrected deliberately, never overwritten by a second click.
      */
     UNPAID_ALREADY_RECORDED(HttpStatus.CONFLICT),
+    /**
+     * A month is not closed while an unpaid in it has no decision: an undecided unpaid is neither
+     * presented again nor suspended, and closing would leave it so for ever. The details carry the count.
+     */
+    UNPAIDS_UNDECIDED(HttpStatus.CONFLICT),
     /** A date is malformed. Dates are written YYYY-MM-DD. */
     DATE_INVALID(HttpStatus.BAD_REQUEST),
     /** The action month is malformed, or not one a run may be prepared for. */

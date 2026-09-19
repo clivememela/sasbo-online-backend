@@ -49,10 +49,6 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
             + "GROUP BY l.unpaidReason")
     List<Object[]> countUnpaidByReason(@Param("runId") Long runId, @Param("unpaid") AcbLineOutcome unpaid);
 
-    /** Unpaids nobody has decided about yet -- counted on the run, never guessed at. */
-    @Query("SELECT count(l) FROM AcbRunLine l WHERE l.runId = :runId AND l.outcome = :unpaid AND l.decision IS NULL")
-    long countUndecided(@Param("runId") Long runId, @Param("unpaid") AcbLineOutcome unpaid);
-
     /**
      * Every debit from a sent run, of every member who has an unpaid in one -- the three-month rule's
      * input, in one query.

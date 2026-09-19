@@ -246,6 +246,15 @@ class BureauFileWriterTest {
         assertThat(BureauFileWriter.monthReference(null)).isEqualTo("SUBSCRIP");
     }
 
+    @Test
+    @DisplayName("SEPTEMBER is nine letters in an eight-character field: printed SEPTEMBE, pinned until Q36 says otherwise")
+    void aNineLetterMonthIsCutToItsField() {
+        // July's file shows only JUNE. What the old system printed for a September re-presentation is
+        // unknown; this pins what the writer does, so an answer changes one line here, knowingly.
+        assertThat(BureauFileWriter.left(BureauFileWriter.monthReference(YearMonth.of(2026, 9)), 8)).isEqualTo("SEPTEMBE");
+        assertThat(BureauFileWriter.left(BureauFileWriter.monthReference(YearMonth.of(2026, 5)), 8)).isEqualTo("MAY     ");
+    }
+
     private static AcbRefusal refusal(Runnable call) {
         try {
             call.run();

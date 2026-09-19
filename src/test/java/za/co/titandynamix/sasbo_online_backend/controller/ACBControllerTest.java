@@ -267,6 +267,35 @@ class ACBControllerTest {
         verify(runs).cancel(41L, 2, "system", "wrong month");
     }
 
+    @Test
+    @DisplayName("taking the returns in and closing the month each need the version the screen saw")
+    void returnsInAndClose() throws Exception {
+        for (String route : List.of("returned", "close")) {
+            this.mockMvc.perform(post("/api/acb/runs/41/" + route)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.validationErrors.version").exists());
+        }
+        verifyNoInteractions(runs);
+
+        when(runs.recordReturns(41L, 3, "system", null)).thenReturn(aRun(AcbRunStatus.RETURNED));
+        this.mockMvc.perform(post("/api/acb/runs/41/returned")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RunTransitionRequest(3, null))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RETURNED"));
+
+        when(runs.close(41L, 4, "system", null)).thenThrow(new AcbRefusal(AcbRefusalCode.UNPAIDS_UNDECIDED,
+                "1 unpaid(s) in this run have no decision yet.", Map.of("undecided", "1")));
+        this.mockMvc.perform(post("/api/acb/runs/41/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RunTransitionRequest(4, null))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("UNPAIDS_UNDECIDED"))
+                .andExpect(jsonPath("$.details.undecided").value("1"));
+    }
+
     // ------------------------------------------------------------------------------------------
     // The returns loop
     // ------------------------------------------------------------------------------------------

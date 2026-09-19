@@ -26,6 +26,10 @@ public interface AcbRunRepository extends JpaRepository<AcbRun, Long> {
     Optional<AcbRun> findLive(@Param("month") LocalDate month,
                               @Param("released") Collection<AcbRunStatus> released);
 
+    /** The earliest action month of any run in {@code statuses}, or {@code null} when there is none. */
+    @Query("SELECT min(r.actionMonth) FROM AcbRun r WHERE r.status IN :statuses")
+    LocalDate firstMonthIn(@Param("statuses") Collection<AcbRunStatus> statuses);
+
     /** The runs on record, newest month first. */
     @Query(value = "SELECT r FROM AcbRun r ORDER BY r.actionMonth DESC, r.id DESC",
             countQuery = "SELECT count(r) FROM AcbRun r")

@@ -9,6 +9,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbLetter;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
@@ -183,7 +184,7 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
                 .extracting(AcbRunLineDto::id).containsExactly(line);
         assertThat(returns.unpaids(run, UnpaidReason.PAYMENT_STOPPED, 0, 50).content()).isEmpty();
         assertThat(codes.count()).isEqualTo(5);
-        assertThat(returnsRepository.countUndecided(run, AcbLineOutcome.UNPAID)).isZero();
+        assertThat(returns.summary(run).undecided()).isZero();
     }
 
     @Test
@@ -211,6 +212,88 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         });
         assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m))
                 .as("a report terminates nobody").isEqualTo(statusBefore);
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Taking the returns in, and closing the month (D28)
+    // ------------------------------------------------------------------------------------------
+
+    private String outcome(long line) {
+        return jdbc.queryForObject("SELECT outcome FROM acb_run_lines WHERE id = ?", String.class, line);
+    }
+
+    private int version(long runId) {
+        return runService.get(runId).version();
+    }
+
+    @Test
+    @DisplayName("taking the returns in marks every debit the report did not list PAID, and leaves the unpaids")
+    void takingTheReturnsInMarksTheRestPaid() {
+        long unpaid = sentLine();
+        long paid = insertLine(run, member + 1, null, "PENDING", null, RATE);
+        long alsoPaid = insertLine(run, member + 2, null, "PENDING", null, RATE);
+        returns.recordUnpaid(run, unpaid, new RecordUnpaidRequest("4", "2026-09-28", UnpaidDecision.SUSPEND), "system");
+
+        assertThat(runService.recordReturns(run, version(run), "system", null).status()).isEqualTo(AcbRunStatus.RETURNED);
+
+        assertThat(outcome(unpaid)).isEqualTo("UNPAID");
+        assertThat(outcome(paid)).isEqualTo("PAID");
+        assertThat(outcome(alsoPaid)).isEqualTo("PAID");
+        assertThat(returns.summary(run).linesByOutcome()).containsEntry("PAID", 2).containsEntry("UNPAID", 1)
+                .doesNotContainKey("PENDING");
+        assertThat(returnsRepository.countByOutcome(run)).as("the GROUP BY on PostgreSQL, not H2")
+                .extracting(row -> row[0].toString() + "=" + row[1]).containsExactlyInAnyOrder("PAID=2", "UNPAID=1");
+        assertThat(jdbc.queryForObject("SELECT reason FROM acb_audit_events WHERE run_id = ? AND kind = 'LINES_PAID'",
+                String.class, run)).startsWith("2 ");
+    }
+
+    @Test
+    @DisplayName("only a submitted run takes its returns in; a prepared one is refused and nothing is marked paid")
+    void onlyASubmittedRunTakesItsReturnsIn() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        long prepared = insertRun(SEPTEMBER, "PREPARED", FROZEN, "system");
+        long line = insertLine(prepared, AcbRunFixture.FIRST_MEMBER_ID, null, "PENDING", null, RATE);
+
+        assertThat(refusal(() -> runService.recordReturns(prepared, version(prepared), "system", null)).code())
+                .isEqualTo(AcbRefusalCode.RUN_NOT_IN_STATE);
+        assertThat(outcome(line)).isEqualTo("PENDING");
+    }
+
+    @Test
+    @DisplayName("a return that arrives after the returns were taken in overturns the presumed payment, and says so")
+    void aLateReturnOverturnsAPresumedPayment() {
+        long line = sentLine();
+        runService.recordReturns(run, version(run), "system", null);
+        assertThat(outcome(line)).isEqualTo("PAID");
+
+        AcbRunLineDto late = returns.recordUnpaid(run, line,
+                new RecordUnpaidRequest("2", "2026-10-02", UnpaidDecision.RE_PRESENT), "system");
+
+        assertThat(late.outcome()).isEqualTo(AcbLineOutcome.UNPAID);
+        assertThat(jdbc.queryForObject("SELECT reason FROM acb_audit_events WHERE line_id = ? AND kind = 'UNPAID_RECORDED'",
+                String.class, line)).contains("late return");
+        assertThat(letters.findByLineId(line)).as("the late unpaid gets its letter like any other").isPresent();
+    }
+
+    @Test
+    @DisplayName("a month does not close while an unpaid in it is undecided; decided, it closes and takes no more returns")
+    void aMonthClosesOnlyWhenEveryUnpaidIsDecided() {
+        long line = sentLine();
+        returns.recordUnpaid(run, line, new RecordUnpaidRequest("4", "2026-09-28", null), "system");
+        runService.recordReturns(run, version(run), "system", null);
+
+        AcbRefusal refused = refusal(() -> runService.close(run, version(run), "system", null));
+        assertThat(refused.code()).isEqualTo(AcbRefusalCode.UNPAIDS_UNDECIDED);
+        assertThat(refused.details()).containsEntry("undecided", "1").containsEntry("status", "RETURNED");
+        assertThat(runService.get(run).status()).isEqualTo(AcbRunStatus.RETURNED);
+
+        returns.decide(run, line, UnpaidDecision.SUSPEND, "system");
+        assertThat(runService.close(run, version(run), "system", "September done").status()).isEqualTo(AcbRunStatus.CLOSED);
+
+        long other = insertLine(run, member + 1, null, "PAID", null, RATE);
+        assertThat(refusal(() -> returns.recordUnpaid(run, other,
+                new RecordUnpaidRequest("4", "2026-10-05", null), "system")).code())
+                .as("a closed month takes no more returns").isEqualTo(AcbRefusalCode.RUN_NOT_IN_STATE);
     }
 
     private static AcbRefusal refusal(Runnable call) {

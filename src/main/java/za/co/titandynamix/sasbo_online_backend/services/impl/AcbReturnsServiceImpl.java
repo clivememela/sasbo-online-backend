@@ -121,10 +121,9 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
                                 + (line.getDecision() == null ? ", undecided" : ", " + line.getDecision()) + ".",
                         lineFacts(line));
             }
-            if (line.getOutcome() != AcbLineOutcome.PENDING) {
-                throw new AcbRefusal(AcbRefusalCode.RUN_NOT_IN_STATE,
-                        "A debit that is " + line.getOutcome() + " cannot be recorded as unpaid.", lineFacts(line));
-            }
+            // PAID is only a presumption -- the report did not list the debit when the returns were
+            // taken in (D28) -- so a return that arrives late overturns it, and the audit says so.
+            boolean late = line.getOutcome() == AcbLineOutcome.PAID;
             Optional<AcbUnpaidCode> known = codes.findById(code);
             UnpaidReason reason = known.map(AcbUnpaidCode::getReason).orElse(UnpaidReason.OTHER);
             line.setOutcome(AcbLineOutcome.UNPAID);
@@ -135,7 +134,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
             lines.saveAndFlush(line);
             audit.record(runId, lineId, "UNPAID_RECORDED", null, null,
                     "code " + code + " (" + reason + ")" + (request.decision() == null ? ", undecided"
-                            : ", " + request.decision()), actor);
+                            : ", " + request.decision()) + (late ? ", a late return: was PAID" : ""), actor);
             queueLetter(run, line, reason, known.map(AcbUnpaidCode::getWording).orElse(reason.wording()), actor);
             return true;
         });
@@ -184,7 +183,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         Map<String, Integer> byOutcome = counts(returns.countByOutcome(runId));
         Map<String, Integer> byReason = counts(returns.countUnpaidByReason(runId, AcbLineOutcome.UNPAID));
         Map<String, Integer> byLetter = counts(letters.countByStatusForRun(runId));
-        int undecided = (int) returns.countUndecided(runId, AcbLineOutcome.UNPAID);
+        int undecided = (int) lines.countUndecided(runId, AcbLineOutcome.UNPAID);
         return new AcbReturnsSummaryDto(runId, byOutcome, byReason, undecided,
                 byReason.getOrDefault(UnpaidReason.OTHER.name(), 0), byLetter);
     }
@@ -209,12 +208,8 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
                         every.unpaidMonths().stream().map(YearMonth::toString).toList()));
             }
         });
-        String countingFrom = runs.findAll().stream()
-                .filter(r -> AcbRuns.SENT.contains(r.getStatus()))
-                .map(AcbRun::getActionMonth)
-                .min(Comparator.naturalOrder())
-                .map(month -> YearMonth.from(month).toString())
-                .orElse(null);
+        LocalDate firstSent = runs.firstMonthIn(AcbRuns.SENT);
+        String countingFrom = firstSent == null ? null : YearMonth.from(firstSent).toString();
         return new AcbTerminationReportDto(countingFrom, BLINDNESS, candidates);
     }
 

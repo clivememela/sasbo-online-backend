@@ -45,6 +45,19 @@ public interface AcbRunService {
      */
     AcbRunDto recordSubmitted(long runId, int version, String actor, String reason);
 
+    /**
+     * Records that the bank's returns for a submitted run have been taken in. The bank's report
+     * lists only the debits that came back, so every line still PENDING is marked PAID in the same
+     * transaction; an unpaid that arrives late may still be recorded against a PAID line afterwards.
+     */
+    AcbRunDto recordReturns(long runId, int version, String actor, String reason);
+
+    /**
+     * Closes a month whose returns are in. Refused with {@code UNPAIDS_UNDECIDED} while any unpaid
+     * in it has no decision -- closing would leave it neither presented again nor suspended.
+     */
+    AcbRunDto close(long runId, int version, String actor, String reason);
+
     /** Withdraws a prepared or approved run. Its month is released; the run stays on record. */
     AcbRunDto cancel(long runId, int version, String actor, String reason);
 

@@ -299,8 +299,9 @@ public final class BureauFileWriter {
         if (line.surname() == null || line.surname().isBlank()) {
             return "no surname";
         }
-        if (line.amount() == null || line.amount().signum() <= 0 || line.amount().scale() > 2
-                && line.amount().stripTrailingZeros().scale() > 2) {
+        // 174.000 is a rand value written with a zero too many; 174.005 is not a rand value.
+        if (line.amount() == null || line.amount().signum() <= 0
+                || line.amount().stripTrailingZeros().scale() > 2) {
             return "an amount that is not a positive rand value";
         }
         return null;

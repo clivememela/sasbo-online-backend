@@ -3,11 +3,13 @@ POST /api/acb/runs
 GET /api/acb/runs/{id}
 POST /api/acb/runs/{id}/approve
 POST /api/acb/runs/{id}/cancel
+POST /api/acb/runs/{id}/close
 GET /api/acb/runs/{id}/exclusions
 GET /api/acb/runs/{id}/file
 GET /api/acb/runs/{id}/lines
 POST /api/acb/runs/{id}/lines/{lineId}/decision
 POST /api/acb/runs/{id}/lines/{lineId}/unpaid
+POST /api/acb/runs/{id}/returned
 GET /api/acb/runs/{id}/returns
 POST /api/acb/runs/{id}/submitted
 GET /api/acb/runs/{id}/unpaids

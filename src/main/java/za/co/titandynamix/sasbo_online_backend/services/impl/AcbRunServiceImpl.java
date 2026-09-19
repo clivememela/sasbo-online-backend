@@ -22,6 +22,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunExclusionCount;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunAction;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
@@ -255,6 +256,29 @@ public class AcbRunServiceImpl implements AcbRunService {
                         "This run's bureau file has not been produced, so its submission cannot be "
                                 + "recorded. Produce the file, upload it at the bank, then record it here.",
                         AcbRuns.facts(run));
+            }
+        });
+    }
+
+    @Override
+    public AcbRunDto recordReturns(long runId, int version, String actor, String reason) {
+        return transition(runId, version, AcbRunAction.RECORD_RETURNS, actor, reason, run -> {
+            // The bank's report lists only what came back (Q8), so what it does not list was paid (D28).
+            int paid = lines.markPending(runId, AcbLineOutcome.PENDING, AcbLineOutcome.PAID);
+            audit.record(runId, null, "LINES_PAID", null, null, paid + " debit(s) not returned, marked paid", actor);
+        });
+    }
+
+    @Override
+    public AcbRunDto close(long runId, int version, String actor, String reason) {
+        return transition(runId, version, AcbRunAction.CLOSE, actor, reason, run -> {
+            long undecided = lines.countUndecided(runId, AcbLineOutcome.UNPAID);
+            if (undecided > 0) {
+                Map<String, String> facts = AcbRuns.facts(run);
+                facts.put("undecided", String.valueOf(undecided));
+                throw new AcbRefusal(AcbRefusalCode.UNPAIDS_UNDECIDED,
+                        undecided + " unpaid(s) in this run have no decision yet. Decide whether each is "
+                                + "presented again or suspended, then close the month.", facts);
             }
         });
     }

@@ -73,4 +73,19 @@ public interface AcbRunLineRepository extends JpaRepository<AcbRunLine, Long> {
     @Transactional
     @Query("UPDATE AcbRunLine l SET l.runReleased = true WHERE l.runId = :runId")
     int releaseRun(@Param("runId") Long runId);
+
+    /**
+     * Marks every line of a run still {@code pending} as {@code paid} -- the bank's returns report
+     * lists only the debits that came back, so a debit it does not list was collected. Joins the
+     * transition's transaction, like {@link #releaseRun}.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE AcbRunLine l SET l.outcome = :paid WHERE l.runId = :runId AND l.outcome = :pending")
+    int markPending(@Param("runId") Long runId, @Param("pending") AcbLineOutcome pending,
+                    @Param("paid") AcbLineOutcome paid);
+
+    /** Unpaids nobody has decided about yet -- counted on the run, never guessed at; closing waits for none. */
+    @Query("SELECT count(l) FROM AcbRunLine l WHERE l.runId = :runId AND l.outcome = :unpaid AND l.decision IS NULL")
+    long countUndecided(@Param("runId") Long runId, @Param("unpaid") AcbLineOutcome unpaid);
 }

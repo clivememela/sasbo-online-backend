@@ -144,6 +144,23 @@ public class ACBController {
         return returns.decide(id, lineId, request.decision(), AcbActor.current());
     }
 
+    /**
+     * Records that the bank's returns for a submitted run are in: every debit not recorded as unpaid
+     * is marked paid, since the bank's report lists only what came back. Data entry, like recording
+     * an unpaid -- it moves no money and sends nothing -- so it is open. A late return can still be
+     * recorded afterwards.
+     */
+    @PostMapping("/runs/{id}/returned")
+    public AcbRunDto returned(@PathVariable("id") long id, @Valid @RequestBody RunTransitionRequest request) {
+        return runs.recordReturns(id, request.version(), AcbActor.current(), request.reason());
+    }
+
+    /** Closes a month whose returns are in -- refused while any unpaid in it is undecided. */
+    @PostMapping("/runs/{id}/close")
+    public AcbRunDto close(@PathVariable("id") long id, @Valid @RequestBody RunTransitionRequest request) {
+        return runs.close(id, request.version(), AcbActor.current(), request.reason());
+    }
+
     /** A run's unpaids, a page at a time -- all of them, or one reason's ("Invalid Accounts"). */
     @GetMapping("/runs/{id}/unpaids")
     public AcbPage<AcbRunLineDto> unpaids(@PathVariable("id") long id,

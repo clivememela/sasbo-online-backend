@@ -24,7 +24,7 @@
   },
   "acb": {
     "runStatuses": ["PREPARING", "PREPARED", "APPROVED", "SUBMITTED", "RETURNED", "CLOSED", "FAILED", "CANCELLED"],
-    "lineOutcomes": ["PENDING", "PAID", "UNPAID", "RE_PRESENTED"],
+    "lineOutcomes": ["PENDING", "PAID", "UNPAID"],
     "unpaidDecisions": ["RE_PRESENT", "SUSPEND"],
     "unpaidReasons": ["NOT_PROVIDED_FOR", "PAYMENT_STOPPED", "ACCOUNT_FROZEN", "INVALID_ACCOUNT_NUMBER", "ACCOUNT_CLOSED", "NO_AUTHORITY_TO_DEBIT", "AUTHORISATION_CANCELLED", "OTHER"],
     "letterTemplates": ["RETURN_DEBIT", "ACCOUNT_CLOSED", "RE_DEBIT"],
@@ -55,6 +55,7 @@
       {"code": "FILE_PURGED", "status": 410},
       {"code": "LINE_NOT_FOUND", "status": 404},
       {"code": "UNPAID_ALREADY_RECORDED", "status": 409},
+      {"code": "UNPAIDS_UNDECIDED", "status": 409},
       {"code": "DATE_INVALID", "status": 400},
       {"code": "ACTION_MONTH_INVALID", "status": 400},
       {"code": "APPROVER_IS_PREPARER", "status": 422},
