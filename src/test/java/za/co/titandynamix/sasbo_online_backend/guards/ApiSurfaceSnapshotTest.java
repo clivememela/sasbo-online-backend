@@ -61,8 +61,9 @@ class ApiSurfaceSnapshotTest {
      *
      * <p>Measured through this guard's own discovery on 2026-09-05: <b>41</b>
      * routed lines -- forty from eleven of the twelve controllers, plus the
-     * framework's {@code ANY /error}. {@code ACBController} contributes none;
-     * it declares no handler methods at all.
+     * framework's {@code ANY /error}. {@code ACBController} contributed none then --
+     * it declared no handler methods at all; since ACB P1-P3 (2026-09-19) it
+     * contributes fourteen. The floor stands, for the reason below.
      *
      * <p>The floor is not a coverage target and must never be raised to match.
      * Delete a controller in a legitimate refactor and a floor of 41 reddens for
