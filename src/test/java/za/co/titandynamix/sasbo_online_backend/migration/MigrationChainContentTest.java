@@ -59,7 +59,7 @@ class MigrationChainContentTest {
     }
 
     @Test
-    @DisplayName("the chain builds 32 tables")
+    @DisplayName("the chain builds 34 tables")
     void tableCount() {
         // 24 until V40, which adds members_money_migration_report -- the record of
         // every money value it could not convert verbatim. A migration that adds a
@@ -69,6 +69,7 @@ class MigrationChainContentTest {
         // 31 from ACB P1: V41 adds acb_rates, acb_runs, acb_run_exclusions and
         // acb_run_exclusion_counts; V42 acb_run_lines; V43 acb_audit_events.
         // 32 from ACB P2: V44 adds acb_run_files.
+        // 34 from ACB P3: V45 adds acb_unpaid_codes, V46 acb_letters.
         //
         // 🔑 This class is gated behind P0_DB_URL and so runs in neither ordinary
         // lane, which makes "25" an edit nobody would catch being wrong. The delta
@@ -78,7 +79,7 @@ class MigrationChainContentTest {
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
                 Integer.class))
                 .as("tables in public, including flyway_schema_history")
-                .isEqualTo(32);
+                .isEqualTo(34);
     }
 
     @Test

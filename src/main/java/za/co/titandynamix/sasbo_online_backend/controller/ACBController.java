@@ -13,13 +13,19 @@ import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunSummaryDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.PrepareRunRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RunTransitionRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.UnpaidDecisionRequest;
+import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
 import java.util.Map;
@@ -46,6 +52,7 @@ import java.util.Map;
 public class ACBController {
 
     private final AcbRunService runs;
+    private final AcbReturnsService returns;
 
     @GetMapping("/runs")
     public AcbPage<AcbRunSummaryDto> listRuns(@RequestParam(defaultValue = "0") int page,
@@ -113,6 +120,52 @@ public class ACBController {
     public AcbRunDto submitted(@PathVariable("id") long id) {
         throw identityRequired(id, "Recording a submission to the bank waits until administrators sign "
                 + "in to this system. Nothing has been recorded.");
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The returns loop -- recorded by hand from the bank's report until the report can be imported
+    // ------------------------------------------------------------------------------------------
+
+    /**
+     * Records one unpaid from the bank's returns report against a line of a sent run -- the code,
+     * the day it was noted, and the decision if one is made. Data entry, like capturing a member:
+     * the letter it queues is rendered, never sent, while the API is anonymous.
+     */
+    @PostMapping("/runs/{id}/lines/{lineId}/unpaid")
+    public AcbRunLineDto recordUnpaid(@PathVariable("id") long id, @PathVariable("lineId") long lineId,
+                                      @Valid @RequestBody RecordUnpaidRequest request) {
+        return returns.recordUnpaid(id, lineId, request, AcbActor.current());
+    }
+
+    /** The decision on an unpaid recorded without one: present it again next month, or suspend. */
+    @PostMapping("/runs/{id}/lines/{lineId}/decision")
+    public AcbRunLineDto decide(@PathVariable("id") long id, @PathVariable("lineId") long lineId,
+                                @Valid @RequestBody UnpaidDecisionRequest request) {
+        return returns.decide(id, lineId, request.decision(), AcbActor.current());
+    }
+
+    /** A run's unpaids, a page at a time -- all of them, or one reason's ("Invalid Accounts"). */
+    @GetMapping("/runs/{id}/unpaids")
+    public AcbPage<AcbRunLineDto> unpaids(@PathVariable("id") long id,
+                                          @RequestParam(required = false) UnpaidReason reason,
+                                          @RequestParam(defaultValue = "0") int page,
+                                          @RequestParam(defaultValue = "50") int size) {
+        return returns.unpaids(id, reason, page, size);
+    }
+
+    /** What the bank sent back for a run, counted by outcome, by reason and by letter. */
+    @GetMapping("/runs/{id}/returns")
+    public AcbReturnsSummaryDto returnsSummary(@PathVariable("id") long id) {
+        return returns.summary(id);
+    }
+
+    /**
+     * Who each reading of "three unsuccessful retries" would terminate -- a report, both readings
+     * side by side until SASBO says which is theirs (question 27). It terminates nobody.
+     */
+    @GetMapping("/termination-report")
+    public AcbTerminationReportDto terminationReport() {
+        return returns.terminationReport();
     }
 
     /** Refused before anything is read: the answer says nothing about which runs exist. */

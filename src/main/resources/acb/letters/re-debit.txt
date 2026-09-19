@@ -1,0 +1,38 @@
+                                          Membership Number {{membershipNumberPlain}}
+
+{{letterDate}}
+
+{{memberTitle}} {{memberInitials}} {{memberSurname}}
+{{addressLine1}}
+{{addressLine2}}
+{{addressLine3}}
+{{postalCode}}
+
+Dear {{salutationName}}
+
+UNION SUBSCRIPTIONS
+
+We advise that a debit in respect of your Union subscription for the
+month of {{debitMonth}} was returned 'Not Provided For'.
+
+In terms of the ACB rules, we are entitled to present this debit again
+the following month which will be on the usual debit day (or closest
+ACB debit date).
+
+Please make arrangements for future debits which will be presented to
+your account on the 20 of each month (excluding Saturday/Sunday/Public
+Holidays), when the date will move forward to the next week day.
+
+It is in your own interest to ensure availability of funds as your bank
+will hold you accountable for fees charged under such circumstances.
+The Union does not accept any responsibility for banking penalties.
+
+In addition, our constitution stipulates that should a member default
+on monthly payments for three months, the membership will be
+terminated without further notice.
+
+Your kind attention in this matter will be appreciated.
+
+Yours Sincerely
+
+SASBO Administration

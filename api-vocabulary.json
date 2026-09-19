@@ -26,6 +26,9 @@
     "runStatuses": ["PREPARING", "PREPARED", "APPROVED", "SUBMITTED", "RETURNED", "CLOSED", "FAILED", "CANCELLED"],
     "lineOutcomes": ["PENDING", "PAID", "UNPAID", "RE_PRESENTED"],
     "unpaidDecisions": ["RE_PRESENT", "SUSPEND"],
+    "unpaidReasons": ["NOT_PROVIDED_FOR", "PAYMENT_STOPPED", "ACCOUNT_FROZEN", "INVALID_ACCOUNT_NUMBER", "ACCOUNT_CLOSED", "NO_AUTHORITY_TO_DEBIT", "AUTHORISATION_CANCELLED", "OTHER"],
+    "letterTemplates": ["RETURN_DEBIT", "ACCOUNT_CLOSED", "RE_DEBIT"],
+    "letterStatuses": ["QUEUED", "RENDERED", "SENT", "FAILED"],
     "exclusionReasons": [
       {"name": "NOT_DEBIT_ORDER", "listed": false},
       {"name": "STATUS_NOT_ACTIVE", "listed": false},
@@ -50,6 +53,9 @@
       {"code": "FILE_LINES_INCOMPLETE", "status": 422},
       {"code": "FILE_NOT_RENDERED", "status": 409},
       {"code": "FILE_PURGED", "status": 410},
+      {"code": "LINE_NOT_FOUND", "status": 404},
+      {"code": "UNPAID_ALREADY_RECORDED", "status": 409},
+      {"code": "DATE_INVALID", "status": 400},
       {"code": "ACTION_MONTH_INVALID", "status": 400},
       {"code": "APPROVER_IS_PREPARER", "status": 422},
       {"code": "IDENTITY_REQUIRED", "status": 403}

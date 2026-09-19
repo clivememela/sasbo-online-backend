@@ -74,14 +74,26 @@ public final class DatabaseReset {
      * Ordered parent-first so the re-insert satisfies foreign keys as it goes.
      */
     private static final List<String> SEEDED_TABLES =
-            List.of("union_structures", "representative_roles", "recruiters", "acb_rates");
+            List.of("union_structures", "representative_roles", "recruiters", "acb_rates", "acb_unpaid_codes");
 
     /** What the migrations leave behind, from the one place that says so. */
     private static final Map<String, Integer> SEEDED_COUNTS = Map.of(
             "union_structures", MigrationSeed.UNION_STRUCTURES,
             "representative_roles", MigrationSeed.REPRESENTATIVE_ROLES,
             "recruiters", MigrationSeed.RECRUITERS,
-            "acb_rates", MigrationSeed.ACB_RATES);
+            "acb_rates", MigrationSeed.ACB_RATES,
+            "acb_unpaid_codes", MigrationSeed.ACB_UNPAID_CODES);
+
+    /**
+     * The seeded tables keyed by a natural value rather than a generated {@code id} -- ordered by
+     * that key, and with no identity sequence to move after the restore. {@code acb_unpaid_codes}
+     * is keyed by the bank's own code.
+     */
+    private static final Map<String, String> NATURAL_KEYS = Map.of("acb_unpaid_codes", "code");
+
+    private static String keyOf(String table) {
+        return NATURAL_KEYS.getOrDefault(table, "id");
+    }
 
     private static final String FLYWAY_HISTORY = "flyway_schema_history";
 
@@ -134,7 +146,7 @@ public final class DatabaseReset {
     private static Map<String, List<Map<String, Object>>> takeSnapshot(JdbcTemplate jdbc) {
         Map<String, List<Map<String, Object>>> taken = new java.util.LinkedHashMap<>();
         for (String table : SEEDED_TABLES) {
-            taken.put(table, jdbc.queryForList("SELECT * FROM " + table + " ORDER BY id"));
+            taken.put(table, jdbc.queryForList("SELECT * FROM " + table + " ORDER BY " + keyOf(table)));
         }
         return Map.copyOf(taken);
     }
@@ -167,8 +179,8 @@ public final class DatabaseReset {
     /**
      * Rewrites one seeded table from the snapshot, in a single batch.
      *
-     * <p>One statement per table rather than one per row. The three seeded
-     * tables hold 58 rows between them, and this runs on both sides of every
+     * <p>One statement per table rather than one per row. The seeded tables
+     * hold about sixty rows between them, and this runs on both sides of every
      * integration test -- around a hundred times a run -- so a row-at-a-time
      * insert was ~5,800 round trips to the container for work whose SQL is
      * identical every time. Every row of a table has the same columns, because
@@ -187,6 +199,10 @@ public final class DatabaseReset {
         // Explicit ids were just written, so the identity sequence still points at
         // 1 and the next JPA insert would collide. Left unset, this is a failure
         // that appears in whatever test inserts next, with no connection to here.
+        // A table keyed by a natural value has no sequence to move.
+        if (NATURAL_KEYS.containsKey(table)) {
+            return;
+        }
         jdbc.execute("SELECT setval(pg_get_serial_sequence('" + table + "', 'id'), "
                 + "GREATEST((SELECT COALESCE(max(id), 1) FROM " + table + "), 1))");
     }

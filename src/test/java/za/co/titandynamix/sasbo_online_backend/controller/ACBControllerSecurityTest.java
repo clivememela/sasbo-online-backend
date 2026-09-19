@@ -12,6 +12,7 @@ import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
+import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
 import java.util.List;
@@ -50,6 +51,9 @@ class ACBControllerSecurityTest {
     @MockitoBean
     private AcbRunService runs;
 
+    @MockitoBean
+    private AcbReturnsService returns;
+
     @Test
     @DisplayName("approving a run is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
     void approvalIsRefusedToEveryone() throws Exception {
@@ -61,7 +65,7 @@ class ACBControllerSecurityTest {
                 .andExpect(jsonPath("$.details.runId").value("41"));
 
         // Refused BEFORE anything is looked up: the answer says nothing about which runs exist.
-        verifyNoInteractions(this.runs);
+        verifyNoInteractions(this.runs, this.returns);
     }
 
     @Test
@@ -71,7 +75,7 @@ class ACBControllerSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
                 .andExpect(jsonPath("$.details.runId").value("41"));
-        verifyNoInteractions(this.runs);
+        verifyNoInteractions(this.runs, this.returns);
     }
 
     @Test
@@ -82,7 +86,7 @@ class ACBControllerSecurityTest {
                         .content("{\"version\": 3}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
-        verifyNoInteractions(this.runs);
+        verifyNoInteractions(this.runs, this.returns);
     }
 
     @Test

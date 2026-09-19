@@ -37,6 +37,13 @@ public final class MigrationSeed {
      */
     public static final int ACB_RATES = 1;
 
+    /**
+     * {@code acb_unpaid_codes} is V45's seed: the four numeric codes on Standard Bank's returns
+     * report of 21 August 2026 (2, 4, 30, 34), each mapped to a reason -- the last two wordings
+     * inferred and marked so, until question 39 is answered.
+     */
+    public static final int ACB_UNPAID_CODES = 4;
+
     /** The root of the structure hierarchy, {@code union_structures.id = 1}. */
     public static final String ROOT_STRUCTURE = "SASBO";
 
@@ -113,7 +120,10 @@ public final class MigrationSeed {
             "V42__acb_run_lines.sql",
             "V43__acb_audit_events.sql",
             // ACB P2: the bureau file a run produced, kept as the evidence of what was sent.
-            "V44__acb_run_files.sql");
+            "V44__acb_run_files.sql",
+            // ACB P3: the bank's numeric unpaid codes, mapped to reasons (V45); the letters (V46).
+            "V45__acb_unpaid_codes.sql",
+            "V46__acb_letters.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

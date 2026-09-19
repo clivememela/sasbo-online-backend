@@ -45,6 +45,15 @@ public enum AcbRefusalCode {
     FILE_NOT_RENDERED(HttpStatus.CONFLICT),
     /** The run's file passed its purge date; its bytes are gone, its hash and totals remain. */
     FILE_PURGED(HttpStatus.GONE),
+    /** The run has no such line. The details carry both ids. */
+    LINE_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /**
+     * The debit is already recorded as unpaid with a different code or decision. A return is a
+     * fact about what the bank did: it is corrected deliberately, never overwritten by a second click.
+     */
+    UNPAID_ALREADY_RECORDED(HttpStatus.CONFLICT),
+    /** A date is malformed. Dates are written YYYY-MM-DD. */
+    DATE_INVALID(HttpStatus.BAD_REQUEST),
     /** The action month is malformed, or not one a run may be prepared for. */
     ACTION_MONTH_INVALID(HttpStatus.BAD_REQUEST),
     /** The person who prepared a run may not approve it. Enforced the day callers have names. */

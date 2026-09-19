@@ -13,7 +13,10 @@ import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
+import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 
 import java.io.IOException;
@@ -236,6 +239,9 @@ public final class ApiSurface {
                     "runStatuses": [%s],
                     "lineOutcomes": [%s],
                     "unpaidDecisions": [%s],
+                    "unpaidReasons": [%s],
+                    "letterTemplates": [%s],
+                    "letterStatuses": [%s],
                     "exclusionReasons": [
                 %s
                     ],
@@ -246,7 +252,8 @@ public final class ApiSurface {
                 }
                 """.formatted(regenerateCommand(), types, keys, jobGradeOutcomeNames(), jobGradeMatchingCases(),
                 names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
-                names(UnpaidDecision.values()), acbExclusionReasons(), acbRefusalCodes());
+                names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
+                names(LetterStatus.values()), acbExclusionReasons(), acbRefusalCodes());
     }
 
     /**

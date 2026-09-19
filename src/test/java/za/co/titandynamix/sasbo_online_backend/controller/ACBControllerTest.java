@@ -19,17 +19,23 @@ import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunSummaryDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.PrepareRunRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RunTransitionRequest;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
+import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
+import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
 import java.math.BigDecimal;
@@ -39,6 +45,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -84,6 +91,9 @@ class ACBControllerTest {
 
     @MockitoBean
     private AcbRunService runs;
+
+    @MockitoBean
+    private AcbReturnsService returns;
 
     private static final String SYNTHETIC_ACCOUNT = "6200999911";
 
@@ -255,6 +265,109 @@ class ACBControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
         verify(runs).cancel(41L, 2, "system", "wrong month");
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The returns loop
+    // ------------------------------------------------------------------------------------------
+
+    static AcbRunLineDto anUnpaidLine(UnpaidDecision decision) {
+        return new AcbRunLineDto(3L, 7, "M-200001", "Botha", "AB", "Alpha Bank", "632005", "9911", 1, 25,
+                "2026-10-26", new BigDecimal("174.00"), AcbLineOutcome.UNPAID, null, 1, "4",
+                "PAYMENT_STOPPED", decision);
+    }
+
+    @Test
+    @DisplayName("recording an unpaid passes the code, the date and the decision, and answers the line")
+    void recordingAnUnpaid() throws Exception {
+        RecordUnpaidRequest request = new RecordUnpaidRequest("4", "2026-10-28", UnpaidDecision.RE_PRESENT);
+        when(returns.recordUnpaid(41L, 3L, request, "system")).thenReturn(anUnpaidLine(UnpaidDecision.RE_PRESENT));
+
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/unpaid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outcome").value("UNPAID"))
+                .andExpect(jsonPath("$.unpaidCode").value("4"))
+                .andExpect(jsonPath("$.decision").value("RE_PRESENT"));
+        verify(returns).recordUnpaid(41L, 3L, request, "system");
+    }
+
+    @Test
+    @DisplayName("an unpaid without a code or a date is a 400 naming both fields -- the service is never asked")
+    void anUnpaidNeedsACodeAndADate() throws Exception {
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/unpaid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.code").exists())
+                .andExpect(jsonPath("$.validationErrors.notedOn").exists());
+        verifyNoInteractions(returns);
+    }
+
+    @Test
+    @DisplayName("an unpaid already recorded differently is a 409 carrying UNPAID_ALREADY_RECORDED and what is there")
+    void aSecondDifferentUnpaidIsRefused() throws Exception {
+        RecordUnpaidRequest request = new RecordUnpaidRequest("2", "2026-10-28", null);
+        when(returns.recordUnpaid(41L, 3L, request, "system")).thenThrow(new AcbRefusal(
+                AcbRefusalCode.UNPAID_ALREADY_RECORDED, "This debit is already recorded as unpaid with code 4.",
+                Map.of("lineId", "3", "unpaidCode", "4")));
+
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/unpaid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("UNPAID_ALREADY_RECORDED"))
+                .andExpect(jsonPath("$.details.unpaidCode").value("4"));
+    }
+
+    @Test
+    @DisplayName("a decision needs a decision; given one, it is passed through")
+    void deciding() throws Exception {
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/decision")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.decision").exists());
+
+        when(returns.decide(41L, 3L, UnpaidDecision.SUSPEND, "system")).thenReturn(anUnpaidLine(UnpaidDecision.SUSPEND));
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/decision")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\": \"SUSPEND\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decision").value("SUSPEND"));
+    }
+
+    @Test
+    @DisplayName("a run's unpaids are a page, filtered by reason when one is given")
+    void unpaidsArePaged() throws Exception {
+        when(returns.unpaids(41L, UnpaidReason.PAYMENT_STOPPED, 0, 50))
+                .thenReturn(new AcbPage<>(List.of(anUnpaidLine(null)), 0, 50, 1, 1));
+        this.mockMvc.perform(get("/api/acb/runs/41/unpaids").param("reason", "PAYMENT_STOPPED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].unpaidReason").value("PAYMENT_STOPPED"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        verify(returns).unpaids(41L, UnpaidReason.PAYMENT_STOPPED, 0, 50);
+    }
+
+    @Test
+    @DisplayName("the returns summary and the termination report are read-only answers with bodies")
+    void theReports() throws Exception {
+        when(returns.summary(41L)).thenReturn(new AcbReturnsSummaryDto(41L, Map.of("UNPAID", 1, "PENDING", 29),
+                Map.of("PAYMENT_STOPPED", 1), 0, 0, Map.of("RENDERED", 1)));
+        this.mockMvc.perform(get("/api/acb/runs/41/returns"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linesByOutcome.UNPAID").value(1))
+                .andExpect(jsonPath("$.lettersByStatus.RENDERED").value(1));
+
+        when(returns.terminationReport()).thenReturn(new AcbTerminationReportDto("2026-10", "stated", List.of(
+                new AcbTerminationReportDto.Candidate(7, "M-200001", "Botha", true, 3, false, 2,
+                        List.of("2026-10", "2026-11", "2026-12")))));
+        this.mockMvc.perform(get("/api/acb/termination-report"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.countingFrom").value("2026-10"))
+                .andExpect(jsonPath("$.members[0].everyUnpaidCounts").value(true))
+                .andExpect(jsonPath("$.members[0].retriesOnly").value(false));
     }
 
     // ------------------------------------------------------------------------------------------

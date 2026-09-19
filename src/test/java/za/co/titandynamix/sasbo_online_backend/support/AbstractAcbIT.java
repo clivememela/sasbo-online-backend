@@ -55,14 +55,20 @@ public abstract class AbstractAcbIT extends AbstractWritingIT {
                 OffsetDateTime.ofInstant(heartbeat, ZoneOffset.UTC), OffsetDateTime.ofInstant(heartbeat, ZoneOffset.UTC));
     }
 
-    /** Inserts one line straight into the table. */
+    /**
+     * Inserts one line straight into the table, on the 25th of its run's own month -- as the window
+     * would place a day-25 debit in a month where the 25th is a business day. A line dated outside
+     * its run's month is one the application can never write, and a test built on one proves nothing
+     * about any month.
+     */
     protected long insertLine(long runId, int memberId, Long rePresentsLineId, String outcome, String decision,
                               BigDecimal amount) {
         return this.jdbc.queryForObject(
                 "INSERT INTO acb_run_lines (run_id, member_id, re_presents_line_id, membership_number, surname, "
                         + "bank_name, branch_code, account_number, debit_day, action_date, amount, outcome, decision) "
-                        + "VALUES (?, ?, ?, ?, ?, 'Fixture Bank 00', '250000', ?, 25, ?, ?, ?, ?) RETURNING id",
+                        + "VALUES (?, ?, ?, ?, ?, 'Fixture Bank 00', '250000', ?, 25, "
+                        + "(SELECT action_month + 24 FROM acb_runs WHERE id = ?), ?, ?, ?) RETURNING id",
                 Long.class, runId, memberId, rePresentsLineId, "F-" + memberId, "Surname" + memberId,
-                String.format("62%08d", memberId), LocalDate.of(2026, 9, 25), amount, outcome, decision);
+                String.format("62%08d", memberId), runId, amount, outcome, decision);
     }
 }

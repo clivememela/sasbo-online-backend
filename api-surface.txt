@@ -6,7 +6,12 @@ POST /api/acb/runs/{id}/cancel
 GET /api/acb/runs/{id}/exclusions
 GET /api/acb/runs/{id}/file
 GET /api/acb/runs/{id}/lines
+POST /api/acb/runs/{id}/lines/{lineId}/decision
+POST /api/acb/runs/{id}/lines/{lineId}/unpaid
+GET /api/acb/runs/{id}/returns
 POST /api/acb/runs/{id}/submitted
+GET /api/acb/runs/{id}/unpaids
+GET /api/acb/termination-report
 GET /api/areas
 GET /api/banks
 GET /api/banks/branches
