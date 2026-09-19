@@ -25,6 +25,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbRunExclusionCountRe
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunExclusionRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunLineRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
+import za.co.titandynamix.sasbo_online_backend.services.AcbFileService;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -84,7 +85,7 @@ class AcbRunServiceImplTest {
         // A mocked transaction manager: TransactionTemplate runs the callback and commits nothing.
         PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
         service = new AcbRunServiceImpl(runs, lines, exclusions, exclusionCounts, rates, population,
-                new AcbAuditTrail(auditEvents, CLOCK), job, AcbJobLauncher.inline(),
+                new AcbAuditTrail(auditEvents, CLOCK), job, mock(AcbFileService.class), AcbJobLauncher.inline(),
                 HolidayCalendar.WEEKENDS_ONLY, CLOCK, transactions, Duration.ofMinutes(5));
 
         AcbRate rate = new AcbRate();

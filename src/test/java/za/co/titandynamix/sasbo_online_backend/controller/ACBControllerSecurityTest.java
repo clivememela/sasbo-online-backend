@@ -65,6 +65,27 @@ class ACBControllerSecurityTest {
     }
 
     @Test
+    @DisplayName("the bureau file is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
+    void theFileIsRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(get("/api/acb/runs/41/file"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
+                .andExpect(jsonPath("$.details.runId").value("41"));
+        verifyNoInteractions(this.runs);
+    }
+
+    @Test
+    @DisplayName("recording a submission is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
+    void submissionIsRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(post("/api/acb/runs/41/submitted")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\": 3}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
+        verifyNoInteractions(this.runs);
+    }
+
+    @Test
     @DisplayName("the must-pass twin: the same chain lets the runs list through -- so the 403 above is ACB's")
     void theChainPermitsTheApiSoTheRefusalIsAcbs() throws Exception {
         when(this.runs.list(0, 50)).thenReturn(new AcbPage<>(List.of(), 0, 50, 0, 0));

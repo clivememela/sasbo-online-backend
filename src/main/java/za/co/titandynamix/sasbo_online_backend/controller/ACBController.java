@@ -32,8 +32,9 @@ import java.util.Map;
  * READ, or that PROPOSE -- preparing a run is the dry run, and nothing leaves the building until a
  * run is approved -- are open, like the rest of the API. Approving a run authorises the union to
  * debit thousands of members, so it is built and proven in the service and REFUSED here, to every
- * caller, with {@code IDENTITY_REQUIRED}, until the API knows who is calling. Cancelling is the undo
- * for a proposal and moves no money, so it is open.
+ * caller, with {@code IDENTITY_REQUIRED}, until the API knows who is calling -- and so are the
+ * bureau file, which carries every debited member's account number, and recording its submission.
+ * Cancelling is the undo for a proposal and moves no money, so it is open.
  *
  * <h2>Every list is paged</h2>
  * Runs, lines and exclusions are each a page with a total. The largest page is capped whatever the
@@ -89,10 +90,35 @@ public class ACBController {
      */
     @PostMapping("/runs/{id}/approve")
     public AcbRunDto approve(@PathVariable("id") long id) {
-        throw new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED,
-                "Approving a run authorises the union to debit its members, so it waits until "
-                        + "administrators sign in to this system. Nothing has been approved.",
-                Map.of("runId", String.valueOf(id)));
+        throw identityRequired(id, "Approving a run authorises the union to debit its members, so it "
+                + "waits until administrators sign in to this system. Nothing has been approved.");
+    }
+
+    /**
+     * 🔒 The run's bureau file -- every debited member's account number -- refused to every caller
+     * until the API knows who is asking. Built and proven in {@code AcbFileService}; the day the
+     * API authenticates, this serves its bytes as {@code sasbosub.<mon>}.
+     */
+    @GetMapping("/runs/{id}/file")
+    public ResponseEntity<byte[]> file(@PathVariable("id") long id) {
+        throw identityRequired(id, "A bureau file carries every debited member's account number, so it "
+                + "is served only once administrators sign in to this system.");
+    }
+
+    /**
+     * 🔒 Recording that the file went to the bank moves the run past its last chance of being
+     * cancelled -- refused to every caller until the API knows who is calling.
+     */
+    @PostMapping("/runs/{id}/submitted")
+    public AcbRunDto submitted(@PathVariable("id") long id) {
+        throw identityRequired(id, "Recording a submission to the bank waits until administrators sign "
+                + "in to this system. Nothing has been recorded.");
+    }
+
+    /** Refused before anything is read: the answer says nothing about which runs exist. */
+    private static AcbRefusal identityRequired(long runId, String message) {
+        return new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, message,
+                Map.of("runId", String.valueOf(runId)));
     }
 
     @PostMapping("/runs/{id}/cancel")

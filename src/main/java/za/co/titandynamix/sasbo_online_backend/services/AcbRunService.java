@@ -38,6 +38,13 @@ public interface AcbRunService {
      */
     AcbRunDto approve(long runId, int version, String actor, String reason);
 
+    /**
+     * Records that an approved run's bureau file was uploaded to the bank. Refused with
+     * {@code FILE_NOT_RENDERED} for a run whose file was never produced. BUILT, and proven -- but no
+     * route calls it while the API is anonymous.
+     */
+    AcbRunDto recordSubmitted(long runId, int version, String actor, String reason);
+
     /** Withdraws a prepared or approved run. Its month is released; the run stays on record. */
     AcbRunDto cancel(long runId, int version, String actor, String reason);
 

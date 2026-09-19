@@ -111,7 +111,9 @@ public final class MigrationSeed {
             // V49 stays reserved for the money migration's second step.
             "V41__acb_runs.sql",
             "V42__acb_run_lines.sql",
-            "V43__acb_audit_events.sql");
+            "V43__acb_audit_events.sql",
+            // ACB P2: the bureau file a run produced, kept as the evidence of what was sent.
+            "V44__acb_run_files.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

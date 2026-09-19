@@ -32,6 +32,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbRunExclusionCountRe
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunExclusionRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunLineRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
+import za.co.titandynamix.sasbo_online_backend.services.AcbFileService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
 import java.math.BigDecimal;
@@ -80,6 +81,7 @@ public class AcbRunServiceImpl implements AcbRunService {
     private final AcbPopulationRepository population;
     private final AcbAuditTrail audit;
     private final AcbPreparationJob job;
+    private final AcbFileService files;
     private final AcbJobLauncher launcher;
     private final HolidayCalendar calendar;
     private final Clock clock;
@@ -90,7 +92,8 @@ public class AcbRunServiceImpl implements AcbRunService {
                              AcbRunExclusionRepository exclusions,
                              AcbRunExclusionCountRepository exclusionCounts, AcbRateRepository rates,
                              AcbPopulationRepository population, AcbAuditTrail audit,
-                             AcbPreparationJob job, AcbJobLauncher launcher, HolidayCalendar calendar,
+                             AcbPreparationJob job, AcbFileService files, AcbJobLauncher launcher,
+                             HolidayCalendar calendar,
                              Clock clock, PlatformTransactionManager transactions,
                              @Value("${acb.jobs.preparation-ceiling:PT5M}") Duration preparationCeiling) {
         this.runs = runs;
@@ -101,6 +104,7 @@ public class AcbRunServiceImpl implements AcbRunService {
         this.population = population;
         this.audit = audit;
         this.job = job;
+        this.files = files;
         this.launcher = launcher;
         this.calendar = calendar;
         this.clock = clock;
@@ -238,6 +242,20 @@ public class AcbRunServiceImpl implements AcbRunService {
                         "The person who prepared a run may not approve it.", AcbRuns.facts(run));
             }
             run.setApprovedBy(actor);
+        });
+    }
+
+    @Override
+    public AcbRunDto recordSubmitted(long runId, int version, String actor, String reason) {
+        return transition(runId, version, AcbRunAction.RECORD_SUBMITTED, actor, reason, run -> {
+            // The stored file is the evidence of what was sent; a submission with no file behind
+            // it would be a claim nobody could check.
+            if (!files.hasRendered(runId)) {
+                throw new AcbRefusal(AcbRefusalCode.FILE_NOT_RENDERED,
+                        "This run's bureau file has not been produced, so its submission cannot be "
+                                + "recorded. Produce the file, upload it at the bank, then record it here.",
+                        AcbRuns.facts(run));
+            }
         });
     }
 

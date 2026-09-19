@@ -31,6 +31,20 @@ public enum AcbRefusalCode {
     BANK_SUBSCRIPTION_AMBIGUOUS(HttpStatus.UNPROCESSABLE_ENTITY),
     /** No flat rate is in force for the action month, so no line can be priced. */
     RATE_NOT_IN_FORCE(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** Only an approved run -- or one whose file already went to the bank -- has a bureau file. */
+    FILE_NOT_APPROVED(HttpStatus.CONFLICT),
+    /** The run's lines no longer produce the file stored for it. Nothing is overwritten. */
+    FILE_CHANGED_SINCE(HttpStatus.CONFLICT),
+    /** The union's collection identifiers are not configured, so no bureau file can be written. */
+    FILE_SETTINGS_MISSING(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** The file's header dates are out of order, or disagree with the lines they head. */
+    FILE_HEADER_INVALID(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** Lines the file cannot carry -- no account type, a number wider than its field. Counted by problem. */
+    FILE_LINES_INCOMPLETE(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** Submission cannot be recorded for a run whose file was never produced. */
+    FILE_NOT_RENDERED(HttpStatus.CONFLICT),
+    /** The run's file passed its purge date; its bytes are gone, its hash and totals remain. */
+    FILE_PURGED(HttpStatus.GONE),
     /** The action month is malformed, or not one a run may be prepared for. */
     ACTION_MONTH_INVALID(HttpStatus.BAD_REQUEST),
     /** The person who prepared a run may not approve it. Enforced the day callers have names. */

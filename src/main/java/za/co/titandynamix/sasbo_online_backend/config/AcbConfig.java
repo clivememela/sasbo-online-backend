@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher;
@@ -10,9 +11,11 @@ import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
 import java.time.Clock;
 
 /**
- * What the ACB module is wired with: the clock it reads, the holidays it knows, and how its jobs run.
+ * What the ACB module is wired with: the clock it reads, the holidays it knows, how its jobs run,
+ * and the bureau file's settings ({@code acb.file.*}).
  */
 @Configuration
+@EnableConfigurationProperties(AcbFileProperties.class)
 public class AcbConfig {
 
     /**

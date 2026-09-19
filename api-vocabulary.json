@@ -43,6 +43,13 @@
       {"code": "RUN_EMPTY", "status": 422},
       {"code": "BANK_SUBSCRIPTION_AMBIGUOUS", "status": 422},
       {"code": "RATE_NOT_IN_FORCE", "status": 422},
+      {"code": "FILE_NOT_APPROVED", "status": 409},
+      {"code": "FILE_CHANGED_SINCE", "status": 409},
+      {"code": "FILE_SETTINGS_MISSING", "status": 422},
+      {"code": "FILE_HEADER_INVALID", "status": 422},
+      {"code": "FILE_LINES_INCOMPLETE", "status": 422},
+      {"code": "FILE_NOT_RENDERED", "status": 409},
+      {"code": "FILE_PURGED", "status": 410},
       {"code": "ACTION_MONTH_INVALID", "status": 400},
       {"code": "APPROVER_IS_PREPARER", "status": 422},
       {"code": "IDENTITY_REQUIRED", "status": 403}
