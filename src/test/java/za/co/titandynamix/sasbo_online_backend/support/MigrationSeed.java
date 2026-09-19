@@ -31,6 +31,12 @@ public final class MigrationSeed {
     public static final int REPRESENTATIVE_ROLES = 6;
     public static final int RECRUITERS = 33;
 
+    /**
+     * {@code acb_rates} is V41's seed: the one flat rate the July 2026 bureau file charged. A run
+     * cannot be priced without it, so it is restored after every reset like the other seeds.
+     */
+    public static final int ACB_RATES = 1;
+
     /** The root of the structure hierarchy, {@code union_structures.id = 1}. */
     public static final String ROOT_STRUCTURE = "SASBO";
 
@@ -100,7 +106,12 @@ public final class MigrationSeed {
             //
             // Step ONE of the money migration: the four member money columns become
             // NUMERIC(12,2) beside the text they came from, which V49 drops later (D16).
-            "V40__member_money_columns_to_numeric_step_one.sql");
+            "V40__member_money_columns_to_numeric_step_one.sql",
+            // ACB P1: the run and the dated flat rate (V41), its lines (V42), its audit trail (V43).
+            // V49 stays reserved for the money migration's second step.
+            "V41__acb_runs.sql",
+            "V42__acb_run_lines.sql",
+            "V43__acb_audit_events.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

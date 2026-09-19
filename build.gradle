@@ -227,7 +227,7 @@ tasks.register('verify') {
 // ---------------------------------------------------------------------------
 tasks.register('generateApiSurface', Test) {
 	group = 'documentation'
-	description = 'Rewrites api-surface.txt and api-vocabulary.json from the live routing table. Commit the diff.'
+	description = 'Rewrites api-surface.txt, api-vocabulary.json and debit-window.json from the live application. Commit the diff.'
 
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
@@ -235,6 +235,9 @@ tasks.register('generateApiSurface', Test) {
 	useJUnitPlatform()
 	filter {
 		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.guards.ApiSurfaceSnapshotTest'
+		// debit-window.json: the ACB run-window rule as one artefact the client's copy is tested
+		// against. The same generate-and-check shape, so it regenerates with the other two.
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.acb.DebitWindowFixtureTest'
 	}
 
 	systemProperty 'apiSurface.write', 'true'

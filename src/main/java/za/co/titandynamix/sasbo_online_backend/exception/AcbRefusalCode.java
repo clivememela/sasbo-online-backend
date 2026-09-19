@@ -1,0 +1,53 @@
+package za.co.titandynamix.sasbo_online_backend.exception;
+
+import org.springframework.http.HttpStatus;
+
+/**
+ * Every way the ACB module says no, as a stable code with its HTTP status.
+ *
+ * <h2>The codes are the contract; the messages are copy</h2>
+ * A run's state machine refuses things constantly -- a month already prepared, a run already
+ * approved by someone else, a version gone stale. The browser has to branch on WHICH refusal it got
+ * to say something useful, and branching on a message is branching on copy somebody will reword.
+ * So each refusal carries one of these names in the error envelope's {@code code} field; the names
+ * are published in {@code api-vocabulary.json}, and the browser's parity test lists them.
+ *
+ * <p>Adding a code is adding a constant here and regenerating the vocabulary. Two guards hold the
+ * list to the code: every constant is published, so a code the browser has never heard of cannot
+ * ship; and every constant is thrown somewhere, so the vocabulary never promises a refusal the
+ * server cannot give. A code arrives in the commit that first throws it.
+ */
+public enum AcbRefusalCode {
+    /** A live run already holds that month. The details carry its id, status and version. */
+    RUN_ALREADY_EXISTS(HttpStatus.CONFLICT),
+    RUN_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** The run is not in a state that action may act on. The details carry the state. */
+    RUN_NOT_IN_STATE(HttpStatus.CONFLICT),
+    /** Someone else changed the run first. The details carry its current status and version. */
+    RUN_VERSION_CONFLICT(HttpStatus.CONFLICT),
+    /** A run with no lines cannot be approved: "no eligible members" is a finding, not a month. */
+    RUN_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** A bank has two ACTIVE subscription rows. The details name every such bank. */
+    BANK_SUBSCRIPTION_AMBIGUOUS(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** No flat rate is in force for the action month, so no line can be priced. */
+    RATE_NOT_IN_FORCE(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** The action month is malformed, or not one a run may be prepared for. */
+    ACTION_MONTH_INVALID(HttpStatus.BAD_REQUEST),
+    /** The person who prepared a run may not approve it. Enforced the day callers have names. */
+    APPROVER_IS_PREPARER(HttpStatus.UNPROCESSABLE_ENTITY),
+    /**
+     * The action moves money, sends a letter, submits a file or changes a member's status, and the
+     * API does not yet know who is calling (register B1). Refused to every caller until it does.
+     */
+    IDENTITY_REQUIRED(HttpStatus.FORBIDDEN);
+
+    private final HttpStatus status;
+
+    AcbRefusalCode(HttpStatus status) {
+        this.status = status;
+    }
+
+    public HttpStatus status() {
+        return status;
+    }
+}

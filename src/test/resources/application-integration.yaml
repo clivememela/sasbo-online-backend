@@ -28,3 +28,9 @@ logging:
   level:
     root: WARN
     org.flywaydb: INFO
+
+# ACB's jobs -- a run's preparation -- run on the caller's thread under every test lane, so a test
+# sees the job's result without waiting for it, and no job outlives the test that started it.
+acb:
+  jobs:
+    synchronous: true

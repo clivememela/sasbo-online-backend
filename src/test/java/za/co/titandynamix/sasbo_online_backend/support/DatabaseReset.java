@@ -74,13 +74,14 @@ public final class DatabaseReset {
      * Ordered parent-first so the re-insert satisfies foreign keys as it goes.
      */
     private static final List<String> SEEDED_TABLES =
-            List.of("union_structures", "representative_roles", "recruiters");
+            List.of("union_structures", "representative_roles", "recruiters", "acb_rates");
 
     /** What the migrations leave behind, from the one place that says so. */
     private static final Map<String, Integer> SEEDED_COUNTS = Map.of(
             "union_structures", MigrationSeed.UNION_STRUCTURES,
             "representative_roles", MigrationSeed.REPRESENTATIVE_ROLES,
-            "recruiters", MigrationSeed.RECRUITERS);
+            "recruiters", MigrationSeed.RECRUITERS,
+            "acb_rates", MigrationSeed.ACB_RATES);
 
     private static final String FLYWAY_HISTORY = "flyway_schema_history";
 

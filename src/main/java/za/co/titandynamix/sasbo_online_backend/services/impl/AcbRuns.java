@@ -1,0 +1,101 @@
+package za.co.titandynamix.sasbo_online_backend.services.impl;
+
+import za.co.titandynamix.sasbo_online_backend.acb.BankIndex;
+import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRate;
+import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbRunAction;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
+import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
+import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.repository.AcbPopulationRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.AcbRateRepository;
+
+import java.time.YearMonth;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * The refusals and preconditions the run service and the preparation job share, written once so
+ * the request and the job cannot word or decide them differently.
+ */
+final class AcbRuns {
+
+    /** The states that release their month -- the partial unique index's own predicate. */
+    static final Set<AcbRunStatus> RELEASED = EnumSet.of(AcbRunStatus.FAILED, AcbRunStatus.CANCELLED);
+
+    /** The runs whose unpaids are real: the file went to the bank. */
+    static final Set<AcbRunStatus> SENT =
+            EnumSet.of(AcbRunStatus.SUBMITTED, AcbRunStatus.RETURNED, AcbRunStatus.CLOSED);
+
+    private AcbRuns() {
+    }
+
+    /** The rate in force for {@code month}, or the refusal that no line can be priced. */
+    static AcbRate rateInForce(AcbRateRepository rates, YearMonth month) {
+        return rates.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDesc(month.atDay(1))
+                .orElseThrow(() -> new AcbRefusal(AcbRefusalCode.RATE_NOT_IN_FORCE,
+                        "No subscription rate is in force for " + month + ", so no debit can be priced.",
+                        Map.of("actionMonth", month.toString())));
+    }
+
+    /** The banks and which of them SASBO collects from, refusing if any bank is ambiguous. */
+    static BankIndex unambiguousBanks(AcbPopulationRepository population) {
+        BankIndex banks = BankIndex.of(population.findBanks(),
+                population.findBankIdsOfSubscriptionRows(SubscriptionsStatus.ACTIVE));
+        List<String> ambiguous = banks.ambiguousBanks();
+        if (!ambiguous.isEmpty()) {
+            throw new AcbRefusal(AcbRefusalCode.BANK_SUBSCRIPTION_AMBIGUOUS,
+                    "These banks have more than one active subscription, so the run cannot tell "
+                            + "which applies: " + String.join(", ", ambiguous)
+                            + ". Leave one active row per bank on the subscriptions screen.",
+                    Map.of("banks", String.join(", ", ambiguous)));
+        }
+        return banks;
+    }
+
+    /**
+     * The month is held. The advice follows the state: only a proposal can be cancelled, a run
+     * still preparing settles by itself, and a month whose file went to the bank is not prepared
+     * again.
+     */
+    static AcbRefusal alreadyExists(AcbRun live) {
+        String next = AcbRunAction.CANCEL.from(live.getStatus()).isPresent()
+                ? " Cancel it first to prepare the month again."
+                : live.getStatus() == AcbRunStatus.PREPARING ? " It is still being prepared." : "";
+        return new AcbRefusal(AcbRefusalCode.RUN_ALREADY_EXISTS,
+                "The run for " + YearMonth.from(live.getActionMonth()) + " already exists, and it is "
+                        + live.getStatus() + "." + next,
+                facts(live));
+    }
+
+    static AcbRefusal notFound(long runId) {
+        return new AcbRefusal(AcbRefusalCode.RUN_NOT_FOUND, "There is no run " + runId + ".",
+                Map.of("runId", String.valueOf(runId)));
+    }
+
+    static AcbRefusal notInState(AcbRun run, AcbRunAction action) {
+        return new AcbRefusal(AcbRefusalCode.RUN_NOT_IN_STATE,
+                "A run that is " + run.getStatus() + " cannot be taken through " + action + ".",
+                facts(run));
+    }
+
+    static AcbRefusal versionConflict(AcbRun current) {
+        return new AcbRefusal(AcbRefusalCode.RUN_VERSION_CONFLICT,
+                "Someone else changed this run first. It is now " + current.getStatus() + ".",
+                facts(current));
+    }
+
+    /** What a screen needs to say what happened without asking again: the run as it stands. */
+    static Map<String, String> facts(AcbRun run) {
+        Map<String, String> facts = new LinkedHashMap<>();
+        facts.put("runId", String.valueOf(run.getId()));
+        facts.put("actionMonth", YearMonth.from(run.getActionMonth()).toString());
+        facts.put("status", run.getStatus().name());
+        facts.put("version", String.valueOf(run.getVersion()));
+        return facts;
+    }
+}

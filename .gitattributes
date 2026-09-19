@@ -13,3 +13,5 @@
 # `*.bat text eol=crlf` rule above, which exists because .bat files need CRLF.
 api-surface.txt text eol=lf
 api-vocabulary.json text eol=lf
+# The ACB run-window fixture: generated here, copied to the client, compared byte for byte.
+debit-window.json text eol=lf
