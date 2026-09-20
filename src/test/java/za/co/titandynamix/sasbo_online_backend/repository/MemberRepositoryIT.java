@@ -256,17 +256,26 @@ class MemberRepositoryIT extends AbstractWritingIT {
     @Test
     @DisplayName("listing members costs the same number of queries at 5 rows and at 50")
     void listingDoesNotGrowWithTheData() {
-        // The member listing is the one that will hurt: Member holds five
-        // @ManyToOne relations and a @OneToOne, all lazy, and GET /api/members
-        // returns every row with every field. If any of them is resolved during
-        // mapping, the cost grows with the register.
+        // The member listing is the one that will hurt: Member holds @ManyToOne relations
+        // and a @OneToOne, all lazy, and GET /api/members returns every row with every field.
+        // If any of them is resolved during mapping, the cost grows with the register.
         //
         // Measured at two sizes, because one measurement cannot tell a constant
         // cost from a growing one.
         QueryCount.assertConstantAcrossSizes(
                 this.entityManagerFactory,
                 this::seedTo,
-                () -> this.memberRepository.findAll().forEach(Member::getSurname),
+                () -> this.memberRepository.findAll().forEach(m -> {
+                    m.getSurname();
+                    if (m.getJobGrade() != null) m.getJobGrade().getGrade();
+                    if (m.getRecruiter() != null) m.getRecruiter().getName();
+                    if (m.getStructure() != null) m.getStructure().getName();
+                    if (m.getRole() != null) m.getRole().getName();
+                    if (m.getArea() != null) m.getArea().getName();
+                    if (m.getRecruitedArea() != null) m.getRecruitedArea().getName();
+                    if (m.getRecruitmentChannel() != null) m.getRecruitmentChannel().getName();
+                    if (m.getUser() != null) m.getUser().getId();
+                }),
                 5, 50);
     }
 
