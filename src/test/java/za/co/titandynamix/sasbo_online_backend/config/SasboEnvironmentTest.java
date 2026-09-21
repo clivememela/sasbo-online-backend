@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.config;
 
+import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -79,7 +80,7 @@ class SasboEnvironmentTest {
         try (LogCapture log = LogCapture.on(EnvironmentConfig.class)) {
             context.withPropertyValues("sasbo.environment=production").run(started -> assertThat(started).hasNotFailed());
             context.run(started -> assertThat(started).hasNotFailed());
-            assertThat(log.rendered())
+            assertThat(log.renderedAt(Level.INFO))
                     .contains("environment: production -- nothing synthetic is seeded")
                     .contains("environment: demo -- seed data enabled");
         }

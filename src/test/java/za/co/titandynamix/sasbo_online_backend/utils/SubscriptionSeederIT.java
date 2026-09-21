@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.utils;
 
+import ch.qos.logback.classic.Level;
 import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -79,7 +80,7 @@ class SubscriptionSeederIT extends AbstractWritingIT {
             SubscriptionSeeder.Outcome outcome = seeder.seed();
             assertThat(outcome.repaired()).isEqualTo(1);
             assertThat(outcome.inserted()).isZero();
-            assertThat(log.rendered()).contains("had no bank; it is given " + STANDARD_BANK);
+            assertThat(log.renderedAt(Level.INFO)).contains("had no bank; it is given " + STANDARD_BANK);
         }
         SubscriptionSeeder.Outcome again = seeder.seed();
         assertThat(again.repaired() + again.inserted()).as("the second start").isZero();
@@ -98,7 +99,7 @@ class SubscriptionSeederIT extends AbstractWritingIT {
             SubscriptionSeeder.Outcome outcome = seeder.seed();
             assertThat(outcome.repaired()).isZero();
             assertThat(outcome.inserted()).isZero();
-            assertThat(log.rendered()).contains("a person decides");
+            assertThat(log.renderedAt(Level.WARN)).contains("a person decides");
         }
         assertThat(orphans()).isEqualTo(2);
         assertThat(rowsByBank()).doesNotContainKey(STANDARD_BANK.toLowerCase(Locale.ROOT));
@@ -112,7 +113,7 @@ class SubscriptionSeederIT extends AbstractWritingIT {
             SubscriptionSeeder.Outcome outcome = seeder.seed();
             assertThat(outcome.repaired()).isZero();
             assertThat(outcome.inserted()).as("Standard Bank's row, since the orphan is not it").isEqualTo(1);
-            assertThat(log.rendered()).contains("has no bank").contains("left alone");
+            assertThat(log.renderedAt(Level.WARN)).contains("has no bank").contains("left alone");
         }
         assertThat(orphans()).isEqualTo(1);
         assertThat(rowsByBank()).containsEntry(STANDARD_BANK.toLowerCase(Locale.ROOT), 1L);

@@ -72,6 +72,22 @@ public final class LogCapture implements AutoCloseable {
         return all.toString();
     }
 
+    /**
+     * Only what was logged at exactly {@code level}, one event per line -- for a test whose claim IS
+     * the level ("said at WARN"). {@link #rendered()} captures at TRACE and carries no level, so a
+     * WARN demoted to DEBUG reads the same there; found by deleting a WARN and watching a test stay
+     * green (2026-09-21).
+     */
+    public String renderedAt(Level level) {
+        StringBuilder at = new StringBuilder();
+        for (ILoggingEvent event : this.appender.list) {
+            if (event.getLevel() == level) {
+                at.append(event.getFormattedMessage()).append('\n');
+            }
+        }
+        return at.toString();
+    }
+
     /** Writes through the captured logger, for a test that needs a canary. */
     public void emitCanary(String message) {
         this.logger.error(message);

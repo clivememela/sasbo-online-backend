@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.utils;
 
+import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -65,7 +66,7 @@ class SeedStartupTest {
             members.save(DebitOrderMemberSeeder.readSeedFile().members().get(0).toMember());
             try (LogCapture log = LogCapture.on(DataSeeder.class)) {
                 seeder.run(new DefaultApplicationArguments());
-                assertThat(log.rendered()).contains("1 seeded (synthetic) member(s) are on this PRODUCTION database");
+                assertThat(log.renderedAt(Level.WARN)).contains("1 seeded (synthetic) member(s) are on this PRODUCTION database");
             } finally {
                 members.deleteAll();
             }
