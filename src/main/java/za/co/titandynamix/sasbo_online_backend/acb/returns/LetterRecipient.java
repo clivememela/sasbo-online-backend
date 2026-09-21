@@ -24,6 +24,15 @@ public record LetterRecipient(Integer memberId, String title, String address, St
         return second.isEmpty() ? null : second;
     }
 
+    /**
+     * 🔒 Whether {@code address} is ONE address a letter may go to (SD3-C): no carriage return, line feed,
+     * comma, semicolon, space or angle bracket -- nothing that could add a header or a second recipient.
+     */
+    public static boolean sendable(String address) {
+        return address != null && address.length() <= 254
+                && address.matches("[^\\s@,;<>\\r\\n]+@[^\\s@,;<>\\r\\n]+\\.[^\\s@,;<>\\r\\n]+");
+    }
+
     /** The member's address as the letter's address block: up to three lines, split at commas. */
     public List<String> addressLines() {
         List<String> lines = new ArrayList<>();

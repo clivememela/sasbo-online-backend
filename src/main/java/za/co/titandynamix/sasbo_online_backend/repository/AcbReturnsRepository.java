@@ -8,10 +8,12 @@ import org.springframework.data.repository.query.Param;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.PresentationRow;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.HeldOverRow;
+import za.co.titandynamix.sasbo_online_backend.acb.returns.HeldLetterRow;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 
 import java.util.Collection;
 import java.util.List;
@@ -88,6 +90,17 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
                                    @Param("unpaid") AcbLineOutcome unpaid,
                                    @Param("decision") UnpaidDecision decision,
                                    Pageable pageable);
+
+    /** A run's held letters, with each member's addresses as they stand now -- one query, paged (Q46). */
+    @Query(value = "SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.HeldLetterRow("
+            + "l.id, rl.id, rl.memberId, rl.membershipNumber, rl.surname, l.template, l.statusReason, "
+            + "m.personalEmail, m.workEmail, m.preferredEmail) "
+            + "FROM AcbLetter l, AcbRunLine rl, Member m "
+            + "WHERE l.lineId = rl.id AND rl.memberId = m.id AND rl.runId = :runId AND l.status = :held "
+            + "ORDER BY l.id",
+            countQuery = "SELECT count(l) FROM AcbLetter l, AcbRunLine rl WHERE l.lineId = rl.id "
+            + "AND rl.runId = :runId AND l.status = :held")
+    Page<HeldLetterRow> findHeldLetters(@Param("runId") Long runId, @Param("held") LetterStatus held, Pageable pageable);
 
     /** What a letter needs of the member it goes to. */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient("

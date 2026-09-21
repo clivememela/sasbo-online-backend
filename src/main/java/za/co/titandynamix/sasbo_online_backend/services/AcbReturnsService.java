@@ -6,6 +6,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 
@@ -44,6 +45,18 @@ public interface AcbReturnsService {
      * 300 characters and kept on the line alone (SD3-D).
      */
     AcbRunLineDto permit(long runId, long lineId, String note, String actor);
+
+    /**
+     * The run's held letters -- no address, or one that cannot be sent to -- as the worklist Q46 asks for,
+     * each saying whether the member now has an address it could go to. A page at a time.
+     */
+    AcbPage<AcbHeldLetterDto> heldLetters(long runId, int page, int size);
+
+    /**
+     * Marks a held letter dealt with by hand, with a note of how (Q46): it leaves the worklist and is
+     * never sent afterwards. {@code LETTER_NOT_HELD} for a letter that is not held.
+     */
+    AcbHeldLetterDto markHandled(long runId, long letterId, String note, String actor);
 
     /** The re-debits run {@code runId} holds over for want of the member's permission (D32), a page at a time. */
     AcbPage<AcbHeldOverDto> heldOver(long runId, int page, int size);

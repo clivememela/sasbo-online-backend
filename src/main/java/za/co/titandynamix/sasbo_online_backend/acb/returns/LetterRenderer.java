@@ -57,7 +57,8 @@ public final class LetterRenderer {
             String accountNumber,
             String bankName,
             YearMonth debitMonth,
-            String unpaidReason) {
+            String unpaidReason,
+            Integer debitDay) {
 
         /** Every placeholder's value. The account is masked here, so nothing downstream sees it whole. */
         public Map<String, String> values() {
@@ -82,6 +83,8 @@ public final class LetterRenderer {
             values.put("debitMonth", month);
             values.put("debitMonthUpper", month.toUpperCase(Locale.ROOT));
             values.put("unpaidReason", blank(unpaidReason));
+            // Q32: "If a member pays by the 25th or 27, or 30 the letter will indicate that."
+            values.put("debitDayOrdinal", debitDay == null ? "" : ordinal(debitDay));
             return values;
         }
 
@@ -124,6 +127,17 @@ public final class LetterRenderer {
     }
 
     /** The last four digits behind four asterisks -- never the whole number, never its length. */
+    /** {@code 25} -> {@code 25th}; {@code 21} -> {@code 21st}; {@code 22} -> {@code 22nd}. */
+    static String ordinal(int day) {
+        String suffix = day % 100 >= 11 && day % 100 <= 13 ? "th" : switch (day % 10) {
+            case 1 -> "st";
+            case 2 -> "nd";
+            case 3 -> "rd";
+            default -> "th";
+        };
+        return day + suffix;
+    }
+
     static String masked(String accountNumber) {
         if (accountNumber == null || accountNumber.length() <= 4) {
             return "****";

@@ -29,9 +29,14 @@ CREATE TABLE acb_letters (
     rendered_at      TIMESTAMPTZ,
     sent_at          TIMESTAMPTZ,
     failure_class    VARCHAR(200),
+    -- A held letter dealt with by hand (Q46; amended in place 2026-09-21, unpushed, F53): the note says
+    -- how -- capped, never logged, never copied into an audit row (SD3-D) -- and when.
+    handled_note     VARCHAR(300),
+    handled_at       TIMESTAMPTZ,
     CONSTRAINT acb_letters_one_per_unpaid UNIQUE (line_id),
     CONSTRAINT acb_letters_template_known CHECK (template IN ('RETURN_DEBIT', 'ACCOUNT_CLOSED', 'RE_DEBIT')),
-    CONSTRAINT acb_letters_status_known CHECK (status IN ('QUEUED', 'RENDERED', 'SENT', 'FAILED')),
+    CONSTRAINT acb_letters_status_known CHECK (status IN ('QUEUED', 'RENDERED', 'SENT', 'FAILED', 'HANDLED')),
+    CONSTRAINT acb_letters_handled_says_how CHECK (status <> 'HANDLED' OR (handled_note IS NOT NULL AND handled_at IS NOT NULL)),
     CONSTRAINT acb_letters_channel_known CHECK (channel IN ('EMAIL', 'POST')),
     CONSTRAINT acb_letters_sent_once CHECK (status <> 'SENT' OR sent_at IS NOT NULL)
 );

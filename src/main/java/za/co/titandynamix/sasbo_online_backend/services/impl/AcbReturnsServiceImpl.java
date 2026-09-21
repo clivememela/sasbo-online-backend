@@ -16,6 +16,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbLetter;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
@@ -221,6 +222,56 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
                         row.surname(), AcbTime.iso(YearMonth.from(row.monthStart())), row.amount()));
     }
 
+    /** The note is kept to this many characters -- refused beyond it, never cut (SD3-D). */
+    static final int HANDLED_NOTE_LIMIT = 300;
+
+    @Override
+    public AcbPage<AcbHeldLetterDto> heldLetters(long runId, int page, int size) {
+        runs.findById(runId).orElseThrow(() -> AcbRuns.notFound(runId));
+        PageRequest request = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), AcbRunServiceImpl.MAX_PAGE_SIZE));
+        return AcbPage.of(returns.findHeldLetters(runId, LetterStatus.QUEUED, request), row -> {
+            String now = new LetterRecipient(row.memberId(), null, null, row.personalEmail(), row.workEmail(),
+                    row.preferredEmail(), null).email();
+            return new AcbHeldLetterDto(row.letterId(), row.lineId(), row.memberId(), row.membershipNumber(),
+                    row.surname(), row.template(), row.reason(), LetterRecipient.sendable(now));
+        });
+    }
+
+    @Override
+    public AcbHeldLetterDto markHandled(long runId, long letterId, String note, String actor) {
+        String how = note == null || note.isBlank() ? null : note.trim();
+        if (how == null || how.length() > HANDLED_NOTE_LIMIT) {
+            throw new AcbRefusal(AcbRefusalCode.REQUEST_MALFORMED, "Say how the letter was dealt with, in at most "
+                    + HANDLED_NOTE_LIMIT + " characters.", Map.of("letterId", String.valueOf(letterId), "field", "note"));
+        }
+        tx.executeWithoutResult(status -> {
+            AcbLetter letter = letters.findById(letterId).orElseThrow(() -> new AcbRefusal(AcbRefusalCode.LINE_NOT_FOUND,
+                    "There is no letter " + letterId + ".", Map.of("letterId", String.valueOf(letterId))));
+            AcbRunLine line = requireLine(runId, letter.getLineId());
+            if (letter.getStatus() != LetterStatus.QUEUED) {
+                Map<String, String> facts = new LinkedHashMap<>();
+                facts.put("letterId", String.valueOf(letterId));
+                facts.put("status", letter.getStatus().name());
+                throw new AcbRefusal(AcbRefusalCode.LETTER_NOT_HELD, "Only a held letter is dealt with by hand; this one is "
+                        + letter.getStatus() + ".", facts);
+            }
+            letter.setStatus(LetterStatus.HANDLED);
+            letter.setHandledNote(how);
+            letter.setHandledAt(AcbTime.instant(clock));
+            letters.saveAndFlush(letter);
+            // 🔒 THAT it was handled, never how (SD3-D): the note can hold an address or a name.
+            audit.record(runId, line.getId(), "LETTER_HANDLED", null, null, "a held letter marked handled", actor);
+        });
+        return heldLetterDto(letterId);
+    }
+
+    private AcbHeldLetterDto heldLetterDto(long letterId) {
+        AcbLetter letter = letters.findById(letterId).orElseThrow();
+        AcbRunLine line = lines.findById(letter.getLineId()).orElseThrow();
+        return new AcbHeldLetterDto(letter.getId(), line.getId(), line.getMemberId(), line.getMembershipNumber(),
+                line.getSurname(), letter.getTemplate(), letter.getStatusReason(), false);
+    }
+
     /** A line, with the decision its code suggests while it is an undecided unpaid (Q40, Q44). */
     private AcbRunLineDto withSuggestion(AcbRunLine line) {
         UnpaidDecision suggested = line.getUnpaidCode() == null ? null
@@ -297,6 +348,11 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         if (email == null) {
             letter.setStatus(LetterStatus.QUEUED);
             letter.setStatusReason("NO_EMAIL");
+        } else if (!LetterRecipient.sendable(email)) {
+            // 🔒 SD3-C: an address that could carry a header or a second recipient is never used -- the
+            // letter is held for someone to deal with, like one with no address at all.
+            letter.setStatus(LetterStatus.QUEUED);
+            letter.setStatusReason("INVALID_ADDRESS");
         } else {
             String body = LetterRenderer.render(template, letterData(run, line, recipient, wording));
             letter.setStatus(LetterStatus.RENDERED);
@@ -313,7 +369,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         return new LetterRenderer.LetterData(
                 AcbTime.today(clock), recipient.areaName(), recipient.title(), line.getInitials(), line.getSurname(),
                 recipient.addressLines(), null, line.getMembershipNumber(), line.getAccountNumber(),
-                line.getBankName(), YearMonth.from(run.getActionMonth()), wording);
+                line.getBankName(), YearMonth.from(run.getActionMonth()), wording, line.getDebitDay());
     }
 
     private AcbRun requireReturnable(long runId) {

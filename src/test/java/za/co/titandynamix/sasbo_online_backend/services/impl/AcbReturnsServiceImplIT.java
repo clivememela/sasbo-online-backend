@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
@@ -413,5 +414,55 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
                 .isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_audit_events WHERE kind = 'PERMISSION_RECORDED'", Long.class))
                 .isEqualTo(1L);
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // 03.3's held letters: the worklist, marking handled, one validated recipient (Q46, SD3-C)
+    // ------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("🔒 R3-13: a NO_EMAIL letter is on the worklist; once the member has an address it can be sent; marked handled it leaves, audited without its note, and is never held again")
+    void theHeldLetterWorklist() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        long run = insertRun(LocalDate.of(2026, 9, 1), "SUBMITTED", FROZEN, "system");
+        long line = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID, null, "PENDING", null, RATE);
+        returns.recordUnpaid(run, line, new RecordUnpaidRequest("4", "2026-09-28", UnpaidDecision.SUSPEND), "system");
+
+        List<AcbHeldLetterDto> held = returns.heldLetters(run, 0, 50).content();
+        assertThat(held).singleElement().satisfies(letter -> {
+            assertThat(letter.reason()).isEqualTo("NO_EMAIL");
+            assertThat(letter.canSend()).isFalse();
+        });
+        jdbc.update("UPDATE members SET personal_email = 'member@example.org' WHERE id = ?", AcbRunFixture.FIRST_MEMBER_ID);
+        assertThat(returns.heldLetters(run, 0, 50).content()).singleElement()
+                .satisfies(letter -> assertThat(letter.canSend()).as("an address now, so it can go -- once B1 lands").isTrue());
+
+        long letterId = held.get(0).letterId();
+        String note = "Handed to the Synthetic Member at the branch on 000 000 0000";
+        returns.markHandled(run, letterId, note, "admin-a");
+        assertThat(returns.heldLetters(run, 0, 50).content()).isEmpty();
+        assertThat(jdbc.queryForMap("SELECT status, handled_note FROM acb_letters WHERE id = ?", letterId))
+                .containsEntry("status", "HANDLED").containsEntry("handled_note", note);
+        assertThat(jdbc.queryForObject("SELECT reason FROM acb_audit_events WHERE kind = 'LETTER_HANDLED'", String.class))
+                .isEqualTo("a held letter marked handled");
+        AcbRefusal again = catchThrowableOfType(AcbRefusal.class, () -> returns.markHandled(run, letterId, "twice", "admin-a"));
+        assertThat(again.code()).isEqualTo(AcbRefusalCode.LETTER_NOT_HELD);
+        assertThat(again.details()).containsEntry("status", "HANDLED");
+    }
+
+    @Test
+    @DisplayName("🔒 SD3-C: an address that could carry a header or a second recipient holds the letter INVALID_ADDRESS -- never sent to")
+    void anUnsafeAddressHoldsTheLetter() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        jdbc.update("UPDATE members SET personal_email = ? WHERE id = ?",
+                "member@example.org\r\nBcc: other@example.org", AcbRunFixture.FIRST_MEMBER_ID);
+        long run = insertRun(LocalDate.of(2026, 9, 1), "SUBMITTED", FROZEN, "system");
+        long line = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID, null, "PENDING", null, RATE);
+        returns.recordUnpaid(run, line, new RecordUnpaidRequest("4", "2026-09-28", UnpaidDecision.SUSPEND), "system");
+        assertThat(jdbc.queryForMap("SELECT status, status_reason, address_snapshot FROM acb_letters"))
+                .containsEntry("status", "QUEUED").containsEntry("status_reason", "INVALID_ADDRESS")
+                .containsEntry("address_snapshot", null);
+        assertThat(returns.heldLetters(run, 0, 50).content()).singleElement()
+                .satisfies(letter -> assertThat(letter.canSend()).isFalse());
     }
 }

@@ -73,4 +73,11 @@ public class AcbLetter {
 
     @Column(name = "failure_class", length = 200)
     private String failureClass;
+
+    /** How a held letter was dealt with by hand (Q46) -- never logged, never audited (SD3-D). */
+    @Column(name = "handled_note", length = 300)
+    private String handledNote;
+
+    @Column(name = "handled_at")
+    private Instant handledAt;
 }

@@ -20,7 +20,7 @@ the following month which will be on the usual debit day (or closest
 ACB debit date).
 
 Please make arrangements for future debits which will be presented to
-your account on the 20 of each month (excluding Saturday/Sunday/Public
+your account on the {{debitDayOrdinal}} of each month (excluding Saturday/Sunday/Public
 Holidays), when the date will move forward to the next week day.
 
 It is in your own interest to ensure availability of funds as your bank

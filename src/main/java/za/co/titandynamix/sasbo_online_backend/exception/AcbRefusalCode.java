@@ -113,6 +113,8 @@ public enum AcbRefusalCode {
     UPLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE),
     /** An upload is not an {@code .xlsx} sheet that can be read. Nothing of it is evaluated further. */
     UPLOAD_NOT_A_SHEET(HttpStatus.UNSUPPORTED_MEDIA_TYPE),
+    /** Only a held letter is dealt with by hand. The details carry the letter's id and status (Q46). */
+    LETTER_NOT_HELD(HttpStatus.CONFLICT),
     /** The action month is malformed, or not one a run may be prepared for. */
     ACTION_MONTH_INVALID(HttpStatus.BAD_REQUEST),
     /** The day is already in the holiday calendar. The details carry the date and its name. */

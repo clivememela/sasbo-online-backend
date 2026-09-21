@@ -27,7 +27,7 @@ class LetterRendererTest {
         return new LetterRenderer.LetterData(
                 LocalDate.of(2026, 10, 12), "K", "Mr", "AB", "Botha",
                 List.of("12 Synthetic Street", "Testville"), "2021",
-                "M-100116", SYNTHETIC_ACCOUNT, "Alpha Bank", YearMonth.of(2026, 9), reason.wording());
+                "M-100116", SYNTHETIC_ACCOUNT, "Alpha Bank", YearMonth.of(2026, 9), reason.wording(), 25);
     }
 
     @ParameterizedTest
@@ -67,15 +67,38 @@ class LetterRendererTest {
     }
 
     @Test
-    @DisplayName("the re-debit letter keeps the '20 of each month' sentence verbatim until SASBO answers")
+    @DisplayName("🔒 Q32: the re-debit letter prints the member's OWN debit day -- the 25th here, never a literal 20th")
     void theReDebitLetter() {
         String letter = LetterRenderer.render(LetterTemplate.RE_DEBIT, data(UnpaidReason.NOT_PROVIDED_FOR));
         assertThat(letter).contains("month of September was returned 'Not Provided For'.")
                 .contains("your Union subscription for the")
                 .contains("on the usual debit day")
-                .contains("your account on the 20 of each month")
+                .contains("your account on the 25th of each month")
+                .doesNotContain("on the 20 of each month")
                 .contains("three months, the membership will be");
         assertThat(letter).doesNotContain("subsription").doesNotContain("usualdebit");
+    }
+
+    @Test
+    @DisplayName("a day is written as an ordinal: 20th, 21st, 22nd, 23rd, 25th, 31st")
+    void ordinals() {
+        assertThat(LetterRenderer.ordinal(20)).isEqualTo("20th");
+        assertThat(LetterRenderer.ordinal(21)).isEqualTo("21st");
+        assertThat(LetterRenderer.ordinal(22)).isEqualTo("22nd");
+        assertThat(LetterRenderer.ordinal(23)).isEqualTo("23rd");
+        assertThat(LetterRenderer.ordinal(25)).isEqualTo("25th");
+        assertThat(LetterRenderer.ordinal(31)).isEqualTo("31st");
+    }
+
+    @Test
+    @DisplayName("🔒 R3-16, SD3-C: a surname and address holding markup render as text, character for character")
+    void markupIsText() {
+        LetterRenderer.LetterData hostile = new LetterRenderer.LetterData(
+                LocalDate.of(2026, 10, 12), "K", "Mr", "AB", "<b>Botha</b>",
+                List.of("<img src=x onerror=alert(1)>", "Testville"), "2021",
+                "M-100116", SYNTHETIC_ACCOUNT, "Alpha Bank", YearMonth.of(2026, 9), "Account Closed", 25);
+        String letter = LetterRenderer.render(LetterTemplate.ACCOUNT_CLOSED, hostile);
+        assertThat(letter).contains("<b>Botha</b>").contains("<img src=x onerror=alert(1)>");
     }
 
     @Test
@@ -83,7 +106,7 @@ class LetterRendererTest {
     void missingParts() {
         LetterRenderer.LetterData untitled = new LetterRenderer.LetterData(
                 LocalDate.of(2026, 10, 12), null, null, "AB", "Botha", List.of(), null,
-                "M-100116", SYNTHETIC_ACCOUNT, "Alpha Bank", YearMonth.of(2026, 9), "Account Closed");
+                "M-100116", SYNTHETIC_ACCOUNT, "Alpha Bank", YearMonth.of(2026, 9), "Account Closed", 25);
         String letter = LetterRenderer.render(LetterTemplate.ACCOUNT_CLOSED, untitled);
         assertThat(letter).contains("Dear Member");
         assertThat(letter.lines().filter(String::isBlank).count()).isGreaterThan(5);

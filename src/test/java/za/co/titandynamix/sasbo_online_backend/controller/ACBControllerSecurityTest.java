@@ -104,6 +104,15 @@ class ACBControllerSecurityTest {
     }
 
     @Test
+    @DisplayName("🔒 D13: sending a held letter is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
+    void sendingALetterIsRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(post("/api/acb/runs/41/letters/9/send"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
+    }
+
+    @Test
     @DisplayName("🔒 D13, Q43: adding a rate is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
     void addingARateIsRefusedToEveryone() throws Exception {
         this.mockMvc.perform(post("/api/acb/rates")

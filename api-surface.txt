@@ -16,6 +16,9 @@ POST /api/acb/runs/{id}/declined
 GET /api/acb/runs/{id}/exclusions
 GET /api/acb/runs/{id}/file
 GET /api/acb/runs/{id}/held-over
+GET /api/acb/runs/{id}/letters/held
+POST /api/acb/runs/{id}/letters/{letterId}/handled
+POST /api/acb/runs/{id}/letters/{letterId}/send
 GET /api/acb/runs/{id}/lines
 POST /api/acb/runs/{id}/lines/{lineId}/decision
 POST /api/acb/runs/{id}/lines/{lineId}/permission

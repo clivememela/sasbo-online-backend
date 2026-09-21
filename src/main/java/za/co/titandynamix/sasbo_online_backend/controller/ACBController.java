@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbOpeningPositionDto;
@@ -24,6 +25,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.HandledRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.PermissionRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.PrepareRunRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
@@ -203,6 +205,31 @@ public class ACBController {
                                             @RequestParam(defaultValue = "0") int page,
                                             @RequestParam(defaultValue = "50") int size) {
         return returns.heldOver(id, page, size);
+    }
+
+    /** The run's held letters -- the worklist Q46 asks for, a page at a time. */
+    @GetMapping("/runs/{id}/letters/held")
+    public AcbPage<AcbHeldLetterDto> heldLetters(@PathVariable("id") long id,
+                                                 @RequestParam(defaultValue = "0") int page,
+                                                 @RequestParam(defaultValue = "50") int size) {
+        return returns.heldLetters(id, page, size);
+    }
+
+    /** Marks a held letter dealt with by hand, with a note of how -- data entry; it sends nothing (Q46). */
+    @PostMapping("/runs/{id}/letters/{letterId}/handled")
+    public AcbHeldLetterDto markHandled(@PathVariable("id") long id, @PathVariable("letterId") long letterId,
+                                        @RequestBody HandledRequest request) {
+        return returns.markHandled(id, letterId, request.note(), AcbActor.current());
+    }
+
+    /**
+     * 🔒 Sending a held letter once the member has an address -- mail to a member, so refused to every
+     * caller until the API knows who is calling (D13, B1).
+     */
+    @PostMapping("/runs/{id}/letters/{letterId}/send")
+    public AcbHeldLetterDto sendLetter(@PathVariable("id") long id) {
+        throw identityRequired(id, "Sending a letter to a member waits until administrators sign in to this "
+                + "system. Nothing has been sent.");
     }
 
     /** A run's unpaids, a page at a time -- all of them, or one reason's ("Invalid Accounts"). */

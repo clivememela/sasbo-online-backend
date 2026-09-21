@@ -28,7 +28,7 @@
     "unpaidDecisions": ["RE_PRESENT", "SUSPEND"],
     "unpaidReasons": ["NOT_PROVIDED_FOR", "PAYMENT_STOPPED", "ACCOUNT_FROZEN", "INVALID_ACCOUNT_NUMBER", "ACCOUNT_CLOSED", "NO_AUTHORITY_TO_DEBIT", "AUTHORISATION_CANCELLED", "OTHER"],
     "letterTemplates": ["RETURN_DEBIT", "ACCOUNT_CLOSED", "RE_DEBIT"],
-    "letterStatuses": ["QUEUED", "RENDERED", "SENT", "FAILED"],
+    "letterStatuses": ["QUEUED", "RENDERED", "SENT", "FAILED", "HANDLED"],
     "declineReasons": ["WRONG_DEBIT_DATE", "LAYOUT", "OTHER"],
     "exclusionReasons": [
       {"name": "NOT_DEBIT_ORDER", "listed": false},
@@ -71,6 +71,7 @@
       {"code": "OPENING_POSITION_LOCKED", "status": 409},
       {"code": "UPLOAD_TOO_LARGE", "status": 413},
       {"code": "UPLOAD_NOT_A_SHEET", "status": 415},
+      {"code": "LETTER_NOT_HELD", "status": 409},
       {"code": "ACTION_MONTH_INVALID", "status": 400},
       {"code": "HOLIDAY_ALREADY_LISTED", "status": 409},
       {"code": "HOLIDAY_NOT_REMOVABLE", "status": 409},
