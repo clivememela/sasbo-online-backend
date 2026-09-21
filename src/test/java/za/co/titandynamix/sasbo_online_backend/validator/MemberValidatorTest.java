@@ -7,6 +7,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -22,6 +24,59 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * value the browser really sends now has its own.
  */
 class MemberValidatorTest {
+
+    // ---- 00.5, the account type: the digit the bureau file prints on every debit (Q16) ----
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Cheque", "cheque", "CHEQUE", " Cheque "})
+    @DisplayName("00.5 an account type in any spelling is stored as the screen offers it")
+    void anAccountTypeIsStoredAsItsDisplayName(String submitted) {
+        Member member = debitOrder();
+        member.setAccountType(submitted);
+        MemberValidator.validateAccountType(member, true);
+        assertEquals("Cheque", member.getAccountType());
+    }
+
+    @Test
+    @DisplayName("00.5 a value that is not an account type is refused, naming the three")
+    void anUnknownAccountTypeIsRefused() {
+        Member member = debitOrder();
+        member.setAccountType("Current");
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateAccountType(member, false));
+        assertEquals("Account type must be Cheque, Savings or Transmission, not 'Current'", refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("00.5 a debit order saved where the type could be given must carry one")
+    void aDebitOrderMustCarryATypeWhereRequired() {
+        Member member = debitOrder();
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateAccountType(member, true));
+        assertEquals("Account type is required when payment type is 'Debit Order'", refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("00.5 ...but never where it is not being edited, and never for payroll (R-ROB-I)")
+    void noTypeIsRequiredElsewhere() {
+        // The must-pass twin: every member captured before V49 has none, and an edit of their phone
+        // number must not be refused for it.
+        Member untouched = debitOrder();
+        untouched.setAccountType("  ");
+        assertDoesNotThrow(() -> MemberValidator.validateAccountType(untouched, false));
+        assertNull(untouched.getAccountType(), "a blank type is stored as none, never as spaces");
+
+        Member payroll = new Member();
+        payroll.setPaymentType("Payroll");
+        assertDoesNotThrow(() -> MemberValidator.validateAccountType(payroll, true));
+    }
+
+    private static Member debitOrder() {
+        Member member = new Member();
+        member.setPaymentType("Debit Order");
+        member.setBankAccountNumber("1234567890");
+        return member;
+    }
 
     @Test
     @DisplayName("should reject debit order debit day outside 20, 25, and 31")

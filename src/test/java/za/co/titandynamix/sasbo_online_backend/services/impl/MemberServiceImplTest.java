@@ -508,6 +508,7 @@ class MemberServiceImplTest {
         Member member = MemberFixture.aMember();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        member.setAccountType("Cheque");
         member.setBankName("Absa Bank Limited");
         member.setDebitDay(25);
 
@@ -533,6 +534,7 @@ class MemberServiceImplTest {
         Member member = MemberFixture.aMember();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        member.setAccountType("Cheque");
         member.setBankName("Nedbank Limited");
         member.setDebitDay(31);
 
@@ -709,11 +711,88 @@ class MemberServiceImplTest {
                 .isNull();
     }
 
+    // ============================================================
+    // 00.5 — the account type: required where the save could give it, never on an unrelated edit.
+    // ============================================================
+
+    @Test
+    @DisplayName("00.5 a new debit-order member without an account type is refused, and nothing is saved")
+    void createRefusesADebitOrderWithoutAnAccountType() {
+        bankOffers("Absa Bank Limited", 25);
+        Member member = debitOrderMemberAtAbsa();
+        member.setAccountType(null);
+        member.setDebitDay(25);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.create(member))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Account type is required when payment type is 'Debit Order'");
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+    }
+
+    @Test
+    @DisplayName("00.5 ...and one given in any spelling is stored as the capture screen offers it")
+    void createStoresTheAccountTypesDisplayName() {
+        bankOffers("Absa Bank Limited", 25);
+        Member member = debitOrderMemberAtAbsa();
+        member.setAccountType(" SAVINGS ");
+        member.setDebitDay(25);
+
+        assertThat(this.service.create(member).getAccountType()).isEqualTo("Savings");
+    }
+
+    @Test
+    @DisplayName("00.5 an edit of another field is never refused for the type a member was captured without")
+    void anUnrelatedEditIsNotRefusedForAMissingType() {
+        // R-ROB-I: every member captured before V49 has no type. Correcting their phone number must save.
+        bankOffers("Absa Bank Limited", 25);
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setAccountType(null);
+        existing.setDebitDay(25);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member edit = new Member();
+        edit.setPhone("+27 82 000 0009");
+
+        Member saved = this.service.update(4, edit).orElseThrow();
+        assertThat(saved.getPhone()).isEqualTo("+27 82 000 0009");
+        assertThat(saved.getAccountType()).isNull();
+    }
+
+    @Test
+    @DisplayName("00.5 banking details saved as a debit order must carry the type -- the one screen it is edited on")
+    void updateBankingRequiresTheType() {
+        bankOffers("Absa Bank Limited", 25);
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setDebitDay(25);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        Member banking = bankingPayloadFor(existing, 25);
+        banking.setAccountType(null);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.updateBanking(4, banking))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Account type is required when payment type is 'Debit Order'");
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+    }
+
+    @Test
+    @DisplayName("00.5 ...and a type given there replaces the stored one")
+    void updateBankingStoresTheType() {
+        bankOffers("Absa Bank Limited", 25);
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setDebitDay(25);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        Member banking = bankingPayloadFor(existing, 25);
+        banking.setAccountType("transmission");
+
+        assertThat(this.service.updateBanking(4, banking).orElseThrow().getAccountType()).isEqualTo("Transmission");
+    }
+
     /** A member the debit-day rule applies to, banked where the seed's day is unusable. */
     private static Member debitOrderMemberAtAbsa() {
         Member member = MemberFixture.aMember();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        member.setAccountType("Cheque");
         member.setBankName("Absa Bank Limited");
         return member;
     }
@@ -723,6 +802,7 @@ class MemberServiceImplTest {
         Member banking = new Member();
         banking.setBankName(existing.getBankName());
         banking.setBankAccountNumber(existing.getBankAccountNumber());
+        banking.setAccountType(existing.getAccountType());
         banking.setPaymentType(existing.getPaymentType());
         banking.setDebitDay(debitDay);
         return banking;

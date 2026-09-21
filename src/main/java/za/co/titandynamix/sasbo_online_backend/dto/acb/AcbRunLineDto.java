@@ -14,8 +14,9 @@ import java.math.BigDecimal;
  * number exists in exactly two places: the line in the database and the bureau file.
  *
  * @param rePresentsLineId the earlier unpaid this line presents again, or {@code null}
- * @param accountType      1 cheque, 2 savings, 3 transmission; {@code null} until the member record
- *                         carries one -- and the bureau file refuses to render while any line lacks it
+ * @param accountType      1 cheque, 2 savings, 3 transmission, from the member's account type (00.5);
+ *                         {@code null} only on a line prepared before V49 -- and the bureau file refuses
+ *                         to render while any line lacks it
  * @param suggestedDecision for an undecided unpaid, what its code suggests -- present again where the
  *                         code allows a re-debit, suspend where it does not, nothing where unknown
  *                         (Q40, Q44); the administrator decides

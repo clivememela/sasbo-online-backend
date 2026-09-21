@@ -4,6 +4,7 @@
     {"name":"DEBIT_ORDER","displayName":"Debit Order","requiresBankAccount":true},
     {"name":"PAYROLL","displayName":"Payroll Deduction","requiresBankAccount":false}
   ],
+  "accountTypes": ["Cheque", "Savings", "Transmission"],
   "errorEnvelopeKeys": ["timestamp", "status", "error", "message", "path", "validationErrors", "code", "details"],
   "jobGradeMatching": {
     "outcomes": ["MATCHED", "CAPTURED", "CLEARED"],

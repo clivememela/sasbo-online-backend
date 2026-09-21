@@ -16,8 +16,8 @@ import java.util.List;
  * from. Read-only, and ACB's own, so the member's repository -- the capture arc's -- is untouched.
  *
  * <h2>Why projections, and why keyset paging</h2>
- * {@code MemberRepository.findAll()} loads eight associations with every member. A run needs nine
- * columns, so it asks for nine columns. It reads them a page at a time, keyed on the last id seen
+ * {@code MemberRepository.findAll()} loads eight associations with every member. A run needs ten
+ * columns, so it asks for ten columns. It reads them a page at a time, keyed on the last id seen
  * rather than on an offset: an offset page is re-scanned from the start every time, and a member
  * captured mid-run would shift every later page by one and silently skip a member.
  */
@@ -26,7 +26,7 @@ public interface AcbPopulationRepository extends Repository<Member, Integer> {
     /** The next page of members after {@code afterId}, in id order. Pass 0 for the first page. */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.MemberDebitRow("
             + "m.id, m.membershipNumber, m.surname, m.initials, m.status, m.paymentType, "
-            + "m.bankName, m.bankAccountNumber, m.debitDay) "
+            + "m.bankName, m.bankAccountNumber, m.debitDay, m.accountType) "
             + "FROM Member m WHERE m.id > :afterId ORDER BY m.id")
     List<MemberDebitRow> findPageAfter(@Param("afterId") Integer afterId, Pageable page);
 

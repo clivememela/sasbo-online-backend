@@ -40,6 +40,8 @@ public class MemberDto {
     private String jobGrade;
     private String bankName;
     private String bankAccountNumber;
+    /** "Cheque", "Savings" or "Transmission" -- ACB {@code 00.5}; see {@code Member#accountType}. */
+    private String accountType;
     private String branch;
     private String ibtNo;
     /*private String workIbtNo;*/

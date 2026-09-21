@@ -112,8 +112,8 @@ public final class AcbRunFixture {
         members.add(member(id, "Suspended", "Debit Order", bankName(0), account(id), 25));
 
         jdbc.batchUpdate("INSERT INTO members (id, membership_number, surname, initials, status, "
-                + "payment_type, bank_name, bank_account_number, debit_day, created_at, updated_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", members);
+                + "payment_type, bank_name, bank_account_number, debit_day, account_type, created_at, updated_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", members);
 
         return new Built(banks, debitable.size(), List.copyOf(debitable), 4, 2, 1);
     }
@@ -134,8 +134,9 @@ public final class AcbRunFixture {
     }
 
     private static Object[] member(int id, String status, String paymentType, String bank, String account, int day) {
+        // Every fixture member carries a type (00.5): the excluded cast fails an earlier rule, as before.
         return new Object[] {id, membershipNumber(id), "Surname" + id, "AB", status, paymentType, bank, account,
-                day, CREATED, CREATED};
+                day, "Cheque", CREATED, CREATED};
     }
 
     /** Inserts the flat rate a run needs -- the integration lane has it from V41; H2 does not. */

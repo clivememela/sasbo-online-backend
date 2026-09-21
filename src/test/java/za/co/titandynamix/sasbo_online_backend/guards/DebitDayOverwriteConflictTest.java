@@ -137,6 +137,7 @@ class DebitDayOverwriteConflictTest {
         Member member = new Member();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        member.setAccountType("Cheque");
         return member;
     }
 }

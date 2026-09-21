@@ -51,7 +51,7 @@ class RunPreparerTest {
     /** A member every rule accepts. Collation-neutral surname, synthetic account. */
     static MemberDebitRow qualifying() {
         return new MemberDebitRow(7, "M-200001", "Botha", "AB", "Active", "Debit Order",
-                "Alpha Bank", "1234567890", 25);
+                "Alpha Bank", "1234567890", 25, "Cheque");
     }
 
     static Preparation prepare(List<MemberDebitRow> members, List<RePresentationCandidate> candidates) {
@@ -80,19 +80,21 @@ class RunPreparerTest {
     static MemberDebitRow with(MemberDebitRow m, String field, Object value) {
         return switch (field) {
             case "paymentType" -> new MemberDebitRow(m.id(), m.membershipNumber(), m.surname(), m.initials(),
-                    m.status(), (String) value, m.bankName(), m.bankAccountNumber(), m.debitDay());
+                    m.status(), (String) value, m.bankName(), m.bankAccountNumber(), m.debitDay(), m.accountType());
             case "status" -> new MemberDebitRow(m.id(), m.membershipNumber(), m.surname(), m.initials(),
-                    (String) value, m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay());
+                    (String) value, m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay(), m.accountType());
             case "bankName" -> new MemberDebitRow(m.id(), m.membershipNumber(), m.surname(), m.initials(),
-                    m.status(), m.paymentType(), (String) value, m.bankAccountNumber(), m.debitDay());
+                    m.status(), m.paymentType(), (String) value, m.bankAccountNumber(), m.debitDay(), m.accountType());
             case "account" -> new MemberDebitRow(m.id(), m.membershipNumber(), m.surname(), m.initials(),
-                    m.status(), m.paymentType(), m.bankName(), (String) value, m.debitDay());
+                    m.status(), m.paymentType(), m.bankName(), (String) value, m.debitDay(), m.accountType());
             case "debitDay" -> new MemberDebitRow(m.id(), m.membershipNumber(), m.surname(), m.initials(),
-                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), (Integer) value);
+                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), (Integer) value, m.accountType());
             case "membershipNumber" -> new MemberDebitRow(m.id(), (String) value, m.surname(), m.initials(),
-                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay());
+                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay(), m.accountType());
             case "surname" -> new MemberDebitRow(m.id(), m.membershipNumber(), (String) value, m.initials(),
-                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay());
+                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay(), m.accountType());
+            case "accountType" -> new MemberDebitRow(m.id(), m.membershipNumber(), m.surname(), m.initials(),
+                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay(), (String) value);
             default -> throw new IllegalArgumentException(field);
         };
     }
@@ -332,7 +334,7 @@ class RunPreparerTest {
         void totalsAreDerived() {
             MemberDebitRow first = with(qualifying(), "debitDay", 20);
             MemberDebitRow second = new MemberDebitRow(8, "M-200002", "Khumalo", "T", "Active", "Debit Order",
-                    "Alpha Bank", "9876543210", 30);
+                    "Alpha Bank", "9876543210", 30, "Savings");
             Preparation prepared = prepare(List.of(second, first), List.of());
             assertThat(prepared.lineCount()).isEqualTo(2);
             assertThat(prepared.total()).isEqualByComparingTo("348.00").hasScaleOf(2);

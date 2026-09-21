@@ -101,6 +101,7 @@ public class MemberServiceImpl implements MemberService {
         assignMembershipNumber(member);
         // No previous day: on create, every out-of-range day is a new choice.
         MemberValidator.validatePaymentType(member, null);
+        MemberValidator.validateAccountType(member, true);
         MemberValidator.validateStructures(member, null);
         return this.memberRepository.save(member);
     }
@@ -159,6 +160,9 @@ public class MemberServiceImpl implements MemberService {
             autoPopulateBankDerivedFields(existing);
             resolveJobGrade(existing);
             MemberValidator.validatePaymentType(existing, previousDebitDay);
+            // Not required here: an edit of any other field must not be refused for a type the
+            // member was captured without (R-ROB-I). A null in the request keeps the stored one.
+            MemberValidator.validateAccountType(existing, false);
             MemberValidator.validateStructures(existing, previousIsCosatu);
             return this.memberRepository.save(existing);
         });
@@ -389,6 +393,7 @@ public class MemberServiceImpl implements MemberService {
             Integer previousDebitDay = existing.getDebitDay();
             existing.setBankName(banking.getBankName());
             existing.setBankAccountNumber(banking.getBankAccountNumber());
+            existing.setAccountType(banking.getAccountType());
             existing.setBranch(banking.getBranch());
             existing.setIbtNo(banking.getIbtNo());
             existing.setBankAddress(banking.getBankAddress());
@@ -405,6 +410,9 @@ public class MemberServiceImpl implements MemberService {
             // (monthly subscription is NOT auto-set here — only through maintenance)
             applyBankDebitDayAndAddress(existing);
             MemberValidator.validatePaymentType(existing, previousDebitDay);
+            // Banking details saved as a debit order carry the account's type: this is the one screen
+            // where the type is the thing being edited (00.5).
+            MemberValidator.validateAccountType(existing, true);
             return this.memberRepository.save(existing);
         });
     }

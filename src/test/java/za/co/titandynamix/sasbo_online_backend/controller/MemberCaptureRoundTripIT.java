@@ -91,6 +91,7 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
                   "employeeNumber": "EMP-0001",
                   "bankName": "Nedbank",
                   "bankAccountNumber": "1234567890",
+                  "accountType": "Cheque",
                   "branch": "Head Office",
                   "employmentType": "Permanent",
                   "paymentType": "Debit Order",
@@ -132,6 +133,7 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         assertThat(read.get("employeeNumber").asText()).isEqualTo("EMP-0001");
         assertThat(read.get("bankAccountNumber").asText()).isEqualTo("1234567890");
         assertThat(read.get("paymentType").asText()).isEqualTo("Debit Order");
+        assertThat(read.get("accountType").asText()).as("00.5, V49").isEqualTo("Cheque");
         assertThat(read.get("address").asText()).isEqualTo("1 Test Street");
         assertThat(read.get("remarks").asText()).isEqualTo("captured by the round-trip gate");
     }
@@ -156,6 +158,27 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         assertThat(joinDate.get(0).asInt()).isEqualTo(2026);
         assertThat(joinDate.get(1).asInt()).isEqualTo(9);
         assertThat(joinDate.get(2).asInt()).isEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("00.5 a debit order captured without its account type is a 400 that says so, and nothing is stored")
+    void aDebitOrderWithoutItsAccountTypeIsRefused() throws Exception {
+        ObjectNode payload = formPayload();
+        payload.remove("accountType");
+        String sameForm = "SELECT count(*) FROM members WHERE employee_number = 'EMP-0001'";
+        Integer before = this.jdbc.queryForObject(sameForm, Integer.class);
+
+        MockHttpServletResponse response = this.mockMvc.perform(post("/api/members")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload.toString()))
+                .andReturn()
+                .getResponse();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString())
+                .contains("Account type is required when payment type is 'Debit Order'");
+        assertThat(this.jdbc.queryForObject(sameForm, Integer.class))
+                .as("the refused capture left no member behind").isEqualTo(before);
     }
 
     @Test

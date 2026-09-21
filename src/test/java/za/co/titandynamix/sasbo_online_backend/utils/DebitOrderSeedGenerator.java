@@ -241,6 +241,7 @@ public final class DebitOrderSeedGenerator {
             f.put("branch", pick(BRANCHES, random));
             f.put("bankName", slot.bankName());
             f.put("bankAccountNumber", account);
+            f.put("accountType", accountType(i));
             f.put("ibtNo", branchCodes.get(slot.bankName()));
             f.put("paymentType", "Debit Order");
             f.put("debitDay", debitDay);
@@ -285,6 +286,22 @@ public final class DebitOrderSeedGenerator {
         }
         Collections.shuffle(days, random);
         return days;
+    }
+
+    /** The one member of the 150 whose account is a transmission account -- not on a savings position. */
+    static final int TRANSMISSION_AT = 72;
+
+    /**
+     * 00.5 -- the member's account type, in July 2026's proportions (2,746 · 449 · 19 of cheque, savings and
+     * transmission): every seventh member Savings, one Transmission, the rest Cheque -- 128 · 21 · 1. By
+     * position, never from {@code random}: a draw here would move every value drawn after it, and every
+     * other field in the resource would change with it.
+     */
+    static String accountType(int index) {
+        if (index == TRANSMISSION_AT) {
+            return "Transmission";
+        }
+        return index % 7 == 3 ? "Savings" : "Cheque";
     }
 
     private static String title(boolean female, Random random) {

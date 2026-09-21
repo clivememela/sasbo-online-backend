@@ -9,6 +9,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import za.co.titandynamix.sasbo_online_backend.dto.member.PaymentTypeMetadataDto;
 import za.co.titandynamix.sasbo_online_backend.exception.ApiErrorResponse;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
+import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
@@ -229,6 +230,7 @@ public final class ApiSurface {
                   "paymentTypes": [
                 %s
                   ],
+                  "accountTypes": [%s],
                   "errorEnvelopeKeys": [%s],
                   "jobGradeMatching": {
                     "outcomes": [%s],
@@ -252,7 +254,8 @@ public final class ApiSurface {
                     ]
                   }
                 }
-                """.formatted(regenerateCommand(), types, keys, jobGradeOutcomeNames(), jobGradeMatchingCases(),
+                """.formatted(regenerateCommand(), types, accountTypeNames(), keys, jobGradeOutcomeNames(),
+                jobGradeMatchingCases(),
                 names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
                 names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
                 names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),
@@ -318,6 +321,17 @@ public final class ApiSurface {
                                 quote(JobGradeMatcher.storedForm(input)),
                                 JobGradeMatcher.isBlank(input)))
                 .collect(Collectors.joining(",\n"));
+    }
+
+    /**
+     * 00.5 -- the account types, as the member record stores them and the capture screen offers them. Read off
+     * the enum, so the browser's options are the server's list and never a second copy of it.
+     */
+    private static String accountTypeNames() {
+        return Arrays.stream(AccountType.values())
+                .map(AccountType::getDisplayName)
+                .map(ApiSurface::quote)
+                .collect(Collectors.joining(", "));
     }
 
     /**

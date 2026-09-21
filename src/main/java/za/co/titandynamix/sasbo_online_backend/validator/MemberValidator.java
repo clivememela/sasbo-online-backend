@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.validator;
 
 import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 
 /**
@@ -9,6 +10,41 @@ import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
  * Enforces conditional field requirements based on payment type.
  */
 public class MemberValidator {
+
+    /**
+     * ACB {@code 00.5}: the account type, which the bureau file prints on every debit (Q16).
+     *
+     * <p>A value given must name one of the three, and is stored as its display name whatever
+     * spelling arrived. It is REQUIRED only where the save could have supplied it -- a new
+     * debit-order member, or banking details saved as a debit order -- and never on an edit of
+     * something else: every member captured before V49 has none, and refusing a phone-number
+     * correction over a field on another tab is R-ROB-I's defect. The run names such a member
+     * instead ({@code SNAPSHOT_INCOMPLETE}, "no account type").
+     *
+     * @param required whether this save must carry one when the member pays by debit order
+     * @throws IllegalArgumentException for a value that is not an account type, or a missing one
+     *         where {@code required}
+     */
+    public static void validateAccountType(Member member, boolean required) {
+        AccountType type = AccountType.fromString(member.getAccountType());
+        if (type != null) {
+            member.setAccountType(type.getDisplayName());
+            return;
+        }
+        member.setAccountType(null);
+        if (required && paysByDebitOrder(member)) {
+            throw new IllegalArgumentException("Account type is required when payment type is '"
+                    + PaymentType.DEBIT_ORDER.getDisplayName() + "'");
+        }
+    }
+
+    private static boolean paysByDebitOrder(Member member) {
+        try {
+            return PaymentType.fromString(member.getPaymentType()) == PaymentType.DEBIT_ORDER;
+        } catch (IllegalArgumentException unknown) {
+            return false;
+        }
+    }
 
     /**
      * Validate member payment type and banking information.
