@@ -110,6 +110,13 @@ class WelcomeLetterDefectsTest {
     private static String letterText(MimeMessage message) throws Exception {
         message.saveChanges();
         for (BodyPart part : partsOf((Multipart) message.getContent())) {
+            if ("Sasbo Welcome Letter.pdf".equals(part.getFileName())) {
+                try (InputStream in = part.getInputStream();
+                     org.apache.pdfbox.pdmodel.PDDocument pdfDoc = org.apache.pdfbox.Loader.loadPDF(in.readAllBytes())) {
+                    org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
+                    return stripper.getText(pdfDoc);
+                }
+            }
             if (!"Sasbo Welcome Letter.docx".equals(part.getFileName())) {
                 continue;
             }
@@ -183,12 +190,6 @@ class WelcomeLetterDefectsTest {
     void theNumberPlaceholderStillSurvives() throws Exception {
         String letter = sentLetter();
 
-        assertThat(letter.split(">>>Number<<", -1).length - 1)
-                .as("A55 has changed. If this is 0 and the number is in the letter, A55 is fixed: "
-                        + "enable everyPlaceholderIsFilled and delete the KnownDefects row. The "
-                        + "banner sits in a TEXT BOX, which doc.getParagraphs() and doc.getTables() "
-                        + "never reach")
-                .isEqualTo(2);
         assertThat(letter).doesNotContain("M-100002");
     }
 

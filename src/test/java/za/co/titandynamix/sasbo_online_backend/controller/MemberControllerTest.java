@@ -280,6 +280,36 @@ class MemberControllerTest {
                             .content("{\"surname\":\"Botha\",\"isRepresentative\":true}"))
                     .andExpect(status().isOk());
         }
+
+        @Test
+        @DisplayName("when sendWelcome is requested, triggers emailService and succeeds")
+        void sendsWelcomeLetterWhenRequested() throws Exception {
+            Member created = member(3, "Botha");
+            when(memberService.create(any(Member.class))).thenReturn(created);
+
+            mockMvc.perform(post("/api/members?sendWelcome=true")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(3));
+
+            verify(emailService).sendWelcomeLetter(created);
+        }
+
+        @Test
+        @DisplayName("when sendWelcome fails, error response is returned")
+        void failsWhenSendWelcomeFails() throws Exception {
+            Member created = member(3, "Botha");
+            when(memberService.create(any(Member.class))).thenReturn(created);
+            doThrow(new IllegalArgumentException("No email address is available for this member."))
+                    .when(emailService).sendWelcomeLetter(created);
+
+            mockMvc.perform(post("/api/members?sendWelcome=true")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("No email address is available for this member."));
+        }
     }
 
     @Nested
@@ -413,6 +443,39 @@ class MemberControllerTest {
                     .andExpect(status().isNotFound());
 
             verify(emailService, never()).sendWelcomeLetter(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/members/{id}/welcome-letter-preview")
+    class WelcomeLetterPreview {
+
+        @Test
+        @DisplayName("returns inline PDF bytes for THAT member")
+        void returnsPdfPreviewForThatMember() throws Exception {
+            Member member = member(12, "Mahlangu");
+            byte[] pdf = "sample-pdf".getBytes();
+            when(memberService.findById(12)).thenReturn(Optional.of(member));
+            when(emailService.buildWelcomeLetterPdf(member)).thenReturn(pdf);
+
+            mockMvc.perform(get("/api/members/12/welcome-letter-preview"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", "application/pdf"))
+                    .andExpect(header().string("Content-Disposition", "inline; filename=\"Sasbo Welcome Letter.pdf\""))
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray()).isEqualTo(pdf));
+
+            verify(emailService).buildWelcomeLetterPdf(member);
+        }
+
+        @Test
+        @DisplayName("answers 404 and does not build preview when member does not exist")
+        void returns404ForUnknownMember() throws Exception {
+            when(memberService.findById(404)).thenReturn(Optional.empty());
+
+            mockMvc.perform(get("/api/members/404/welcome-letter-preview"))
+                    .andExpect(status().isNotFound());
+
+            verify(emailService, never()).buildWelcomeLetterPdf(any());
         }
     }
 }
