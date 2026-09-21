@@ -542,6 +542,50 @@ class MemberServiceImplTest {
     }
 
     // ============================================================
+    // 🔴 A67 — the test ABOVE is the defect's live pin, as it stands.
+    //
+    // It asserts the overwrite as intended, and until 2026-09-21 it was: SASBO then
+    // answered Q42 -- the debit day must be flexible, "as banks debit days change" --
+    // so a day the member CHOSE inside the range must survive the bank's. When A67
+    // is fixed, the test above flips (or goes), the disabled one below is enabled,
+    // and the must-pass twin beside it is what keeps the bank's day as the DEFAULT.
+    // ============================================================
+
+    @Test
+    @Disabled(KnownDefects.MEMBER_DEBIT_DAY_OVERWRITTEN_BY_THE_BANKS)
+    @DisplayName("🔴 A67: a debit day the member chose stands, even where the bank's day is usable")
+    void aChosenDaySurvivesAUsableBankDay() {
+        bankOffers("Nedbank Limited", 20);
+
+        Member member = MemberFixture.aMember();
+        member.setPaymentType("Debit Order");
+        member.setBankAccountNumber("1234567890");
+        member.setBankName("Nedbank Limited");
+        member.setDebitDay(22);
+
+        assertThat(this.service.create(member).getDebitDay())
+                .as("the member chose the 22nd, inside the range; the bank's 20th must not replace it")
+                .isEqualTo(22);
+    }
+
+    @Test
+    @DisplayName("A67's must-pass twin: a member captured with NO debit day is given the bank's")
+    void aMemberWithNoDayIsGivenTheBanks() {
+        bankOffers("Nedbank Limited", 20);
+
+        Member member = MemberFixture.aMember();
+        member.setPaymentType("Debit Order");
+        member.setBankAccountNumber("1234567890");
+        member.setBankName("Nedbank Limited");
+        member.setDebitDay(null);
+
+        assertThat(this.service.create(member).getDebitDay())
+                .as("with nothing chosen, the bank's usable day is the right default -- the fix "
+                        + "for A67 must keep this")
+                .isEqualTo(20);
+    }
+
+    // ============================================================
     // T1 — the same rule, on all THREE write paths.
     //
     // 🔑 WHY THESE EXIST AT ALL. `DebitDayOverwriteConflictTest` asserted this rule
