@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
  * is 18 September 2026: this month is September, next is October.
  */
 @DisplayName("The yearly rate (01.9, Q43)")
-class AcbRateServiceIT extends AbstractAcbIT {
+class AcbRateServiceImplIT extends AbstractAcbIT {
 
     @Autowired
     private AcbRateService service;

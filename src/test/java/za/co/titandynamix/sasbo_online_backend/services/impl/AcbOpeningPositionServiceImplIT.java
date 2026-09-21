@@ -7,6 +7,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbOpeningPositionDto;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.AcbRunFixture;
+import za.co.titandynamix.sasbo_online_backend.repository.AcbOpeningPositionRepository;
 import za.co.titandynamix.sasbo_online_backend.services.AcbOpeningPositionService;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractAcbIT;
 
@@ -27,7 +28,7 @@ import static za.co.titandynamix.sasbo_online_backend.fixtures.AcbRunFixture.mem
  * first returns are in. Synthetic members only: the run fixture's.
  */
 @DisplayName("The opening arrears position (03.0, D24)")
-class AcbOpeningPositionIT extends AbstractAcbIT {
+class AcbOpeningPositionServiceImplIT extends AbstractAcbIT {
 
     private static final int FIRST = AcbRunFixture.FIRST_MEMBER_ID;
 
@@ -36,6 +37,9 @@ class AcbOpeningPositionIT extends AbstractAcbIT {
 
     @Autowired
     private AcbOpeningPositionService opening;
+
+    @Autowired
+    private AcbOpeningPositionRepository positions;
 
     @Test
     @DisplayName("🔒 R3-12: an unknown number, a member not on debit order, a count of three and a future month are refused BY ROW -- and nothing is stored")
@@ -81,6 +85,11 @@ class AcbOpeningPositionIT extends AbstractAcbIT {
         assertThat(replaced.members()).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT membership_number FROM acb_opening_position", String.class))
                 .isEqualTo(membershipNumber(FIRST + 3));
+        // The repository's own two: the newest row is the replacement's, and the delete says how many it took.
+        assertThat(positions.findFirstByOrderByEnteredAtDescIdDesc()).get()
+                .satisfies(row -> assertThat(row.getEnteredBy()).isEqualTo("admin-b"));
+        assertThat(positions.deleteEverything()).isEqualTo(1);
+        assertThat(positions.findFirstByOrderByEnteredAtDescIdDesc()).isEmpty();
     }
 
     @Test

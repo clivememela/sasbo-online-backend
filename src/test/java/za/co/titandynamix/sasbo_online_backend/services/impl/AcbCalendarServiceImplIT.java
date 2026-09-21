@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
  * change attributed -- one run-less audit row, written in the change's own transaction (SD4-A, R1-24).
  */
 @DisplayName("AcbCalendarService -- the calendar's reads and writes")
-class AcbCalendarServiceIT extends AbstractAcbIT {
+class AcbCalendarServiceImplIT extends AbstractAcbIT {
 
     @Autowired
     private AcbCalendarService calendar;

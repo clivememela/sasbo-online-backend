@@ -79,11 +79,16 @@ class AcbTerminationReportQueryCountTest {
         // Non-vacuity: the thirty-member ledger does list members, and only from the window.
         AcbTerminationReportDto report = service.terminationReport(0, 50);
         assertThat(report.members().totalElements()).isPositive();
+        assertThat(report.members().content()).anySatisfy(c -> assertThat(c.terminate()).isTrue());
         assertThat(report.members().content()).allSatisfy(c -> assertThat(c.unpaidMonths())
                 .allSatisfy(month -> assertThat(YearMonth.parse(month)).isAfterOrEqualTo(YearMonth.of(2025, 9))));
     }
 
-    /** Empties the ledger, then writes {@code members} members' debits for thirty-six months: every third unpaid. */
+    /**
+     * Empties the ledger, then writes {@code members} members' debits for thirty-six months. Every fourth
+     * member ends on three unpaids in a row (terminate); the rest are unpaid two months in three, so a third
+     * of them end on two in a row (listed) -- the report is never asked to list nobody.
+     */
     private void seedTo(int members) {
         for (String table : new String[] {"acb_run_lines", "acb_runs"}) {
             jdbc.update("DELETE FROM " + table);
@@ -102,7 +107,7 @@ class AcbTerminationReportQueryCountTest {
             YearMonth month = FIRST.plusMonths(i);
             for (int m = 1; m <= members; m++) {
                 lines.add(new Object[] {id++, 1000L + i, m, "S-" + m, "Surname" + m, Date.valueOf(month.atDay(25)),
-                        (m + i) % 3 == 0 ? "UNPAID" : "PAID"});
+                        (m % 4 == 0 ? i >= MONTHS - 3 : (m + i) % 3 != 0) ? "UNPAID" : "PAID"});
             }
         }
         jdbc.batchUpdate("INSERT INTO acb_run_lines (id, run_id, member_id, re_presents_line_id, run_released, "

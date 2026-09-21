@@ -8,10 +8,12 @@ import za.co.titandynamix.sasbo_online_backend.acb.DebitWindow;
 import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
 import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendarSource;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
+import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbHoliday;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.AcbRunFixture;
+import za.co.titandynamix.sasbo_online_backend.repository.AcbHolidayRepository;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractAcbIT;
 import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
@@ -38,6 +40,9 @@ class AcbHolidayCalendarIT extends AbstractAcbIT {
     @Autowired
     private AcbRunService service;
 
+    @Autowired
+    private AcbHolidayRepository holidays;
+
     @Test
     @DisplayName("🔒 F47: the migrated table IS MigrationSeed.ACB_HOLIDAYS -- every date and name, all statutory -- and known until 2027-12-31")
     void theTableIsTheOneList() {
@@ -54,6 +59,16 @@ class AcbHolidayCalendarIT extends AbstractAcbIT {
         assertThat(jdbc.queryForMap("SELECT name, known_until FROM acb_calendar WHERE id = 1"))
                 .containsEntry("name", MigrationSeed.ACB_CALENDAR_NAME)
                 .containsEntry("known_until", java.sql.Date.valueOf(MigrationSeed.ACB_CALENDAR_KNOWN_UNTIL));
+    }
+
+    @Test
+    @DisplayName("the repository's window is inclusive at both ends and in date order -- how a year of the calendar is read")
+    void theRepositoryWindowIsInclusiveAndOrdered() {
+        assertThat(holidays.findByHolidayDateBetweenOrderByHolidayDate(LocalDate.of(2026, 12, 16), LocalDate.of(2026, 12, 26)))
+                .extracting(AcbHoliday::getHolidayDate)
+                .containsExactly(LocalDate.of(2026, 12, 16), LocalDate.of(2026, 12, 25), LocalDate.of(2026, 12, 26));
+        assertThat(holidays.findByHolidayDateBetweenOrderByHolidayDate(LocalDate.of(2026, 12, 17), LocalDate.of(2026, 12, 24)))
+                .as("the days between them hold no holiday").isEmpty();
     }
 
     @Test

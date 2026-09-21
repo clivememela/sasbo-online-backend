@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({GlobalExceptionHandler.class, AcbExceptionHandler.class, JacksonConfig.class})
 @AutoConfigureMockMvc(addFilters = false)
 @DisplayName("AcbExceptionHandler is scoped to the ACB controller")
-class AcbExceptionScopeTest {
+class AcbExceptionHandlerTest {
 
     @Autowired
     private MockMvc mockMvc;
