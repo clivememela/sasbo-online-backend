@@ -162,7 +162,7 @@ class AcbPreparationJobIT extends AbstractAcbIT {
     }
 
     @Test
-    @DisplayName("every live state holds its month; only FAILED and CANCELLED release it")
+    @DisplayName("every live state holds its month; only FAILED, CANCELLED and DECLINED release it (02.8)")
     void everyLiveStateHoldsTheMonth() {
         AcbRunFixture.insert(jdbc, 15, 2);
         for (AcbRunStatus status : AcbRunStatus.values()) {

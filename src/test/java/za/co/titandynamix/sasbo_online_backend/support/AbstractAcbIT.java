@@ -45,14 +45,18 @@ public abstract class AbstractAcbIT extends AbstractWritingIT {
         }
     }
 
-    /** Inserts a run straight into the table, in any state -- for tests of what the service does TO one. */
+    /**
+     * Inserts a run straight into the table, in any state -- for tests of what the service does TO one. A
+     * {@code DECLINED} run carries a reason, as V41's CHECK requires of every declined run (02.8, SD3-H).
+     */
     protected long insertRun(LocalDate month, String status, Instant heartbeat, String createdBy) {
         return this.jdbc.queryForObject(
                 "INSERT INTO acb_runs (action_month, status, setup_date, holiday_set, line_count, total_amount, "
-                        + "created_by, started_at, heartbeat_at) VALUES (?, ?, ?, 'weekends-only', 0, 0, ?, ?, ?) "
-                        + "RETURNING id",
+                        + "created_by, started_at, heartbeat_at, declined_reason) "
+                        + "VALUES (?, ?, ?, 'weekends-only', 0, 0, ?, ?, ?, ?) RETURNING id",
                 Long.class, month, status, LocalDate.of(2026, 9, 18), createdBy,
-                OffsetDateTime.ofInstant(heartbeat, ZoneOffset.UTC), OffsetDateTime.ofInstant(heartbeat, ZoneOffset.UTC));
+                OffsetDateTime.ofInstant(heartbeat, ZoneOffset.UTC), OffsetDateTime.ofInstant(heartbeat, ZoneOffset.UTC),
+                "DECLINED".equals(status) ? "OTHER" : null);
     }
 
     /**
