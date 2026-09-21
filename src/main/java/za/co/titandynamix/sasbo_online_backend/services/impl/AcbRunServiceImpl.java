@@ -241,10 +241,8 @@ public class AcbRunServiceImpl implements AcbRunService {
                         AcbRuns.facts(run));
             }
             seededMembers.refuseSeededMembers(run);
-            if (Objects.equals(actor, run.getCreatedBy())) {
-                throw new AcbRefusal(AcbRefusalCode.APPROVER_IS_PREPARER,
-                        "The person who prepared a run may not approve it.", AcbRuns.facts(run));
-            }
+            // Whoever prepared the run may approve it: the bank, not a second person here, is the
+            // check on the file (D14 as amended, Q29). Who did each act is still recorded.
             run.setApprovedBy(actor);
         });
     }

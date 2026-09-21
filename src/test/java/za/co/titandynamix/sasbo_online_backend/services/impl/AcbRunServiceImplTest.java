@@ -219,17 +219,18 @@ class AcbRunServiceImplTest {
         }
 
         @Test
-        @DisplayName("the person who prepared a run may not approve it")
-        void theApproverIsNotThePreparer() {
+        @DisplayName("🔒 the person who prepared a run may approve it -- the bank checks the file, not a second person here (D14 as amended, Q29)")
+        void thePreparerMayApprove() {
             AcbRun run = run(5L, AcbRunStatus.PREPARED, 0);
             when(runs.findById(5L)).thenReturn(Optional.of(run));
             when(lines.totalsFor(5L)).thenReturn(new LineTotals(3L, new BigDecimal("522.00")));
-            assertThat(refusal(() -> service.approve(5L, 0, "preparer", null)))
-                    .isEqualTo(AcbRefusalCode.APPROVER_IS_PREPARER);
+            service.approve(5L, 0, run.getCreatedBy(), null);
+            assertThat(run.getStatus()).isEqualTo(AcbRunStatus.APPROVED);
+            assertThat(run.getApprovedBy()).as("who approved is still recorded").isEqualTo("preparer");
         }
 
         @Test
-        @DisplayName("the must-pass twin: a different person approves a prepared run with lines")
+        @DisplayName("and a different person approves a prepared run with lines, the act audited")
         void approves() {
             AcbRun run = run(5L, AcbRunStatus.PREPARED, 0);
             when(runs.findById(5L)).thenReturn(Optional.of(run));

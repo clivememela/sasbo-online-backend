@@ -67,8 +67,6 @@ public enum AcbRefusalCode {
     DATE_INVALID(HttpStatus.BAD_REQUEST),
     /** The action month is malformed, or not one a run may be prepared for. */
     ACTION_MONTH_INVALID(HttpStatus.BAD_REQUEST),
-    /** The person who prepared a run may not approve it. Enforced the day callers have names. */
-    APPROVER_IS_PREPARER(HttpStatus.UNPROCESSABLE_ENTITY),
     /**
      * The action moves money, sends a letter, submits a file or changes a member's status, and the
      * API does not yet know who is calling (register B1). Refused to every caller until it does.

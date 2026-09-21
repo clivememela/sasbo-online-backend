@@ -59,7 +59,6 @@
       {"code": "UNPAIDS_UNDECIDED", "status": 409},
       {"code": "DATE_INVALID", "status": 400},
       {"code": "ACTION_MONTH_INVALID", "status": 400},
-      {"code": "APPROVER_IS_PREPARER", "status": 422},
       {"code": "IDENTITY_REQUIRED", "status": 403}
     ]
   }

@@ -8,7 +8,8 @@
 -- its row, or a row whose transition rolled back, is a trail that lies.
 --
 -- `actor` is 'system' until the API authenticates its callers (register B1); from then it is the
--- signed-in administrator, and the run refuses an approval by the person who prepared it.
+-- signed-in administrator. Whoever prepared a run may approve it -- the bank checks the file, not a
+-- second person here (D14 as amended, Q29, 2026-09-21) -- so this trail is how the two acts are told apart.
 --
 -- 🔒 SOME WRITES BELONG TO NO RUN (SD4-A, amended in place 2026-09-21 -- this file has run only in
 -- local and test databases). A rate, a holiday, the calendar's extent, the opening arrears position
