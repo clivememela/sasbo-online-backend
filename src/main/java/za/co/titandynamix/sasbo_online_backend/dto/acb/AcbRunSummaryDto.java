@@ -8,7 +8,8 @@ import java.math.BigDecimal;
  * A run as the runs list shows it: its month, its state and its control total.
  *
  * <p>The totals are counted from the lines for the whole page in one query -- never one query per
- * run, and never the totals stored at preparation taken on trust.
+ * run, and never the totals stored at preparation taken on trust. The holiday calendar is read once
+ * for the page, too.
  */
 public record AcbRunSummaryDto(
         Long id,
@@ -19,6 +20,7 @@ public record AcbRunSummaryDto(
         int lineCount,
         BigDecimal totalAmount,
         boolean totalsAgree,
+        boolean calendarAgrees,
         boolean holidaysKnown,
         String failureReason) {
 }

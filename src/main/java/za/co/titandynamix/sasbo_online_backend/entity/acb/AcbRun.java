@@ -73,6 +73,14 @@ public class AcbRun {
     @Column(name = "holiday_set", nullable = false, length = 40)
     private String holidaySet;
 
+    /**
+     * The calendar as it stood for this run's month when its lines were computed -- its name and the
+     * month's holidays ({@link za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar#fingerprint}).
+     * Null until the lines are written.
+     */
+    @Column(name = "calendar_fingerprint", length = 200)
+    private String calendarFingerprint;
+
     @Column(name = "line_count", nullable = false)
     private Integer lineCount;
 

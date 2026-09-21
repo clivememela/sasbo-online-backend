@@ -10,7 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import za.co.titandynamix.sasbo_online_backend.acb.BankRow;
-import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbCalendars;
 import za.co.titandynamix.sasbo_online_backend.acb.MemberDebitRow;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRate;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
@@ -93,7 +93,7 @@ class AcbPreparationJobLogsTest {
 
         job = new AcbPreparationJob(runs, lines, rates, population,
                 new AcbAuditTrail(mock(AcbAuditEventRepository.class), CLOCK),
-                HolidayCalendar.WEEKENDS_ONLY, CLOCK, mock(PlatformTransactionManager.class),
+                () -> AcbCalendars.ZA_STATUTORY, CLOCK, mock(PlatformTransactionManager.class),
                 mock(JdbcTemplate.class), new SimpleMeterRegistry());
     }
 

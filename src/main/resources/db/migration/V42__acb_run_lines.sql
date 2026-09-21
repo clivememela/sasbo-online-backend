@@ -60,7 +60,9 @@ CREATE TABLE acb_run_lines (
     CONSTRAINT acb_run_lines_account_digits CHECK (account_number ~ '^[0-9]{1,11}$'),
     CONSTRAINT acb_run_lines_account_type_known CHECK (account_type IS NULL OR account_type IN (1, 2, 3)),
     CONSTRAINT acb_run_lines_debit_day_in_window CHECK (debit_day BETWEEN 20 AND 31),
-    CONSTRAINT acb_run_lines_outcome_known CHECK (outcome IN ('PENDING', 'PAID', 'UNPAID', 'RE_PRESENTED')),
+    -- 🧪 Exactly AcbLineOutcome's values, asserted against PostgreSQL's own definition (R1-22). The first
+    -- draft's 'RE_PRESENTED' was admitted here and written nowhere; removed in place 2026-09-21 (unpushed, F53).
+    CONSTRAINT acb_run_lines_outcome_known CHECK (outcome IN ('PENDING', 'PAID', 'UNPAID')),
     CONSTRAINT acb_run_lines_decision_known CHECK (decision IS NULL OR decision IN ('RE_PRESENT', 'SUSPEND')),
     CONSTRAINT acb_run_lines_not_its_own_re_presentation CHECK (re_presents_line_id IS NULL OR re_presents_line_id <> id)
 );

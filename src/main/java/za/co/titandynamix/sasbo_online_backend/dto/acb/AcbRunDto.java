@@ -17,6 +17,9 @@ import java.util.List;
  * @param totalAmount     summed from the run's lines on this read -- the control total
  * @param totalsAgree     whether the totals stored when the run was prepared still equal the lines;
  *                        {@code false} is a finding the screen must show, not a number to display
+ * @param calendarAgrees  whether the holiday calendar still says of the run's month what it said when
+ *                        the lines were computed; {@code false} means prepare it again -- it is
+ *                        neither approved nor made into a file (SD3-F)
  * @param holidaysKnown   whether the action dates considered public holidays at all; {@code false}
  *                        means weekends only, and the screen says so beside every date
  * @param exclusions      how many members each reason kept out, listed reasons and counted values
@@ -34,6 +37,7 @@ public record AcbRunDto(
         int lineCount,
         BigDecimal totalAmount,
         boolean totalsAgree,
+        boolean calendarAgrees,
         BigDecimal rateAmount,
         String rateEffectiveFrom,
         String holidaySet,

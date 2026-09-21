@@ -6,13 +6,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
-import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
 
 import java.time.Clock;
 
 /**
- * What the ACB module is wired with: the clock it reads, the holidays it knows, how its jobs run,
- * and the bureau file's settings ({@code acb.file.*}).
+ * What the ACB module is wired with: the clock it reads, how its jobs run, and the bureau file's
+ * settings ({@code acb.file.*}). The holidays it knows are data -- V47's table, read by
+ * {@code AcbHolidayCalendarSource} (D30).
  */
 @Configuration
 @EnableConfigurationProperties(AcbFileProperties.class)
@@ -25,16 +25,6 @@ public class AcbConfig {
     @Bean
     public Clock acbClock() {
         return Clock.system(AcbTime.ZONE);
-    }
-
-    /**
-     * Weekends only, until a maintained public-holiday calendar is wired. Stated rather than
-     * defaulted: every run records the calendar it used, and every screen showing its dates
-     * carries the caveat that holidays were not considered.
-     */
-    @Bean
-    public HolidayCalendar acbHolidayCalendar() {
-        return HolidayCalendar.WEEKENDS_ONLY;
     }
 
     /**

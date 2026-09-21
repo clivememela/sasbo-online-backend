@@ -10,8 +10,7 @@ package za.co.titandynamix.sasbo_online_backend.enums;
  *
  * <p>There is no "re-presented" outcome: an unpaid stays {@code UNPAID}, because that is what the
  * bank did, and its re-presentation is the later line whose {@code re_presents_line_id} points at
- * it. V42's CHECK constraint still admits {@code RE_PRESENTED} from the plan's first draft; nothing
- * writes it.
+ * it. V42's CHECK names exactly these three, and {@code AcbConstraintsIT} holds it to them (R1-22).
  */
 public enum AcbLineOutcome {
     PENDING,

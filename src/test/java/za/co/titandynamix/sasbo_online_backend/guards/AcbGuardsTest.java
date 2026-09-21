@@ -298,7 +298,7 @@ class AcbGuardsTest {
     // ------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("the migration chain names ACB's V40 to V46")
+    @DisplayName("the migration chain names ACB's V40 to V47")
     void theChainNamesAcbsMigrations() {
         assertThat(MigrationSeed.MIGRATIONS).contains(
                 "V40__member_money_columns_to_numeric_step_one.sql",
@@ -307,6 +307,7 @@ class AcbGuardsTest {
                 "V43__acb_audit_events.sql",
                 "V44__acb_run_files.sql",
                 "V45__acb_unpaid_codes.sql",
-                "V46__acb_letters.sql");
+                "V46__acb_letters.sql",
+                "V47__acb_holidays.sql");
     }
 }

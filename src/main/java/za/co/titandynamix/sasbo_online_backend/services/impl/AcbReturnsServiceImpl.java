@@ -21,6 +21,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbUnpaidCode;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterChannel;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
@@ -224,7 +225,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         AcbLetter letter = new AcbLetter();
         letter.setLineId(line.getId());
         letter.setTemplate(template);
-        letter.setChannel("EMAIL");
+        letter.setChannel(LetterChannel.EMAIL);
         letter.setAttempts(0);
         letter.setCreatedAt(now);
 

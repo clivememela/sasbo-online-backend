@@ -67,9 +67,14 @@ CREATE TABLE acb_runs (
     -- after the rate has changed.
     rate_amount         NUMERIC(12,2),
     rate_effective_from DATE,
-    -- The public-holiday set the action dates were computed with. 'weekends-only' until a
-    -- maintained calendar is wired, and the screen says so beside every date.
+    -- The public-holiday set the action dates were computed with: 'za-statutory' from V47's table
+    -- (D30), 'weekends-only' only for a run prepared before the calendar was data.
     holiday_set         VARCHAR(40)   NOT NULL,
+    -- 🔒 The calendar as it stood for this run's month when its lines were computed -- its name and
+    -- the month's holidays (SD3-F; amended in place 2026-09-21, unpushed, F53). A holiday added
+    -- inside the month afterwards makes it disagree with the table, and approving or rendering the
+    -- run is refused (RUN_CALENDAR_CHANGED): the bank declines a file with a holiday in it, whole.
+    calendar_fingerprint VARCHAR(200),
     line_count          INTEGER       NOT NULL DEFAULT 0,
     total_amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
     created_by          VARCHAR(100)  NOT NULL,

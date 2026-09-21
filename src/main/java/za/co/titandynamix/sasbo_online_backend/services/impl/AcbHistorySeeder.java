@@ -8,6 +8,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
+import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendarSource;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
@@ -89,7 +90,7 @@ public class AcbHistorySeeder {
     private final AcbRunService service;
     private final AcbReturnsService returns;
     private final AcbAuditTrail audit;
-    private final HolidayCalendar calendar;
+    private final HolidayCalendarSource calendars;
     private final SasboEnvironment environment;
     private final Clock clock;
     private final JdbcTemplate jdbc;
@@ -97,7 +98,7 @@ public class AcbHistorySeeder {
 
     public AcbHistorySeeder(AcbRunRepository runs, AcbRateRepository rates, AcbPreparationJob job,
                             AcbRunService service, AcbReturnsService returns, AcbAuditTrail audit,
-                            HolidayCalendar calendar, SasboEnvironment environment, Clock clock, JdbcTemplate jdbc,
+                            HolidayCalendarSource calendars, SasboEnvironment environment, Clock clock, JdbcTemplate jdbc,
                             PlatformTransactionManager transactions) {
         this.runs = runs;
         this.rates = rates;
@@ -105,7 +106,7 @@ public class AcbHistorySeeder {
         this.service = service;
         this.returns = returns;
         this.audit = audit;
-        this.calendar = calendar;
+        this.calendars = calendars;
         this.environment = environment;
         this.clock = clock;
         this.jdbc = jdbc;
@@ -227,7 +228,7 @@ public class AcbHistorySeeder {
             run.setActionMonth(month.atDay(1));
             run.setStatus(AcbRunStatus.PREPARING);
             run.setSetupDate(month.atDay(15));
-            run.setHolidaySet(calendar.name());
+            run.setHolidaySet(calendars.load().name());
             run.setLineCount(0);
             run.setTotalAmount(BigDecimal.ZERO.setScale(2));
             run.setCreatedBy(ACTOR);
@@ -302,10 +303,11 @@ public class AcbHistorySeeder {
             return Optional.of("no subscription rate is in force for " + earlier
                     + " -- the history is the two months before today's, and the first rate is from January 2026");
         }
-        Optional<LocalDate> knownUntil = calendar.knownUntil();
-        if (calendar.holidaysKnown() && knownUntil.isPresent() && knownUntil.get().isBefore(later.atEndOfMonth())) {
-            return Optional.of("the holiday calendar is known only until " + knownUntil.get()
-                    + ", before the end of " + later);
+        HolidayCalendar calendar = calendars.load();
+        if (!calendar.covers(later)) {
+            return Optional.of(calendar.knownUntil()
+                    .map(until -> "the holiday calendar is known only until " + until + ", before the end of " + later)
+                    .orElse("no holiday calendar is on record, so no month's dates can be computed"));
         }
         return Optional.empty();
     }

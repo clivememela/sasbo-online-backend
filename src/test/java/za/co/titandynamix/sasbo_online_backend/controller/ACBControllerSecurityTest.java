@@ -10,8 +10,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
+import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
@@ -19,6 +21,7 @@ import java.util.List;
 
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -54,6 +57,9 @@ class ACBControllerSecurityTest {
     @MockitoBean
     private AcbReturnsService returns;
 
+    @MockitoBean
+    private AcbCalendarService calendar;
+
     @Test
     @DisplayName("approving a run is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
     void approvalIsRefusedToEveryone() throws Exception {
@@ -65,7 +71,7 @@ class ACBControllerSecurityTest {
                 .andExpect(jsonPath("$.details.runId").value("41"));
 
         // Refused BEFORE anything is looked up: the answer says nothing about which runs exist.
-        verifyNoInteractions(this.runs, this.returns);
+        verifyNoInteractions(this.runs, this.returns, this.calendar);
     }
 
     @Test
@@ -75,7 +81,7 @@ class ACBControllerSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
                 .andExpect(jsonPath("$.details.runId").value("41"));
-        verifyNoInteractions(this.runs, this.returns);
+        verifyNoInteractions(this.runs, this.returns, this.calendar);
     }
 
     @Test
@@ -86,7 +92,35 @@ class ACBControllerSecurityTest {
                         .content("{\"version\": 3}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
-        verifyNoInteractions(this.runs, this.returns);
+        verifyNoInteractions(this.runs, this.returns, this.calendar);
+    }
+
+    @Test
+    @DisplayName("🔒 the holiday calendar's writes are refused to every caller, with IDENTITY_REQUIRED, and nothing is read (D13, D30)")
+    void calendarWritesAreRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(post("/api/acb/holidays")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\": \"2026-10-28\", \"name\": \"Declared\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
+        this.mockMvc.perform(delete("/api/acb/holidays/2026-12-25"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
+        this.mockMvc.perform(post("/api/acb/calendar/known-until")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"knownUntil\": \"2028-12-31\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
+        verifyNoInteractions(this.runs, this.returns, this.calendar);
+    }
+
+    @Test
+    @DisplayName("the must-pass twin: the calendar READS through the same chain -- public holidays are public")
+    void theCalendarReadsOpenly() throws Exception {
+        when(this.calendar.calendar(null)).thenReturn(new AcbCalendarDto("za-statutory", "2027-12-31", false, 2026, List.of()));
+        this.mockMvc.perform(get("/api/acb/holidays"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("za-statutory"));
     }
 
     @Test

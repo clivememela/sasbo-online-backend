@@ -14,6 +14,7 @@ import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.acb.BankIndex;
 import za.co.titandynamix.sasbo_online_backend.acb.DebitWindow;
 import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
+import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendarSource;
 import za.co.titandynamix.sasbo_online_backend.acb.MemberDebitRow;
 import za.co.titandynamix.sasbo_online_backend.acb.RePresentationCandidate;
 import za.co.titandynamix.sasbo_online_backend.acb.RunPreparer;
@@ -61,9 +62,9 @@ import java.util.Optional;
  * and its month can be prepared again.
  *
  * <h2>Statements do not grow with the membership</h2>
- * Banks, subscription rows, the rate and the re-presentation candidates are each ONE query, made
- * before any member is read. Members come a page at a time -- nine columns, keyed on the last id --
- * and the writes are JDBC batches. Nothing here queries per member.
+ * Banks, subscription rows, the rate, the holiday calendar and the re-presentation candidates are
+ * each ONE query, made before any member is read. Members come a page at a time -- nine columns,
+ * keyed on the last id -- and the writes are JDBC batches. Nothing here queries per member.
  */
 @Slf4j
 @Service
@@ -102,7 +103,7 @@ public class AcbPreparationJob {
     private final AcbRateRepository rates;
     private final AcbPopulationRepository population;
     private final AcbAuditTrail audit;
-    private final HolidayCalendar calendar;
+    private final HolidayCalendarSource calendars;
     private final Clock clock;
     private final TransactionTemplate tx;
     private final JdbcTemplate jdbc;
@@ -110,7 +111,7 @@ public class AcbPreparationJob {
 
     public AcbPreparationJob(AcbRunRepository runs, AcbRunLineRepository lines, AcbRateRepository rates,
                              AcbPopulationRepository population, AcbAuditTrail audit,
-                             HolidayCalendar calendar, Clock clock,
+                             HolidayCalendarSource calendars, Clock clock,
                              PlatformTransactionManager transactions, JdbcTemplate jdbc,
                              MeterRegistry meters) {
         this.runs = runs;
@@ -118,7 +119,7 @@ public class AcbPreparationJob {
         this.rates = rates;
         this.population = population;
         this.audit = audit;
-        this.calendar = calendar;
+        this.calendars = calendars;
         this.clock = clock;
         this.tx = new TransactionTemplate(transactions);
         this.jdbc = jdbc;
@@ -152,6 +153,9 @@ public class AcbPreparationJob {
         }
         YearMonth month = YearMonth.from(run.getActionMonth());
         AcbRate rate = AcbRuns.rateInForce(rates, month);
+        // Read once, here, and used for every member: the calendar the lines are computed with is
+        // the one the run's fingerprint records (SD3-F, SD3-L).
+        HolidayCalendar calendar = AcbRuns.calendarCovering(calendars.load(), month);
         BankIndex banks = AcbRuns.unambiguousBanks(population);
         List<RePresentationCandidate> candidates = lines.findRePresentationCandidates(
                 month.atDay(1), AcbLineOutcome.UNPAID, UnpaidDecision.RE_PRESENT, AcbRuns.SENT);
@@ -170,7 +174,7 @@ public class AcbPreparationJob {
         } while (page.size() == PAGE_SIZE);
 
         Preparation prepared = preparer.finish();
-        if (Boolean.TRUE.equals(tx.execute(status -> write(runId, rate, prepared)))) {
+        if (Boolean.TRUE.equals(tx.execute(status -> write(runId, rate, calendar, prepared)))) {
             meters.counter("acb.runs.prepared").increment();
             meters.counter("acb.lines.written").increment(prepared.lineCount());
             log.info("ACB run {}: prepared {} lines, {} listed exclusions", runId,
@@ -184,7 +188,7 @@ public class AcbPreparationJob {
      * @return false when the run is no longer {@code PREPARING} -- the sweep failed it while this
      *         job was reading -- in which case nothing is written and the sweep's verdict stands
      */
-    private boolean write(long runId, AcbRate rate, Preparation prepared) {
+    private boolean write(long runId, AcbRate rate, HolidayCalendar calendar, Preparation prepared) {
         AcbRun run = runs.findById(runId).orElse(null);
         if (run == null) {
             return false;
@@ -203,6 +207,8 @@ public class AcbPreparationJob {
         run.setTotalAmount(prepared.total());
         run.setRateAmount(rate.getAmount());
         run.setRateEffectiveFrom(rate.getEffectiveFrom());
+        run.setHolidaySet(calendar.name());
+        run.setCalendarFingerprint(calendar.fingerprint(YearMonth.from(run.getActionMonth())));
         prepared.firstActionDate().ifPresent(first -> {
             run.setFirstDueDate(first);
             run.setCreationDate(first.minusDays(CREATION_LEAD_DAYS));

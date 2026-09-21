@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.support;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -43,6 +44,57 @@ public final class MigrationSeed {
      * inferred and marked so, until question 39 is answered.
      */
     public static final int ACB_UNPAID_CODES = 4;
+
+    /** One statutory public holiday, as V47 seeds it. */
+    public record Holiday(LocalDate date, String name) {
+        Holiday(String date, String name) {
+            this(LocalDate.parse(date), name);
+        }
+    }
+
+    /**
+     * {@code acb_holidays} is V47's seed: South Africa's statutory public holidays for 2026 and 2027 --
+     * the Public Holidays Act's schedule, Good Friday and Family Day, and each Monday the Act's Sunday
+     * rule makes a holiday, as its own row (D30). THE ONE COPY of the list (F47): the window fixture's
+     * {@code za-statutory} set and the tests' calendar ({@code AcbCalendars}) read it, and
+     * {@code AcbHolidayCalendarIT} asserts the migrated table equals it. Checked against a printed
+     * calendar, and re-derived independently by the planning pack's own script.
+     *
+     * <p>⚠️ Days declared ad hoc -- the 2026 local-government election day among them -- are not here:
+     * they are added as data when declared, which is why the calendar says until when it is known.
+     */
+    public static final List<Holiday> ACB_HOLIDAYS = List.of(
+            new Holiday("2026-01-01", "New Year's Day"),
+            new Holiday("2026-03-21", "Human Rights Day"),
+            new Holiday("2026-04-03", "Good Friday"),
+            new Holiday("2026-04-06", "Family Day"),
+            new Holiday("2026-04-27", "Freedom Day"),
+            new Holiday("2026-05-01", "Workers' Day"),
+            new Holiday("2026-06-16", "Youth Day"),
+            new Holiday("2026-08-09", "National Women's Day"),
+            new Holiday("2026-08-10", "National Women's Day, observed"),
+            new Holiday("2026-09-24", "Heritage Day"),
+            new Holiday("2026-12-16", "Day of Reconciliation"),
+            new Holiday("2026-12-25", "Christmas Day"),
+            new Holiday("2026-12-26", "Day of Goodwill"),
+            new Holiday("2027-01-01", "New Year's Day"),
+            new Holiday("2027-03-21", "Human Rights Day"),
+            new Holiday("2027-03-22", "Human Rights Day, observed"),
+            new Holiday("2027-03-26", "Good Friday"),
+            new Holiday("2027-03-29", "Family Day"),
+            new Holiday("2027-04-27", "Freedom Day"),
+            new Holiday("2027-05-01", "Workers' Day"),
+            new Holiday("2027-06-16", "Youth Day"),
+            new Holiday("2027-08-09", "National Women's Day"),
+            new Holiday("2027-09-24", "Heritage Day"),
+            new Holiday("2027-12-16", "Day of Reconciliation"),
+            new Holiday("2027-12-25", "Christmas Day"),
+            new Holiday("2027-12-26", "Day of Goodwill"),
+            new Holiday("2027-12-27", "Day of Goodwill, observed"));
+
+    /** {@code acb_calendar}'s one row, V47's: the calendar's name and the last date it is complete for. */
+    public static final String ACB_CALENDAR_NAME = "za-statutory";
+    public static final LocalDate ACB_CALENDAR_KNOWN_UNTIL = LocalDate.of(2027, 12, 31);
 
     /** The root of the structure hierarchy, {@code union_structures.id = 1}. */
     public static final String ROOT_STRUCTURE = "SASBO";
@@ -123,7 +175,9 @@ public final class MigrationSeed {
             "V44__acb_run_files.sql",
             // ACB P3: the bank's numeric unpaid codes, mapped to reasons (V45); the letters (V46).
             "V45__acb_unpaid_codes.sql",
-            "V46__acb_letters.sql");
+            "V46__acb_letters.sql",
+            // ACB 01.8: the holiday calendar as data -- acb_holidays and acb_calendar (D30).
+            "V47__acb_holidays.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

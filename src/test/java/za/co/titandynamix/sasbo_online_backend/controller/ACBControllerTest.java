@@ -1,12 +1,17 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
+import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
@@ -16,8 +21,10 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionSummaryDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
@@ -32,11 +39,14 @@ import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
+import za.co.titandynamix.sasbo_online_backend.exception.AcbExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
+import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
+import za.co.titandynamix.sasbo_online_backend.support.LogCapture;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -73,7 +83,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the nested class for the other configuration, and register row C12 for the mechanism.
  */
 @WebMvcTest(ACBController.class)
-@Import({GlobalExceptionHandler.class, JacksonConfig.class})
+@Import({GlobalExceptionHandler.class, JacksonConfig.class, ACBControllerTest.Meters.class})
 @AutoConfigureMockMvc(addFilters = false)
 // Copied from src/main/resources/application.yaml, because the test yaml shadows it and drops both.
 @TestPropertySource(properties = {
@@ -95,11 +105,26 @@ class ACBControllerTest {
     @MockitoBean
     private AcbReturnsService returns;
 
+    @MockitoBean
+    private AcbCalendarService calendar;
+
+    @Autowired
+    private MeterRegistry meters;
+
+    /** A registry of this slice's own, so a refusal's count is read here and nowhere else (EH2-C). */
+    @TestConfiguration
+    static class Meters {
+        @Bean
+        MeterRegistry meterRegistry() {
+            return new SimpleMeterRegistry();
+        }
+    }
+
     private static final String SYNTHETIC_ACCOUNT = "6200999911";
 
     static AcbRunDto aRun(AcbRunStatus status) {
         return new AcbRunDto(41L, "2026-10", status, 0, "2026-09-18", null, null, null, null,
-                0, new BigDecimal("0.00"), true, null, null, "weekends-only", false, "system", null,
+                0, new BigDecimal("0.00"), true, true, null, null, "za-statutory", true, "system", null,
                 "2026-09-18T10:00+02:00", "2026-09-18T10:00+02:00", null,
                 List.of(new AcbExclusionSummaryDto(AcbExclusionReason.NOT_DEBIT_ORDER, false, "Payroll Deduction", 48)));
     }
@@ -184,11 +209,84 @@ class ACBControllerTest {
                 .doesNotContain("IllegalStateException").doesNotContain("acb_run_lines");
     }
 
+    // ------------------------------------------------------------------------------------------
+    // The holiday calendar (D30), and requests that cannot be read (EH2-A, R1-21)
+    // ------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("GET /holidays reads the calendar and one year of it -- the year asked, as a number")
+    void theCalendarReads() throws Exception {
+        when(calendar.calendar(2026)).thenReturn(new AcbCalendarDto("za-statutory", "2027-12-31", false, 2026,
+                List.of(new AcbHolidayDto("2026-09-24", "Heritage Day", "STATUTORY"))));
+        this.mockMvc.perform(get("/api/acb/holidays").param("year", "2026"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.knownUntil").value("2027-12-31"))
+                .andExpect(jsonPath("$.endingSoon").value(false))
+                .andExpect(jsonPath("$.holidays[0].name").value("Heritage Day"));
+    }
+
+    @Test
+    @DisplayName("🧪 R1-21: a year that is not a number is REQUEST_MALFORMED, never a 500 -- and nothing sent comes back")
+    void aYearThatIsNotANumber() throws Exception {
+        String sent = this.mockMvc.perform(get("/api/acb/holidays").param("year", "twenty-twenty-six"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(sent).doesNotContain("twenty-twenty-six");
+        verifyNoInteractions(this.calendar);
+    }
+
+    @Test
+    @DisplayName("🧪 R1-21: malformed JSON is REQUEST_MALFORMED, and the account number it carried does not come back")
+    void malformedJson() throws Exception {
+        String answer = this.mockMvc.perform(post("/api/acb/runs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actionMonth\": \"" + SYNTHETIC_ACCOUNT))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(answer).doesNotContain(SYNTHETIC_ACCOUNT);
+        verifyNoInteractions(this.runs);
+    }
+
+    @Test
+    @DisplayName("🧪 R1-21: a string where the version wants a number is REQUEST_MALFORMED, not a 500")
+    void aVersionThatIsNotANumber() throws Exception {
+        String answer = this.mockMvc.perform(post("/api/acb/runs/41/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\": \"three\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(answer).doesNotContain("three");
+        verifyNoInteractions(this.runs);
+    }
+
+    @Test
+    @DisplayName("🔒 EH2-C: a refusal writes ONE INFO line and ONE count -- the code and the route, never its details")
+    void aRefusalIsSaidOnce() throws Exception {
+        when(runs.get(41L)).thenThrow(new AcbRefusal(
+                AcbRefusalCode.LINE_NOT_FOUND, "no such line", Map.of("account", SYNTHETIC_ACCOUNT)));
+        double before = meters.counter("acb.refusals", "code", "LINE_NOT_FOUND").count();
+        try (LogCapture log = LogCapture.on(AcbExceptionHandler.class)) {
+            this.mockMvc.perform(get("/api/acb/runs/41"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.details.account").value(SYNTHETIC_ACCOUNT));
+            // Sibling classes log through the same logger concurrently, so this test's line is found by
+            // what only it can say: its route and its code.
+            List<String> mine = log.renderedAt(Level.INFO).lines()
+                    .filter(line -> line.contains("GET /api/acb/runs/41: LINE_NOT_FOUND")).toList();
+            assertThat(mine).hasSize(1);
+            assertThat(log.rendered()).doesNotContain(SYNTHETIC_ACCOUNT);
+        }
+        assertThat(meters.counter("acb.refusals", "code", "LINE_NOT_FOUND").count()).isEqualTo(before + 1);
+    }
+
     @Test
     @DisplayName("GET /runs is a page: content, page, size and total")
     void theRunsListIsAPage() throws Exception {
         AcbRunSummaryDto summary = new AcbRunSummaryDto(41L, "2026-10", AcbRunStatus.PREPARED, 1,
-                "2026-09-18", 3, new BigDecimal("522.00"), true, false, null);
+                "2026-09-18", 3, new BigDecimal("522.00"), true, true, true, null);
         when(runs.list(0, 50)).thenReturn(new AcbPage<>(List.of(summary), 0, 50, 1, 1));
 
         this.mockMvc.perform(get("/api/acb/runs"))

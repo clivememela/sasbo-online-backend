@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import za.co.titandynamix.sasbo_online_backend.acb.BankIndex;
+import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRate;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunAction;
@@ -40,6 +41,49 @@ final class AcbRuns {
                 .orElseThrow(() -> new AcbRefusal(AcbRefusalCode.RATE_NOT_IN_FORCE,
                         "No subscription rate is in force for " + month + ", so no debit can be priced.",
                         Map.of("actionMonth", month.toString())));
+    }
+
+    /**
+     * The calendar, if it is complete to the end of {@code month} -- or the refusal that the month's
+     * dates cannot be computed honestly (D30). A month is never prepared on weekends alone.
+     */
+    static HolidayCalendar calendarCovering(HolidayCalendar calendar, YearMonth month) {
+        if (!calendar.covers(month)) {
+            Map<String, String> facts = new LinkedHashMap<>();
+            facts.put("actionMonth", month.toString());
+            facts.put("calendar", calendar.name());
+            facts.put("knownUntil", calendar.knownUntil().map(Object::toString).orElse(""));
+            throw new AcbRefusal(AcbRefusalCode.HOLIDAYS_NOT_KNOWN, calendar.knownUntil()
+                    .map(until -> "The holiday calendar is known only until " + until + ", so " + month
+                            + " cannot be prepared: a debit on an unlisted holiday gets the whole file "
+                            + "declined. Extend the calendar first.")
+                    .orElse("No holiday calendar is on record, so " + month + " cannot be prepared: a "
+                            + "debit on a holiday gets the whole file declined."), facts);
+        }
+        return calendar;
+    }
+
+    /**
+     * Whether the calendar still says of the run's month what it said when the lines were computed.
+     * A run with no lines written yet has nothing to disagree with.
+     */
+    static boolean calendarAgrees(AcbRun run, HolidayCalendar calendar) {
+        return run.getCalendarFingerprint() == null
+                || run.getCalendarFingerprint().equals(calendar.fingerprint(YearMonth.from(run.getActionMonth())));
+    }
+
+    /**
+     * 🔒 Refuses a run whose month's holidays changed after its dates were computed (SD3-F): a line
+     * may now fall on a holiday, and the bank declines such a file whole.
+     */
+    static void requireCalendarAgrees(AcbRun run, HolidayCalendar calendar) {
+        if (!calendarAgrees(run, calendar)) {
+            throw new AcbRefusal(AcbRefusalCode.RUN_CALENDAR_CHANGED,
+                    "The holiday calendar for " + YearMonth.from(run.getActionMonth()) + " changed after this "
+                            + "run was prepared, so a debit may now fall on a holiday. Cancel it and "
+                            + "prepare the month again.",
+                    facts(run));
+        }
     }
 
     /** The banks and which of them SASBO collects from, refusing if any bank is ambiguous. */

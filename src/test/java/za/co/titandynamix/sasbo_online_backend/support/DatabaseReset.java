@@ -74,7 +74,8 @@ public final class DatabaseReset {
      * Ordered parent-first so the re-insert satisfies foreign keys as it goes.
      */
     private static final List<String> SEEDED_TABLES =
-            List.of("union_structures", "representative_roles", "recruiters", "acb_rates", "acb_unpaid_codes");
+            List.of("union_structures", "representative_roles", "recruiters", "acb_rates", "acb_unpaid_codes",
+                    "acb_holidays", "acb_calendar");
 
     /** What the migrations leave behind, from the one place that says so. */
     private static final Map<String, Integer> SEEDED_COUNTS = Map.of(
@@ -82,14 +83,19 @@ public final class DatabaseReset {
             "representative_roles", MigrationSeed.REPRESENTATIVE_ROLES,
             "recruiters", MigrationSeed.RECRUITERS,
             "acb_rates", MigrationSeed.ACB_RATES,
-            "acb_unpaid_codes", MigrationSeed.ACB_UNPAID_CODES);
+            "acb_unpaid_codes", MigrationSeed.ACB_UNPAID_CODES,
+            "acb_holidays", MigrationSeed.ACB_HOLIDAYS.size(),
+            "acb_calendar", 1);
 
     /**
      * The seeded tables keyed by a natural value rather than a generated {@code id} -- ordered by
      * that key, and with no identity sequence to move after the restore. {@code acb_unpaid_codes}
-     * is keyed by the bank's own code.
+     * is keyed by the bank's own code, {@code acb_holidays} by its date, and {@code acb_calendar}'s one
+     * row by an id it assigns itself (F47: without these two, every test that prepares a run after
+     * the first reset is refused {@code HOLIDAYS_NOT_KNOWN}).
      */
-    private static final Map<String, String> NATURAL_KEYS = Map.of("acb_unpaid_codes", "code");
+    private static final Map<String, String> NATURAL_KEYS = Map.of(
+            "acb_unpaid_codes", "code", "acb_holidays", "holiday_date", "acb_calendar", "id");
 
     private static String keyOf(String table) {
         return NATURAL_KEYS.getOrDefault(table, "id");

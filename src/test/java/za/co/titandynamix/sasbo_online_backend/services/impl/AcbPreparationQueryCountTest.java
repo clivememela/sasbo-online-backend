@@ -12,8 +12,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
-import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
 import za.co.titandynamix.sasbo_online_backend.fixtures.AcbRunFixture;
+import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
 import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
 
 import javax.sql.DataSource;
@@ -43,10 +43,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>What it counts is Hibernate's statements. The lines are written as JDBC batches, a handful of
  * round trips per run whatever its size; the reads -- where a per-member lookup would hide -- are
- * all Hibernate's, and all counted.
+ * all Hibernate's, and all counted. 🔒 That includes the holiday calendar's: the job reads the REAL
+ * table-backed source here, V47's rows put in by the fixture, and its one statement is counted with
+ * the rest (SD3-L) -- a calendar read per member would make the count grow.
  */
 @DataJpaTest
-@Import({AcbPreparationJob.class, AcbAuditTrail.class, AcbPreparationQueryCountTest.Wiring.class})
+@Import({AcbPreparationJob.class, AcbAuditTrail.class, AcbHolidayCalendarSource.class,
+        AcbPreparationQueryCountTest.Wiring.class})
 @DisplayName("Preparing a run: statements do not grow with the membership")
 class AcbPreparationQueryCountTest {
 
@@ -56,11 +59,6 @@ class AcbPreparationQueryCountTest {
         @Bean
         Clock acbClock() {
             return Clock.fixed(Instant.parse("2026-09-18T08:00:00Z"), AcbTime.ZONE);
-        }
-
-        @Bean
-        HolidayCalendar acbHolidayCalendar() {
-            return HolidayCalendar.WEEKENDS_ONLY;
         }
 
         @Bean
@@ -99,15 +97,20 @@ class AcbPreparationQueryCountTest {
                 .isEqualTo(300);
         assertThat(jdbc.queryForObject("SELECT status FROM acb_runs WHERE id = ?", String.class, runId))
                 .isEqualTo("PREPARED");
+        // ...and it read the calendar from the table: the run names it and fingerprints October with it.
+        assertThat(jdbc.queryForObject("SELECT holiday_set || ' ' || calendar_fingerprint FROM acb_runs WHERE id = ?",
+                String.class, runId)).isEqualTo("za-statutory za-statutory|2026-10|");
     }
 
     /** Empties everything this test wrote, then builds {@code members} debitable members and a run. */
     private void seedTo(int members) {
         for (String table : new String[] {"acb_audit_events", "acb_run_exclusion_counts", "acb_run_exclusions",
-                "acb_run_lines", "acb_runs", "members", "subscriptions", "banks", "acb_rates"}) {
+                "acb_run_lines", "acb_runs", "members", "subscriptions", "banks", "acb_rates",
+                "acb_holidays", "acb_calendar"}) {
             jdbc.update("DELETE FROM " + table);
         }
         AcbRunFixture.insertRate(jdbc, LocalDate.of(2026, 1, 1), new BigDecimal("174.00"));
+        AcbRunFixture.insertCalendar(jdbc);
         AcbRunFixture.insert(jdbc, BANKS, members / BANKS);
         this.runId = jdbc.queryForObject("SELECT COALESCE(MAX(id), 0) + 1 FROM acb_runs", Long.class) + members;
         jdbc.update("INSERT INTO acb_runs (id, action_month, status, setup_date, holiday_set, line_count, "

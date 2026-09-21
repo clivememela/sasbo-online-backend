@@ -1,10 +1,12 @@
 package za.co.titandynamix.sasbo_online_backend.acb;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * The public holidays a debit may not be taken on, as DATA.
@@ -16,11 +18,11 @@ import java.util.TreeSet;
  * the last date it is known to be complete for, can be corrected by adding a row, and says out loud
  * when a month lies beyond what it knows.
  *
- * <h2>{@link #WEEKENDS_ONLY} is honest, not a shortcut</h2>
- * It is what the run uses while no maintained calendar is wired, and it says so: its
- * {@link #knownUntil()} is empty, so every screen showing a date it produced prints the caveat
- * that holidays were not considered. Christmas Day 2026 is a Friday; on this calendar a member on
- * the 25th is debited on it.
+ * <h2>{@link #WEEKENDS_ONLY} is for tests and the fixture's first set, never for a run</h2>
+ * Its {@link #knownUntil()} is empty, so it {@link #covers covers} no month, and a run is never
+ * prepared on it: production reads V47's table ({@link HolidayCalendarSource}), and a month beyond
+ * what the table knows is refused (D30). Christmas Day 2026 is a Friday; on this calendar a member
+ * on the 25th would be debited on it -- and the bank declines a file with a holiday in it, whole.
  */
 public interface HolidayCalendar {
 
@@ -42,6 +44,27 @@ public interface HolidayCalendar {
     /** Whether any public holiday is known to this calendar at all. */
     default boolean holidaysKnown() {
         return knownUntil().isPresent();
+    }
+
+    /**
+     * Whether this calendar is complete for every day of {@code month}. One that knows no holidays
+     * covers nothing: a month is never prepared on weekends alone (D30).
+     */
+    default boolean covers(YearMonth month) {
+        return knownUntil().map(until -> !until.isBefore(month.atEndOfMonth())).orElse(false);
+    }
+
+    /**
+     * What a run prepared for {@code month} depends on: this calendar's name and the month's own
+     * holidays -- {@code za-statutory|2026-12|2026-12-16,2026-12-25,2026-12-26}. The window never
+     * moves a debit out of its month (D5, Q33), so a holiday outside the month cannot move a date in
+     * it; a holiday added or removed inside it changes this, and the run no longer agrees (SD3-F).
+     */
+    default String fingerprint(YearMonth month) {
+        return name() + "|" + month + "|" + dates().stream()
+                .filter(date -> YearMonth.from(date).equals(month))
+                .map(LocalDate::toString)
+                .collect(Collectors.joining(","));
     }
 
     /** A business day: Monday to Friday, and not a holiday in this calendar. */

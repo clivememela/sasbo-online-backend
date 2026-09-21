@@ -44,8 +44,8 @@ class SeedStartupTest {
      * What the migrations would have given the database, and a clock inside the range the seeded history
      * can cover (SD4-D -- no seeder test reads the wall clock).
      *
-     * <p>H2 builds the fast lane's schema from the entities with Flyway off, so V41's rate and V45's codes
-     * are not there; a runner ordered FIRST puts them in before {@link DataSeeder} runs, as Flyway does
+     * <p>H2 builds the fast lane's schema from the entities with Flyway off, so V41's rate, V45's codes and
+     * V47's calendar are not there; a runner ordered FIRST puts them in before {@link DataSeeder} runs, as Flyway does
      * before any runner in every real database. Without them the history seeder would skip, and "it
      * succeeds on H2" (SD3-I) would be a test of the skip.
      */
@@ -68,6 +68,7 @@ class SeedStartupTest {
                 jdbc.update("INSERT INTO acb_unpaid_codes (code, reason, wording, inferred, source) VALUES "
                         + "('2', 'NOT_PROVIDED_FOR', 'Not Provided For', FALSE, 'V45, on H2'), "
                         + "('4', 'PAYMENT_STOPPED', 'Payment Stopped', FALSE, 'V45, on H2')");
+                AcbRunFixture.insertCalendar(jdbc);
             };
         }
     }

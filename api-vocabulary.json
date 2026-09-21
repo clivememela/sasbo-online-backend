@@ -44,8 +44,10 @@
       {"code": "RUN_NOT_IN_STATE", "status": 409},
       {"code": "RUN_VERSION_CONFLICT", "status": 409},
       {"code": "RUN_EMPTY", "status": 422},
+      {"code": "RUN_CALENDAR_CHANGED", "status": 409},
       {"code": "BANK_SUBSCRIPTION_AMBIGUOUS", "status": 422},
       {"code": "RATE_NOT_IN_FORCE", "status": 422},
+      {"code": "HOLIDAYS_NOT_KNOWN", "status": 422},
       {"code": "FILE_NOT_APPROVED", "status": 409},
       {"code": "FILE_CHANGED_SINCE", "status": 409},
       {"code": "FILE_SETTINGS_MISSING", "status": 422},
@@ -58,7 +60,10 @@
       {"code": "UNPAID_ALREADY_RECORDED", "status": 409},
       {"code": "UNPAIDS_UNDECIDED", "status": 409},
       {"code": "DATE_INVALID", "status": 400},
+      {"code": "REQUEST_MALFORMED", "status": 400},
       {"code": "ACTION_MONTH_INVALID", "status": 400},
+      {"code": "HOLIDAY_ALREADY_LISTED", "status": 409},
+      {"code": "HOLIDAY_NOT_REMOVABLE", "status": 422},
       {"code": "IDENTITY_REQUIRED", "status": 403}
     ]
   }

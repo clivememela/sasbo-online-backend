@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
+import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendarSource;
 import za.co.titandynamix.sasbo_online_backend.acb.LineTotals;
 import za.co.titandynamix.sasbo_online_backend.acb.file.BureauFileLine;
 import za.co.titandynamix.sasbo_online_backend.acb.file.BureauFileWriter;
@@ -75,18 +76,21 @@ public class AcbFileServiceImpl implements AcbFileService {
     private final AcbAuditTrail audit;
     private final AcbFileProperties properties;
     private final SeededMembersGuard seededMembers;
+    private final HolidayCalendarSource calendars;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final TransactionTemplate tx;
 
     public AcbFileServiceImpl(AcbRunRepository runs, AcbRunLineRepository lines, AcbAuditTrail audit,
-                              AcbFileProperties properties, SeededMembersGuard seededMembers, JdbcTemplate jdbc,
+                              AcbFileProperties properties, SeededMembersGuard seededMembers,
+                              HolidayCalendarSource calendars, JdbcTemplate jdbc,
                               Clock clock, PlatformTransactionManager transactions) {
         this.runs = runs;
         this.lines = lines;
         this.audit = audit;
         this.properties = properties;
         this.seededMembers = seededMembers;
+        this.calendars = calendars;
         this.jdbc = jdbc;
         this.clock = clock;
         this.tx = new TransactionTemplate(transactions);
@@ -120,6 +124,9 @@ public class AcbFileServiceImpl implements AcbFileService {
         // Before a byte is written: where the production marker is set, no file is made from a
         // seeded member (SD3-A). A file already sent is served above as the record it is.
         seededMembers.refuseSeededMembers(run);
+        // 🔒 A holiday added inside the month since the run was prepared would put a debit on a day the
+        // bank declines the whole file for (SD3-F).
+        AcbRuns.requireCalendarAgrees(run, calendars.load());
         List<BureauFileLine> fileLines = fileLines(runId);
         BureauFileWriter.Written written = BureauFileWriter.write(properties.settings(), header(run), fileLines);
         requireTrailerMatchesRun(run, written);

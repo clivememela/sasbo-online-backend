@@ -27,10 +27,22 @@ public enum AcbRefusalCode {
     RUN_VERSION_CONFLICT(HttpStatus.CONFLICT),
     /** A run with no lines cannot be approved: "no eligible members" is a finding, not a month. */
     RUN_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY),
+    /**
+     * A holiday was added or removed inside the run's month after its dates were computed, so a line
+     * may now fall on a holiday -- and the bank declines such a file whole (D30, SD3-F). Neither
+     * approved nor made into a file: prepare the month again. The details carry the run's facts.
+     */
+    RUN_CALENDAR_CHANGED(HttpStatus.CONFLICT),
     /** A bank has two ACTIVE subscription rows. The details name every such bank. */
     BANK_SUBSCRIPTION_AMBIGUOUS(HttpStatus.UNPROCESSABLE_ENTITY),
     /** No flat rate is in force for the action month, so no line can be priced. */
     RATE_NOT_IN_FORCE(HttpStatus.UNPROCESSABLE_ENTITY),
+    /**
+     * The holiday calendar is not known to the end of the action month, so its dates cannot be
+     * computed honestly: a month is never prepared on weekends alone (D30). The details carry the
+     * date the calendar is known until.
+     */
+    HOLIDAYS_NOT_KNOWN(HttpStatus.UNPROCESSABLE_ENTITY),
     /** Only an approved run -- or one whose file already went to the bank -- has a bureau file. */
     FILE_NOT_APPROVED(HttpStatus.CONFLICT),
     /** The run's lines no longer produce the file stored for it. Nothing is overwritten. */
@@ -63,10 +75,22 @@ public enum AcbRefusalCode {
      * presented again nor suspended, and closing would leave it so for ever. The details carry the count.
      */
     UNPAIDS_UNDECIDED(HttpStatus.CONFLICT),
-    /** A date is malformed. Dates are written YYYY-MM-DD. */
+    /** A date is malformed -- dates are written YYYY-MM-DD -- or is not one this action accepts. */
     DATE_INVALID(HttpStatus.BAD_REQUEST),
+    /**
+     * The request could not be read: malformed JSON, a value of the wrong type, a missing part
+     * (EH2-A). Answered with the envelope and nothing of what was sent.
+     */
+    REQUEST_MALFORMED(HttpStatus.BAD_REQUEST),
     /** The action month is malformed, or not one a run may be prepared for. */
     ACTION_MONTH_INVALID(HttpStatus.BAD_REQUEST),
+    /** The day is already in the holiday calendar. The details carry the date and its name. */
+    HOLIDAY_ALREADY_LISTED(HttpStatus.CONFLICT),
+    /**
+     * Only a day an administrator added can be removed: the statutory days are the Act's, and a day
+     * not listed has nothing to remove. The details carry the date.
+     */
+    HOLIDAY_NOT_REMOVABLE(HttpStatus.UNPROCESSABLE_ENTITY),
     /**
      * The action moves money, sends a letter, submits a file or changes a member's status, and the
      * API does not yet know who is calling (register B1). Refused to every caller until it does.

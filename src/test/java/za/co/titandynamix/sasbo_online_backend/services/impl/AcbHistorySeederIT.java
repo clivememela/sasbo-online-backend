@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
-import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
+import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendarSource;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
@@ -82,7 +82,7 @@ class AcbHistorySeederIT extends AbstractAcbIT {
     private AcbAuditTrail audit;
 
     @Autowired
-    private HolidayCalendar calendar;
+    private HolidayCalendarSource calendars;
 
     @Autowired
     private PlatformTransactionManager transactions;
@@ -243,7 +243,7 @@ class AcbHistorySeederIT extends AbstractAcbIT {
     // ------------------------------------------------------------------------------------------
 
     private AcbHistorySeeder seederAt(Clock clock, String environment) {
-        return new AcbHistorySeeder(runs, rates, job, service, returns, audit, calendar,
+        return new AcbHistorySeeder(runs, rates, job, service, returns, audit, calendars,
                 new SasboEnvironment(environment), clock, jdbc, transactions);
     }
 

@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.fixtures;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -141,5 +142,18 @@ public final class AcbRunFixture {
     public static void insertRate(JdbcTemplate jdbc, LocalDate effectiveFrom, BigDecimal amount) {
         jdbc.update("INSERT INTO acb_rates (effective_from, amount, source) VALUES (?, ?, ?)",
                 effectiveFrom, amount, "fixture");
+    }
+
+    /**
+     * What V47 seeds, for a database Flyway never ran on -- the fast lane's H2, built from the entities:
+     * the statutory holidays from {@link MigrationSeed#ACB_HOLIDAYS} (the one copy, F47) and the
+     * calendar's row. Without it every preparation there is refused {@code HOLIDAYS_NOT_KNOWN}, as it
+     * should be.
+     */
+    public static void insertCalendar(JdbcTemplate jdbc) {
+        jdbc.batchUpdate("INSERT INTO acb_holidays (holiday_date, name, source) VALUES (?, ?, 'STATUTORY')",
+                MigrationSeed.ACB_HOLIDAYS.stream().map(h -> new Object[] {h.date(), h.name()}).toList());
+        jdbc.update("INSERT INTO acb_calendar (id, name, known_until) VALUES (1, ?, ?)",
+                MigrationSeed.ACB_CALENDAR_NAME, MigrationSeed.ACB_CALENDAR_KNOWN_UNTIL);
     }
 }

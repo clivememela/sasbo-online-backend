@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterChannel;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
 
@@ -47,8 +48,9 @@ public class AcbLetter {
     @Column(name = "status_reason", length = 40)
     private String statusReason;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "channel", nullable = false, length = 10)
-    private String channel;
+    private LetterChannel channel;
 
     @Column(name = "attempts", nullable = false)
     private Integer attempts;

@@ -11,6 +11,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
+import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendarSource;
 import za.co.titandynamix.sasbo_online_backend.acb.LineTotals;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionSummaryDto;
@@ -84,7 +85,7 @@ public class AcbRunServiceImpl implements AcbRunService {
     private final AcbPreparationJob job;
     private final AcbFileService files;
     private final AcbJobLauncher launcher;
-    private final HolidayCalendar calendar;
+    private final HolidayCalendarSource calendars;
     private final SeededMembersGuard seededMembers;
     private final Clock clock;
     private final TransactionTemplate tx;
@@ -95,7 +96,7 @@ public class AcbRunServiceImpl implements AcbRunService {
                              AcbRunExclusionCountRepository exclusionCounts, AcbRateRepository rates,
                              AcbPopulationRepository population, AcbAuditTrail audit,
                              AcbPreparationJob job, AcbFileService files, AcbJobLauncher launcher,
-                             HolidayCalendar calendar, SeededMembersGuard seededMembers,
+                             HolidayCalendarSource calendars, SeededMembersGuard seededMembers,
                              Clock clock, PlatformTransactionManager transactions,
                              @Value("${acb.jobs.preparation-ceiling:PT5M}") Duration preparationCeiling) {
         this.runs = runs;
@@ -108,7 +109,7 @@ public class AcbRunServiceImpl implements AcbRunService {
         this.job = job;
         this.files = files;
         this.launcher = launcher;
-        this.calendar = calendar;
+        this.calendars = calendars;
         this.seededMembers = seededMembers;
         this.clock = clock;
         this.tx = new TransactionTemplate(transactions);
@@ -126,11 +127,12 @@ public class AcbRunServiceImpl implements AcbRunService {
         // Checked here so the administrator hears at once, and again by the job, which is the
         // one that has to be right.
         AcbRuns.rateInForce(rates, month);
+        HolidayCalendar calendar = AcbRuns.calendarCovering(calendars.load(), month);
         AcbRuns.unambiguousBanks(population);
 
         AcbRun created;
         try {
-            created = tx.execute(status -> create(month, actor));
+            created = tx.execute(status -> create(month, calendar.name(), actor));
         } catch (DataIntegrityViolationException lostTheRace) {
             // Another preparation of the same month committed between the check and the insert.
             // The partial unique index is the arbiter, and its answer is the same refusal.
@@ -144,10 +146,10 @@ public class AcbRunServiceImpl implements AcbRunService {
         } catch (RejectedExecutionException busy) {
             job.fail(runId, "NOT_STARTED: the preparation could not be started; cancel and prepare again");
         }
-        return toDto(created, new LineTotals(0L, null), List.of());
+        return toDto(created, new LineTotals(0L, null), List.of(), calendar);
     }
 
-    private AcbRun create(YearMonth month, String actor) {
+    private AcbRun create(YearMonth month, String calendarName, String actor) {
         runs.findLive(month.atDay(1), AcbRuns.RELEASED).ifPresent(live -> {
             throw AcbRuns.alreadyExists(live);
         });
@@ -156,7 +158,7 @@ public class AcbRunServiceImpl implements AcbRunService {
         run.setActionMonth(month.atDay(1));
         run.setStatus(AcbRunStatus.PREPARING);
         run.setSetupDate(AcbTime.today(clock));
-        run.setHolidaySet(calendar.name());
+        run.setHolidaySet(calendarName);
         run.setLineCount(0);
         run.setTotalAmount(BigDecimal.ZERO.setScale(2));
         run.setCreatedBy(actor);
@@ -205,14 +207,17 @@ public class AcbRunServiceImpl implements AcbRunService {
         sweepInterrupted();
         Page<AcbRun> found = runs.findPage(pageRequest(page, size));
         Map<Long, LineTotals> totals = totalsFor(found.getContent());
-        return AcbPage.of(found, run -> summary(run, totals.getOrDefault(run.getId(), new LineTotals(0L, null))));
+        // One calendar read for the page, never one per run.
+        HolidayCalendar calendar = calendars.load();
+        return AcbPage.of(found, run -> summary(run, totals.getOrDefault(run.getId(), new LineTotals(0L, null)),
+                calendar));
     }
 
     @Override
     public AcbRunDto get(long runId) {
         sweepInterrupted();
         AcbRun run = requireRun(runId);
-        return toDto(run, lines.totalsFor(runId), exclusionSummary(runId));
+        return toDto(run, lines.totalsFor(runId), exclusionSummary(runId), calendars.load());
     }
 
     @Override
@@ -241,6 +246,7 @@ public class AcbRunServiceImpl implements AcbRunService {
                         AcbRuns.facts(run));
             }
             seededMembers.refuseSeededMembers(run);
+            AcbRuns.requireCalendarAgrees(run, calendars.load());
             // Whoever prepared the run may approve it: the bank, not a second person here, is the
             // check on the file (D14 as amended, Q29). Who did each act is still recorded.
             run.setApprovedBy(actor);
@@ -370,7 +376,8 @@ public class AcbRunServiceImpl implements AcbRunService {
                 && counted.total().compareTo(run.getTotalAmount()) == 0;
     }
 
-    private AcbRunDto toDto(AcbRun run, LineTotals counted, List<AcbExclusionSummaryDto> summary) {
+    private AcbRunDto toDto(AcbRun run, LineTotals counted, List<AcbExclusionSummaryDto> summary,
+                            HolidayCalendar calendar) {
         return new AcbRunDto(
                 run.getId(),
                 AcbTime.iso(YearMonth.from(run.getActionMonth())),
@@ -384,6 +391,7 @@ public class AcbRunServiceImpl implements AcbRunService {
                 counted.lineCount(),
                 counted.total(),
                 totalsAgree(run, counted),
+                AcbRuns.calendarAgrees(run, calendar),
                 run.getRateAmount(),
                 AcbTime.iso(run.getRateEffectiveFrom()),
                 run.getHolidaySet(),
@@ -396,7 +404,7 @@ public class AcbRunServiceImpl implements AcbRunService {
                 summary);
     }
 
-    private AcbRunSummaryDto summary(AcbRun run, LineTotals counted) {
+    private AcbRunSummaryDto summary(AcbRun run, LineTotals counted, HolidayCalendar calendar) {
         return new AcbRunSummaryDto(
                 run.getId(),
                 AcbTime.iso(YearMonth.from(run.getActionMonth())),
@@ -406,13 +414,17 @@ public class AcbRunServiceImpl implements AcbRunService {
                 counted.lineCount(),
                 counted.total(),
                 totalsAgree(run, counted),
+                AcbRuns.calendarAgrees(run, calendar),
                 holidaysKnown(run),
                 run.getFailureReason());
     }
 
-    /** A run's dates considered holidays only if it was computed with a calendar that knows some. */
-    private boolean holidaysKnown(AcbRun run) {
-        return run.getHolidaySet().equals(calendar.name()) && calendar.holidaysKnown();
+    /**
+     * A run's dates considered holidays unless it was computed on weekends alone -- which only a run
+     * prepared before the calendar was data can have been (D30).
+     */
+    private static boolean holidaysKnown(AcbRun run) {
+        return !HolidayCalendar.WEEKENDS_ONLY.name().equals(run.getHolidaySet());
     }
 
     /** 🔒 A line for the sheet: the account shows its last four digits, and never more. */

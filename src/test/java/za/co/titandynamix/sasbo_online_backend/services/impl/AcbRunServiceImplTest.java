@@ -8,6 +8,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.PlatformTransactionManager;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher;
 import za.co.titandynamix.sasbo_online_backend.acb.BankRow;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbCalendars;
 import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
 import za.co.titandynamix.sasbo_online_backend.acb.LineTotals;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
@@ -73,6 +74,8 @@ class AcbRunServiceImplTest {
     private AcbAuditEventRepository auditEvents;
     private AcbPreparationJob job;
     private AcbRunServiceImpl service;
+    /** What the calendar table holds, as the service reads it -- V47's, unless a test moves it. */
+    private HolidayCalendar calendar = AcbCalendars.ZA_STATUTORY;
 
     @BeforeEach
     void wire() {
@@ -88,7 +91,7 @@ class AcbRunServiceImplTest {
         PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
         service = new AcbRunServiceImpl(runs, lines, exclusions, exclusionCounts, rates, population,
                 new AcbAuditTrail(auditEvents, CLOCK), job, mock(AcbFileService.class), AcbJobLauncher.inline(),
-                HolidayCalendar.WEEKENDS_ONLY,
+                () -> calendar,
                 new SeededMembersGuard(new SasboEnvironment(null), new SeedMemberNumbers(), lines),
                 CLOCK, transactions, Duration.ofMinutes(5));
 
@@ -123,14 +126,33 @@ class AcbRunServiceImplTest {
             assertThat(created.status()).isEqualTo(AcbRunStatus.PREPARING);
             assertThat(created.actionMonth()).isEqualTo("2026-10");
             assertThat(created.setupDate()).as("today, in Johannesburg").isEqualTo("2026-09-18");
-            assertThat(created.holidaySet()).isEqualTo("weekends-only");
-            assertThat(created.holidaysKnown()).isFalse();
+            assertThat(created.holidaySet()).as("the table's calendar, D30").isEqualTo("za-statutory");
+            assertThat(created.holidaysKnown()).isTrue();
             verify(job).prepare(41L);
 
             ArgumentCaptor<AcbAuditEvent> audited = ArgumentCaptor.forClass(AcbAuditEvent.class);
             verify(auditEvents).save(audited.capture());
             assertThat(audited.getValue().getToState()).isEqualTo("PREPARING");
             assertThat(audited.getValue().getActor()).isEqualTo("system");
+        }
+
+        @Test
+        @DisplayName("🔒 a month the holiday calendar does not reach is refused HOLIDAYS_NOT_KNOWN, naming the date -- and no run is made (R1-18)")
+        void aMonthBeyondTheCalendar() {
+            calendar = HolidayCalendar.of("za-statutory", LocalDate.of(2026, 9, 30), AcbCalendars.ZA_STATUTORY_2026_2027);
+            AcbRefusal refused = catchRefusal(() -> service.prepare("2026-10", "system"));
+            assertThat(refused.code()).isEqualTo(AcbRefusalCode.HOLIDAYS_NOT_KNOWN);
+            assertThat(refused.details()).containsEntry("knownUntil", "2026-09-30").containsEntry("actionMonth", "2026-10");
+            verify(runs, never()).saveAndFlush(any(AcbRun.class));
+            // The must-pass twin: the last month it does reach prepares.
+            assertThat(service.prepare("2026-09", "system").status()).isEqualTo(AcbRunStatus.PREPARING);
+        }
+
+        @Test
+        @DisplayName("a database with no calendar at all prepares nothing -- never weekends alone")
+        void noCalendarAtAll() {
+            calendar = HolidayCalendar.of("none", null, List.of());
+            assertThat(refusal(() -> service.prepare("2026-10", "system"))).isEqualTo(AcbRefusalCode.HOLIDAYS_NOT_KNOWN);
         }
 
         @Test
@@ -227,6 +249,35 @@ class AcbRunServiceImplTest {
             service.approve(5L, 0, run.getCreatedBy(), null);
             assertThat(run.getStatus()).isEqualTo(AcbRunStatus.APPROVED);
             assertThat(run.getApprovedBy()).as("who approved is still recorded").isEqualTo("preparer");
+        }
+
+        @Test
+        @DisplayName("🔒 a run whose month gained a holiday after it was prepared is refused RUN_CALENDAR_CHANGED (SD3-F)")
+        void theCalendarMoved() {
+            AcbRun run = run(5L, AcbRunStatus.PREPARED, 0);
+            run.setCalendarFingerprint(AcbCalendars.ZA_STATUTORY.fingerprint(YearMonth.of(2026, 10)));
+            when(runs.findById(5L)).thenReturn(Optional.of(run));
+            when(lines.totalsFor(5L)).thenReturn(new LineTotals(3L, new BigDecimal("522.00")));
+            List<LocalDate> declared = new java.util.ArrayList<>(AcbCalendars.ZA_STATUTORY_2026_2027);
+            declared.add(LocalDate.of(2026, 10, 28));
+            calendar = HolidayCalendar.of("za-statutory", LocalDate.of(2027, 12, 31), declared);
+            assertThat(refusal(() -> service.approve(5L, 0, "approver", null)))
+                    .isEqualTo(AcbRefusalCode.RUN_CALENDAR_CHANGED);
+            assertThat(run.getStatus()).isEqualTo(AcbRunStatus.PREPARED);
+        }
+
+        @Test
+        @DisplayName("the must-pass twin: a holiday declared in ANOTHER month leaves the run approvable")
+        void aHolidayElsewhere() {
+            AcbRun run = run(5L, AcbRunStatus.PREPARED, 0);
+            run.setCalendarFingerprint(AcbCalendars.ZA_STATUTORY.fingerprint(YearMonth.of(2026, 10)));
+            when(runs.findById(5L)).thenReturn(Optional.of(run));
+            when(lines.totalsFor(5L)).thenReturn(new LineTotals(3L, new BigDecimal("522.00")));
+            List<LocalDate> declared = new java.util.ArrayList<>(AcbCalendars.ZA_STATUTORY_2026_2027);
+            declared.add(LocalDate.of(2026, 11, 4));
+            calendar = HolidayCalendar.of("za-statutory", LocalDate.of(2027, 12, 31), declared);
+            service.approve(5L, 0, "approver", null);
+            assertThat(run.getStatus()).isEqualTo(AcbRunStatus.APPROVED);
         }
 
         @Test

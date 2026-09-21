@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,7 +12,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
@@ -25,6 +28,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.UnpaidDecisionRequest;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
@@ -40,7 +44,9 @@ import java.util.Map;
  * debit thousands of members, so it is built and proven in the service and REFUSED here, to every
  * caller, with {@code IDENTITY_REQUIRED}, until the API knows who is calling -- and so are the
  * bureau file, which carries every debited member's account number, and recording its submission.
- * Cancelling is the undo for a proposal and moves no money, so it is open.
+ * Cancelling is the undo for a proposal and moves no money, so it is open. The holiday calendar is
+ * public knowledge and reads openly; changing it moves every debit in a month, so its writes refuse
+ * like approval does (D13, D30) -- until then a day is added by migration.
  *
  * <h2>Every list is paged</h2>
  * Runs, lines and exclusions are each a page with a total. The largest page is capped whatever the
@@ -53,6 +59,7 @@ public class ACBController {
 
     private final AcbRunService runs;
     private final AcbReturnsService returns;
+    private final AcbCalendarService calendar;
 
     @GetMapping("/runs")
     public AcbPage<AcbRunSummaryDto> listRuns(@RequestParam(defaultValue = "0") int page,
@@ -185,10 +192,52 @@ public class ACBController {
         return returns.terminationReport();
     }
 
+    // ------------------------------------------------------------------------------------------
+    // The holiday calendar -- data, because the bank declines a file with a holiday in it (D30)
+    // ------------------------------------------------------------------------------------------
+
+    /**
+     * The calendar -- its name and the date it is known until -- and one year's holidays, this year's
+     * by default. Public holidays are public, so this is open.
+     */
+    @GetMapping("/holidays")
+    public AcbCalendarDto holidays(@RequestParam(required = false) Integer year) {
+        return calendar.calendar(year);
+    }
+
+    /**
+     * 🔒 Adding a day moves every debit on it -- refused to every caller until the API knows who is
+     * calling. Built and proven in {@code AcbCalendarService}; until then a day is added by migration.
+     */
+    @PostMapping("/holidays")
+    public AcbHolidayDto addHoliday() {
+        throw calendarChangeRefused("Adding a public holiday moves the debits on it, so it waits until "
+                + "administrators sign in to this system. Nothing has been added.");
+    }
+
+    /** 🔒 Removing a day an administrator added -- refused to every caller until B1, like adding one. */
+    @DeleteMapping("/holidays/{date}")
+    public AcbCalendarDto removeHoliday() {
+        throw calendarChangeRefused("Removing a public holiday moves the debits around it, so it waits "
+                + "until administrators sign in to this system. Nothing has been removed.");
+    }
+
+    /** 🔒 Moving the date the calendar is known until -- refused to every caller until B1. */
+    @PostMapping("/calendar/known-until")
+    public AcbCalendarDto extendCalendar() {
+        throw calendarChangeRefused("Extending the holiday calendar decides which months can be "
+                + "prepared, so it waits until administrators sign in to this system. Nothing has changed.");
+    }
+
     /** Refused before anything is read: the answer says nothing about which runs exist. */
     private static AcbRefusal identityRequired(long runId, String message) {
         return new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, message,
                 Map.of("runId", String.valueOf(runId)));
+    }
+
+    /** Refused before anything is read or parsed. */
+    private static AcbRefusal calendarChangeRefused(String message) {
+        return new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, message);
     }
 
     @PostMapping("/runs/{id}/cancel")
