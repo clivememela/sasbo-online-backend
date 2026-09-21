@@ -226,7 +226,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         return AcbPage.of(returns.findHeldOver(runId, run.getActionMonth(), AcbRuns.SENT, AcbLineOutcome.UNPAID,
                         UnpaidDecision.RE_PRESENT, request),
                 row -> new AcbHeldOverDto(row.lineId(), row.runId(), row.memberId(), row.membershipNumber(),
-                        row.surname(), AcbTime.iso(YearMonth.from(row.monthStart())), row.amount()));
+                        row.surname(), AcbTime.iso(YearMonth.from(row.monthStart())), row.amount(), row.permitted()));
     }
 
     /** The note is kept to this many characters -- refused beyond it, never cut (SD3-D). */

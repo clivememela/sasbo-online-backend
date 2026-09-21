@@ -295,13 +295,17 @@ class AcbPreparationJobIT extends AbstractAcbIT {
         assertThat(returns.heldOver(october.id(), 0, 50).content()).singleElement().satisfies(held -> {
             assertThat(held.lineId()).isEqualTo(augustUnpaid);
             assertThat(held.month()).isEqualTo("2026-08");
+            assertThat(held.permitted()).isFalse();
         });
         assertThat(october.exclusions()).as("held over is never an exclusion -- the member is in the run (F46)")
                 .noneMatch(summary -> summary.memberCount() > 0 && summary.listed() && summary.detail() != null
                         && summary.detail().contains("re-debit"));
 
-        // The member agrees: the month prepared again takes both, and holds nothing over.
+        // The member agrees: the run still holds it over until it is prepared again, and says the permission is in.
         returns.permit(august, augustUnpaid, "Agreed by the Synthetic Member", "system");
+        assertThat(returns.heldOver(october.id(), 0, 50).content()).singleElement()
+                .satisfies(held -> assertThat(held.permitted()).as("04.1: the screen says so").isTrue());
+        // The month prepared again takes both, and holds nothing over.
         service.cancel(october.id(), october.version(), "system", "the member's permission is on record");
         AcbRunDto again = service.get(service.prepare(OCTOBER, "system").id());
         assertThat(linesOf(again.id(), member)).extracting(AcbRunLineDto::rePresentsLineId)

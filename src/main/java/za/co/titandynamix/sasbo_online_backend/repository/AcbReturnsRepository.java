@@ -81,7 +81,8 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
      * months, that no live run presents -- of members who ARE in this run. One query, paged.
      */
     @Query(value = "SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.HeldOverRow("
-            + "u.id, u.runId, u.memberId, u.membershipNumber, u.surname, ur.actionMonth, u.amount) "
+            + "u.id, u.runId, u.memberId, u.membershipNumber, u.surname, ur.actionMonth, u.amount, "
+            + "CASE WHEN u.permissionNote IS NULL THEN false ELSE true END) "
             + "FROM AcbRunLine u, AcbRun ur "
             + "WHERE u.runId = ur.id AND ur.status IN :sent AND ur.actionMonth < :month "
             + "AND u.outcome = :unpaid AND u.decision = :decision "

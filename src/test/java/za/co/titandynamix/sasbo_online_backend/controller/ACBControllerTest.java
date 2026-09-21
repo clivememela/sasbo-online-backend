@@ -482,10 +482,11 @@ class ACBControllerTest {
     @DisplayName("a run's held-over re-debits are a page (D32)")
     void theHeldOverList() throws Exception {
         when(returns.heldOver(41L, 0, 50)).thenReturn(new AcbPage<>(List.of(new AcbHeldOverDto(9L, 30L, 7, "M-200001",
-                "Botha", "2026-08", new BigDecimal("174.00"))), 0, 50, 1, 1));
+                "Botha", "2026-08", new BigDecimal("174.00"), false)), 0, 50, 1, 1));
         this.mockMvc.perform(get("/api/acb/runs/41/held-over"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].month").value("2026-08"))
+                .andExpect(jsonPath("$.content[0].permitted").value(false))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

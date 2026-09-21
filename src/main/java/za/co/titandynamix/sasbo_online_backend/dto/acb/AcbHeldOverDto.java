@@ -11,6 +11,8 @@ import java.math.BigDecimal;
  * @param lineId the unpaid line, in the run it came back from
  * @param runId  that run
  * @param month  the month the unpaid was for, {@code YYYY-MM}
+ * @param permitted the member's permission is on record: the run takes it when it is prepared again, and
+ *                  otherwise next month's does. 🔒 Whether, never what the note says (SD3-D)
  */
 public record AcbHeldOverDto(
         Long lineId,
@@ -19,5 +21,6 @@ public record AcbHeldOverDto(
         String membershipNumber,
         String surname,
         String month,
-        BigDecimal amount) {
+        BigDecimal amount,
+        boolean permitted) {
 }
