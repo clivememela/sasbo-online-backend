@@ -77,7 +77,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
 
     private static final String BLINDNESS = "Counted from the first month this system sent a file. A member "
             + "already in arrears in the old system is not counted until SASBO's opening arrears position "
-            + "is imported.";
+            + "is captured.";
 
     private final AcbRunRepository runs;
     private final AcbRunLineRepository lines;
@@ -197,15 +197,14 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         byMember.forEach((memberId, history) -> {
             List<TerminationRule.Presentation> presentations =
                     history.stream().map(PresentationRow::presentation).toList();
-            TerminationRule.Verdict every = TerminationRule.judge(presentations, TerminationRule.Reading.EVERY_UNPAID_COUNTS);
-            TerminationRule.Verdict retries = TerminationRule.judge(presentations, TerminationRule.Reading.RETRIES_ONLY);
-            if (every.terminate() || retries.terminate()) {
+            TerminationRule.Verdict verdict = TerminationRule.judge(presentations);
+            if (verdict.terminate()) {
                 PresentationRow latest = history.stream()
                         .max(Comparator.comparing(PresentationRow::actionDate).thenComparing(PresentationRow::lineId))
                         .orElseThrow();
                 candidates.add(new AcbTerminationReportDto.Candidate(memberId, latest.membershipNumber(),
-                        latest.surname(), every.terminate(), every.count(), retries.terminate(), retries.count(),
-                        every.unpaidMonths().stream().map(YearMonth::toString).toList()));
+                        latest.surname(), verdict.count(),
+                        verdict.unpaidMonths().stream().map(YearMonth::toString).toList()));
             }
         });
         LocalDate firstSent = runs.firstMonthIn(AcbRuns.SENT);

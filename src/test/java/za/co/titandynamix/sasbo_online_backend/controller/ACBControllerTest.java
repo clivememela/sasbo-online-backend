@@ -390,13 +390,16 @@ class ACBControllerTest {
                 .andExpect(jsonPath("$.lettersByStatus.RENDERED").value(1));
 
         when(returns.terminationReport()).thenReturn(new AcbTerminationReportDto("2026-10", "stated", List.of(
-                new AcbTerminationReportDto.Candidate(7, "M-200001", "Botha", true, 3, false, 2,
-                        List.of("2026-10", "2026-11", "2026-12")))));
+                new AcbTerminationReportDto.Candidate(7, "M-200001", "Botha", 3,
+                        List.of("2026-10", "2026-11", "2026-11")))));
         this.mockMvc.perform(get("/api/acb/termination-report"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.countingFrom").value("2026-10"))
-                .andExpect(jsonPath("$.members[0].everyUnpaidCounts").value(true))
-                .andExpect(jsonPath("$.members[0].retriesOnly").value(false));
+                .andExpect(jsonPath("$.members[0].unpaidCount").value(3))
+                .andExpect(jsonPath("$.members[0].unpaidMonths[2]").value("2026-11"))
+                // Q27: one reading, so the report no longer carries the other one's columns.
+                .andExpect(jsonPath("$.members[0].retriesOnly").doesNotExist())
+                .andExpect(jsonPath("$.members[0].everyUnpaidCounts").doesNotExist());
     }
 
     // ------------------------------------------------------------------------------------------

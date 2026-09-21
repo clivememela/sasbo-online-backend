@@ -50,11 +50,11 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
     List<Object[]> countUnpaidByReason(@Param("runId") Long runId, @Param("unpaid") AcbLineOutcome unpaid);
 
     /**
-     * Every debit from a sent run, of every member who has an unpaid in one -- the three-month rule's
-     * input, in one query.
+     * Every debit from a sent run, of every member who has an unpaid in one -- the three-unpaids rule's
+     * input, in one query. A re-debit is read like any other debit (question 27).
      */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.PresentationRow("
-            + "l.memberId, l.membershipNumber, l.surname, l.id, l.actionDate, l.rePresentsLineId, l.outcome) "
+            + "l.memberId, l.membershipNumber, l.surname, l.id, l.actionDate, l.outcome) "
             + "FROM AcbRunLine l, AcbRun r WHERE l.runId = r.id AND r.status IN :sent "
             + "AND l.memberId IN (SELECT u.memberId FROM AcbRunLine u, AcbRun ur "
             + "                   WHERE u.runId = ur.id AND ur.status IN :sent AND u.outcome = :unpaid)")

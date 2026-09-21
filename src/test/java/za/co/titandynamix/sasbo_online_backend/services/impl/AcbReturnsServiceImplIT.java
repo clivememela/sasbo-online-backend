@@ -188,7 +188,7 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
     }
 
     @Test
-    @DisplayName("three unpaid months are reported under the first reading, not the second -- and nobody's status moves")
+    @DisplayName("three unpaid months are reported -- and nobody's status moves")
     void theTerminationReport() {
         AcbRunFixture.insert(jdbc, 15, 2);
         int m = AcbRunFixture.FIRST_MEMBER_ID;
@@ -205,13 +205,35 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         assertThat(report.blindness()).contains("old system");
         assertThat(report.members()).singleElement().satisfies(candidate -> {
             assertThat(candidate.memberId()).isEqualTo(m);
-            assertThat(candidate.everyUnpaidCounts()).isTrue();
-            assertThat(candidate.everyUnpaidCount()).isEqualTo(3);
-            assertThat(candidate.retriesOnly()).as("none of the three was a retry").isFalse();
+            assertThat(candidate.unpaidCount()).isEqualTo(3);
             assertThat(candidate.unpaidMonths()).containsExactly("2026-07", "2026-08", "2026-09");
         });
         assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m))
                 .as("a report terminates nobody").isEqualTo(statusBefore);
+    }
+
+    @Test
+    @DisplayName("🔒 Q27: a debit, the next month's debit and the re-debit of the first are three -- inside two months")
+    void threeInsideTwoMonths() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        int m = AcbRunFixture.FIRST_MEMBER_ID;
+        long july = insertRun(LocalDate.of(2026, 7, 1), "SUBMITTED", FROZEN, "system");
+        long julyDebit = insertLine(july, m, null, "UNPAID", "RE_PRESENT", RATE);
+        long august = insertRun(LocalDate.of(2026, 8, 1), "SUBMITTED", FROZEN, "system");
+        insertLine(august, m, null, "UNPAID", null, RATE);
+        insertLine(august, m, julyDebit, "UNPAID", null, RATE);
+        // The must-pass twin: the same two months with the re-debit paid -- not reported.
+        long twinJuly = insertLine(july, m + 1, null, "UNPAID", "RE_PRESENT", RATE);
+        insertLine(august, m + 1, null, "UNPAID", null, RATE);
+        insertLine(august, m + 1, twinJuly, "PAID", null, RATE);
+
+        AcbTerminationReportDto report = returns.terminationReport();
+
+        assertThat(report.members()).singleElement().satisfies(candidate -> {
+            assertThat(candidate.memberId()).isEqualTo(m);
+            assertThat(candidate.unpaidCount()).isEqualTo(3);
+            assertThat(candidate.unpaidMonths()).containsExactly("2026-07", "2026-08", "2026-08");
+        });
     }
 
     // ------------------------------------------------------------------------------------------

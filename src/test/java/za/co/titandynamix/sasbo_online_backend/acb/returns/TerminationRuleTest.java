@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.TerminationRule.Presentation;
-import za.co.titandynamix.sasbo_online_backend.acb.returns.TerminationRule.Reading;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 
 import java.time.LocalDate;
@@ -17,44 +16,55 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * "Three unsuccessful retries" as a table of month sequences, with BOTH readings SASBO has been
- * asked to choose between, written before the rule and asserted against it.
+ * Three unpaid presentations as a table of month sequences -- SASBO's reading of question 27, every
+ * unpaid counts, re-debits included -- written before the rule and asserted against it.
  *
- * <p>A history is a sequence of presentations, one a month: {@code U} the month's own debit
- * returned unpaid, {@code P} paid, {@code R} a presentation AGAIN of an earlier unpaid that was
- * returned again, {@code r} one that was paid, {@code -} not yet answered.
+ * <p>A history is a sequence of months, one presentation each unless joined by {@code +} (two on
+ * the same file, the month's own debit first): {@code U} the month's own debit returned unpaid,
+ * {@code P} paid, {@code R} a re-debit of an earlier unpaid returned again, {@code r} one that was
+ * paid, {@code -} not yet answered. A re-debit is written apart from a debit only so the table reads
+ * like the months it describes: the rule counts it the same.
  */
-@DisplayName("TerminationRule -- three unsuccessful presentations, both readings")
+@DisplayName("TerminationRule -- three unpaid presentations, every one counts (Q27)")
 class TerminationRuleTest {
 
-    @ParameterizedTest(name = "{0}: every-unpaid-counts={1}, retries-only={2}")
+    @ParameterizedTest(name = "{0}: terminate={1}")
     @CsvSource({
-            // history,  terminate under EVERY_UNPAID_COUNTS, under RETRIES_ONLY
-            "U U U,      true,  false",   // three of the month's own debits returned, no retries
-            "U R R R,    true,  true",    // the first unpaid, then three failed retries
-            "U R R,      true,  false",   // three unpaid presentations -- but only two retries
-            "U U,        false, false",   // two is not three
-            "U P U U,    false, false",   // a paid month in between resets the count
-            "U R r U,    false, false",   // a retry that pays resets it too
-            "U R R -,    true,  false",   // an unanswered debit neither counts nor resets
-            "R R R,      true,  true",    // three failed retries, whatever came before
-            "P P P,      false, false",   // the must-pass twin: a member who pays
+            // history,  terminate
+            "U U U,      true",    // three of the month's own debits returned
+            "U U+R,      true",    // SASBO's own example: a debit, the next month's and the re-debit of the first -- three in TWO months
+            "U R R,      true",    // three unpaid presentations, two of them re-debits: every one counts
+            "U R R R,    true",    // more than three is still three
+            "R R R,      true",    // three failed re-debits, whatever came before
+            "U U,        false",   // two is not three
+            "U+R,        false",   // two in one month is two
+            "U P U U,    false",   // a paid month in between resets the count (provisional -- Q49)
+            "U R r U,    false",   // a re-debit that pays resets it too (provisional -- Q49)
+            "U U -,      false",   // an unanswered debit does not count...
+            "U U - U,    true",    // ...and does not reset
+            "P P P,      false",   // the must-pass twin: a member who pays
     })
-    void theTable(String history, boolean everyUnpaid, boolean retriesOnly) {
-        List<Presentation> presentations = parse(history);
-        assertThat(TerminationRule.judge(presentations, Reading.EVERY_UNPAID_COUNTS).terminate())
-                .as("'%s' under every-unpaid-counts", history).isEqualTo(everyUnpaid);
-        assertThat(TerminationRule.judge(presentations, Reading.RETRIES_ONLY).terminate())
-                .as("'%s' under retries-only", history).isEqualTo(retriesOnly);
+    void theTable(String history, boolean terminate) {
+        assertThat(TerminationRule.judge(parse(history)).terminate())
+                .as("'%s'", history).isEqualTo(terminate);
     }
 
     @Test
     @DisplayName("the verdict names the months it counted, oldest first")
     void theMonthsAreNamed() {
-        TerminationRule.Verdict verdict = TerminationRule.judge(parse("P U U U"), Reading.EVERY_UNPAID_COUNTS);
+        TerminationRule.Verdict verdict = TerminationRule.judge(parse("P U U U"));
         assertThat(verdict.count()).isEqualTo(3);
         assertThat(verdict.unpaidMonths()).containsExactly(
                 YearMonth.of(2026, 2), YearMonth.of(2026, 3), YearMonth.of(2026, 4));
+    }
+
+    @Test
+    @DisplayName("a month whose debit and re-debit both came back is named twice -- three counted, two months")
+    void aMonthCanCountTwice() {
+        TerminationRule.Verdict verdict = TerminationRule.judge(parse("P U U+R"));
+        assertThat(verdict.count()).isEqualTo(3);
+        assertThat(verdict.unpaidMonths()).containsExactly(
+                YearMonth.of(2026, 2), YearMonth.of(2026, 3), YearMonth.of(2026, 3));
     }
 
     @Test
@@ -62,23 +72,25 @@ class TerminationRuleTest {
     void orderIsByDate() {
         List<Presentation> shuffled = new ArrayList<>(parse("U P U U"));
         Collections.reverse(shuffled);
-        assertThat(TerminationRule.judge(shuffled, Reading.EVERY_UNPAID_COUNTS).terminate()).isFalse();
+        assertThat(TerminationRule.judge(shuffled).terminate()).isFalse();
     }
 
-    /** One presentation per month from January 2026, the 25th of each. */
+    /** One month per step from January 2026, the 25th of each; a {@code +} puts two on that date. */
     private static List<Presentation> parse(String history) {
         List<Presentation> presentations = new ArrayList<>();
-        String[] steps = history.trim().split("\\s+");
-        for (int i = 0; i < steps.length; i++) {
+        String[] months = history.trim().split("\\s+");
+        long lineId = 100L;
+        for (int i = 0; i < months.length; i++) {
             LocalDate date = LocalDate.of(2026, 1, 25).plusMonths(i);
-            AcbLineOutcome outcome = switch (steps[i]) {
-                case "U", "R" -> AcbLineOutcome.UNPAID;
-                case "P", "r" -> AcbLineOutcome.PAID;
-                case "-" -> AcbLineOutcome.PENDING;
-                default -> throw new IllegalArgumentException(steps[i]);
-            };
-            boolean retry = steps[i].equals("R") || steps[i].equals("r");
-            presentations.add(new Presentation(100L + i, date, retry, outcome));
+            for (String step : months[i].split("\\+")) {
+                AcbLineOutcome outcome = switch (step) {
+                    case "U", "R" -> AcbLineOutcome.UNPAID;
+                    case "P", "r" -> AcbLineOutcome.PAID;
+                    case "-" -> AcbLineOutcome.PENDING;
+                    default -> throw new IllegalArgumentException(step);
+                };
+                presentations.add(new Presentation(lineId++, date, outcome));
+            }
         }
         return presentations;
     }
