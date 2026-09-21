@@ -3,6 +3,12 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +37,7 @@ public class EmailServiceImpl implements EmailService {
 
     private static final String TEMPLATE = "documents/Sasbo Welcome Letter.docx";
     private static final String SUBJECT = "Welcome to SASBO – Your Membership is Confirmed";
+    private static final String ATTACHMENT_NAME = "Sasbo Welcome Letter.pdf";
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("d MMMM yyyy");
 
     private final JavaMailSender mailSender;
@@ -45,12 +52,18 @@ public class EmailServiceImpl implements EmailService {
             throw new IllegalArgumentException("No email address is available for this member.");
         }
 
-        byte[] docx = buildFilledDocx(member);
+        byte[] pdf = buildWelcomeLetterPdf(member);
         String fullName = buildFullName(member);
 
         for (String to : recipients) {
-            send(to, fullName, docx);
+            send(to, fullName, pdf);
         }
+    }
+
+    @Override
+    public byte[] buildWelcomeLetterPdf(Member member) {
+        byte[] docx = buildFilledDocx(member);
+        return convertDocxToPdf(docx);
     }
 
     // ── Placeholder substitution ──────────────────────────────────────────────
@@ -107,6 +120,107 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    private byte[] convertDocxToPdf(byte[] docxBytes) {
+        try (XWPFDocument doc = new XWPFDocument(new java.io.ByteArrayInputStream(docxBytes));
+             PDDocument pdf = new PDDocument();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+
+            PDType1Font font = new PDType1Font(Standard14Fonts.FontName.TIMES_ROMAN);
+            float fontSize = 12f;
+            float leading = 14.5f;
+            float margin = 48f;
+            float width = page.getMediaBox().getWidth() - 2 * margin;
+            float y = page.getMediaBox().getHeight() - margin;
+
+            PDPageContentStream stream = new PDPageContentStream(pdf, page);
+            stream.beginText();
+            stream.setFont(font, fontSize);
+            stream.newLineAtOffset(margin, y);
+
+            for (String paragraph : extractParagraphs(doc)) {
+                List<String> wrapped = wrapLines(paragraph, font, fontSize, width);
+                for (String line : wrapped) {
+                    if (y - leading <= margin) {
+                        stream.endText();
+                        stream.close();
+                        page = new PDPage(PDRectangle.A4);
+                        pdf.addPage(page);
+                        y = page.getMediaBox().getHeight() - margin;
+                        stream = new PDPageContentStream(pdf, page);
+                        stream.beginText();
+                        stream.setFont(font, fontSize);
+                        stream.newLineAtOffset(margin, y);
+                    }
+                    stream.showText(line);
+                    stream.newLineAtOffset(0, -leading);
+                    y -= leading;
+                }
+                if (y - leading <= margin) {
+                    stream.endText();
+                    stream.close();
+                    page = new PDPage(PDRectangle.A4);
+                    pdf.addPage(page);
+                    y = page.getMediaBox().getHeight() - margin;
+                    stream = new PDPageContentStream(pdf, page);
+                    stream.beginText();
+                    stream.setFont(font, fontSize);
+                    stream.newLineAtOffset(margin, y);
+                }
+                stream.newLineAtOffset(0, -leading);
+                y -= leading;
+            }
+
+            stream.endText();
+            stream.close();
+            pdf.save(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to convert welcome letter to PDF: " + e.getMessage(), e);
+        }
+    }
+
+    private static List<String> extractParagraphs(XWPFDocument document) {
+        List<String> paragraphs = new ArrayList<>();
+        document.getParagraphs().forEach(paragraph -> {
+            String text = paragraph.getText();
+            if (text != null && !text.isBlank()) {
+                paragraphs.add(text.trim());
+            }
+        });
+        return paragraphs;
+    }
+
+    private static List<String> wrapLines(String text, PDType1Font font, float fontSize, float maxWidth)
+            throws IOException {
+        if (text.isBlank()) {
+            return List.of("");
+        }
+        List<String> lines = new ArrayList<>();
+        String[] words = text.split("\\s+");
+        StringBuilder current = new StringBuilder();
+
+        for (String word : words) {
+            String candidate = current.isEmpty() ? word : current + " " + word;
+            float candidateWidth = font.getStringWidth(candidate) / 1000f * fontSize;
+            if (candidateWidth <= maxWidth) {
+                current = new StringBuilder(candidate);
+            } else {
+                if (!current.isEmpty()) {
+                    lines.add(current.toString());
+                }
+                current = new StringBuilder(word);
+            }
+        }
+
+        if (!current.isEmpty()) {
+            lines.add(current.toString());
+        }
+        return lines;
+    }
+
     private static void replaceInRun(XWPFRun run, Map<String, String> replacements) {
         String text = run.getText(0);
         if (text == null) return;
@@ -120,7 +234,7 @@ public class EmailServiceImpl implements EmailService {
 
     // ── Email dispatch ────────────────────────────────────────────────────────
 
-    private void send(String to, String fullName, byte[] docxBytes) {
+    private void send(String to, String fullName, byte[] pdfBytes) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -130,10 +244,10 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(buildBody(fullName), false);
 
             DataSource attachment = new ByteArrayDataSource(
-                docxBytes,
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                pdfBytes,
+                "application/pdf"
             );
-            helper.addAttachment("Sasbo Welcome Letter.docx", attachment);
+            helper.addAttachment(ATTACHMENT_NAME, attachment);
             mailSender.send(message);
 
         } catch (MessagingException e) {

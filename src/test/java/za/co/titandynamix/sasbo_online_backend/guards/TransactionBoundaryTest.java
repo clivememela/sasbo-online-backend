@@ -31,8 +31,13 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
  *
  * <h2>Discovered, not listed</h2>
  * The scan counts write calls per method by reading the source, so a new
- * multi-write method is covered the day it is written. Two of nineteen services
- * carry {@code @Transactional} today.
+ * multi-write method is covered the day it is written.
+ *
+ * <p>⚠️ Which services declare a boundary is deliberately <b>not</b> stated here as
+ * a count. It was, and it said "two of nineteen" while the measurement had moved
+ * to four of twenty-four — a number in a comment is only evidence while someone
+ * re-counts it, and nobody does. {@code theExistingBoundariesAreStillThere} holds
+ * the list instead, where a wrong entry is a failing test rather than a sentence.
  *
  * <p>The counting is deliberately simple: a repository write is a call to
  * {@code save}, {@code saveAll}, {@code saveAndFlush}, {@code delete},
@@ -80,12 +85,12 @@ class TransactionBoundaryTest {
     }
 
     @Test
-    @DisplayName("the two services that do declare a boundary still declare it")
+    @DisplayName("every service that declares a boundary still declares it")
     void theExistingBoundariesAreStillThere() {
         // The half that can pass today, and the half that catches a removal.
-        // Without it, deleting @Transactional from the two services that have
-        // one would be invisible: the disabled test above is already red by
-        // design, so it cannot report a regression.
+        // Without it, deleting @Transactional from a service that has one would
+        // be invisible: the disabled test above is already red by design, so it
+        // cannot report a regression.
         List<String> withBoundary = MainSourceInventory.inLayer(Layer.SERVICE).stream()
                 .filter(s -> s.contains("@Transactional"))
                 .map(MainClassSource::name)
@@ -95,14 +100,26 @@ class TransactionBoundaryTest {
         // `contains`, not `containsExactly`. The stated guarantee is
         // one-directional -- a boundary must not be REMOVED -- and
         // `containsExactly` also fires when one is ADDED. Adding @Transactional
-        // to a third service is the correct repair of register row A15, so the
+        // to a further service is the correct repair of register row A15, so the
         // stricter form made the guard obstruct the fix it exists to motivate,
         // and would have announced it with a message saying a boundary was
         // removed: the opposite of what happened.
+        //
+        // 🔑 So this list is a FLOOR, and it is grown by hand when a boundary is
+        // added. It named two of the four that already had one, which is how it
+        // could not notice the other two being removed. The names below were
+        // measured, not remembered.
         assertThat(withBoundary)
                 .as("the services that declare a transaction boundary today. If one disappears "
                         + "from this list, a boundary was removed")
-                .contains("DeletionCodeServiceImpl", "RepresentativeServiceImpl");
+                .contains(
+                        "DeletionCodeServiceImpl",
+                        "MemberServiceImpl",
+                        "RecruiterServiceImpl",
+                        "RepresentativeServiceImpl",
+                        // Added by the ACB arc's 00.3: it is what makes the mapping run
+                        // inside the session, and removing it restores register row A33.
+                        "SubscriptionsServiceImpl");
     }
 
     /** A service method that writes more than once, and whether it is guarded. */

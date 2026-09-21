@@ -46,9 +46,13 @@ public final class KnownDefects {
     // #theCatchAllDoesNotLeakInternals -- is enabled and is now the guard.
 
     /**
-     * Two of nineteen services carry {@code @Transactional}. A service method
+     * Most services carry no {@code @Transactional} at all. A service method
      * issuing more than one repository write without a boundary can half-land,
      * and this is a data-capture system holding records for real people.
+     *
+     * <p>Which ones do is in {@code TransactionBoundaryTest}, measured rather than
+     * counted here: this sentence said "two of nineteen" while the answer was four
+     * of twenty-four, and nothing failed, because a comment cannot.
      */
     public static final String MULTI_WRITE_WITHOUT_A_TRANSACTION =
             "KNOWN DEFECT: service methods issue more than one repository write with no "
@@ -64,7 +68,6 @@ public final class KnownDefects {
             "KNOWN DEFECT: no list endpoint paginates or caps its result, so each returns the "
                     + "whole table and the response grows with the data. This test asserts a "
                     + "bound exists, and fails until one does.";
-
 
     /**
      * {@code handleValidationFailures} casts every element of
@@ -109,20 +112,6 @@ public final class KnownDefects {
                     + "no match, and unmappedTargetPolicy = IGNORE silences the warning. This "
                     + "test asserts the value arrives.";
 
-    /**
-     * The catch-all handler is registered for {@code Exception}, and Spring
-     * raises {@code NoResourceFoundException} for a path no controller handles.
-     * So it is caught, and <b>every unknown URL answers 500 instead of 404</b>.
-     *
-     * <p>Found on 2026-09-04 by a test asserting that a controller with no
-     * methods exposes nothing.
-     */
-    public static final String UNKNOWN_PATH_ANSWERS_500_NOT_404 =
-            "KNOWN DEFECT: a request to a path no controller handles answers 500, not 404. "
-                    + "Spring raises NoResourceFoundException, the catch-all handler is "
-                    + "registered for Exception and catches it. Every typo in a URL therefore "
-                    + "looks like a server fault, and real 500s cannot be told apart from "
-                    + "wrong addresses in any log or alert. This test asserts the 404.";
 
     /**
      * {@code JacksonConfig} replaces Spring Boot's auto-configured

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StringSerializer;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -85,13 +86,13 @@ public class MemberDto {
     private String areaRecruited;
 
     // Subscriptions
-    private String monthlySubscription;
+    private BigDecimal monthlySubscription;
     private String subscriptionFrequency;
 
     // Balances
-    private String currentBalance;
-    private String arrearsBalance;
-    private String lastMonthBalance;
+    private BigDecimal currentBalance;
+    private BigDecimal arrearsBalance;
+    private BigDecimal lastMonthBalance;
     private LocalDate dateLastChanged;
 
     // Representatives (§4.1, §4.2) // the representative who recruited this member

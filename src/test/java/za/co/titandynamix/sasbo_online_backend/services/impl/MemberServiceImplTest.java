@@ -1,5 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.services.impl;
 
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -624,7 +626,7 @@ class MemberServiceImplTest {
 
         Member existing = debitOrderMemberAtAbsa();
         existing.setBankName("Nedbank Limited");
-        existing.setMonthlySubscription("999.99");
+        existing.setMonthlySubscription(new BigDecimal("999.99"));
         when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
 
         Member saved = this.service.updateBanking(4, bankingPayloadFor(existing, 31)).orElseThrow();
@@ -632,7 +634,7 @@ class MemberServiceImplTest {
         assertThat(saved.getMonthlySubscription())
                 .as("the bank's subscription row says 120.00; a banking edit must not "
                         + "re-price the member, so what was stored still stands")
-                .isEqualTo("999.99");
+                .isEqualByComparingTo("999.99");
     }
 
     // ============================================================

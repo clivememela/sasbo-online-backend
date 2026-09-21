@@ -7,7 +7,10 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.introspect.Annotated;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
@@ -42,6 +45,99 @@ public class DataSeeder implements ApplicationRunner {
     private final JobGradeSeeder jobGradeSeeder;
     private final AreaRepository areaRepository;
 
+    /**
+     * The seed members, WITH the fields the request-body rules refuse.
+     *
+     * <p>🔴 A61. {@code Member.membershipNumber} is {@code @JsonProperty(access = READ_ONLY)} and
+     * this file used to read {@code data/members.json} straight into {@code Member} through an
+     * ordinary mapper -- so Jackson discarded all 160 numbers on the way in, exactly as that
+     * annotation asks it to, and 160 members were persisted with a blank membership number. The
+     * register showed an empty column for every seeded row, and {@code V22} then derived the
+     * sequence's start from {@code MAX} of the numbers that had survived, of which there were none.
+     *
+     * <p>⚠️ THE ANNOTATION IS RIGHT AND IS NOT TOUCHED. {@code MemberController} binds
+     * {@code @RequestBody Member} -- the entity itself -- on POST, PUT and PATCH, so without
+     * READ_ONLY a caller could supply a membership number and aim a write at another member's row.
+     * The defect was never the annotation; it was that <b>the seeder is not an API caller</b> and
+     * had no business reading the server's own data file through the request-body rules.
+     *
+     * <p>🔑 AN ALLOW-LIST OF ONE, AND THE FIRST VERSION OF THIS FIX WAS WRONG. It relaxed READ_ONLY to
+     * {@code AUTO} for EVERY property, reasoning that the caller nulls {@code id} straight after.
+     * {@code SeedMemberReaderTest}'s guard on {@code id} went red against it -- the test written to
+     * catch exactly this. {@code Member} carries READ_ONLY on EIGHT properties: {@code id},
+     * {@code membershipNumber}, and the entity relations {@code recruitmentRepresentative},
+     * {@code recruiter}, {@code role}, {@code structure}, {@code user}, plus {@code jobGradeOutcome}.
+     * The seed file carries only the first two today, so a blanket relaxation looked harmless -- and
+     * would have let the next edit to {@code members.json} silently bind entity relations from a data
+     * file. Relying on a caller to undo what a reader should never have done is the shape this
+     * project keeps paying for. So exactly the properties the seed file is ENTITLED to set are named
+     * below, and everything else keeps the protection its annotation declares.
+     *
+     * <p>🔴 AND THE SECOND VERSION WAS WRONG TOO, in the other direction: it keyed the allow-list on
+     * {@code annotated.getName()}, which Jackson hands over as the SETTER's name, so it matched
+     * nothing and relaxed nothing -- all three A61 tests stayed red. See {@link #propertyNameOf}.
+     * Both failures were caught by the red-green proof, which is why that proof is run and not
+     * skipped: the first version would have shipped a wider hole, the second a fix that did nothing.
+     *
+     * <p>The blunter fixes stay rejected: {@code MapperFeature.USE_ANNOTATIONS = false} would drop
+     * every annotation at once, and widening the entity would trade a blank column for a
+     * write-targeting hole.
+     *
+     * <p>📌 The deeper shape is still open and is NOT fixed here: an entity annotated for HTTP
+     * binding is doing duty as a seed-file DTO, and those two jobs have different rules. A seed DTO
+     * is the real answer; this is the narrow repair for a live defect on main.
+     */
+    /**
+     * The READ_ONLY properties a seed file may nonetheless set. Deliberately a list of ONE.
+     * Adding to it is a decision about what the server's own data may assert, so it wants a reason
+     * written beside it -- and never an entity relation, which a data file must not wire up.
+     */
+    static final java.util.Set<String> SEED_MAY_SET_DESPITE_READ_ONLY = java.util.Set.of("membershipNumber");
+
+    /**
+     * The PROPERTY an accessor belongs to -- {@code setMembershipNumber} → {@code membershipNumber}.
+     *
+     * <p>⚠️ NOT {@code annotated.getName()}, and the second version of this fix failed because it
+     * used that. Jackson merges a field's annotations into its property and then asks for access
+     * THROUGH THE MUTATOR, so {@code findPropertyAccess} is handed the setter
+     * ({@code AnnotatedMethod name=setMembershipNumber}) even though the annotation is written on the
+     * field and the compiled setter carries none. Measured, not assumed: an instrumented run reported
+     * all eight READ_ONLY properties on this entity as {@code set*} methods and not one as a field.
+     * Comparing that raw name against a property name matched nothing, so the fix silently did
+     * nothing -- which is exactly why the allow-list is keyed on the property, derived here.
+     */
+    private static String propertyNameOf(Annotated annotated) {
+        String name = annotated.getName();
+        if (annotated instanceof com.fasterxml.jackson.databind.introspect.AnnotatedMethod) {
+            for (String prefix : new String[] {"set", "get", "is"}) {
+                if (name.length() > prefix.length()
+                        && name.startsWith(prefix)
+                        && Character.isUpperCase(name.charAt(prefix.length()))) {
+                    return Character.toLowerCase(name.charAt(prefix.length())) + name.substring(prefix.length() + 1);
+                }
+            }
+        }
+        return name;
+    }
+
+    static List<Member> readSeedMembers(InputStream stream) throws java.io.IOException {
+        JsonMapper seedMapper = JsonMapper.builder()
+                .findAndAddModules()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .annotationIntrospector(new JacksonAnnotationIntrospector() {
+                    @Override
+                    public JsonProperty.Access findPropertyAccess(Annotated annotated) {
+                        JsonProperty.Access access = super.findPropertyAccess(annotated);
+                        return access == JsonProperty.Access.READ_ONLY
+                                && SEED_MAY_SET_DESPITE_READ_ONLY.contains(propertyNameOf(annotated))
+                                ? JsonProperty.Access.AUTO
+                                : access;
+                    }
+                })
+                .build();
+        return seedMapper.readValue(stream, new TypeReference<List<Member>>() {});
+    }
+
     @Override
     public void run(@NonNull ApplicationArguments args) throws Exception {
         JsonMapper mapper = JsonMapper.builder()
@@ -52,7 +148,7 @@ public class DataSeeder implements ApplicationRunner {
         if (this.memberRepository.count() == 0) {
             ClassPathResource membersResource = new ClassPathResource("data/members.json");
             try (InputStream stream = membersResource.getInputStream()) {
-                List<Member> members = mapper.readValue(stream, new TypeReference<>() {});
+                List<Member> members = readSeedMembers(stream);
                 members.forEach(m -> {
                     m.setId(null);
                     // Legacy seed data carries jobGrade as a plain string; grades are now
