@@ -14,21 +14,25 @@ import java.time.YearMonth;
  * moves to one. It never leaves the month, never falls below the 20th, and is never a weekend or a
  * public holiday in the calendar it was computed with.
  *
- * <h2>🔴 Which way it moves is CONTESTED, and it is one line: {@link #FIRST_MOVE}</h2>
- * The specification SASBO validated (18 August 2026, and its A.7 glossary) says a non-business day
- * moves <b>backward</b> to the most recent business day, forward only where backward would fall
- * below the 20th. SASBO's own answer of 18 September says the opposite -- <i>"it moves to the next
- * available business day"</i> -- and their July 2026 bureau file agrees with the answer: Saturday the
- * 25th was debited on Monday the 27th. Both readings satisfy all three of the specification's
- * worked examples, which is why no example ever told them apart; they differ on 56 of the 288
- * month-and-day cells of 2026 and 2027.
+ * <h2>Which way it moves: FORWARD, backward only where forward would leave the month</h2>
+ * SASBO's answer to question 33, 21 September 2026: <i>"We never go into the next month. If the debit
+ * date is on the 30 or 31st and that fall on a weekend it moved back to the available business day.
+ * If a debit date is on the 25th and it is a Saturday it will move to the following business day
+ * which is the 27."</i> Their July 2026 bureau file had already done exactly that: nobody was debited
+ * on Friday the 24th, 365 members on Monday the 27th.
  *
- * <p>SASBO has been asked the one case that separates them. Until they answer, this class ships the
- * <b>specification's</b> reading, which is also what the client's {@code debitDate.js} runs, so the
- * two agree today. The day the answer is "forward", the change is {@code FIRST_MOVE} and nothing
- * else: the rule below is written as "move the preferred way; if that leaves the window, move the
- * other way", which is both readings at once. The window fixture's rule name follows it, and the
- * 56 cells that move are the fixture's diff.
+ * <p>Until then this class shipped the other reading -- <b>backward</b> to the most recent business
+ * day, forward only where backward fell below the 20th -- because the specification SASBO validated
+ * (18 August 2026, and its A.7 glossary) says so. Both readings satisfy all three of the
+ * specification's worked examples, which is why no example ever told them apart; they differ on 56
+ * of the 288 month-and-day cells of 2026 and 2027, 64 with the statutory holidays. The rule below is
+ * written as "move the preferred way; if that leaves the window, move the other way", which is both
+ * readings at once, so the answer changed one token, {@link #FIRST_MOVE}, and the fixture's diff is
+ * exactly the cells that moved.
+ *
+ * <p>🟡 One seam is left open on SASBO's side (question 47): a Sunday the 30th with Monday the 31st
+ * free goes forward here, and back if their sentence is read literally. Two cells in 2026-2027, the
+ * first live on 30 May 2027; their August 2026 file answers it.
  *
  * <h2>One rule, one class, compared through a fixture</h2>
  * The client computes the same dates in its own language. The two are never tested against each
@@ -48,10 +52,11 @@ public final class DebitWindow {
     }
 
     /**
-     * 🔴 THE CONTESTED FACT, AS ONE EXPRESSION. The specification's reading. If SASBO answers
-     * "forward" (question 33), this token changes and the fixture is regenerated -- nothing else.
+     * The direction, as one expression: forward, on SASBO's answer to question 33 (21 September
+     * 2026). It was BACKWARD, the specification's reading, until that answer; the client's
+     * {@code debitDate.js} flipped in the same sitting, and {@code debit-window.json} was regenerated.
      */
-    public static final Direction FIRST_MOVE = Direction.BACKWARD;
+    public static final Direction FIRST_MOVE = Direction.FORWARD;
 
     /** The earliest day of the window. */
     public static final int FIRST_DAY = DebitDay.EARLIEST;

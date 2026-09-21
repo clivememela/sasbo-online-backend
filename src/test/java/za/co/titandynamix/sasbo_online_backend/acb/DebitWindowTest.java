@@ -18,20 +18,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The run-window rule, proved three ways: the specification's worked examples verbatim, the
- * fourteen witness dates each chosen to separate a right rule from a plausible one, and the rule's
+ * eighteen witness dates each chosen to separate a right rule from a plausible one, and the rule's
  * invariants over every cell of two years in both holiday sets.
  *
  * <h2>Why the examples alone prove nothing</h2>
- * All three of the specification's examples are satisfied by BOTH readings of the rule -- backward
- * first, or forward first -- and the two readings differ on 56 of 288 cells in 2026 and 2027. A
- * suite of examples was green while the client ran the other reading. The witnesses are what
- * separate them: W6, a Saturday 25th, is Friday the 24th under this rule and Monday the 27th under
- * the other.
+ * All three of the specification's examples are satisfied by BOTH readings of the rule -- forward
+ * first, or backward first -- and the two readings differ on 56 of 288 cells in 2026 and 2027. A
+ * suite of examples was green while the two repositories ran the reading SASBO then overruled. The
+ * witnesses are what separate them: W6, a Saturday 25th, is Monday the 27th under this rule -- SASBO's
+ * own example -- and Friday the 24th under the other.
  *
  * <h2>Proved by deletion</h2>
- * Removing the {@code >= 20} half of the window reddens W4, W5 and W11; making the first move
- * forward reddens W1, W2, W6 and W7; stepping one day instead of iterating reddens W10 and W12.
- * Each was watched, and is recorded in the phase's BUILT line.
+ * Removing the backward fallback at month end reddens the month-end witnesses; flipping
+ * {@link DebitWindow#FIRST_MOVE} back to BACKWARD reddens W6 and the witnesses a holiday moves
+ * forward; stepping one day instead of iterating reddens the consecutive-holiday witnesses. Each was
+ * watched, and the sets are recorded in the phase's BUILT line.
  */
 @DisplayName("DebitWindow -- the run-window rule")
 class DebitWindowTest {
@@ -40,13 +41,14 @@ class DebitWindowTest {
     private static final DebitWindow STATUTORY = new DebitWindow(AcbCalendars.ZA_STATUTORY);
 
     @Test
-    @DisplayName("ships the specification's reading, and names it the way the fixture publishes it")
-    void theDirectionIsTheSpecifications() {
-        // 🔴 The contested fact. SASBO's answer of 2026-09-18 says forward; the specification they
-        // validated says backward, and so does the client's debitDate.js. Question 33 is with them.
-        // If they answer forward, this test and FIRST_MOVE change together -- and W6 below moves.
-        assertThat(DebitWindow.FIRST_MOVE).isEqualTo(DebitWindow.Direction.BACKWARD);
-        assertThat(DebitWindow.ruleName()).isEqualTo("backward-in-month-forward-below-20th");
+    @DisplayName("moves forward first, as SASBO answered, and names it the way the fixture publishes it")
+    void theDirectionIsSasbos() {
+        // Question 33, answered 2026-09-21: "If a debit date is on the 25th and it is a Saturday it
+        // will move to the following business day which is the 27 ... we never go into the next
+        // month." The client's debitDate.js runs the same reading; each is held to debit-window.json,
+        // never to the other.
+        assertThat(DebitWindow.FIRST_MOVE).isEqualTo(DebitWindow.Direction.FORWARD);
+        assertThat(DebitWindow.ruleName()).isEqualTo("forward-in-month-backward-at-end");
     }
 
     @Nested
@@ -56,7 +58,7 @@ class DebitWindowTest {
         @Test
         @DisplayName("the 31st on a Sunday is processed on Friday the 29th")
         void aSunday31stMovesBackToFriday() {
-            // May 2026: Sunday the 31st.
+            // May 2026: Sunday the 31st. Forward would be Monday 1 June -- another month.
             assertThat(WEEKENDS.actionDate(YearMonth.of(2026, 5), 31)).isEqualTo(LocalDate.of(2026, 5, 29));
         }
 
@@ -69,7 +71,7 @@ class DebitWindowTest {
         @Test
         @DisplayName("the 20th on a Sunday is processed on Monday the 21st -- never below the 20th")
         void aSunday20thMovesForward() {
-            // September 2026: Sunday the 20th. Backward would be Friday the 18th, below the window.
+            // September 2026: Sunday the 20th. The rule's first move.
             assertThat(WEEKENDS.actionDate(YearMonth.of(2026, 9), 20)).isEqualTo(LocalDate.of(2026, 9, 21));
         }
 
@@ -77,31 +79,49 @@ class DebitWindowTest {
         @DisplayName("a public holiday on a Sunday makes the Monday one, and the debit steps past both")
         void theActsSundayRule() {
             // Human Rights Day 2027 is Sunday 21 March, so Monday the 22nd is a holiday too. A
-            // member on the 22nd: backward walks past Sunday and Saturday to Friday the 19th, below
-            // the window -- so forward instead, past the Monday holiday, to Tuesday the 23rd.
+            // member on the 22nd steps forward past the Monday holiday to Tuesday the 23rd.
             assertThat(STATUTORY.actionDate(YearMonth.of(2027, 3), 22)).isEqualTo(LocalDate.of(2027, 3, 23));
         }
     }
 
     @ParameterizedTest(name = "{0}: {1}-{2} in {3} -> {4}")
-    @DisplayName("the fourteen witness dates")
+    @DisplayName("the witness dates")
     @CsvSource({
             "W1,  2026-05, 31, either,       2026-05-29",
             "W2,  2026-05, 30, either,       2026-05-29",
             "W3,  2026-09, 20, either,       2026-09-21",
             "W4,  2026-06, 20, either,       2026-06-22",
             "W5,  2026-06, 21, either,       2026-06-22",
-            "W6,  2026-07, 25, either,       2026-07-24",
+            "W6,  2026-07, 25, either,       2026-07-27",
             "W7,  2026-10, 31, either,       2026-10-30",
             "W8,  2026-02, 31, either,       2026-02-27",
             "W9,  2027-02, 31, either,       2027-02-26",
-            "W10, 2026-12, 26, za-statutory, 2026-12-24",
+            "W10, 2026-12, 25, za-statutory, 2026-12-28",
             "W11, 2027-03, 22, za-statutory, 2027-03-23",
-            "W12, 2027-03, 29, za-statutory, 2027-03-25",
-            "W13, 2026-09, 24, za-statutory, 2026-09-23",
-            "W14, 2027-12, 27, za-statutory, 2027-12-24",
+            "W12, 2027-03, 26, za-statutory, 2027-03-30",
+            "W13, 2026-09, 24, za-statutory, 2026-09-25",
+            "W14, 2027-12, 27, za-statutory, 2027-12-28",
+            "W15, 2027-02, 27, either,       2027-02-26",
+            "W16, 2026-08, 29, either,       2026-08-31",
     })
     void witness(String name, String month, int day, String set, String expected) {
+        assertWitness(name, month, day, set, expected);
+    }
+
+    @ParameterizedTest(name = "{0}: {1}-{2} in {3} -> {4}")
+    @DisplayName("🟡 the seam, PROVISIONAL until SASBO's August 2026 file answers question 47")
+    @CsvSource({
+            // A Sunday the 30th with Monday the 31st free: forward stays in the month, so the rule
+            // goes forward. SASBO's sentence read literally ("the 30 or 31st ... moved back") would
+            // say Friday the 28th. Two cells in 2026-2027; W18 is the first one live.
+            "W17, 2026-08, 30, either, 2026-08-31",
+            "W18, 2027-05, 30, either, 2027-05-31",
+    })
+    void theSeamIsProvisional(String name, String month, int day, String set, String expected) {
+        assertWitness(name, month, day, set, expected);
+    }
+
+    private static void assertWitness(String name, String month, int day, String set, String expected) {
         YearMonth ym = YearMonth.parse(month);
         LocalDate want = LocalDate.parse(expected);
         if (set.equals("either")) {
@@ -113,12 +133,14 @@ class DebitWindowTest {
     }
 
     @Test
-    @DisplayName("W10 and W14 differ by set -- which is why a date computed without a calendar is caveated")
+    @DisplayName("W10, W12 and W14 differ by set -- which is why a date computed without a calendar is caveated")
     void theSetsDisagreeWhereTheyShould() {
-        // On weekends-only, a member on the 26th of December 2026 is debited on Friday the 25th:
-        // Christmas Day. Nothing about that date is wrong by the weekends-only rule, which is the
-        // whole reason the run records its calendar and the screen says which one it used.
-        assertThat(WEEKENDS.actionDate(YearMonth.of(2026, 12), 26)).isEqualTo(LocalDate.of(2026, 12, 25));
+        // On weekends-only nothing about these dates is wrong -- and the first two are the days the
+        // bank declines a whole file for (question 29): a member on the 25th of December 2026 is
+        // debited on Christmas Day, and one on the 26th of March 2027 on Good Friday. The whole
+        // reason the run records its calendar and the screen says which one it used.
+        assertThat(WEEKENDS.actionDate(YearMonth.of(2026, 12), 25)).isEqualTo(LocalDate.of(2026, 12, 25));
+        assertThat(WEEKENDS.actionDate(YearMonth.of(2027, 3), 26)).isEqualTo(LocalDate.of(2027, 3, 26));
         assertThat(WEEKENDS.actionDate(YearMonth.of(2027, 12), 27)).isEqualTo(LocalDate.of(2027, 12, 27));
     }
 

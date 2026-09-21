@@ -227,11 +227,11 @@ class RunPreparerTest {
         }
 
         @Test
-        @DisplayName("the member's own day, moved by the window rule: Saturday 25 July is Friday the 24th")
+        @DisplayName("the member's own day, moved by the window rule: Saturday 25 July is Monday the 27th")
         void theActionDateIsTheWindowsAnswer() {
             PreparedLine line = prepare(qualifying()).lines().get(0);
             assertThat(line.debitDay()).isEqualTo(25);
-            assertThat(line.actionDate()).isEqualTo(LocalDate.of(2026, 7, 24));
+            assertThat(line.actionDate()).isEqualTo(LocalDate.of(2026, 7, 27));
         }
 
         @Test

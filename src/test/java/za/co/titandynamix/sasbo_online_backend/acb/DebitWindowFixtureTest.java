@@ -57,10 +57,11 @@ class DebitWindowFixtureTest {
         long rows = live.lines().filter(l -> l.contains("\"days\": [")).count();
         assertThat(rows).isEqualTo(AcbCalendars.months().size() * AcbCalendars.SETS.size()).isEqualTo(48);
         // W6, the cell that separates the two readings: days 25 and 26 of July 2026 fall on the
-        // weekend and are debited on Friday the 24th. Re-derived by the planning pack's own script,
-        // not typed from memory -- the first draft of this line had it wrong.
+        // weekend and are debited on Monday the 27th -- SASBO's own example, and their July file's
+        // 365 lines. Under the reading they overruled both were Friday the 24th. Re-derived by the
+        // planning pack's own script, not typed from memory -- the first draft of this line had it wrong.
         assertThat(live).contains("{ \"month\": \"2026-07\", \"set\": \"weekends-only\", "
-                + "\"days\": [20, 21, 22, 23, 24, 24, 24, 27, 28, 29, 30, 31] }");
+                + "\"days\": [20, 21, 22, 23, 24, 27, 27, 27, 28, 29, 30, 31] }");
     }
 
     @Test
