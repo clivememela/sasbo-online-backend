@@ -52,6 +52,7 @@ class AcbCalendarChangeIT extends AbstractAcbIT {
         AcbRefusal refused = catchThrowableOfType(AcbRefusal.class,
                 () -> service.approve(now.id(), now.version(), "approver", null));
         assertThat(refused.code()).isEqualTo(AcbRefusalCode.RUN_CALENDAR_CHANGED);
+        assertThat(refused.details()).containsEntry("changedDates", "2026-10-28");
         assertThat(service.get(now.id()).status()).isEqualTo(AcbRunStatus.PREPARED);
     }
 

@@ -105,12 +105,36 @@ final class AcbRuns {
      */
     static void requireCalendarAgrees(AcbRun run, HolidayCalendar calendar) {
         if (!calendarAgrees(run, calendar)) {
+            YearMonth month = YearMonth.from(run.getActionMonth());
+            Map<String, String> facts = facts(run);
+            facts.put("changedDates", String.join(",",
+                    changedDates(run.getCalendarFingerprint(), calendar.fingerprint(month))));
             throw new AcbRefusal(AcbRefusalCode.RUN_CALENDAR_CHANGED,
-                    "The holiday calendar for " + YearMonth.from(run.getActionMonth()) + " changed after this "
-                            + "run was prepared, so a debit may now fall on a holiday. Cancel it and "
-                            + "prepare the month again.",
-                    facts(run));
+                    "The holiday calendar for " + month + " changed after this run was prepared, so a debit "
+                            + "may now fall on a holiday. Cancel it and prepare the month again.",
+                    facts);
         }
+    }
+
+    /** The days in one fingerprint and not the other -- added or removed since -- in date order. */
+    static java.util.SortedSet<String> changedDates(String then, String now) {
+        java.util.SortedSet<String> before = datesOf(then);
+        java.util.SortedSet<String> after = datesOf(now);
+        java.util.SortedSet<String> changed = new java.util.TreeSet<>(before);
+        changed.addAll(after);
+        java.util.Set<String> both = new java.util.TreeSet<>(before);
+        both.retainAll(after);
+        changed.removeAll(both);
+        return changed;
+    }
+
+    private static java.util.SortedSet<String> datesOf(String fingerprint) {
+        java.util.SortedSet<String> dates = new java.util.TreeSet<>();
+        String[] parts = fingerprint == null ? new String[0] : fingerprint.split("\\|", -1);
+        if (parts.length == 3 && !parts[2].isEmpty()) {
+            dates.addAll(List.of(parts[2].split(",")));
+        }
+        return dates;
     }
 
     /** The banks and which of them SASBO collects from, refusing if any bank is ambiguous. */

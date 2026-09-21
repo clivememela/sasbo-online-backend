@@ -231,6 +231,7 @@ class ACBControllerTest {
         String sent = this.mockMvc.perform(get("/api/acb/holidays").param("year", "twenty-twenty-six"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andExpect(jsonPath("$.details.field").value("year"))
                 .andReturn().getResponse().getContentAsString();
         assertThat(sent).doesNotContain("twenty-twenty-six");
         verifyNoInteractions(this.calendar);
@@ -257,6 +258,7 @@ class ACBControllerTest {
                         .content("{\"version\": \"three\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andExpect(jsonPath("$.details.field").value("version"))
                 .andReturn().getResponse().getContentAsString();
         assertThat(answer).doesNotContain("three");
         verifyNoInteractions(this.runs);

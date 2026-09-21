@@ -96,7 +96,7 @@ public enum AcbRefusalCode {
      * Only a day an administrator added can be removed: the statutory days are the Act's, and a day
      * not listed has nothing to remove. The details carry the date.
      */
-    HOLIDAY_NOT_REMOVABLE(HttpStatus.UNPROCESSABLE_ENTITY),
+    HOLIDAY_NOT_REMOVABLE(HttpStatus.CONFLICT),
     /**
      * The action moves money, sends a letter, submits a file or changes a member's status, and the
      * API does not yet know who is calling (register B1). Refused to every caller until it does.

@@ -61,7 +61,30 @@ public class AcbExceptionHandler {
             HttpMediaTypeNotSupportedException.class})
     public ResponseEntity<ApiErrorResponse> unreadable(Exception unreadable, HttpServletRequest request) {
         // 🔒 The exception is not logged either: its message is the parser's, and quotes the input.
+        String field = fieldOf(unreadable);
         return refused(new AcbRefusal(AcbRefusalCode.REQUEST_MALFORMED,
-                "This request could not be read. Send JSON with each field of its expected type."), request);
+                "This request could not be read. Send JSON with each field of its expected type.",
+                field == null ? java.util.Map.of() : java.util.Map.of("field", field)), request);
+    }
+
+    /** The NAME of the field or parameter that could not be read, when the exception knows it -- never its value. */
+    static String fieldOf(Exception unreadable) {
+        if (unreadable instanceof MethodArgumentTypeMismatchException mismatch) {
+            return mismatch.getName();
+        }
+        if (unreadable instanceof MissingServletRequestParameterException missing) {
+            return missing.getParameterName();
+        }
+        if (unreadable instanceof MissingServletRequestPartException missing) {
+            return missing.getRequestPartName();
+        }
+        if (unreadable.getCause() instanceof com.fasterxml.jackson.databind.exc.MismatchedInputException input
+                && !input.getPath().isEmpty()) {
+            return input.getPath().stream()
+                    .map(reference -> reference.getFieldName() != null ? reference.getFieldName()
+                            : String.valueOf(reference.getIndex()))
+                    .collect(java.util.stream.Collectors.joining("."));
+        }
+        return null;
     }
 }

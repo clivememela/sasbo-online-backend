@@ -83,7 +83,7 @@ public class AcbCalendarServiceImpl implements AcbCalendarService {
         try {
             return tx.execute(status -> {
                 holidays.findById(day).ifPresent(listed -> {
-                    throw alreadyListed(listed.getHolidayDate(), listed.getName());
+                    throw alreadyListed(listed.getHolidayDate(), listed.getName(), listed.getSource().name());
                 });
                 jdbc.update("INSERT INTO acb_holidays (holiday_date, name, source, added_by, added_at) "
                                 + "VALUES (?, ?, ?, ?, ?)",
@@ -95,7 +95,9 @@ public class AcbCalendarServiceImpl implements AcbCalendarService {
         } catch (DataIntegrityViolationException lostTheRace) {
             // Another administrator added the same day between the check and the insert. The
             // primary key is the arbiter, and its answer is the same refusal.
-            throw alreadyListed(day, holidays.findById(day).map(AcbHoliday::getName).orElse(named));
+            AcbHoliday winner = holidays.findById(day).orElse(null);
+            throw alreadyListed(day, winner == null ? named : winner.getName(),
+                    winner == null ? AcbHolidaySource.ADDED.name() : winner.getSource().name());
         }
     }
 
@@ -106,7 +108,7 @@ public class AcbCalendarServiceImpl implements AcbCalendarService {
             AcbHoliday listed = holidays.findById(day).orElseThrow(() -> new AcbRefusal(
                     AcbRefusalCode.HOLIDAY_NOT_REMOVABLE,
                     day + " is not in the holiday calendar, so there is nothing to remove.",
-                    Map.of("date", day.toString())));
+                    Map.of("date", day.toString(), "source", "")));
             if (listed.getSource() != AcbHolidaySource.ADDED) {
                 throw new AcbRefusal(AcbRefusalCode.HOLIDAY_NOT_REMOVABLE,
                         day + " (" + listed.getName() + ") is a statutory holiday. Only a day an "
@@ -162,10 +164,11 @@ public class AcbCalendarServiceImpl implements AcbCalendarService {
                 AcbTime.iso(knownUntil), endingSoon(knownUntil, AcbTime.today(clock)), year, listed);
     }
 
-    private static AcbRefusal alreadyListed(LocalDate day, String name) {
+    private static AcbRefusal alreadyListed(LocalDate day, String name, String source) {
         Map<String, String> facts = new LinkedHashMap<>();
         facts.put("date", day.toString());
         facts.put("name", Objects.toString(name, ""));
+        facts.put("source", source);
         return new AcbRefusal(AcbRefusalCode.HOLIDAY_ALREADY_LISTED,
                 day + " is already in the holiday calendar, as " + name + ".", facts);
     }

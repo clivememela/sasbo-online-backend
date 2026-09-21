@@ -96,7 +96,7 @@ class AcbCalendarServiceIT extends AbstractAcbIT {
         AcbRefusal refused = catchThrowableOfType(AcbRefusal.class,
                 () -> calendar.add("2026-12-25", "Something else", "admin-a"));
         assertThat(refused.code()).isEqualTo(AcbRefusalCode.HOLIDAY_ALREADY_LISTED);
-        assertThat(refused.details()).containsEntry("name", "Christmas Day");
+        assertThat(refused.details()).containsEntry("name", "Christmas Day").containsEntry("source", "STATUTORY");
         assertThat(jdbc.queryForObject("SELECT name FROM acb_holidays WHERE holiday_date = DATE '2026-12-25'", String.class))
                 .isEqualTo("Christmas Day");
         assertThat(audits()).isEmpty();
