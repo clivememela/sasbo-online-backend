@@ -27,7 +27,8 @@ import java.util.Set;
 final class AcbRuns {
 
     /** The states that release their month -- the partial unique index's own predicate. */
-    static final Set<AcbRunStatus> RELEASED = EnumSet.of(AcbRunStatus.FAILED, AcbRunStatus.CANCELLED);
+    static final Set<AcbRunStatus> RELEASED =
+            EnumSet.of(AcbRunStatus.FAILED, AcbRunStatus.CANCELLED, AcbRunStatus.DECLINED);
 
     /** The runs whose unpaids are real: the file went to the bank. */
     static final Set<AcbRunStatus> SENT =

@@ -12,8 +12,9 @@
 -- 🔴 ONE LIVE RUN PER MONTH, AND "LIVE" IS THE WHOLE POINT OF THE INDEX BELOW.
 -- A plain UNIQUE (action_month) plus "runs are never deleted" plus "FAILED and CANCELLED are
 -- terminal" would let one preparation that died half-way hold its month for ever -- the month
--- could never be prepared again. So the uniqueness is PARTIAL: a FAILED or CANCELLED run releases
--- its month and stays on record beside the run that replaces it. There is no file type column:
+-- could never be prepared again. So the uniqueness is PARTIAL: a FAILED, CANCELLED or DECLINED run
+-- releases its month and stays on record beside the run that replaces it. (DECLINED -- the bank
+-- declined the file, D29 -- amended in place 2026-09-21, unpushed, F53.) There is no file type column:
 -- one file is prepared per month, the endowment file is not prepared any longer.
 --
 -- 🔑 THE RATE IS DATA, AND IT IS DATED. Every debit-order member pays the same flat amount, which
@@ -84,20 +85,29 @@ CREATE TABLE acb_runs (
     started_at          TIMESTAMPTZ   NOT NULL,
     heartbeat_at        TIMESTAMPTZ   NOT NULL,
     failure_reason      VARCHAR(500),
+    -- A file the bank declined (D29): the reason from a short list, the bank's own words beside it --
+    -- capped, and never copied into a log or an audit row (SD3-D) -- and, on the run prepared after
+    -- it, which declined run it replaces (SD3-H).
+    declined_reason     VARCHAR(20),
+    declined_words      VARCHAR(300),
+    replaces_run_id     BIGINT        CONSTRAINT acb_runs_replaces_fk REFERENCES acb_runs (id),
     -- Optimistic locking: two approvals of one run cannot both win.
     version             INTEGER       NOT NULL DEFAULT 0,
     CONSTRAINT acb_runs_action_month_is_a_month CHECK (EXTRACT(DAY FROM action_month) = 1),
     CONSTRAINT acb_runs_status_known CHECK (status IN
-        ('PREPARING', 'PREPARED', 'APPROVED', 'SUBMITTED', 'RETURNED', 'CLOSED', 'FAILED', 'CANCELLED')),
+        ('PREPARING', 'PREPARED', 'APPROVED', 'SUBMITTED', 'RETURNED', 'CLOSED', 'DECLINED', 'FAILED', 'CANCELLED')),
+    CONSTRAINT acb_runs_declined_reason_known CHECK (declined_reason IS NULL OR declined_reason IN
+        ('WRONG_DEBIT_DATE', 'LAYOUT', 'OTHER')),
+    CONSTRAINT acb_runs_declined_says_why CHECK ((status = 'DECLINED') = (declined_reason IS NOT NULL)),
     CONSTRAINT acb_runs_totals_not_negative CHECK (line_count >= 0 AND total_amount >= 0)
 );
 
 CREATE UNIQUE INDEX acb_runs_one_live_run_per_month
     ON acb_runs (action_month)
-    WHERE status NOT IN ('FAILED', 'CANCELLED');
+    WHERE status NOT IN ('FAILED', 'CANCELLED', 'DECLINED');
 
 COMMENT ON INDEX acb_runs_one_live_run_per_month IS
-    'One live run per month. FAILED and CANCELLED release their month and stay on record.';
+    'One live run per month. FAILED, CANCELLED and DECLINED release their month and stay on record.';
 
 -- The members a run could not debit, one row each, with the FIRST rule they failed. These are the
 -- reasons an administrator can act on -- a bank name that matches nothing, a debit day outside

@@ -33,6 +33,12 @@ public enum AcbRefusalCode {
      * approved nor made into a file: prepare the month again. The details carry the run's facts.
      */
     RUN_CALENDAR_CHANGED(HttpStatus.CONFLICT),
+    /**
+     * A submitted run with a line already returned cannot be recorded as declined: a file the bank
+     * declined produces no returns (F45). Not RUN_NOT_IN_STATE -- the run is in the right state, and
+     * the screen has to be able to say why (EH2-B). The details carry the count.
+     */
+    RUN_HAS_RETURNS(HttpStatus.CONFLICT),
     /** A bank has two ACTIVE subscription rows. The details name every such bank. */
     BANK_SUBSCRIPTION_AMBIGUOUS(HttpStatus.UNPROCESSABLE_ENTITY),
     /** No flat rate is in force for the action month, so no line can be priced. */

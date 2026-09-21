@@ -10,6 +10,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.member.PaymentTypeMetadataDto
 import za.co.titandynamix.sasbo_online_backend.exception.ApiErrorResponse;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
@@ -242,6 +243,7 @@ public final class ApiSurface {
                     "unpaidReasons": [%s],
                     "letterTemplates": [%s],
                     "letterStatuses": [%s],
+                    "declineReasons": [%s],
                     "exclusionReasons": [
                 %s
                     ],
@@ -253,7 +255,8 @@ public final class ApiSurface {
                 """.formatted(regenerateCommand(), types, keys, jobGradeOutcomeNames(), jobGradeMatchingCases(),
                 names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
                 names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
-                names(LetterStatus.values()), acbExclusionReasons(), acbRefusalCodes());
+                names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),
+                acbRefusalCodes());
     }
 
     /**

@@ -5,6 +5,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunSummaryDto;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 
 /**
  * The debit-order run: prepare a month, read what it contains, move it on.
@@ -60,6 +61,14 @@ public interface AcbRunService {
 
     /** Withdraws a prepared or approved run. Its month is released; the run stays on record. */
     AcbRunDto cancel(long runId, int version, String actor, String reason);
+
+    /**
+     * Records that the bank declined a submitted run's file (D29): the run becomes {@code DECLINED},
+     * its month and its re-presentations are released, and the month is prepared again as a new run.
+     * Refused with {@code RUN_HAS_RETURNS} once any line has come back -- a declined file produces
+     * none (F45). {@code bankWords} is capped at 300 characters and kept on the run alone (SD3-D).
+     */
+    AcbRunDto recordDeclined(long runId, int version, String actor, AcbDeclineReason reason, String bankWords);
 
     /**
      * Fails every run whose preparation has gone quiet for longer than the job's ceiling -- a job

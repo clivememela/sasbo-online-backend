@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbHolidaySource;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
@@ -40,6 +41,7 @@ class AcbConstraintsIT extends AbstractAcbIT {
     static Stream<Arguments> mirroredChecks() {
         return Stream.of(
                 Arguments.of("acb_runs_status_known", names(AcbRunStatus.values())),
+                Arguments.of("acb_runs_declined_reason_known", names(AcbDeclineReason.values())),
                 Arguments.of("acb_run_lines_outcome_known", names(AcbLineOutcome.values())),
                 Arguments.of("acb_run_lines_decision_known", names(UnpaidDecision.values())),
                 Arguments.of("acb_letters_status_known", names(LetterStatus.values())),

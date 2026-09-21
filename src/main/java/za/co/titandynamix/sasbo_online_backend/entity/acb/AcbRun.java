@@ -12,6 +12,7 @@ import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 
 import java.math.BigDecimal;
@@ -101,6 +102,22 @@ public class AcbRun {
 
     @Column(name = "failure_reason", length = 500)
     private String failureReason;
+
+    /** Why the bank declined the file, from the short list (D29, SD3-H); null unless DECLINED. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "declined_reason", length = 20)
+    private AcbDeclineReason declinedReason;
+
+    /**
+     * 🔒 The bank's own words, at most 300 characters, returned only with this run -- never in a log
+     * line or an audit row (SD3-D): an administrator in a hurry types names and numbers.
+     */
+    @Column(name = "declined_words", length = 300)
+    private String declinedWords;
+
+    /** The declined run this one was prepared to replace, if any (SD3-H). */
+    @Column(name = "replaces_run_id")
+    private Long replacesRunId;
 
     @Version
     @Column(name = "version", nullable = false)

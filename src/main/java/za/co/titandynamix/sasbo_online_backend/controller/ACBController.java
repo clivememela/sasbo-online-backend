@@ -129,6 +129,17 @@ public class ACBController {
                 + "in to this system. Nothing has been recorded.");
     }
 
+    /**
+     * 🔒 Recording that the bank declined a run's file releases its month for a new file -- refused to
+     * every caller until the API knows who is calling, like recording its submission (D13, D29).
+     * Built and proven in {@code AcbRunService.recordDeclined}.
+     */
+    @PostMapping("/runs/{id}/declined")
+    public AcbRunDto declined(@PathVariable("id") long id) {
+        throw identityRequired(id, "Recording that the bank declined a file waits until administrators sign "
+                + "in to this system. Nothing has been recorded.");
+    }
+
     // ------------------------------------------------------------------------------------------
     // The returns loop -- recorded by hand from the bank's report until the report can be imported
     // ------------------------------------------------------------------------------------------

@@ -18,6 +18,9 @@ import java.util.Optional;
 
 public interface AcbRunRepository extends JpaRepository<AcbRun, Long> {
 
+    /** The latest run of a month in one state -- the declined run a new preparation replaces (SD3-H). */
+    Optional<AcbRun> findFirstByActionMonthAndStatusOrderByIdDesc(LocalDate actionMonth, AcbRunStatus status);
+
     /**
      * The run holding {@code month}, if one does. The same predicate as the partial unique index,
      * so this and the database agree on what "already prepared" means.

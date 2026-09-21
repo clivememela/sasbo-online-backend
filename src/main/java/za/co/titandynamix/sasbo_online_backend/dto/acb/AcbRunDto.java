@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.dto.acb;
 
+import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 
 import java.math.BigDecimal;
@@ -25,6 +26,9 @@ import java.util.List;
  *                        neither approved nor made into a file (SD3-F)
  * @param holidaysKnown   whether the action dates considered public holidays at all; {@code false}
  *                        means weekends only, and the screen says so beside every date
+ * @param declinedReason  why the bank declined the file, from the short list -- null unless DECLINED (D29)
+ * @param declinedWords   the bank's own words, beside the reason -- returned with this run and nowhere else
+ * @param replacesRunId   the declined run this one was prepared to replace, if any (SD3-H)
  * @param exclusions      how many members each reason kept out, listed reasons and counted values
  */
 public record AcbRunDto(
@@ -52,5 +56,8 @@ public record AcbRunDto(
         String startedAt,
         String heartbeatAt,
         String failureReason,
+        AcbDeclineReason declinedReason,
+        String declinedWords,
+        Long replacesRunId,
         List<AcbExclusionSummaryDto> exclusions) {
 }

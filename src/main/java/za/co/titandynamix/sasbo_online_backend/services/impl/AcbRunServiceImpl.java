@@ -22,6 +22,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunExclusionCount;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunAction;
@@ -159,6 +160,9 @@ public class AcbRunServiceImpl implements AcbRunService {
         run.setStatus(AcbRunStatus.PREPARING);
         run.setSetupDate(AcbTime.today(clock));
         run.setHolidaySet(calendarName);
+        // The run the bank declined for this month, if any: this one is prepared to replace it (SD3-H).
+        runs.findFirstByActionMonthAndStatusOrderByIdDesc(month.atDay(1), AcbRunStatus.DECLINED)
+                .ifPresent(declined -> run.setReplacesRunId(declined.getId()));
         run.setLineCount(0);
         run.setTotalAmount(BigDecimal.ZERO.setScale(2));
         run.setCreatedBy(actor);
@@ -290,6 +294,36 @@ public class AcbRunServiceImpl implements AcbRunService {
         });
     }
 
+    /** The bank's words are kept to this many characters -- refused beyond it, never cut (SD3-D). */
+    static final int BANK_WORDS_LIMIT = 300;
+
+    @Override
+    public AcbRunDto recordDeclined(long runId, int version, String actor, AcbDeclineReason reason, String bankWords) {
+        String words = bankWords == null || bankWords.isBlank() ? null : bankWords.trim();
+        if (reason == null || (words != null && words.length() > BANK_WORDS_LIMIT)) {
+            throw new AcbRefusal(AcbRefusalCode.REQUEST_MALFORMED,
+                    "A decline needs its reason -- wrong debit date, layout or other -- and the bank's words in at most "
+                            + BANK_WORDS_LIMIT + " characters.", Map.of("runId", String.valueOf(runId)));
+        }
+        // 🔒 The audit row says THAT the bank declined, and why from the list -- never the bank's words (SD3-D).
+        return transition(runId, version, AcbRunAction.RECORD_DECLINED, actor, "declined by the bank: " + reason.name(),
+                run -> {
+                    long answered = lines.countByRunIdAndOutcomeNot(runId, AcbLineOutcome.PENDING);
+                    if (answered > 0) {
+                        Map<String, String> facts = new LinkedHashMap<>(AcbRuns.facts(run));
+                        facts.put("returnedLines", String.valueOf(answered));
+                        throw new AcbRefusal(AcbRefusalCode.RUN_HAS_RETURNS,
+                                answered + " line(s) of this run have already come back from the bank, so its file "
+                                        + "was not declined. A declined file produces no returns.", facts);
+                    }
+                    run.setDeclinedReason(reason);
+                    run.setDeclinedWords(words);
+                    // The month's unpaids it re-presented are offered again when the month is prepared
+                    // again -- as a cancel releases them (D26).
+                    lines.releaseRun(runId);
+                });
+    }
+
     @Override
     public AcbRunDto cancel(long runId, int version, String actor, String reason) {
         return transition(runId, version, AcbRunAction.CANCEL, actor, reason,
@@ -403,6 +437,9 @@ public class AcbRunServiceImpl implements AcbRunService {
                 AcbTime.iso(run.getStartedAt()),
                 AcbTime.iso(run.getHeartbeatAt()),
                 run.getFailureReason(),
+                run.getDeclinedReason(),
+                run.getDeclinedWords(),
+                run.getReplacesRunId(),
                 summary);
     }
 
@@ -418,7 +455,8 @@ public class AcbRunServiceImpl implements AcbRunService {
                 totalsAgree(run, counted),
                 AcbRuns.calendarAgrees(run, calendar),
                 holidaysKnown(run),
-                run.getFailureReason());
+                run.getFailureReason(),
+                run.getDeclinedReason());
     }
 
     /**

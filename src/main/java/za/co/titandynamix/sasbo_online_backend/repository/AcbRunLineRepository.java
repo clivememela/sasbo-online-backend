@@ -92,6 +92,9 @@ public interface AcbRunLineRepository extends JpaRepository<AcbRunLine, Long> {
     int markPending(@Param("runId") Long runId, @Param("pending") AcbLineOutcome pending,
                     @Param("paid") AcbLineOutcome paid);
 
+    /** Lines the bank has answered for -- paid or unpaid. A run with any cannot be recorded as declined (F45). */
+    long countByRunIdAndOutcomeNot(Long runId, AcbLineOutcome outcome);
+
     /** Unpaids nobody has decided about yet -- counted on the run, never guessed at; closing waits for none. */
     @Query("SELECT count(l) FROM AcbRunLine l WHERE l.runId = :runId AND l.outcome = :unpaid AND l.decision IS NULL")
     long countUndecided(@Param("runId") Long runId, @Param("unpaid") AcbLineOutcome unpaid);

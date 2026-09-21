@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.dto.acb;
 
+import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 
 import java.math.BigDecimal;
@@ -22,5 +23,6 @@ public record AcbRunSummaryDto(
         boolean totalsAgree,
         boolean calendarAgrees,
         boolean holidaysKnown,
-        String failureReason) {
+        String failureReason,
+        AcbDeclineReason declinedReason) {
 }

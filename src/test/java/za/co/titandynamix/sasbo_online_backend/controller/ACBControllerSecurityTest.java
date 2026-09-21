@@ -96,6 +96,18 @@ class ACBControllerSecurityTest {
     }
 
     @Test
+    @DisplayName("🔒 recording a declined file is refused to every caller, with IDENTITY_REQUIRED, and nothing is read (D13, D29)")
+    void aDeclineIsRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(post("/api/acb/runs/41/declined")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\": 3, \"reason\": \"WRONG_DEBIT_DATE\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
+                .andExpect(jsonPath("$.details.runId").value("41"));
+        verifyNoInteractions(this.runs, this.returns, this.calendar);
+    }
+
+    @Test
     @DisplayName("🔒 the holiday calendar's writes are refused to every caller, with IDENTITY_REQUIRED, and nothing is read (D13, D30)")
     void calendarWritesAreRefusedToEveryone() throws Exception {
         this.mockMvc.perform(post("/api/acb/holidays")

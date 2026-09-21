@@ -23,12 +23,13 @@
     ]
   },
   "acb": {
-    "runStatuses": ["PREPARING", "PREPARED", "APPROVED", "SUBMITTED", "RETURNED", "CLOSED", "FAILED", "CANCELLED"],
+    "runStatuses": ["PREPARING", "PREPARED", "APPROVED", "SUBMITTED", "RETURNED", "CLOSED", "DECLINED", "FAILED", "CANCELLED"],
     "lineOutcomes": ["PENDING", "PAID", "UNPAID"],
     "unpaidDecisions": ["RE_PRESENT", "SUSPEND"],
     "unpaidReasons": ["NOT_PROVIDED_FOR", "PAYMENT_STOPPED", "ACCOUNT_FROZEN", "INVALID_ACCOUNT_NUMBER", "ACCOUNT_CLOSED", "NO_AUTHORITY_TO_DEBIT", "AUTHORISATION_CANCELLED", "OTHER"],
     "letterTemplates": ["RETURN_DEBIT", "ACCOUNT_CLOSED", "RE_DEBIT"],
     "letterStatuses": ["QUEUED", "RENDERED", "SENT", "FAILED"],
+    "declineReasons": ["WRONG_DEBIT_DATE", "LAYOUT", "OTHER"],
     "exclusionReasons": [
       {"name": "NOT_DEBIT_ORDER", "listed": false},
       {"name": "STATUS_NOT_ACTIVE", "listed": false},
@@ -45,6 +46,7 @@
       {"code": "RUN_VERSION_CONFLICT", "status": 409},
       {"code": "RUN_EMPTY", "status": 422},
       {"code": "RUN_CALENDAR_CHANGED", "status": 409},
+      {"code": "RUN_HAS_RETURNS", "status": 409},
       {"code": "BANK_SUBSCRIPTION_AMBIGUOUS", "status": 422},
       {"code": "RATE_NOT_IN_FORCE", "status": 422},
       {"code": "HOLIDAYS_NOT_KNOWN", "status": 422},

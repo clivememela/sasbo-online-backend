@@ -43,7 +43,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("ACB's tables and repositories, on PostgreSQL")
 class AcbRunRepositoryIT extends AbstractAcbIT {
 
-    private static final Set<AcbRunStatus> RELEASED = EnumSet.of(AcbRunStatus.FAILED, AcbRunStatus.CANCELLED);
+    private static final Set<AcbRunStatus> RELEASED =
+            EnumSet.of(AcbRunStatus.FAILED, AcbRunStatus.CANCELLED, AcbRunStatus.DECLINED);
     private static final Set<AcbRunStatus> SENT =
             EnumSet.of(AcbRunStatus.SUBMITTED, AcbRunStatus.RETURNED, AcbRunStatus.CLOSED);
     private static final LocalDate JULY = LocalDate.of(2026, 7, 1);

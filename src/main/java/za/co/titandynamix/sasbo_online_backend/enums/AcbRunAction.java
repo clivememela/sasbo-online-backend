@@ -6,6 +6,7 @@ import java.util.Optional;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.APPROVED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.CANCELLED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.CLOSED;
+import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.DECLINED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.FAILED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.PREPARED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.PREPARING;
@@ -34,6 +35,11 @@ public enum AcbRunAction {
     RECORD_RETURNS(Map.of(SUBMITTED, RETURNED)),
     /** The month is finished. */
     CLOSE(Map.of(RETURNED, CLOSED)),
+    /**
+     * Records that the bank declined the file (D29). Terminal: the month and the run's re-presentations
+     * are released, and the month is prepared again as a new run with a new file.
+     */
+    RECORD_DECLINED(Map.of(SUBMITTED, DECLINED)),
     /** The undo for a proposal. A submitted run is never cancelled: its unpaids are the record. */
     CANCEL(Map.of(PREPARED, CANCELLED, APPROVED, CANCELLED));
 

@@ -62,7 +62,8 @@ public class AcbFileServiceImpl implements AcbFileService {
 
     /** The runs whose file may be rendered or served: approved, and every state after it. */
     private static final Set<AcbRunStatus> RENDERABLE =
-            EnumSet.of(AcbRunStatus.APPROVED, AcbRunStatus.SUBMITTED, AcbRunStatus.RETURNED, AcbRunStatus.CLOSED);
+            EnumSet.of(AcbRunStatus.APPROVED, AcbRunStatus.SUBMITTED, AcbRunStatus.RETURNED, AcbRunStatus.CLOSED,
+                    AcbRunStatus.DECLINED);
 
     private static final String LINES_FOR_FILE = "SELECT l.id, l.branch_code, l.account_number, l.account_type, "
             + "l.amount, l.action_date, l.membership_number, l.surname, l.initials, o_run.action_month AS re_month "

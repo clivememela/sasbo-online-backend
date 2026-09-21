@@ -125,7 +125,7 @@ class ACBControllerTest {
     static AcbRunDto aRun(AcbRunStatus status) {
         return new AcbRunDto(41L, "2026-10", status, 0, "2026-09-18", null, null, null, null, null, false,
                 0, new BigDecimal("0.00"), true, true, null, null, "za-statutory", true, "system", null,
-                "2026-09-18T10:00+02:00", "2026-09-18T10:00+02:00", null,
+                "2026-09-18T10:00+02:00", "2026-09-18T10:00+02:00", null, null, null, null,
                 List.of(new AcbExclusionSummaryDto(AcbExclusionReason.NOT_DEBIT_ORDER, false, "Payroll Deduction", 48)));
     }
 
@@ -286,7 +286,7 @@ class ACBControllerTest {
     @DisplayName("GET /runs is a page: content, page, size and total")
     void theRunsListIsAPage() throws Exception {
         AcbRunSummaryDto summary = new AcbRunSummaryDto(41L, "2026-10", AcbRunStatus.PREPARED, 1,
-                "2026-09-18", 3, new BigDecimal("522.00"), true, true, true, null);
+                "2026-09-18", 3, new BigDecimal("522.00"), true, true, true, null, null);
         when(runs.list(0, 50)).thenReturn(new AcbPage<>(List.of(summary), 0, 50, 1, 1));
 
         this.mockMvc.perform(get("/api/acb/runs"))

@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.APPROVED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.CANCELLED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.CLOSED;
+import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.DECLINED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.FAILED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.PREPARED;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus.PREPARING;
@@ -50,6 +51,7 @@ class AcbRunActionTest {
         table.put(AcbRunAction.RECORD_SUBMITTED, Map.of(APPROVED, SUBMITTED));
         table.put(AcbRunAction.RECORD_RETURNS, Map.of(SUBMITTED, RETURNED));
         table.put(AcbRunAction.CLOSE, Map.of(RETURNED, CLOSED));
+        table.put(AcbRunAction.RECORD_DECLINED, Map.of(SUBMITTED, DECLINED));
         table.put(AcbRunAction.CANCEL, Map.of(PREPARED, CANCELLED, APPROVED, CANCELLED));
         return table;
     }
@@ -73,11 +75,12 @@ class AcbRunActionTest {
     }
 
     @Test
-    @DisplayName("FAILED and CANCELLED are terminal: nothing moves a dead run")
+    @DisplayName("FAILED, CANCELLED and DECLINED are terminal: nothing moves a dead run")
     void deadRunsStayDead() {
         for (AcbRunAction action : AcbRunAction.values()) {
             assertThat(action.from(FAILED)).as("%s from FAILED", action).isEmpty();
             assertThat(action.from(CANCELLED)).as("%s from CANCELLED", action).isEmpty();
+            assertThat(action.from(DECLINED)).as("%s from DECLINED", action).isEmpty();
         }
     }
 
@@ -111,13 +114,13 @@ class AcbRunActionTest {
                 .filter(s -> !s.holdsItsMonth())
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(AcbRunStatus.class)));
 
-        assertThat(releasedByJava).isEqualTo(releasedBySql).containsExactlyInAnyOrder(FAILED, CANCELLED);
+        assertThat(releasedByJava).isEqualTo(releasedBySql).containsExactlyInAnyOrder(FAILED, CANCELLED, DECLINED);
     }
 
     @Test
     @DisplayName("lines are final once the file has gone to the bank, and not before")
     void linesAreFinalFromSubmission() {
         assertThat(EnumSet.allOf(AcbRunStatus.class).stream().filter(AcbRunStatus::linesAreFinal))
-                .containsExactlyInAnyOrder(SUBMITTED, RETURNED, CLOSED);
+                .containsExactlyInAnyOrder(SUBMITTED, RETURNED, CLOSED, DECLINED);
     }
 }
