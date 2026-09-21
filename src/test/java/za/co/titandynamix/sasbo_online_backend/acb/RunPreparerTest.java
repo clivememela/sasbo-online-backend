@@ -246,7 +246,7 @@ class RunPreparerTest {
             assertThat(line.membershipNumber()).isEqualTo("M-200001");
             assertThat(line.surname()).isEqualTo("Botha");
             assertThat(line.initials()).isEqualTo("AB");
-            assertThat(line.accountType()).as("not on the member record yet").isNull();
+            assertThat(line.accountType()).as("00.5: the member's Cheque, as the file prints it").isEqualTo(1);
             assertThat(line.rePresentsLineId()).isNull();
         }
 

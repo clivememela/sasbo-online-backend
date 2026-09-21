@@ -166,6 +166,8 @@ class MemberServiceImplTest {
         // paymentType has to resolve, or validation rejects the whole member
         // before the save and this test would prove nothing about the fields.
         captured.setPaymentType("Payroll");
+        // And the account type (00.5): a synthetic string is not one of the three, and the validator says so.
+        captured.setAccountType("Transmission");
         // Likewise the structure answers: Synthetic sets every Boolean, so COSATU Local
         // arrives true beside a synthetic isCosatu that is not "Y", which
         // validateStructures correctly refuses (COSATU requires BEC; Local requires COSATU).
@@ -753,9 +755,11 @@ class MemberServiceImplTest {
         Member edit = new Member();
         edit.setPhone("+27 82 000 0009");
 
-        Member saved = this.service.update(4, edit).orElseThrow();
-        assertThat(saved.getPhone()).isEqualTo("+27 82 000 0009");
-        assertThat(saved.getAccountType()).isNull();
+        // The property is the validator's, not the mapper's (a bare mock here, as the note above says): the save
+        // happens, and the type the member was captured without stays unset rather than being refused or guessed.
+        assertThat(this.service.update(4, edit)).isPresent();
+        verify(this.memberRepository).save(existing);
+        assertThat(existing.getAccountType()).isNull();
     }
 
     @Test
