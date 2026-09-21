@@ -4,7 +4,7 @@
     {"name":"DEBIT_ORDER","displayName":"Debit Order","requiresBankAccount":true},
     {"name":"PAYROLL","displayName":"Payroll Deduction","requiresBankAccount":false}
   ],
-  "errorEnvelopeKeys": ["timestamp", "status", "error", "message", "path", "validationErrors"],
+  "errorEnvelopeKeys": ["timestamp", "status", "error", "message", "path", "validationErrors", "code", "details"],
   "jobGradeMatching": {
     "outcomes": ["MATCHED", "CAPTURED", "CLEARED"],
     "cases": [
@@ -20,6 +20,62 @@
       {"input": "Prokureur", "comparisonKey": "prokureur", "storedForm": "Prokureur", "blank": false},
       {"input": "  Senior   Clerk  ", "comparisonKey": "senior clerk", "storedForm": "Senior Clerk", "blank": false},
       {"input": "", "comparisonKey": "", "storedForm": "", "blank": true}
+    ]
+  },
+  "acb": {
+    "runStatuses": ["PREPARING", "PREPARED", "APPROVED", "SUBMITTED", "RETURNED", "CLOSED", "DECLINED", "FAILED", "CANCELLED"],
+    "lineOutcomes": ["PENDING", "PAID", "UNPAID"],
+    "unpaidDecisions": ["RE_PRESENT", "SUSPEND"],
+    "unpaidReasons": ["NOT_PROVIDED_FOR", "PAYMENT_STOPPED", "ACCOUNT_FROZEN", "INVALID_ACCOUNT_NUMBER", "ACCOUNT_CLOSED", "NO_AUTHORITY_TO_DEBIT", "AUTHORISATION_CANCELLED", "OTHER"],
+    "letterTemplates": ["RETURN_DEBIT", "ACCOUNT_CLOSED", "RE_DEBIT"],
+    "letterStatuses": ["QUEUED", "RENDERED", "SENT", "FAILED", "HANDLED"],
+    "declineReasons": ["WRONG_DEBIT_DATE", "LAYOUT", "OTHER"],
+    "exclusionReasons": [
+      {"name": "NOT_DEBIT_ORDER", "listed": false},
+      {"name": "STATUS_NOT_ACTIVE", "listed": false},
+      {"name": "NO_BANK_ON_RECORD", "listed": true},
+      {"name": "NO_SUBSCRIPTION_ROW", "listed": true},
+      {"name": "DAY_OUT_OF_WINDOW", "listed": true},
+      {"name": "ACCOUNT_SHAPE_INVALID", "listed": true},
+      {"name": "SNAPSHOT_INCOMPLETE", "listed": true}
+    ],
+    "refusalCodes": [
+      {"code": "RUN_ALREADY_EXISTS", "status": 409},
+      {"code": "RUN_NOT_FOUND", "status": 404},
+      {"code": "RUN_NOT_IN_STATE", "status": 409},
+      {"code": "RUN_VERSION_CONFLICT", "status": 409},
+      {"code": "RUN_EMPTY", "status": 422},
+      {"code": "RUN_CALENDAR_CHANGED", "status": 409},
+      {"code": "RUN_HAS_RETURNS", "status": 409},
+      {"code": "BANK_SUBSCRIPTION_AMBIGUOUS", "status": 422},
+      {"code": "RATE_NOT_IN_FORCE", "status": 422},
+      {"code": "RATE_ALREADY_SET", "status": 409},
+      {"code": "RATE_MONTH_CHARGED", "status": 409},
+      {"code": "RATE_NOT_FUTURE", "status": 422},
+      {"code": "HOLIDAYS_NOT_KNOWN", "status": 422},
+      {"code": "FILE_NOT_APPROVED", "status": 409},
+      {"code": "FILE_CHANGED_SINCE", "status": 409},
+      {"code": "FILE_SETTINGS_MISSING", "status": 422},
+      {"code": "FILE_HEADER_INVALID", "status": 422},
+      {"code": "FILE_LINES_INCOMPLETE", "status": 422},
+      {"code": "FILE_NOT_RENDERED", "status": 409},
+      {"code": "FILE_PURGED", "status": 410},
+      {"code": "FILE_HAS_SEED_MEMBERS", "status": 422},
+      {"code": "LINE_NOT_FOUND", "status": 404},
+      {"code": "UNPAID_ALREADY_RECORDED", "status": 409},
+      {"code": "UNPAIDS_UNDECIDED", "status": 409},
+      {"code": "PERMISSION_NOTE_REQUIRED", "status": 422},
+      {"code": "DATE_INVALID", "status": 400},
+      {"code": "REQUEST_MALFORMED", "status": 400},
+      {"code": "OPENING_POSITION_INVALID", "status": 422},
+      {"code": "OPENING_POSITION_LOCKED", "status": 409},
+      {"code": "UPLOAD_TOO_LARGE", "status": 413},
+      {"code": "UPLOAD_NOT_A_SHEET", "status": 415},
+      {"code": "LETTER_NOT_HELD", "status": 409},
+      {"code": "ACTION_MONTH_INVALID", "status": 400},
+      {"code": "HOLIDAY_ALREADY_LISTED", "status": 409},
+      {"code": "HOLIDAY_NOT_REMOVABLE", "status": 409},
+      {"code": "IDENTITY_REQUIRED", "status": 403}
     ]
   }
 }

@@ -471,8 +471,9 @@ artifact, compare it against an empty committed file and **pass**. Never raise i
 to match the actual — delete a controller in a legitimate refactor and a floor of
 41 reddens for a reason nobody caused.
 
-> **`ACBController` contributes zero routes**, and that is correct rather than a
-> discovery bug: it declares no handler methods at all. Eleven of the twelve
+> **`ACBController` contributed zero routes** when this was measured, and that was
+> correct rather than a discovery bug: it declared no handler methods at all.
+> *(Since ACB P1–P3, 2026-09-19, it contributes fourteen — `api-surface.txt` lists them.)* Eleven of the twelve
 > controllers produce the forty application routes; the forty-first line is the
 > framework's own `ANY /error`. Framework routes are **not** filtered out — a
 > curated list is the hand-maintained second source of truth this whole

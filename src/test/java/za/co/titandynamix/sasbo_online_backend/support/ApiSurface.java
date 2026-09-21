@@ -10,6 +10,15 @@ import za.co.titandynamix.sasbo_online_backend.dto.member.PaymentTypeMetadataDto
 import za.co.titandynamix.sasbo_online_backend.exception.ApiErrorResponse;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
+import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
+import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
+import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -226,9 +235,55 @@ public final class ApiSurface {
                     "cases": [
                 %s
                     ]
+                  },
+                  "acb": {
+                    "runStatuses": [%s],
+                    "lineOutcomes": [%s],
+                    "unpaidDecisions": [%s],
+                    "unpaidReasons": [%s],
+                    "letterTemplates": [%s],
+                    "letterStatuses": [%s],
+                    "declineReasons": [%s],
+                    "exclusionReasons": [
+                %s
+                    ],
+                    "refusalCodes": [
+                %s
+                    ]
                   }
                 }
-                """.formatted(regenerateCommand(), types, keys, jobGradeOutcomeNames(), jobGradeMatchingCases());
+                """.formatted(regenerateCommand(), types, keys, jobGradeOutcomeNames(), jobGradeMatchingCases(),
+                names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
+                names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
+                names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),
+                acbRefusalCodes());
+    }
+
+    /**
+     * The ACB module's vocabulary: the states a run and a line can be in, the decisions an unpaid
+     * can carry, why a member is left out of a run, and every refusal code with the status it
+     * answers. Read off the enums the server throws and returns, never typed out, so a code added
+     * on the server reaches the browser's parity test by regenerating this file.
+     */
+    private static String names(Enum<?>[] values) {
+        return Arrays.stream(values)
+                .map(Enum::name)
+                .map(ApiSurface::quote)
+                .collect(Collectors.joining(", "));
+    }
+
+    /** Each reason, and whether its members are listed by name or only counted. */
+    private static String acbExclusionReasons() {
+        return Arrays.stream(AcbExclusionReason.values())
+                .map(r -> "      {\"name\": %s, \"listed\": %s}".formatted(quote(r.name()), r.listed()))
+                .collect(Collectors.joining(",\n"));
+    }
+
+    /** Each refusal code, and the HTTP status it answers with. */
+    private static String acbRefusalCodes() {
+        return Arrays.stream(AcbRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
     }
 
     /**

@@ -67,3 +67,21 @@ front:
 
 mail:
   from: ${MAIL_FROM:noreply@sasbo.co.za}
+
+# The ACB bureau file's four collection identifiers: SASBO's user code, user branch, the account the
+# debits are credited to, and its bank identifiers. From the environment only -- never committed.
+# Unset, a file refuses to render (FILE_SETTINGS_MISSING) and names what is missing; nothing else
+# in the application needs them. The file's constants default in AcbFileProperties.
+acb:
+  file:
+    user-code: ${ACB_FILE_USER_CODE:}
+    user-branch: ${ACB_FILE_USER_BRANCH:}
+    nominated-account: ${ACB_FILE_NOMINATED_ACCOUNT:}
+    bank-identifiers: ${ACB_FILE_BANK_IDENTIFIERS:}
+
+# THE PRODUCTION MARKER. Set SASBO_ENVIRONMENT=production on the production service, once, the day it
+# is created -- and nowhere else: not on dev.sasbo.online, not in CI, not in the E2E stack. Where it says
+# production, no synthetic member and no ACB history is ever seeded, and no bureau file is made from a
+# seeded member. Blank means a demo. Anything else stops the start-up and says what it accepts.
+sasbo:
+  environment: ${SASBO_ENVIRONMENT:}

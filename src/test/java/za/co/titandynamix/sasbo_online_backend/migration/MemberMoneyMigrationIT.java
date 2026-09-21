@@ -362,7 +362,10 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         migrateTo(this.beforeV40);
         List<String> before = publicTables();
 
-        migrateTo(MigrationVersion.LATEST);
+        // To V40 EXACTLY, not LATEST: this test's subject is V40, and from ACB P1 the chain goes
+        // on to V41-V43, which add six tables of their own. Measuring to LATEST would redden this
+        // for a migration it is not about -- ACB's tables are counted where they are added.
+        migrateTo(V40);
 
         assertThat(publicTables())
                 .as("every table that existed before V40, plus its report, and nothing else")
