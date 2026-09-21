@@ -48,6 +48,13 @@ import java.util.regex.Pattern;
  * line for the member, on their own day, at the amount of the line it re-presents, beside the
  * month's own debit: never one combined amount. A member excluded this month has neither line, and
  * their re-presentation waits, unclaimed, for a month they can be debited in.
+ *
+ * <h2>One re-debit a month, unless the member agreed to more (D32)</h2>
+ * The OLDEST unpaid month's re-presentation is automatic. Each further one is taken only when its
+ * decision carries the member's permission; without it the unpaid is HELD OVER -- left unclaimed, so
+ * it is offered again next month and listed on the run meanwhile -- never dropped, never an exclusion
+ * (F46): the member is in the run. Three debits in one month on an account that has just bounced is
+ * how a member reaches three unpaids in a fortnight (Q27).
  */
 public final class RunPreparer {
 
@@ -103,9 +110,14 @@ public final class RunPreparer {
         BankRow bank = banks.find(member.bankName()).orElseThrow();
         LocalDate actionDate = window.actionDate(month, member.debitDay());
         lines.add(line(member, bank, actionDate, rate, null));
-        for (RePresentationCandidate candidate :
-                candidatesByMember.getOrDefault(member.id(), List.of())) {
-            lines.add(line(member, bank, actionDate, candidate.amount(), candidate.lineId()));
+        List<RePresentationCandidate> theirs = new ArrayList<>(candidatesByMember.getOrDefault(member.id(), List.of()));
+        theirs.sort(Comparator.comparing(RePresentationCandidate::month).thenComparing(RePresentationCandidate::lineId));
+        for (int i = 0; i < theirs.size(); i++) {
+            RePresentationCandidate candidate = theirs.get(i);
+            if (i == 0 || candidate.permitted()) {
+                lines.add(line(member, bank, actionDate, candidate.amount(), candidate.lineId()));
+            }
+            // else held over: unclaimed, so offered again next month, and listed on the run (D32, F46)
         }
     }
 

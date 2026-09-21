@@ -262,7 +262,7 @@ class RunPreparerTest {
     class RePresentations {
 
         static final RePresentationCandidate JUNE_UNPAID =
-                new RePresentationCandidate(501L, 7, new BigDecimal("170.00"), YearMonth.of(2026, 6));
+                new RePresentationCandidate(501L, 7, new BigDecimal("170.00"), YearMonth.of(2026, 6), false);
 
         @Test
         @DisplayName("a member with an unpaid chosen to present again gets two lines, same day, the old amount")
@@ -291,8 +291,35 @@ class RunPreparerTest {
         @Test
         @DisplayName("an unpaid of a member not in this population is simply not presented")
         void aCandidateForSomebodyElse() {
-            RePresentationCandidate stranger = new RePresentationCandidate(502L, 999, RATE, YearMonth.of(2026, 6));
+            RePresentationCandidate stranger = new RePresentationCandidate(502L, 999, RATE, YearMonth.of(2026, 6), false);
             assertThat(prepare(List.of(qualifying()), List.of(stranger)).lines()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("🔒 R3-11, D32: two unpaids to present again -- the OLDEST is automatic, the other is held over without permission")
+        void aSecondReDebitIsHeldOver() {
+            RePresentationCandidate july = new RePresentationCandidate(503L, 7, RATE, YearMonth.of(2026, 7), false);
+            Preparation prepared = prepare(List.of(qualifying()), List.of(july, JUNE_UNPAID));
+            assertThat(prepared.lines()).extracting(PreparedLine::rePresentsLineId)
+                    .as("the month's own debit, and June's -- the oldest -- whatever order they arrive in")
+                    .containsExactly(null, 501L);
+        }
+
+        @Test
+        @DisplayName("the must-pass twin: with the member's permission the further re-debit is taken too")
+        void permissionTakesItToo() {
+            RePresentationCandidate july = new RePresentationCandidate(503L, 7, RATE, YearMonth.of(2026, 7), true);
+            assertThat(prepare(List.of(qualifying()), List.of(JUNE_UNPAID, july)).lines())
+                    .extracting(PreparedLine::rePresentsLineId).containsExactly(null, 501L, 503L);
+        }
+
+        @Test
+        @DisplayName("permission on the OLDEST changes nothing: it is automatic anyway, and the newer one is still held")
+        void permissionOnTheOldestIsNotPermissionForTheNext() {
+            RePresentationCandidate june = new RePresentationCandidate(501L, 7, new BigDecimal("170.00"), YearMonth.of(2026, 6), true);
+            RePresentationCandidate july = new RePresentationCandidate(503L, 7, RATE, YearMonth.of(2026, 7), false);
+            assertThat(prepare(List.of(qualifying()), List.of(june, july)).lines())
+                    .extracting(PreparedLine::rePresentsLineId).containsExactly(null, 501L);
         }
     }
 

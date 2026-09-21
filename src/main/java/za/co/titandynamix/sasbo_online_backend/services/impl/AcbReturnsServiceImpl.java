@@ -15,6 +15,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbLetter;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
@@ -52,6 +53,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.HashMap;
 
 /**
  * The returns loop, recorded by hand from the bank's report until the report can be imported.
@@ -142,7 +144,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         if (Boolean.TRUE.equals(recorded)) {
             meters.counter("acb.unpaids.recorded").increment();
         }
-        return AcbRunServiceImpl.lineDto(requireLine(runId, lineId));
+        return withSuggestion(requireLine(runId, lineId));
     }
 
     @Override
@@ -165,17 +167,78 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
             lines.saveAndFlush(line);
             audit.record(runId, lineId, "UNPAID_DECIDED", null, null, decision.name(), actor);
         });
-        return AcbRunServiceImpl.lineDto(requireLine(runId, lineId));
+        return withSuggestion(requireLine(runId, lineId));
+    }
+
+    /** The note is kept to this many characters -- refused beyond it, never cut (SD3-D). */
+    static final int PERMISSION_NOTE_LIMIT = 300;
+
+    @Override
+    public AcbRunLineDto permit(long runId, long lineId, String note, String actor) {
+        String permission = note == null || note.isBlank() ? null : note.trim();
+        if (permission == null) {
+            throw new AcbRefusal(AcbRefusalCode.PERMISSION_NOTE_REQUIRED,
+                    "A further re-debit needs the member's permission: who agreed, when, and how.",
+                    Map.of("lineId", String.valueOf(lineId)));
+        }
+        if (permission.length() > PERMISSION_NOTE_LIMIT) {
+            throw new AcbRefusal(AcbRefusalCode.REQUEST_MALFORMED,
+                    "The member's permission is kept to " + PERMISSION_NOTE_LIMIT + " characters.",
+                    Map.of("lineId", String.valueOf(lineId), "field", "note"));
+        }
+        tx.executeWithoutResult(status -> {
+            AcbRun run = runs.findById(runId).orElseThrow(() -> AcbRuns.notFound(runId));
+            if (!AcbRuns.SENT.contains(run.getStatus())) {
+                throw new AcbRefusal(AcbRefusalCode.RUN_NOT_IN_STATE, "Permission is recorded for an unpaid of a run "
+                        + "whose file went to the bank; this run is " + run.getStatus() + ".", AcbRuns.facts(run));
+            }
+            AcbRunLine line = requireLine(runId, lineId);
+            if (line.getOutcome() != AcbLineOutcome.UNPAID) {
+                throw new AcbRefusal(AcbRefusalCode.RUN_NOT_IN_STATE,
+                        "Only an unpaid debit is presented again; this one is " + line.getOutcome() + ".", lineFacts(line));
+            }
+            if (line.getDecision() == UnpaidDecision.SUSPEND) {
+                throw new AcbRefusal(AcbRefusalCode.UNPAID_ALREADY_RECORDED,
+                        "The decision on this unpaid is SUSPEND; it is not presented again.", lineFacts(line));
+            }
+            line.setDecision(UnpaidDecision.RE_PRESENT);
+            line.setPermissionNote(permission);
+            lines.saveAndFlush(line);
+            // 🔒 THAT permission was given, never what it says (SD3-D).
+            audit.record(runId, lineId, "PERMISSION_RECORDED", null, null,
+                    "the member's permission for a further re-debit recorded", actor);
+        });
+        return withSuggestion(requireLine(runId, lineId));
+    }
+
+    @Override
+    public AcbPage<AcbHeldOverDto> heldOver(long runId, int page, int size) {
+        AcbRun run = runs.findById(runId).orElseThrow(() -> AcbRuns.notFound(runId));
+        PageRequest request = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), AcbRunServiceImpl.MAX_PAGE_SIZE));
+        return AcbPage.of(returns.findHeldOver(runId, run.getActionMonth(), AcbRuns.SENT, AcbLineOutcome.UNPAID,
+                        UnpaidDecision.RE_PRESENT, request),
+                row -> new AcbHeldOverDto(row.lineId(), row.runId(), row.memberId(), row.membershipNumber(),
+                        row.surname(), AcbTime.iso(YearMonth.from(row.monthStart())), row.amount()));
+    }
+
+    /** A line, with the decision its code suggests while it is an undecided unpaid (Q40, Q44). */
+    private AcbRunLineDto withSuggestion(AcbRunLine line) {
+        UnpaidDecision suggested = line.getUnpaidCode() == null ? null
+                : codes.findById(line.getUnpaidCode()).map(AcbUnpaidCode::suggestedDecision).orElse(null);
+        return AcbRunServiceImpl.lineDto(line, suggested);
     }
 
     @Override
     public AcbPage<AcbRunLineDto> unpaids(long runId, UnpaidReason reason, int page, int size) {
         runs.findById(runId).orElseThrow(() -> AcbRuns.notFound(runId));
         PageRequest request = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), AcbRunServiceImpl.MAX_PAGE_SIZE));
+        // The codes' suggestions, read once for the page -- a handful of rows, never a query per line.
+        Map<String, UnpaidDecision> suggestions = new HashMap<>();
+        codes.findAll().forEach(code -> suggestions.put(code.getCode(), code.suggestedDecision()));
         return AcbPage.of(reason == null
                         ? returns.findUnpaids(runId, AcbLineOutcome.UNPAID, request)
                         : returns.findUnpaidsFor(runId, AcbLineOutcome.UNPAID, reason.name(), request),
-                AcbRunServiceImpl::lineDto);
+                line -> AcbRunServiceImpl.lineDto(line, suggestions.get(line.getUnpaidCode())));
     }
 
     @Override

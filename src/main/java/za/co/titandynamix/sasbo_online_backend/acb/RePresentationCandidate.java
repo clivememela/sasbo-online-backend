@@ -13,11 +13,14 @@ import java.time.YearMonth;
  *                says whether a debit re-presented after a rate change takes the new rate
  * @param month   the month it was for, which the bureau file prints in the re-presented line's
  *                reference (July's file: {@code JUNE})
+ * @param permitted the decision carries the member's permission for a further re-debit (D32)
  */
-public record RePresentationCandidate(Long lineId, Integer memberId, BigDecimal amount, YearMonth month) {
+public record RePresentationCandidate(Long lineId, Integer memberId, BigDecimal amount, YearMonth month,
+                                      boolean permitted) {
 
     /** As a query selects it: the run's month is stored as its first day. */
-    public RePresentationCandidate(Long lineId, Integer memberId, BigDecimal amount, LocalDate monthStart) {
-        this(lineId, memberId, amount, YearMonth.from(monthStart));
+    public RePresentationCandidate(Long lineId, Integer memberId, BigDecimal amount, LocalDate monthStart,
+                                   boolean permitted) {
+        this(lineId, memberId, amount, YearMonth.from(monthStart), permitted);
     }
 }

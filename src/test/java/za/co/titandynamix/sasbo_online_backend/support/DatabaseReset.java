@@ -83,7 +83,7 @@ public final class DatabaseReset {
             "representative_roles", MigrationSeed.REPRESENTATIVE_ROLES,
             "recruiters", MigrationSeed.RECRUITERS,
             "acb_rates", MigrationSeed.ACB_RATES,
-            "acb_unpaid_codes", MigrationSeed.ACB_UNPAID_CODES,
+            "acb_unpaid_codes", MigrationSeed.ACB_UNPAID_CODES.size(),
             "acb_holidays", MigrationSeed.ACB_HOLIDAYS.size(),
             "acb_calendar", 1);
 

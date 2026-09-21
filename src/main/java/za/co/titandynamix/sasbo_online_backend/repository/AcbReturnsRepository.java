@@ -7,13 +7,16 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.PresentationRow;
+import za.co.titandynamix.sasbo_online_backend.acb.returns.HeldOverRow;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 
 /**
  * The reads the returns loop makes: a run's unpaids and their counts, a member's history of debits,
@@ -60,6 +63,31 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
             + "                   WHERE u.runId = ur.id AND ur.status IN :sent AND u.outcome = :unpaid)")
     List<PresentationRow> findHistoriesOfMembersWithUnpaids(@Param("sent") Collection<AcbRunStatus> sent,
                                                             @Param("unpaid") AcbLineOutcome unpaid);
+
+    /**
+     * The re-debits a run holds over (D32): unpaids decided present-again, from sent runs of earlier
+     * months, that no live run presents -- of members who ARE in this run. One query, paged.
+     */
+    @Query(value = "SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.HeldOverRow("
+            + "u.id, u.runId, u.memberId, u.membershipNumber, u.surname, ur.actionMonth, u.amount) "
+            + "FROM AcbRunLine u, AcbRun ur "
+            + "WHERE u.runId = ur.id AND ur.status IN :sent AND ur.actionMonth < :month "
+            + "AND u.outcome = :unpaid AND u.decision = :decision "
+            + "AND NOT EXISTS (SELECT x FROM AcbRunLine x WHERE x.rePresentsLineId = u.id AND x.runReleased = false) "
+            + "AND EXISTS (SELECT m FROM AcbRunLine m WHERE m.runId = :runId AND m.memberId = u.memberId "
+            + "            AND m.runReleased = false) "
+            + "ORDER BY u.memberId, ur.actionMonth, u.id",
+            countQuery = "SELECT count(u) FROM AcbRunLine u, AcbRun ur "
+            + "WHERE u.runId = ur.id AND ur.status IN :sent AND ur.actionMonth < :month "
+            + "AND u.outcome = :unpaid AND u.decision = :decision "
+            + "AND NOT EXISTS (SELECT x FROM AcbRunLine x WHERE x.rePresentsLineId = u.id AND x.runReleased = false) "
+            + "AND EXISTS (SELECT m FROM AcbRunLine m WHERE m.runId = :runId AND m.memberId = u.memberId "
+            + "            AND m.runReleased = false)")
+    Page<HeldOverRow> findHeldOver(@Param("runId") Long runId, @Param("month") LocalDate month,
+                                   @Param("sent") Collection<AcbRunStatus> sent,
+                                   @Param("unpaid") AcbLineOutcome unpaid,
+                                   @Param("decision") UnpaidDecision decision,
+                                   Pageable pageable);
 
     /** What a letter needs of the member it goes to. */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient("

@@ -5,6 +5,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 
@@ -36,6 +37,16 @@ public interface AcbReturnsService {
 
     /** What the bank sent back for a run, counted. */
     AcbReturnsSummaryDto summary(long runId);
+
+    /**
+     * Records the member's permission for a further re-debit of an unpaid (D32) -- deciding it present
+     * again if it was undecided. {@code PERMISSION_NOTE_REQUIRED} without a note; the note is capped at
+     * 300 characters and kept on the line alone (SD3-D).
+     */
+    AcbRunLineDto permit(long runId, long lineId, String note, String actor);
+
+    /** The re-debits run {@code runId} holds over for want of the member's permission (D32), a page at a time. */
+    AcbPage<AcbHeldOverDto> heldOver(long runId, int page, int size);
 
     /** Who three unpaid presentations would terminate -- every unpaid counts (Q27). Terminates nobody. */
     AcbTerminationReportDto terminationReport();

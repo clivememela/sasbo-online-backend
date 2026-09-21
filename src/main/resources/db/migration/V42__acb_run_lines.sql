@@ -56,6 +56,11 @@ CREATE TABLE acb_run_lines (
     unpaid_reason       VARCHAR(40),
     unpaid_noted_on     DATE,
     decision            VARCHAR(20),
+    -- 🔒 The member's permission for a FURTHER re-debit in one run -- who agreed, when, how (D32, Q38;
+    -- amended in place 2026-09-21, unpushed, F53). Without it only the oldest unpaid month is presented
+    -- again automatically, and the rest are held over. Capped, stored once, returned with its own
+    -- line alone, and never copied into a log line or an audit row (SD3-D).
+    permission_note     VARCHAR(300),
     CONSTRAINT acb_run_lines_amount_positive CHECK (amount > 0),
     CONSTRAINT acb_run_lines_account_digits CHECK (account_number ~ '^[0-9]{1,11}$'),
     CONSTRAINT acb_run_lines_account_type_known CHECK (account_type IS NULL OR account_type IN (1, 2, 3)),

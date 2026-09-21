@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
@@ -21,6 +22,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.PermissionRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.PrepareRunRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RunTransitionRequest;
@@ -177,6 +179,24 @@ public class ACBController {
     @PostMapping("/runs/{id}/close")
     public AcbRunDto close(@PathVariable("id") long id, @Valid @RequestBody RunTransitionRequest request) {
         return runs.close(id, request.version(), AcbActor.current(), request.reason());
+    }
+
+    /**
+     * Records the member's permission for a further re-debit of an unpaid (D32) -- data entry, like the
+     * decision it completes. {@code PERMISSION_NOTE_REQUIRED} without a note.
+     */
+    @PostMapping("/runs/{id}/lines/{lineId}/permission")
+    public AcbRunLineDto permit(@PathVariable("id") long id, @PathVariable("lineId") long lineId,
+                                @RequestBody PermissionRequest request) {
+        return returns.permit(id, lineId, request.note(), AcbActor.current());
+    }
+
+    /** The re-debits a run holds over for want of the member's permission (D32), a page at a time. */
+    @GetMapping("/runs/{id}/held-over")
+    public AcbPage<AcbHeldOverDto> heldOver(@PathVariable("id") long id,
+                                            @RequestParam(defaultValue = "0") int page,
+                                            @RequestParam(defaultValue = "50") int size) {
+        return returns.heldOver(id, page, size);
     }
 
     /** A run's unpaids, a page at a time -- all of them, or one reason's ("Invalid Accounts"). */

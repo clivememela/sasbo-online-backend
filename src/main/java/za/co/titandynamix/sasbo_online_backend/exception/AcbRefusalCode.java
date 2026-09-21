@@ -81,6 +81,11 @@ public enum AcbRefusalCode {
      * presented again nor suspended, and closing would leave it so for ever. The details carry the count.
      */
     UNPAIDS_UNDECIDED(HttpStatus.CONFLICT),
+    /**
+     * A further re-debit for a member in one run is confirmed only with the member's permission --
+     * who agreed, when, how (D32). The details carry the unpaid line's id.
+     */
+    PERMISSION_NOTE_REQUIRED(HttpStatus.UNPROCESSABLE_ENTITY),
     /** A date is malformed -- dates are written YYYY-MM-DD -- or is not one this action accepts. */
     DATE_INVALID(HttpStatus.BAD_REQUEST),
     /**

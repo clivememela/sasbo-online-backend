@@ -56,7 +56,8 @@ public interface AcbRunLineRepository extends JpaRepository<AcbRunLine, Long> {
      * {@code re_presents_line_id} counts only unreleased lines, for the same reason.
      */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.RePresentationCandidate("
-            + "l.id, l.memberId, l.amount, r.actionMonth) "
+            + "l.id, l.memberId, l.amount, r.actionMonth, "
+            + "CASE WHEN l.permissionNote IS NULL THEN false ELSE true END) "
             + "FROM AcbRunLine l, AcbRun r "
             + "WHERE l.runId = r.id "
             + "AND l.outcome = :unpaid AND l.decision = :decision "

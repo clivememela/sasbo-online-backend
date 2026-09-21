@@ -24,6 +24,7 @@ import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionSummaryDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
@@ -325,7 +326,7 @@ class ACBControllerTest {
     void linesAreMasked() throws Exception {
         AcbRunLineDto line = new AcbRunLineDto(3L, 7, "M-200001", "Botha", "AB", "Alpha Bank", "632005",
                 "9911", null, 25, "2026-10-26", new BigDecimal("174.00"), AcbLineOutcome.PENDING, null, null,
-                null, null, null);
+                null, null, null, null, null);
         when(runs.lines(41L, 0, 50)).thenReturn(new AcbPage<>(List.of(line), 0, 50, 1, 1));
 
         MvcResult result = this.mockMvc.perform(get("/api/acb/runs/41/lines"))
@@ -403,7 +404,7 @@ class ACBControllerTest {
     static AcbRunLineDto anUnpaidLine(UnpaidDecision decision) {
         return new AcbRunLineDto(3L, 7, "M-200001", "Botha", "AB", "Alpha Bank", "632005", "9911", 1, 25,
                 "2026-10-26", new BigDecimal("174.00"), AcbLineOutcome.UNPAID, null, 1, "4",
-                "PAYMENT_STOPPED", decision);
+                "PAYMENT_STOPPED", decision, decision == null ? UnpaidDecision.SUSPEND : null, null);
     }
 
     @Test
@@ -420,6 +421,30 @@ class ACBControllerTest {
                 .andExpect(jsonPath("$.unpaidCode").value("4"))
                 .andExpect(jsonPath("$.decision").value("RE_PRESENT"));
         verify(returns).recordUnpaid(41L, 3L, request, "system");
+    }
+
+    @Test
+    @DisplayName("the member's permission for a further re-debit passes its note, and answers the line (D32)")
+    void recordingAPermission() throws Exception {
+        when(returns.permit(41L, 3L, "Agreed by the Synthetic Member", "system"))
+                .thenReturn(anUnpaidLine(UnpaidDecision.RE_PRESENT));
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/permission")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"note\": \"Agreed by the Synthetic Member\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decision").value("RE_PRESENT"));
+        verify(returns).permit(41L, 3L, "Agreed by the Synthetic Member", "system");
+    }
+
+    @Test
+    @DisplayName("a run's held-over re-debits are a page (D32)")
+    void theHeldOverList() throws Exception {
+        when(returns.heldOver(41L, 0, 50)).thenReturn(new AcbPage<>(List.of(new AcbHeldOverDto(9L, 30L, 7, "M-200001",
+                "Botha", "2026-08", new BigDecimal("174.00"))), 0, 50, 1, 1));
+        this.mockMvc.perform(get("/api/acb/runs/41/held-over"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].month").value("2026-08"))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test

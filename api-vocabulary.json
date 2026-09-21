@@ -61,6 +61,7 @@
       {"code": "LINE_NOT_FOUND", "status": 404},
       {"code": "UNPAID_ALREADY_RECORDED", "status": 409},
       {"code": "UNPAIDS_UNDECIDED", "status": 409},
+      {"code": "PERMISSION_NOTE_REQUIRED", "status": 422},
       {"code": "DATE_INVALID", "status": 400},
       {"code": "REQUEST_MALFORMED", "status": 400},
       {"code": "ACTION_MONTH_INVALID", "status": 400},

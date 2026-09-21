@@ -104,4 +104,8 @@ public class AcbRunLine {
     @Enumerated(EnumType.STRING)
     @Column(name = "decision", length = 20)
     private UnpaidDecision decision;
+
+    /** The member's permission for a further re-debit in one run (D32) -- never logged, never audited (SD3-D). */
+    @Column(name = "permission_note", length = 300)
+    private String permissionNote;
 }

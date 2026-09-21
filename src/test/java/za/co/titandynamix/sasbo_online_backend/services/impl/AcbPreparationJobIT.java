@@ -15,6 +15,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.AcbRunFixture;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbAuditEventRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
+import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractAcbIT;
 
@@ -48,6 +49,8 @@ class AcbPreparationJobIT extends AbstractAcbIT {
     private AcbRunRepository runs;
     @Autowired
     private AcbAuditEventRepository auditEvents;
+    @Autowired
+    private AcbReturnsService returns;
 
     private static final String OCTOBER = "2026-10";
 
@@ -275,6 +278,36 @@ class AcbPreparationJobIT extends AbstractAcbIT {
     }
 
     // ------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("🔒 R3-11, D32: two unpaids to present again -- October takes the OLDEST, holds the other over and lists it; with the member's permission it takes both")
+    void aSecondReDebitWaitsForPermission() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        int member = AcbRunFixture.FIRST_MEMBER_ID;
+        long july = insertRun(LocalDate.of(2026, 7, 1), "CLOSED", FROZEN, "system");
+        long julyUnpaid = insertLine(july, member, null, "UNPAID", "RE_PRESENT", new BigDecimal("174.00"));
+        long august = insertRun(LocalDate.of(2026, 8, 1), "CLOSED", FROZEN, "system");
+        long augustUnpaid = insertLine(august, member, null, "UNPAID", "RE_PRESENT", new BigDecimal("174.00"));
+
+        AcbRunDto october = service.get(service.prepare(OCTOBER, "system").id());
+        assertThat(linesOf(october.id(), member)).extracting(AcbRunLineDto::rePresentsLineId)
+                .as("the month's own debit and July's, the oldest").containsExactlyInAnyOrder(null, julyUnpaid);
+        assertThat(returns.heldOver(october.id(), 0, 50).content()).singleElement().satisfies(held -> {
+            assertThat(held.lineId()).isEqualTo(augustUnpaid);
+            assertThat(held.month()).isEqualTo("2026-08");
+        });
+        assertThat(october.exclusions()).as("held over is never an exclusion -- the member is in the run (F46)")
+                .noneMatch(summary -> summary.memberCount() > 0 && summary.listed() && summary.detail() != null
+                        && summary.detail().contains("re-debit"));
+
+        // The member agrees: the month prepared again takes both, and holds nothing over.
+        returns.permit(august, augustUnpaid, "Agreed by the Synthetic Member", "system");
+        service.cancel(october.id(), october.version(), "system", "the member's permission is on record");
+        AcbRunDto again = service.get(service.prepare(OCTOBER, "system").id());
+        assertThat(linesOf(again.id(), member)).extracting(AcbRunLineDto::rePresentsLineId)
+                .containsExactlyInAnyOrder(null, julyUnpaid, augustUnpaid);
+        assertThat(returns.heldOver(again.id(), 0, 50).content()).isEmpty();
+    }
 
     private List<AcbRunLineDto> linesOf(long runId, int memberId) {
         return service.lines(runId, 0, 200).content().stream().filter(l -> l.memberId() == memberId).toList();

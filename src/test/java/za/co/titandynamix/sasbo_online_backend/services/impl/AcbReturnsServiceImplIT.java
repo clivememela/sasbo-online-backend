@@ -23,12 +23,15 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbUnpaidCodeRepositor
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractAcbIT;
+import za.co.titandynamix.sasbo_online_backend.support.LogCapture;
+import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
@@ -325,5 +328,90 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
             return refusal;
         }
         return fail("expected an AcbRefusal and the call returned normally");
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // 03.2's new box: the code's re-debit flag, and the member's permission (Q40, Q44, D32)
+    // ------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("🔬 F50: V45's codes ARE MigrationSeed.ACB_UNPAID_CODES -- each meaning and its re-debit flag, every flag inferred")
+    void theCodesAreTheOneList() {
+        List<MigrationSeed.UnpaidCode> migrated = jdbc.query(
+                "SELECT code, reason, re_debit_allowed, re_debit_inferred FROM acb_unpaid_codes ORDER BY length(code), code",
+                (rs, row) -> {
+                    assertThat(rs.getBoolean("re_debit_inferred")).as("code %s marked inferred", rs.getString("code")).isTrue();
+                    Object allowed = rs.getObject("re_debit_allowed");
+                    return new MigrationSeed.UnpaidCode(rs.getString("code"), rs.getString("reason"), (Boolean) allowed);
+                });
+        assertThat(migrated).containsExactlyElementsOf(MigrationSeed.ACB_UNPAID_CODES);
+    }
+
+    @Test
+    @DisplayName("🔒 R3-14: an undecided unpaid carries the decision its code suggests -- present again, suspend, or none")
+    void theCodeSuggestsTheDecision() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        long run = insertRun(LocalDate.of(2026, 9, 1), "SUBMITTED", FROZEN, "system");
+        long notProvided = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID, null, "PENDING", null, RATE);
+        long stopped = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID + 1, null, "PENDING", null, RATE);
+        long unknown = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID + 2, null, "PENDING", null, RATE);
+
+        assertThat(returns.recordUnpaid(run, notProvided, new RecordUnpaidRequest("2", "2026-09-28", null), "system")
+                .suggestedDecision()).isEqualTo(UnpaidDecision.RE_PRESENT);
+        assertThat(returns.recordUnpaid(run, stopped, new RecordUnpaidRequest("4", "2026-09-28", null), "system")
+                .suggestedDecision()).isEqualTo(UnpaidDecision.SUSPEND);
+        assertThat(returns.recordUnpaid(run, unknown, new RecordUnpaidRequest("30", "2026-09-28", null), "system")
+                .suggestedDecision()).isNull();
+        // A suggestion, never a decision: all three are undecided until the administrator decides.
+        assertThat(returns.summary(run).undecided()).isEqualTo(3);
+        assertThat(returns.unpaids(run, null, 0, 50).content())
+                .extracting(AcbRunLineDto::suggestedDecision).containsExactlyInAnyOrder(UnpaidDecision.RE_PRESENT,
+                        UnpaidDecision.SUSPEND, null);
+    }
+
+    @Test
+    @DisplayName("🔒 R3-14's twin: the administrator's own choice wins over the code's suggestion")
+    void theAdministratorsChoiceWins() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        long run = insertRun(LocalDate.of(2026, 9, 1), "SUBMITTED", FROZEN, "system");
+        long line = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID, null, "PENDING", null, RATE);
+        AcbRunLineDto recorded = returns.recordUnpaid(run, line,
+                new RecordUnpaidRequest("2", "2026-09-28", UnpaidDecision.SUSPEND), "system");
+        assertThat(recorded.decision()).isEqualTo(UnpaidDecision.SUSPEND);
+        assertThat(recorded.suggestedDecision()).as("decided: nothing left to suggest").isNull();
+    }
+
+    @Test
+    @DisplayName("🔒 D32: a permission without a note is refused PERMISSION_NOTE_REQUIRED, naming the line")
+    void aPermissionNeedsItsNote() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        long run = insertRun(LocalDate.of(2026, 8, 1), "CLOSED", FROZEN, "system");
+        long line = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID, null, "UNPAID", "RE_PRESENT", RATE);
+        AcbRefusal refused = catchThrowableOfType(AcbRefusal.class, () -> returns.permit(run, line, "  ", "system"));
+        assertThat(refused.code()).isEqualTo(AcbRefusalCode.PERMISSION_NOTE_REQUIRED);
+        assertThat(refused.details()).containsEntry("lineId", String.valueOf(line));
+        assertThat(catchThrowableOfType(AcbRefusal.class, () -> returns.permit(run, line, "x".repeat(301), "system")).code())
+                .as("capped, never cut").isEqualTo(AcbRefusalCode.REQUEST_MALFORMED);
+    }
+
+    @Test
+    @DisplayName("🔒 SD3-D: the permission note is kept on its line alone -- never in a log line, never in an audit row")
+    void thePermissionNoteGoesNowhereElse() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        long run = insertRun(LocalDate.of(2026, 8, 1), "CLOSED", FROZEN, "system");
+        long line = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID, null, "UNPAID", null, RATE);
+        String note = "Agreed by phone with the Synthetic Member on 000 000 0000, 18 September";
+        try (LogCapture service = LogCapture.on(AcbReturnsServiceImpl.class);
+             LogCapture trail = LogCapture.on(AcbAuditTrail.class)) {
+            AcbRunLineDto permitted = returns.permit(run, line, note, "system");
+            assertThat(permitted.decision()).as("permission decides it present-again").isEqualTo(UnpaidDecision.RE_PRESENT);
+            assertThat(permitted.permissionNote()).isEqualTo(note);
+            assertThat(service.rendered()).doesNotContain("Synthetic Member").doesNotContain("000 000 0000");
+            assertThat(trail.rendered()).doesNotContain("Synthetic Member");
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_audit_events WHERE reason LIKE '%Synthetic Member%'", Long.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_audit_events WHERE kind = 'PERMISSION_RECORDED'", Long.class))
+                .isEqualTo(1L);
     }
 }

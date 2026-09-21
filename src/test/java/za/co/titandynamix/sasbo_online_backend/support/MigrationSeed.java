@@ -43,7 +43,18 @@ public final class MigrationSeed {
      * report of 21 August 2026 (2, 4, 30, 34), each mapped to a reason -- the last two wordings
      * inferred and marked so, until question 39 is answered.
      */
-    public static final int ACB_UNPAID_CODES = 4;
+    public static final List<UnpaidCode> ACB_UNPAID_CODES = List.of(
+            new UnpaidCode("2", "NOT_PROVIDED_FOR", Boolean.TRUE),
+            new UnpaidCode("4", "PAYMENT_STOPPED", Boolean.FALSE),
+            new UnpaidCode("30", "NO_AUTHORITY_TO_DEBIT", null),
+            new UnpaidCode("34", "AUTHORISATION_CANCELLED", null));
+
+    /**
+     * One of V45's codes: what it means, and whether it allows a re-debit -- yes, no, or {@code null}
+     * for unknown (Q40, Q44), each flag inferred until the bank's list is in hand (Q39).
+     */
+    public record UnpaidCode(String code, String reason, Boolean reDebitAllowed) {
+    }
 
     /** One statutory public holiday, as V47 seeds it. */
     public record Holiday(LocalDate date, String name) {
