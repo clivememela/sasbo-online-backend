@@ -18,6 +18,8 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberSearchRequest;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbLetter;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
@@ -36,6 +38,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbReturnsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunLineRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbUnpaidCodeRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.AcbPopulationRepository;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 
 import java.nio.charset.StandardCharsets;
@@ -88,6 +91,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     private final AcbRunLineRepository lines;
     private final AcbReturnsRepository returns;
     private final AcbUnpaidCodeRepository codes;
+    private final AcbPopulationRepository population;
     private final AcbLetterRepository letters;
     private final AcbAuditTrail audit;
     private final Clock clock;
@@ -96,6 +100,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
 
     public AcbReturnsServiceImpl(AcbRunRepository runs, AcbRunLineRepository lines, AcbReturnsRepository returns,
                                  AcbUnpaidCodeRepository codes, AcbLetterRepository letters, AcbAuditTrail audit,
+                                 AcbPopulationRepository population,
                                  Clock clock, PlatformTransactionManager transactions, MeterRegistry meters) {
         this.runs = runs;
         this.lines = lines;
@@ -103,6 +108,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         this.codes = codes;
         this.letters = letters;
         this.audit = audit;
+        this.population = population;
         this.clock = clock;
         this.tx = new TransactionTemplate(transactions);
         this.meters = meters;
@@ -273,6 +279,33 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
                 line.getSurname(), letter.getTemplate(), letter.getStatusReason(), false);
     }
 
+    @Override
+    public AcbPage<AcbMemberDto> searchMembers(MemberSearchRequest request) {
+        String surname = like(request.surname());
+        String number = like(request.membershipNumber());
+        String identity = request.identityNumber() == null || request.identityNumber().isBlank()
+                ? null : request.identityNumber().trim();
+        int size = Math.min(Math.max(request.size() == null ? 25 : request.size(), 1), AcbRunServiceImpl.MAX_PAGE_SIZE);
+        int page = Math.max(request.page() == null ? 0 : request.page(), 0);
+        if (surname == null && number == null && identity == null) {
+            // An empty search is a question nobody has asked: never "everyone".
+            return new AcbPage<>(List.of(), page, size, 0, 0);
+        }
+        return AcbPage.of(population.searchMembers(surname, number, identity, PageRequest.of(page, size)),
+                row -> new AcbMemberDto(row.id(), row.membershipNumber(), row.title(), row.initials(), row.surname(),
+                        row.bankName(), AcbRunServiceImpl.lastFour(row.bankAccountNumber()), row.debitDay(),
+                        row.status()));
+    }
+
+    private static String like(String part) {
+        if (part == null || part.isBlank()) {
+            return null;
+        }
+        String escaped = part.trim().toLowerCase(java.util.Locale.ROOT)
+                .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        return "%" + escaped + "%";
+    }
+
     /** A line, with the decision its code suggests while it is an undecided unpaid (Q40, Q44). */
     private AcbRunLineDto withSuggestion(AcbRunLine line) {
         UnpaidDecision suggested = line.getUnpaidCode() == null ? null
@@ -287,10 +320,17 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         // The codes' suggestions, read once for the page -- a handful of rows, never a query per line.
         Map<String, UnpaidDecision> suggestions = new HashMap<>();
         codes.findAll().forEach(code -> suggestions.put(code.getCode(), code.suggestedDecision()));
-        return AcbPage.of(reason == null
-                        ? returns.findUnpaids(runId, AcbLineOutcome.UNPAID, request)
-                        : returns.findUnpaidsFor(runId, AcbLineOutcome.UNPAID, reason.name(), request),
-                line -> AcbRunServiceImpl.lineDto(line, suggestions.get(line.getUnpaidCode())));
+        org.springframework.data.domain.Page<AcbRunLine> found = reason == null
+                ? returns.findUnpaids(runId, AcbLineOutcome.UNPAID, request)
+                : returns.findUnpaidsFor(runId, AcbLineOutcome.UNPAID, reason.name(), request);
+        // Where each line's letter is -- one query for the page, never one per line.
+        Map<Long, LetterStatus> letterOf = new HashMap<>();
+        if (!found.isEmpty()) {
+            letters.findByLineIdIn(found.getContent().stream().map(AcbRunLine::getId).toList())
+                    .forEach(letter -> letterOf.put(letter.getLineId(), letter.getStatus()));
+        }
+        return AcbPage.of(found, line -> AcbRunServiceImpl.lineDto(line, suggestions.get(line.getUnpaidCode()),
+                letterOf.get(line.getId())));
     }
 
     @Override

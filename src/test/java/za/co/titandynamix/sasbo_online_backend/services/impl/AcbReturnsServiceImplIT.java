@@ -437,6 +437,10 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         assertThat(returns.unpaids(run, null, 0, 50).content())
                 .extracting(AcbRunLineDto::suggestedDecision).containsExactlyInAnyOrder(UnpaidDecision.RE_PRESENT,
                         UnpaidDecision.SUSPEND, null);
+        // 04.1: where each line's letter is -- a known code's waits for an address; an unknown code has none.
+        assertThat(returns.unpaids(run, null, 0, 50).content())
+                .extracting(AcbRunLineDto::letterStatus).containsExactlyInAnyOrder(LetterStatus.QUEUED,
+                        LetterStatus.QUEUED, null);
     }
 
     @Test

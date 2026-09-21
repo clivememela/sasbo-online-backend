@@ -17,6 +17,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbOpeningPositionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRatesDto;
@@ -26,6 +27,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.HandledRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberSearchRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.PermissionRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.PrepareRunRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
@@ -230,6 +232,15 @@ public class ACBController {
     public AcbHeldLetterDto sendLetter(@PathVariable("id") long id) {
         throw identityRequired(id, "Sending a letter to a member waits until administrators sign in to this "
                 + "system. Nothing has been sent.");
+    }
+
+    /**
+     * The Debits screen's member search, server-side and paged (04.1, R-SEC-B, R-PERF-D) -- a POST, so an
+     * identity number never travels in a URL. Answers masked accounts and no identity numbers.
+     */
+    @PostMapping("/members/search")
+    public AcbPage<AcbMemberDto> searchMembers(@RequestBody MemberSearchRequest request) {
+        return returns.searchMembers(request);
     }
 
     /** A run's unpaids, a page at a time -- all of them, or one reason's ("Invalid Accounts"). */

@@ -35,11 +35,14 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.PrepareRunRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RunTransitionRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberSearchRequest;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
@@ -334,7 +337,7 @@ class ACBControllerTest {
     void linesAreMasked() throws Exception {
         AcbRunLineDto line = new AcbRunLineDto(3L, 7, "M-200001", "Botha", "AB", "Alpha Bank", "632005",
                 "9911", null, 25, "2026-10-26", new BigDecimal("174.00"), AcbLineOutcome.PENDING, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
         when(runs.lines(41L, 0, 50)).thenReturn(new AcbPage<>(List.of(line), 0, 50, 1, 1));
 
         MvcResult result = this.mockMvc.perform(get("/api/acb/runs/41/lines"))
@@ -412,7 +415,8 @@ class ACBControllerTest {
     static AcbRunLineDto anUnpaidLine(UnpaidDecision decision) {
         return new AcbRunLineDto(3L, 7, "M-200001", "Botha", "AB", "Alpha Bank", "632005", "9911", 1, 25,
                 "2026-10-26", new BigDecimal("174.00"), AcbLineOutcome.UNPAID, null, 1, "4",
-                "PAYMENT_STOPPED", decision, decision == null ? UnpaidDecision.SUSPEND : null, null);
+                "PAYMENT_STOPPED", decision, decision == null ? UnpaidDecision.SUSPEND : null, null,
+                LetterStatus.NO_EMAIL);
     }
 
     @Test
@@ -429,6 +433,36 @@ class ACBControllerTest {
                 .andExpect(jsonPath("$.unpaidCode").value("4"))
                 .andExpect(jsonPath("$.decision").value("RE_PRESENT"));
         verify(returns).recordUnpaid(41L, 3L, request, "system");
+    }
+
+    @Test
+    @DisplayName("an unpaid line says where its letter is")
+    void anUnpaidSaysWhereItsLetterIs() throws Exception {
+        when(returns.unpaids(41L, null, 0, 50)).thenReturn(new AcbPage<>(List.of(anUnpaidLine(null)), 0, 50, 1, 1));
+        this.mockMvc.perform(get("/api/acb/runs/41/unpaids"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].letterStatus").value("NO_EMAIL"))
+                .andExpect(jsonPath("$.content[0].suggestedDecision").value("SUSPEND"));
+    }
+
+    @Test
+    @DisplayName("🔒 the member search is a POST whose body carries the query and a page size, and answers masked accounts")
+    void theMemberSearch() throws Exception {
+        MemberSearchRequest request = new MemberSearchRequest("bot", null, "0001010000181", 0, 25);
+        when(returns.searchMembers(request)).thenReturn(new AcbPage<>(List.of(new AcbMemberDto(7, "M-200001", "Mr",
+                "AB", "Botha", "Alpha Bank", "9911", 25, "Active")), 0, 25, 1, 1));
+
+        MvcResult result = this.mockMvc.perform(post("/api/acb/members/search")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].surname").value("Botha"))
+                .andExpect(jsonPath("$.content[0].accountLastFour").value("9911"))
+                .andExpect(jsonPath("$.content[0].identityNumber").doesNotExist())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("0001010000181");
+        verify(returns).searchMembers(request);
     }
 
     @Test

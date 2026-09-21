@@ -12,6 +12,9 @@ public interface AcbLetterRepository extends JpaRepository<AcbLetter, Long> {
 
     Optional<AcbLetter> findByLineId(Long lineId);
 
+    /** The letters of a page of lines -- one query. */
+    List<AcbLetter> findByLineIdIn(java.util.Collection<Long> lineIds);
+
     /** {@code [status, count]} for the letters of one run's unpaids. */
     @Query("SELECT l.status, count(l) FROM AcbLetter l, AcbRunLine rl WHERE l.lineId = rl.id AND rl.runId = :runId "
             + "GROUP BY l.status")

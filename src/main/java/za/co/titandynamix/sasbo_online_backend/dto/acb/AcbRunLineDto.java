@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.dto.acb;
 
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 
 import java.math.BigDecimal;
 
@@ -19,6 +20,7 @@ import java.math.BigDecimal;
  *                         code allows a re-debit, suspend where it does not, nothing where unknown
  *                         (Q40, Q44); the administrator decides
  * @param permissionNote   the member's permission for a further re-debit in one run (D32), if given
+ * @param letterStatus     where the unpaid's letter is -- {@code null} for a line with no letter
  */
 public record AcbRunLineDto(
         Long id,
@@ -40,5 +42,6 @@ public record AcbRunLineDto(
         String unpaidReason,
         UnpaidDecision decision,
         UnpaidDecision suggestedDecision,
-        String permissionNote) {
+        String permissionNote,
+        LetterStatus letterStatus) {
 }

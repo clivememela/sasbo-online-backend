@@ -28,6 +28,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunAction;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
+import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbPopulationRepository;
@@ -475,6 +476,11 @@ public class AcbRunServiceImpl implements AcbRunService {
 
     /** A line for the sheet, with the decision its code suggests if it is an undecided unpaid. */
     static AcbRunLineDto lineDto(AcbRunLine line, UnpaidDecision suggested) {
+        return lineDto(line, suggested, null);
+    }
+
+    /** A line for the sheet, with its suggestion and where its letter is. */
+    static AcbRunLineDto lineDto(AcbRunLine line, UnpaidDecision suggested, LetterStatus letterStatus) {
         return new AcbRunLineDto(
                 line.getId(),
                 line.getMemberId(),
@@ -495,7 +501,8 @@ public class AcbRunServiceImpl implements AcbRunService {
                 line.getUnpaidReason(),
                 line.getDecision(),
                 line.getOutcome() == AcbLineOutcome.UNPAID && line.getDecision() == null ? suggested : null,
-                line.getPermissionNote());
+                line.getPermissionNote(),
+                letterStatus);
     }
 
     /** The last four digits, or nothing at all for a number so short that four would be all of it. */

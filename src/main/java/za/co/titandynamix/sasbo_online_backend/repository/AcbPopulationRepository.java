@@ -37,6 +37,26 @@ public interface AcbPopulationRepository extends Repository<Member, Integer> {
     List<za.co.titandynamix.sasbo_online_backend.acb.opening.OpeningMemberRow> findByMembershipNumbers(
             @Param("numbers") java.util.Collection<String> numbers);
 
+    /**
+     * The Debits screen's member search (04.1): server-side and paged, so the screen never loads every
+     * member (R-SEC-B, R-PERF-D). A blank criterion is {@code null} and matches everyone; the two
+     * patterns arrive escaped with {@code !}, so a {@code %} or {@code _} typed is only itself.
+     */
+    @Query(value = "SELECT new za.co.titandynamix.sasbo_online_backend.acb.MemberSearchRow("
+            + "m.id, m.membershipNumber, m.title, m.initials, m.surname, m.bankName, m.bankAccountNumber, m.debitDay, "
+            + "m.status) FROM Member m "
+            + "WHERE (:surname IS NULL OR lower(m.surname) LIKE :surname ESCAPE '!') "
+            + "AND (:number IS NULL OR lower(m.membershipNumber) LIKE :number ESCAPE '!') "
+            + "AND (:identity IS NULL OR m.identityNumber = :identity) "
+            + "ORDER BY m.surname, m.id",
+            countQuery = "SELECT count(m) FROM Member m "
+            + "WHERE (:surname IS NULL OR lower(m.surname) LIKE :surname ESCAPE '!') "
+            + "AND (:number IS NULL OR lower(m.membershipNumber) LIKE :number ESCAPE '!') "
+            + "AND (:identity IS NULL OR m.identityNumber = :identity)")
+    org.springframework.data.domain.Page<za.co.titandynamix.sasbo_online_backend.acb.MemberSearchRow> searchMembers(
+            @Param("surname") String surname, @Param("number") String number, @Param("identity") String identity,
+            Pageable page);
+
     /** Every bank on record, as the three columns a run matches and prints. */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.BankRow("
             + "b.id, b.name, b.universalBranchCode) FROM Bank b")

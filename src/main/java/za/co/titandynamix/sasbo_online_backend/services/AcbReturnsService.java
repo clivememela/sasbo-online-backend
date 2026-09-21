@@ -7,6 +7,8 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberSearchRequest;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 
@@ -57,6 +59,12 @@ public interface AcbReturnsService {
      * never sent afterwards. {@code LETTER_NOT_HELD} for a letter that is not held.
      */
     AcbHeldLetterDto markHandled(long runId, long letterId, String note, String actor);
+
+    /**
+     * The Debits screen's member search (04.1): part of a surname or membership number, or a whole
+     * identity number -- server-side and paged. With every criterion blank, an empty page.
+     */
+    AcbPage<AcbMemberDto> searchMembers(MemberSearchRequest request);
 
     /** The re-debits run {@code runId} holds over for want of the member's permission (D32), a page at a time. */
     AcbPage<AcbHeldOverDto> heldOver(long runId, int page, int size);
