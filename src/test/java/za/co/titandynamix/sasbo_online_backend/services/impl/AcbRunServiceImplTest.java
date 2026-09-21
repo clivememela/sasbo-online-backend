@@ -80,6 +80,8 @@ class AcbRunServiceImplTest {
     @BeforeEach
     void wire() {
         runs = mock(AcbRunRepository.class);
+        // A transition reads its run locked (T2-F); in this unit a locked read is the same read.
+        when(runs.findByIdForUpdate(anyLong())).thenAnswer(read -> runs.findById(read.getArgument(0)));
         lines = mock(AcbRunLineRepository.class);
         exclusions = mock(AcbRunExclusionRepository.class);
         exclusionCounts = mock(AcbRunExclusionCountRepository.class);

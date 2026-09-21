@@ -3,12 +3,15 @@ package za.co.titandynamix.sasbo_online_backend.repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+
+import jakarta.persistence.LockModeType;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -17,6 +20,16 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AcbRunRepository extends JpaRepository<AcbRun, Long> {
+
+    /**
+     * The run, its row locked until the caller's transaction ends -- what every transition reads (T2-F).
+     * Two writers racing on one run are SERIALISED here: the second waits for the first to commit and
+     * then reads the version the first wrote, so it is told RUN_VERSION_CONFLICT -- never whatever the
+     * first one's committed lines happened to make its own checks say.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM AcbRun r WHERE r.id = :id")
+    Optional<AcbRun> findByIdForUpdate(@Param("id") Long id);
 
     /** The latest run of a month in one state -- the declined run a new preparation replaces (SD3-H). */
     Optional<AcbRun> findFirstByActionMonthAndStatusOrderByIdDesc(LocalDate actionMonth, AcbRunStatus status);

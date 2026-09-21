@@ -343,7 +343,8 @@ public class AcbRunServiceImpl implements AcbRunService {
         AcbRun changed;
         try {
             changed = tx.execute(status -> {
-                AcbRun run = requireRun(runId);
+                // Locked: a writer racing this one waits here, then meets the version this one wrote (T2-F).
+                AcbRun run = runs.findByIdForUpdate(runId).orElseThrow(() -> AcbRuns.notFound(runId));
                 if (!Objects.equals(run.getVersion(), version)) {
                     throw AcbRuns.versionConflict(run);
                 }
