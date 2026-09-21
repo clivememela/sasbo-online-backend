@@ -202,6 +202,15 @@ class AcbHistorySeederIT extends AbstractAcbIT {
         assertThat(count("SELECT count(*) FROM acb_run_lines l JOIN acb_runs r ON r.id = l.run_id "
                 + "WHERE r.action_month = DATE '2026-10-01' AND l.debit_day = 31 AND l.action_date = DATE '2026-10-30'"))
                 .as("members on the 31st, moved back because forward would leave the month").isPositive();
+        // 🔒 F62: nothing the seed writes is dated after the clock -- October 30th's returns, noted two
+        // days on, would otherwise be noted on 1 November and their letters "sent" at 10:00 that day.
+        assertThat(count("SELECT count(*) FROM acb_run_lines WHERE unpaid_noted_on >= DATE '2026-11-01'"))
+                .as("no return noted after the clock's day").isZero();
+        assertThat(count("SELECT count(*) FROM acb_letters WHERE sent_at > TIMESTAMPTZ '2026-10-31 22:30:00+00'"))
+                .as("no letter sent after the clock").isZero();
+        assertThat(count("SELECT count(*) FROM acb_run_lines l JOIN acb_runs r ON r.id = l.run_id "
+                + "WHERE r.action_month = DATE '2026-10-01' AND l.unpaid_noted_on = DATE '2026-10-31'"))
+                .as("the twin: October's late returns are noted on its last day, not dropped").isPositive();
     }
 
     @Test

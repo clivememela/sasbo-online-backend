@@ -190,7 +190,7 @@ public class AcbHistorySeeder {
             if (line.isEmpty()) {
                 continue;
             }
-            LocalDate notedOn = line.get().actionDate().plusDays(2);
+            LocalDate notedOn = notedOn(line.get().actionDate(), month);
             returns.recordUnpaid(runId, line.get().id(),
                     new RecordUnpaidRequest(unpaid.code(), notedOn.toString(), unpaid.decision()), ACTOR);
             letters.put(line.get().id(), notedOn);
@@ -203,6 +203,18 @@ public class AcbHistorySeeder {
             service.close(runId, returned.getVersion(), ACTOR, "seeded: every unpaid decided");
         }
         return runId;
+    }
+
+    /**
+     * When the seed says the bank's report showed a return: two days after the debit, as the report
+     * arrives -- but never after its own month ends (F62). The seeded months are the two before the
+     * clock's, so a return noted inside its month is always in the past; one noted two days after
+     * the 30th of the later month would be dated in the clock's own month, and at 00:30 on the 1st
+     * AFTER the clock -- with its letter "sent" in the future.
+     */
+    static LocalDate notedOn(LocalDate actionDate, YearMonth month) {
+        LocalDate twoDaysLater = actionDate.plusDays(2);
+        return twoDaysLater.isAfter(month.atEndOfMonth()) ? month.atEndOfMonth() : twoDaysLater;
     }
 
     /**
