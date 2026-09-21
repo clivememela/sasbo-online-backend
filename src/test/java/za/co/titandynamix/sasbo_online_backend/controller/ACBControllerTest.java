@@ -441,7 +441,7 @@ class ACBControllerTest {
         when(returns.unpaids(41L, null, 0, 50)).thenReturn(new AcbPage<>(List.of(anUnpaidLine(null)), 0, 50, 1, 1));
         this.mockMvc.perform(get("/api/acb/runs/41/unpaids"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].letterStatus").value("NO_EMAIL"))
+                .andExpect(jsonPath("$.content[0].letterStatus").value("QUEUED"))
                 .andExpect(jsonPath("$.content[0].suggestedDecision").value("SUSPEND"));
     }
 
