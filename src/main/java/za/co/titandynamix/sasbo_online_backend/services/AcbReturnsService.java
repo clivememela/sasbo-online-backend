@@ -37,6 +37,6 @@ public interface AcbReturnsService {
     /** What the bank sent back for a run, counted. */
     AcbReturnsSummaryDto summary(long runId);
 
-    /** Who each reading of "three unsuccessful retries" would terminate. Terminates nobody. */
+    /** Who three unpaid presentations would terminate -- every unpaid counts (Q27). Terminates nobody. */
     AcbTerminationReportDto terminationReport();
 }

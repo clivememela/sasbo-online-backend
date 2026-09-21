@@ -92,8 +92,8 @@ public class ACBController {
     /**
      * 🔒 Refused to every caller, before anything is read: the run is not even looked up, so the
      * refusal says nothing about which runs exist. The day the API authenticates, this calls
-     * {@code runs.approve} with the signed-in administrator -- whom the service will refuse if they
-     * prepared the run themselves.
+     * {@code runs.approve} with the signed-in administrator -- who may be the one who prepared it:
+     * the bank, not a second person here, checks the file (D14 as amended, Q29).
      */
     @PostMapping("/runs/{id}/approve")
     public AcbRunDto approve(@PathVariable("id") long id) {
@@ -177,8 +177,8 @@ public class ACBController {
     }
 
     /**
-     * Who each reading of "three unsuccessful retries" would terminate -- a report, both readings
-     * side by side until SASBO says which is theirs (question 27). It terminates nobody.
+     * Who three unpaid presentations would terminate -- every unpaid counts, a re-debit included
+     * (question 27). A report: it terminates nobody.
      */
     @GetMapping("/termination-report")
     public AcbTerminationReportDto terminationReport() {
