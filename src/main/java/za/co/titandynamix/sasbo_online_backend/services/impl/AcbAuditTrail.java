@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbAuditEvent;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbRunlessEvent;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbAuditEventRepository;
 
 import java.time.Clock;
@@ -46,5 +47,16 @@ public class AcbAuditTrail {
         event.setReason(reason == null || reason.length() <= REASON_MAX
                 ? reason : reason.substring(0, REASON_MAX));
         events.save(event);
+    }
+
+    /**
+     * A write that belongs to no run -- a rate, a holiday, the calendar's extent, the opening
+     * position, the seed's completion (SD4-A). The same rule as {@link #record}: inside the
+     * transaction that makes the change, so the change and its row commit or roll back together.
+     *
+     * @param reason what changed, for a person to read. 🔒 Never a member's number.
+     */
+    public void recordRunless(AcbRunlessEvent kind, String reason, String actor) {
+        record(null, null, kind.name(), null, null, reason, actor);
     }
 }

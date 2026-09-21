@@ -28,7 +28,8 @@ public class AcbAuditEvent {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "run_id", nullable = false)
+    /** NULL only for an {@code AcbRunlessEvent} -- the table's own CHECK refuses any other kind without a run (SD4-A). */
+    @Column(name = "run_id")
     private Long runId;
 
     @Column(name = "line_id")
