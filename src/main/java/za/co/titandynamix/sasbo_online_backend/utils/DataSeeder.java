@@ -20,7 +20,9 @@ import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbLogging;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
+import za.co.titandynamix.sasbo_online_backend.services.impl.AcbHistorySeeder;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 
 import java.io.InputStream;
@@ -46,6 +48,7 @@ public class DataSeeder implements ApplicationRunner {
     private final SeedMemberNumbers seedMemberNumbers;
     private final SeedMemberRepository seedMembers;
     private final SasboEnvironment environment;
+    private final AcbHistorySeeder acbHistorySeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -299,6 +302,17 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
+        // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
+        // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).
+        // 🔒 Its failure is caught and logged with its cause, never fatal: a demo must start, and must not
+        // hide the fault either (SD3-I). The production marker was validated at binding, outside this
+        // catch (F59), and the seeder itself never runs where it is set (SD3-A).
+        try {
+            this.acbHistorySeeder.seed();
+        } catch (RuntimeException seedingFailed) {
+            log.error("The A.C.B. history could not be seeded; the application starts without it",
+                    AcbLogging.scrubbed(seedingFailed));
+        }
     }
 
 }

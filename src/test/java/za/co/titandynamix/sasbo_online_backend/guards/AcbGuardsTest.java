@@ -202,6 +202,22 @@ class AcbGuardsTest {
                 .isEmpty();
     }
 
+    @Test
+    @DisplayName("🔒 SD4-B: the history seeder -- the one creator of a run outside the window -- is reached from DataSeeder alone")
+    void onlyTheSeedReachesTheHistorySeeder() {
+        List<MainClassSource> sources = MainSourceInventory.all();
+        assertNonVacuousScan(sources, 100, "main sources");
+        List<String> callers = sources.stream()
+                .filter(c -> !c.name().equals("AcbHistorySeeder"))
+                .filter(c -> c.contains("AcbHistorySeeder"))
+                .map(MainClassSource::name)
+                .toList();
+        assertThat(callers)
+                .as("AcbHistorySeeder writes run rows for months the service refuses, by design; anything but "
+                        + "the start-up seed reaching it would be a way round the preparation window")
+                .containsExactly("DataSeeder");
+    }
+
     // ------------------------------------------------------------------------------------------
 
     @Test
