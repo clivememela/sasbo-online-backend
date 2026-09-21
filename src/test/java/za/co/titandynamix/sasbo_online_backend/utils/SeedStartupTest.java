@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
+import za.co.titandynamix.sasbo_online_backend.support.LogCapture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,6 +56,19 @@ class SeedStartupTest {
         void referenceDataIsStillSeeded() {
             assertThat(banks.count()).isPositive();
             assertThat(subscriptions.count()).isPositive();
+        }
+
+        @Test
+        @DisplayName("🔒 EH2-D: a seeded member found on a production database is said at start-up, at WARN")
+        void aSeededMemberInProductionIsSaid() throws Exception {
+            // The system that started as a demo and became production: one seeded member is on record.
+            members.save(DebitOrderMemberSeeder.readSeedFile().members().get(0).toMember());
+            try (LogCapture log = LogCapture.on(DataSeeder.class)) {
+                seeder.run(new DefaultApplicationArguments());
+                assertThat(log.rendered()).contains("1 seeded (synthetic) member(s) are on this PRODUCTION database");
+            } finally {
+                members.deleteAll();
+            }
         }
     }
 
