@@ -203,13 +203,14 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         }
         String statusBefore = jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m);
 
-        AcbTerminationReportDto report = returns.terminationReport();
+        AcbTerminationReportDto report = returns.terminationReport(0, 50);
 
         assertThat(report.countingFrom()).isEqualTo("2026-07");
         assertThat(report.blindness()).contains("old system");
-        assertThat(report.members()).singleElement().satisfies(candidate -> {
+        assertThat(report.members().content()).singleElement().satisfies(candidate -> {
             assertThat(candidate.memberId()).isEqualTo(m);
             assertThat(candidate.unpaidCount()).isEqualTo(3);
+            assertThat(candidate.terminate()).isTrue();
             assertThat(candidate.unpaidMonths()).containsExactly("2026-07", "2026-08", "2026-09");
         });
         assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m))
@@ -231,13 +232,81 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         insertLine(august, m + 1, null, "UNPAID", null, RATE);
         insertLine(august, m + 1, twinJuly, "PAID", null, RATE);
 
-        AcbTerminationReportDto report = returns.terminationReport();
+        AcbTerminationReportDto report = returns.terminationReport(0, 50);
 
-        assertThat(report.members()).singleElement().satisfies(candidate -> {
+        assertThat(report.members().content()).singleElement().satisfies(candidate -> {
             assertThat(candidate.memberId()).isEqualTo(m);
             assertThat(candidate.unpaidCount()).isEqualTo(3);
             assertThat(candidate.unpaidMonths()).containsExactly("2026-07", "2026-08", "2026-08");
         });
+    }
+
+    @Test
+    @DisplayName("🔒 SD3-K: a member at two is listed, not terminated -- and the twelve-month total counts across a reset (Q49)")
+    void atTwoAndTheTwelveMonthTotal() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        int atTwo = AcbRunFixture.FIRST_MEMBER_ID;
+        int reset = AcbRunFixture.FIRST_MEMBER_ID + 1;
+        String[][] outcomes = {
+                // month, member at two, member with a reset in between
+                {"2026-01", null, "UNPAID"}, {"2026-02", null, "UNPAID"}, {"2026-03", null, "PAID"},
+                {"2026-07", "UNPAID", "UNPAID"}, {"2026-08", "UNPAID", "UNPAID"}};
+        for (String[] month : outcomes) {
+            long run = insertRun(java.time.YearMonth.parse(month[0]).atDay(1), "CLOSED", FROZEN, "system");
+            if (month[1] != null) {
+                insertLine(run, atTwo, null, month[1], null, RATE);
+            }
+            insertLine(run, reset, null, month[2], null, RATE);
+        }
+        AcbTerminationReportDto report = returns.terminationReport(0, 50);
+        assertThat(report.members().totalElements()).isEqualTo(2);
+        assertThat(report.members().content()).allSatisfy(c -> {
+            assertThat(c.unpaidCount()).isEqualTo(2);
+            assertThat(c.terminate()).as("two is not three").isFalse();
+        });
+        assertThat(report.members().content()).filteredOn(c -> c.memberId() == reset).singleElement()
+                .satisfies(c -> assertThat(c.twelveMonthTotal()).as("January and February count in the total").isEqualTo(4));
+    }
+
+    @Test
+    @DisplayName("🔒 R3-12's report half: one opening unpaid and two new ones make three -- the old system's arrears are counted")
+    void theOpeningPositionIsCounted() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        int m = AcbRunFixture.FIRST_MEMBER_ID;
+        jdbc.update("INSERT INTO acb_opening_position (member_id, membership_number, unpaids_standing, last_unpaid_month, "
+                        + "source, entered_by, entered_at) VALUES (?, ?, 1, DATE '2026-06-01', 'legacy profile', 'admin-a', now())",
+                m, AcbRunFixture.membershipNumber(m));
+        for (int month = 7; month <= 8; month++) {
+            long run = insertRun(LocalDate.of(2026, month, 1), "CLOSED", FROZEN, "system");
+            insertLine(run, m, null, "UNPAID", null, RATE);
+        }
+        AcbTerminationReportDto report = returns.terminationReport(0, 50);
+        assertThat(report.members().content()).singleElement().satisfies(c -> {
+            assertThat(c.unpaidCount()).isEqualTo(3);
+            assertThat(c.terminate()).isTrue();
+            assertThat(c.openingUnpaids()).isEqualTo(1);
+            assertThat(c.unpaidMonths()).containsExactly("2026-06", "2026-07", "2026-08");
+        });
+        assertThat(report.blindness()).contains("opening arrears position").contains("1 member(s)");
+    }
+
+    @Test
+    @DisplayName("🔒 R3-17's edges: a member whose unpaids are all older than thirteen months is absent; the twin just inside is present")
+    void theWindowsEdges() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        int outside = AcbRunFixture.FIRST_MEMBER_ID;
+        int inside = AcbRunFixture.FIRST_MEMBER_ID + 1;
+        // The frozen clock's month is September 2026: the window is September 2025 to September 2026.
+        long july2025 = insertRun(LocalDate.of(2025, 7, 1), "CLOSED", FROZEN, "system");
+        long august2025 = insertRun(LocalDate.of(2025, 8, 1), "CLOSED", FROZEN, "system");
+        long september2025 = insertRun(LocalDate.of(2025, 9, 1), "CLOSED", FROZEN, "system");
+        long october2025 = insertRun(LocalDate.of(2025, 10, 1), "CLOSED", FROZEN, "system");
+        insertLine(july2025, outside, null, "UNPAID", null, RATE);
+        insertLine(august2025, outside, null, "UNPAID", null, RATE);
+        insertLine(september2025, inside, null, "UNPAID", null, RATE);
+        insertLine(october2025, inside, null, "UNPAID", null, RATE);
+        assertThat(returns.terminationReport(0, 50).members().content())
+                .extracting(AcbTerminationReportDto.Candidate::memberId).containsExactly(inside);
     }
 
     // ------------------------------------------------------------------------------------------

@@ -55,16 +55,26 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
     List<Object[]> countUnpaidByReason(@Param("runId") Long runId, @Param("unpaid") AcbLineOutcome unpaid);
 
     /**
-     * Every debit from a sent run, of every member who has an unpaid in one -- the three-unpaids rule's
-     * input, in one query. A re-debit is read like any other debit (question 27).
+     * Every debit from a sent run since {@code from}, of every member with an unpaid since {@code from} --
+     * the three-unpaids rule's input, in one query. 🔒 BOTH halves are bounded to the window (SD3-K): the
+     * report reads the recent past, never every debit of every member who ever bounced. A re-debit is
+     * read like any other debit (question 27).
      */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.PresentationRow("
             + "l.memberId, l.membershipNumber, l.surname, l.id, l.actionDate, l.outcome) "
-            + "FROM AcbRunLine l, AcbRun r WHERE l.runId = r.id AND r.status IN :sent "
+            + "FROM AcbRunLine l, AcbRun r WHERE l.runId = r.id AND r.status IN :sent AND r.actionMonth >= :from "
             + "AND l.memberId IN (SELECT u.memberId FROM AcbRunLine u, AcbRun ur "
-            + "                   WHERE u.runId = ur.id AND ur.status IN :sent AND u.outcome = :unpaid)")
+            + "                   WHERE u.runId = ur.id AND ur.status IN :sent AND ur.actionMonth >= :from "
+            + "                   AND u.outcome = :unpaid)")
     List<PresentationRow> findHistoriesOfMembersWithUnpaids(@Param("sent") Collection<AcbRunStatus> sent,
-                                                            @Param("unpaid") AcbLineOutcome unpaid);
+                                                            @Param("unpaid") AcbLineOutcome unpaid,
+                                                            @Param("from") LocalDate from);
+
+    /** The opening arrears position, with each member's surname -- one query (D24). */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.OpeningRow("
+            + "p.memberId, p.membershipNumber, m.surname, p.unpaidsStanding, p.lastUnpaidMonth) "
+            + "FROM AcbOpeningPosition p, Member m WHERE m.id = p.memberId")
+    List<za.co.titandynamix.sasbo_online_backend.acb.returns.OpeningRow> findOpeningPosition();
 
     /**
      * The re-debits a run holds over (D32): unpaids decided present-again, from sent runs of earlier

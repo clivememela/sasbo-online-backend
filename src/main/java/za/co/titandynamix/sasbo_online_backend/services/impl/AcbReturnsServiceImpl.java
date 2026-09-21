@@ -10,6 +10,7 @@ import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRenderer;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.PresentationRow;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.TerminationRule;
+import za.co.titandynamix.sasbo_online_backend.acb.returns.OpeningRow;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
@@ -303,28 +304,72 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
                 byReason.getOrDefault(UnpaidReason.OTHER.name(), 0), byLetter);
     }
 
+    /** The report reads this many months: the clock's own and the twelve before it (SD3-K). */
+    static final int WINDOW_MONTHS = 13;
+
+    /** Members listed from this many unpaids: at two, one more makes three. */
+    static final int LISTED_FROM = 2;
+
     @Override
-    public AcbTerminationReportDto terminationReport() {
-        List<PresentationRow> rows = returns.findHistoriesOfMembersWithUnpaids(AcbRuns.SENT, AcbLineOutcome.UNPAID);
-        Map<Integer, List<PresentationRow>> byMember = rows.stream()
+    public AcbTerminationReportDto terminationReport(int page, int size) {
+        YearMonth current = AcbTime.currentMonth(clock);
+        YearMonth from = current.minusMonths(WINDOW_MONTHS - 1L);
+        YearMonth twelveFrom = current.minusMonths(11);
+        Map<Integer, List<PresentationRow>> byMember = returns.findHistoriesOfMembersWithUnpaids(AcbRuns.SENT,
+                        AcbLineOutcome.UNPAID, from.atDay(1)).stream()
                 .collect(Collectors.groupingBy(PresentationRow::memberId, TreeMap::new, Collectors.toList()));
+        Map<Integer, OpeningRow> opening = returns.findOpeningPosition().stream()
+                .collect(Collectors.toMap(OpeningRow::memberId, row -> row, (a, b) -> a));
+        java.util.SortedSet<Integer> members = new java.util.TreeSet<>(byMember.keySet());
+        members.addAll(opening.keySet());
+
         List<AcbTerminationReportDto.Candidate> candidates = new ArrayList<>();
-        byMember.forEach((memberId, history) -> {
-            List<TerminationRule.Presentation> presentations =
-                    history.stream().map(PresentationRow::presentation).toList();
-            TerminationRule.Verdict verdict = TerminationRule.judge(presentations);
-            if (verdict.terminate()) {
-                PresentationRow latest = history.stream()
-                        .max(Comparator.comparing(PresentationRow::actionDate).thenComparing(PresentationRow::lineId))
-                        .orElseThrow();
-                candidates.add(new AcbTerminationReportDto.Candidate(memberId, latest.membershipNumber(),
-                        latest.surname(), verdict.count(),
-                        verdict.unpaidMonths().stream().map(YearMonth::toString).toList()));
+        for (Integer memberId : members) {
+            List<PresentationRow> history = byMember.getOrDefault(memberId, List.of());
+            List<TerminationRule.Presentation> presentations = new ArrayList<>(
+                    history.stream().map(PresentationRow::presentation).toList());
+            OpeningRow brought = opening.get(memberId);
+            int openingUnpaids = brought == null ? 0 : brought.unpaidsStanding();
+            for (int i = 0; i < openingUnpaids; i++) {
+                // The old system's unpaids, as presentations dated in their last month -- before any
+                // of this system's own, which begin after it (SD3-J). Negative ids sort them first.
+                presentations.add(new TerminationRule.Presentation(-1L - i, brought.lastUnpaidMonth(),
+                        AcbLineOutcome.UNPAID));
             }
-        });
+            TerminationRule.Verdict verdict = TerminationRule.judge(presentations);
+            if (verdict.count() < LISTED_FROM) {
+                continue;
+            }
+            int twelveMonthTotal = (int) presentations.stream()
+                    .filter(p -> p.outcome() == AcbLineOutcome.UNPAID && !YearMonth.from(p.actionDate()).isBefore(twelveFrom))
+                    .count();
+            PresentationRow latest = history.stream()
+                    .max(Comparator.comparing(PresentationRow::actionDate).thenComparing(PresentationRow::lineId))
+                    .orElse(null);
+            String number = latest != null ? latest.membershipNumber() : brought.membershipNumber();
+            String surname = latest != null ? latest.surname() : brought.surname();
+            candidates.add(new AcbTerminationReportDto.Candidate(memberId, number, surname, verdict.count(),
+                    verdict.terminate(), twelveMonthTotal,
+                    verdict.unpaidMonths().stream().map(YearMonth::toString).toList(), openingUnpaids));
+        }
+        candidates.sort(Comparator.comparing(AcbTerminationReportDto.Candidate::terminate).reversed()
+                .thenComparing(Comparator.comparingInt(AcbTerminationReportDto.Candidate::unpaidCount).reversed())
+                .thenComparing(c -> String.valueOf(c.membershipNumber())));
+
+        int pageSize = Math.min(Math.max(size, 1), AcbRunServiceImpl.MAX_PAGE_SIZE);
+        int pageNumber = Math.max(page, 0);
+        int start = Math.min(pageNumber * pageSize, candidates.size());
+        List<AcbTerminationReportDto.Candidate> content =
+                List.copyOf(candidates.subList(start, Math.min(start + pageSize, candidates.size())));
+        int totalPages = (candidates.size() + pageSize - 1) / pageSize;
+
         LocalDate firstSent = runs.firstMonthIn(AcbRuns.SENT);
         String countingFrom = firstSent == null ? null : YearMonth.from(firstSent).toString();
-        return new AcbTerminationReportDto(countingFrom, BLINDNESS, candidates);
+        String blindness = opening.isEmpty() ? BLINDNESS
+                : "Counted from the opening arrears position captured at switch-over (" + opening.size()
+                        + " member(s)) and every month this system has sent since. A member not on it started at nought.";
+        return new AcbTerminationReportDto(countingFrom, blindness,
+                new AcbPage<>(content, pageNumber, pageSize, candidates.size(), totalPages));
     }
 
     // ------------------------------------------------------------------------------------------

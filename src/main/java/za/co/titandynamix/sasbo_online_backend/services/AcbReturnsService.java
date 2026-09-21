@@ -62,5 +62,5 @@ public interface AcbReturnsService {
     AcbPage<AcbHeldOverDto> heldOver(long runId, int page, int size);
 
     /** Who three unpaid presentations would terminate -- every unpaid counts (Q27). Terminates nobody. */
-    AcbTerminationReportDto terminationReport();
+    AcbTerminationReportDto terminationReport(int page, int size);
 }

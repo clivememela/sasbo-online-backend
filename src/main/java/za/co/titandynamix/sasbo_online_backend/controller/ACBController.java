@@ -249,11 +249,13 @@ public class ACBController {
 
     /**
      * Who three unpaid presentations would terminate -- every unpaid counts, a re-debit included
-     * (question 27). A report: it terminates nobody.
+     * (question 27) -- and who is at two, over the last thirteen months, a page at a time. A report:
+     * it terminates nobody.
      */
     @GetMapping("/termination-report")
-    public AcbTerminationReportDto terminationReport() {
-        return returns.terminationReport();
+    public AcbTerminationReportDto terminationReport(@RequestParam(defaultValue = "0") int page,
+                                                     @RequestParam(defaultValue = "50") int size) {
+        return returns.terminationReport(page, size);
     }
 
     // ------------------------------------------------------------------------------------------
