@@ -416,7 +416,7 @@ class ACBControllerTest {
         return new AcbRunLineDto(3L, 7, "M-200001", "Botha", "AB", "Alpha Bank", "632005", "9911", 1, 25,
                 "2026-10-26", new BigDecimal("174.00"), AcbLineOutcome.UNPAID, null, 1, "4",
                 "PAYMENT_STOPPED", decision, decision == null ? UnpaidDecision.SUSPEND : null, null,
-                LetterStatus.NO_EMAIL);
+                LetterStatus.QUEUED);
     }
 
     @Test
