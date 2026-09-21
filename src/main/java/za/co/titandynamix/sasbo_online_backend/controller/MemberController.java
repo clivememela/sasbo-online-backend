@@ -2,7 +2,10 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -49,8 +52,13 @@ public class MemberController {
 
     @PostMapping
     @Transactional
-    @ResponseStatus(HttpStatus.OK)
-    public MemberDto create(@RequestBody Member member) {
+    public ResponseEntity<MemberDto> create(
+            @RequestBody Member member,
+            @RequestParam(name = "sendWelcome", required = false, defaultValue = "false") boolean sendWelcome) {
+        if (sendWelcome && this.emailService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+
         // The user-id scrub that stood here is gone because it is now unreachable:
         // Member.user is @JsonProperty(access = READ_ONLY), so Jackson -- the only
         // thing that constructs this parameter -- never populates it. Leaving it
@@ -77,7 +85,12 @@ public class MemberController {
         }
 
         Member savedMember = this.memberService.create(member);
-        return this.memberMapper.toDto(savedMember);
+
+        if (sendWelcome) {
+            this.emailService.sendWelcomeLetter(savedMember);
+        }
+
+        return ResponseEntity.ok(this.memberMapper.toDto(savedMember));
     }
 
     @GetMapping("/userRoles")
@@ -151,6 +164,24 @@ public class MemberController {
                        .map(member -> {
                            this.emailService.sendWelcomeLetter(member);
                            return ResponseEntity.ok().<Void>build();
+                       })
+                       .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping(value = "/{id}/welcome-letter-preview", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> getWelcomeLetterPreview(@PathVariable Integer id) {
+        if (this.emailService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        return this.memberService.findById(id)
+                       .map(member -> {
+                           byte[] preview = this.emailService.buildWelcomeLetterPdf(member);
+                           HttpHeaders headers = new HttpHeaders();
+                           headers.setContentType(MediaType.APPLICATION_PDF);
+                           headers.setContentDisposition(ContentDisposition.inline()
+                                                                 .filename("Sasbo Welcome Letter.pdf")
+                                                                 .build());
+                           return ResponseEntity.ok().headers(headers).body(preview);
                        })
                        .orElse(ResponseEntity.notFound().build());
     }

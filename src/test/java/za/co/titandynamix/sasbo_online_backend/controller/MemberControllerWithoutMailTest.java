@@ -18,6 +18,7 @@ import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,5 +64,23 @@ class MemberControllerWithoutMailTest {
                 .andExpect(status().isServiceUnavailable());
 
         verifyNoInteractions(this.memberService);
+    }
+
+    @Test
+    @DisplayName("GET /api/members/{id}/welcome-letter-preview answers 503 before lookup")
+    void previewAnswers503() throws Exception {
+        this.mockMvc.perform(get("/api/members/7/welcome-letter-preview"))
+                .andExpect(status().isServiceUnavailable());
+
+        verifyNoInteractions(this.memberService);
+    }
+
+    @Test
+    @DisplayName("POST /api/members?sendWelcome=true answers 503 when mail is not configured")
+    void createWithWelcomeAnswers503() throws Exception {
+        this.mockMvc.perform(post("/api/members?sendWelcome=true")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"surname\":\"Botha\"}"))
+                .andExpect(status().isServiceUnavailable());
     }
 }
