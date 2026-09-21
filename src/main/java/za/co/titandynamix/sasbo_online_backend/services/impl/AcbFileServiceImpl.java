@@ -128,7 +128,11 @@ public class AcbFileServiceImpl implements AcbFileService {
         // bank declines the whole file for (SD3-F).
         AcbRuns.requireCalendarAgrees(run, calendars.load());
         List<BureauFileLine> fileLines = fileLines(runId);
-        BureauFileWriter.Written written = BureauFileWriter.write(properties.settings(), header(run), fileLines);
+        // D31: the header's creation date is the day the file is MADE -- stamped at the first render,
+        // from the clock, and kept on the run, so rendering it again gives the same bytes. A render
+        // after the first action date is refused by the header's own check (R2-2).
+        LocalDate made = run.getCreationDate() != null ? run.getCreationDate() : AcbTime.today(clock);
+        BureauFileWriter.Written written = BureauFileWriter.write(properties.settings(), header(run, made), fileLines);
         requireTrailerMatchesRun(run, written);
         String sha256 = sha256(written.bytes());
 
@@ -154,6 +158,8 @@ public class AcbFileServiceImpl implements AcbFileService {
                 .map(e -> new Object[] {e.getValue(), e.getKey()})
                 .toList();
         jdbc.batchUpdate("UPDATE acb_run_lines SET file_sequence = ? WHERE id = ?", sequences);
+        // Not a transition, so not the entity: the run's version stays where the screen saw it.
+        jdbc.update("UPDATE acb_runs SET creation_date = ? WHERE id = ? AND creation_date IS NULL", made, runId);
         audit.record(runId, null, "FILE_RENDERED", run.getStatus(), run.getStatus(),
                 fileName + ": " + written.records() + " records, " + written.debitCount() + " debits, R "
                         + debitValue + ", sha256 " + sha256.substring(0, 12), actor);
@@ -186,8 +192,8 @@ public class AcbFileServiceImpl implements AcbFileService {
         return "sasbosub." + month.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase(Locale.ROOT);
     }
 
-    private static BureauFileWriter.Header header(AcbRun run) {
-        return new BureauFileWriter.Header(run.getCreationDate(), run.getPurgeDate(),
+    private static BureauFileWriter.Header header(AcbRun run, LocalDate made) {
+        return new BureauFileWriter.Header(made, run.getPurgeDate(),
                 run.getFirstDueDate(), run.getLastDueDate());
     }
 

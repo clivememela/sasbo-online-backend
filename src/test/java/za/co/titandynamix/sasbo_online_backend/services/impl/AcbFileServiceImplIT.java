@@ -15,6 +15,7 @@ import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractAcbIT;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,6 +84,30 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
         assertThat(records.get(records.size() - 1)).startsWith("94");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_run_lines WHERE run_id = ? AND file_sequence IS NULL",
                 Integer.class, run.id())).as("every line knows its sequence").isZero();
+    }
+
+    @Test
+    @DisplayName("🔒 R2-5, D31: the header's creation date is the day the file was MADE -- the frozen clock's, not three days before the first debit")
+    void theCreationDateIsTheRenderDay() {
+        AcbRunDto run = approvedRun(true);
+        // Before the file is made the run says when it must be made by, and that it has not been.
+        assertThat(run.creationDate()).isNull();
+        assertThat(run.makeBy()).isEqualTo(LocalDate.parse(run.firstDueDate()).minusDays(3).toString());
+        assertThat(run.makeByPassed()).as("18 September is well before the October file's day").isFalse();
+
+        RenderedFile file = files.render(run.id(), "approver");
+
+        String made = "260918";
+        String purge = LocalDate.parse(runs.get(run.id()).purgeDate()).format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
+        List<String> records = List.of(new String(file.bytes(), StandardCharsets.US_ASCII).split("\r\n"));
+        assertThat(records.get(0)).as("the 02 header").contains(made + purge);
+        assertThat(records.get(1)).as("the 04 header").startsWith("04").contains(made + purge);
+        String computedAhead = LocalDate.parse(run.firstDueDate()).minusDays(3)
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
+        assertThat(records.get(0)).doesNotContain(computedAhead + purge);
+        AcbRunDto after = runs.get(run.id());
+        assertThat(after.creationDate()).isEqualTo("2026-09-18");
+        assertThat(after.version()).as("making the file is not a transition").isEqualTo(run.version());
     }
 
     @Test

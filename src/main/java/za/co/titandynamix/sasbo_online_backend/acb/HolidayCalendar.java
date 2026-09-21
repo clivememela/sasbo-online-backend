@@ -46,6 +46,15 @@ public interface HolidayCalendar {
         return knownUntil().isPresent();
     }
 
+    /** {@code date} if it is a business day, else the nearest business day before it. */
+    default LocalDate businessDayOnOrBefore(LocalDate date) {
+        LocalDate day = date;
+        while (!isBusinessDay(day)) {
+            day = day.minusDays(1);
+        }
+        return day;
+    }
+
     /**
      * Whether this calendar is complete for every day of {@code month}. One that knows no holidays
      * covers nothing: a month is never prepared on weekends alone (D30).

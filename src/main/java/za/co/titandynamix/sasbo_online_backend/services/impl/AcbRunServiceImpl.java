@@ -388,6 +388,8 @@ public class AcbRunServiceImpl implements AcbRunService {
                 AcbTime.iso(run.getPurgeDate()),
                 AcbTime.iso(run.getFirstDueDate()),
                 AcbTime.iso(run.getLastDueDate()),
+                AcbTime.iso(AcbRuns.makeBy(run.getFirstDueDate())),
+                AcbRuns.makeByPassed(run, AcbTime.today(clock)),
                 counted.lineCount(),
                 counted.total(),
                 totalsAgree(run, counted),

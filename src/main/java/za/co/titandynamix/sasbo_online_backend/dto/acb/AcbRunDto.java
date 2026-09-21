@@ -13,6 +13,9 @@ import java.util.List;
  * application's Jackson configuration does with {@code java.time} types. A guard asserts no ACB DTO
  * declares a {@code java.time} field.
  *
+ * @param creationDate    the day the file was MADE -- stamped when it is first rendered (D31); null until then
+ * @param makeBy          the latest day to make the file: three days before the first debit
+ * @param makeByPassed    that day has passed and the file is still to be made -- flagged, never refused
  * @param lineCount       counted from the run's lines on this read, never taken on trust
  * @param totalAmount     summed from the run's lines on this read -- the control total
  * @param totalsAgree     whether the totals stored when the run was prepared still equal the lines;
@@ -34,6 +37,8 @@ public record AcbRunDto(
         String purgeDate,
         String firstDueDate,
         String lastDueDate,
+        String makeBy,
+        boolean makeByPassed,
         int lineCount,
         BigDecimal totalAmount,
         boolean totalsAgree,

@@ -12,6 +12,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbPopulationRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRateRepository;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -32,7 +33,32 @@ final class AcbRuns {
     static final Set<AcbRunStatus> SENT =
             EnumSet.of(AcbRunStatus.SUBMITTED, AcbRunStatus.RETURNED, AcbRunStatus.CLOSED);
 
+    /** The file is made by this many days before the first action date -- SASBO's rule (D31, Q37). */
+    static final int MAKE_BY_LEAD_DAYS = 3;
+
+    /** The states in which a file can still be made: a proposal, and an approved run. */
+    static final Set<AcbRunStatus> FILE_STILL_TO_MAKE = EnumSet.of(AcbRunStatus.PREPARED, AcbRunStatus.APPROVED);
+
     private AcbRuns() {
+    }
+
+    /** The latest day to make the file: three days before the first debit. {@code null} for a run with no lines. */
+    static LocalDate makeBy(LocalDate firstActionDate) {
+        return firstActionDate == null ? null : firstActionDate.minusDays(MAKE_BY_LEAD_DAYS);
+    }
+
+    /**
+     * 🧪 Whether the day to make the file by has passed -- shown and flagged, never a refusal: the bank
+     * is the judge of a late file (Q29). {@code today} is an argument, never read here (T2-G).
+     */
+    static boolean makeByPassed(LocalDate makeBy, LocalDate today) {
+        return makeBy != null && today.isAfter(makeBy);
+    }
+
+    /** The flag for a run: only while its file is still to be made. */
+    static boolean makeByPassed(AcbRun run, LocalDate today) {
+        return FILE_STILL_TO_MAKE.contains(run.getStatus()) && run.getCreationDate() == null
+                && makeByPassed(makeBy(run.getFirstDueDate()), today);
     }
 
     /** The rate in force for {@code month}, or the refusal that no line can be priced. */

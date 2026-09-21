@@ -123,7 +123,7 @@ class ACBControllerTest {
     private static final String SYNTHETIC_ACCOUNT = "6200999911";
 
     static AcbRunDto aRun(AcbRunStatus status) {
-        return new AcbRunDto(41L, "2026-10", status, 0, "2026-09-18", null, null, null, null,
+        return new AcbRunDto(41L, "2026-10", status, 0, "2026-09-18", null, null, null, null, null, false,
                 0, new BigDecimal("0.00"), true, true, null, null, "za-statutory", true, "system", null,
                 "2026-09-18T10:00+02:00", "2026-09-18T10:00+02:00", null,
                 List.of(new AcbExclusionSummaryDto(AcbExclusionReason.NOT_DEBIT_ORDER, false, "Payroll Deduction", 48)));

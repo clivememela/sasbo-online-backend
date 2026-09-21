@@ -39,6 +39,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,11 +81,10 @@ public class AcbPreparationJob {
     private static final int BATCH_SIZE = 500;
 
     /**
-     * The file's creation date defaults to this many days before the first action date, and its
-     * purge date to this many after the last -- SASBO's own rule of thumb. Both are editable
-     * before the file is written, since the old system had them typed by hand.
+     * The file's purge date: this many days after the last action date, moved back to a business day
+     * in the run's calendar -- SASBO's rule, which reproduces July 2026's 7 August (D31, Q37). The
+     * CREATION date is not set here: it is the day the file is made, stamped when it is rendered.
      */
-    static final int CREATION_LEAD_DAYS = 3;
     static final int PURGE_LAG_DAYS = 10;
 
     private static final String INSERT_LINE = "INSERT INTO acb_run_lines (run_id, member_id, "
@@ -209,13 +209,10 @@ public class AcbPreparationJob {
         run.setRateEffectiveFrom(rate.getEffectiveFrom());
         run.setHolidaySet(calendar.name());
         run.setCalendarFingerprint(calendar.fingerprint(YearMonth.from(run.getActionMonth())));
-        prepared.firstActionDate().ifPresent(first -> {
-            run.setFirstDueDate(first);
-            run.setCreationDate(first.minusDays(CREATION_LEAD_DAYS));
-        });
+        prepared.firstActionDate().ifPresent(run::setFirstDueDate);
         prepared.lastActionDate().ifPresent(last -> {
             run.setLastDueDate(last);
-            run.setPurgeDate(last.plusDays(PURGE_LAG_DAYS));
+            run.setPurgeDate(purgeDate(last, calendar));
         });
         run.setHeartbeatAt(AcbTime.instant(clock));
         // The version check. A sweep that failed this run while we read makes this throw, and the
@@ -226,6 +223,11 @@ public class AcbPreparationJob {
                         + prepared.exclusions().size() + " members listed as excluded",
                 AcbActor.SYSTEM);
         return true;
+    }
+
+    /** Ten days after the last action date, moved back to a business day (D31): 30 July 2026 -> Friday 7 August. */
+    static LocalDate purgeDate(LocalDate lastActionDate, HolidayCalendar calendar) {
+        return calendar.businessDayOnOrBefore(lastActionDate.plusDays(PURGE_LAG_DAYS));
     }
 
     /**

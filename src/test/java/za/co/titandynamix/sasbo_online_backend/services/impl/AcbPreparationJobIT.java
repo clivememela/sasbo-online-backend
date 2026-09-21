@@ -66,15 +66,21 @@ class AcbPreparationJobIT extends AbstractAcbIT {
         assertThat(run.totalsAgree()).isTrue();
         assertThat(run.rateAmount()).isEqualByComparingTo("174.00");
         assertThat(run.rateEffectiveFrom()).isEqualTo("2026-01-01");
-        assertThat(run.holidaySet()).isEqualTo("weekends-only");
-        assertThat(run.holidaysKnown()).isFalse();
+        assertThat(run.holidaySet()).isEqualTo("za-statutory");
+        assertThat(run.holidaysKnown()).isTrue();
+        assertThat(run.calendarAgrees()).isTrue();
 
-        // The five header dates: the first and last action dates, and SASBO's three-and-ten rule.
+        // The header dates (D31): the first and last action dates; the file made by three days before
+        // the first -- its creation date is stamped when it is made, so none yet; the purge date ten
+        // days after the last, on a business day.
         LocalDate first = LocalDate.parse(run.firstDueDate());
         LocalDate last = LocalDate.parse(run.lastDueDate());
         assertThat(first.getDayOfMonth()).isGreaterThanOrEqualTo(20);
-        assertThat(LocalDate.parse(run.creationDate())).isEqualTo(first.minusDays(3));
-        assertThat(LocalDate.parse(run.purgeDate())).isEqualTo(last.plusDays(10));
+        assertThat(run.creationDate()).isNull();
+        assertThat(LocalDate.parse(run.makeBy())).isEqualTo(first.minusDays(3));
+        assertThat(LocalDate.parse(run.purgeDate()))
+                .isEqualTo(za.co.titandynamix.sasbo_online_backend.acb.AcbCalendars.ZA_STATUTORY
+                        .businessDayOnOrBefore(last.plusDays(10)));
 
         // Everyone left out, with the reason: four named, three counted by the value that excluded them.
         assertThat(run.exclusions()).extracting(AcbExclusionSummaryDto::reason, AcbExclusionSummaryDto::listed,
