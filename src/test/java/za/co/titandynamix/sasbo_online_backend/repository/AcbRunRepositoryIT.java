@@ -70,13 +70,13 @@ class AcbRunRepositoryIT extends AbstractAcbIT {
     // ── the schema V41 to V43 build ─────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("exactly eleven ACB tables -- which is what takes the chain from 25 tables to 36")
+    @DisplayName("exactly twelve ACB tables -- which is what takes the chain from 25 tables to 37")
     void theNineTables() {
         assertThat(jdbc.queryForList("SELECT table_name FROM information_schema.tables "
                 + "WHERE table_schema = 'public' AND table_name LIKE 'acb\\_%' ORDER BY table_name", String.class))
-                .containsExactly("acb_audit_events", "acb_calendar", "acb_holidays", "acb_letters", "acb_rates",
-                        "acb_run_exclusion_counts", "acb_run_exclusions", "acb_run_files", "acb_run_lines", "acb_runs",
-                        "acb_unpaid_codes");
+                .containsExactly("acb_audit_events", "acb_calendar", "acb_holidays", "acb_letters",
+                        "acb_opening_position", "acb_rates", "acb_run_exclusion_counts", "acb_run_exclusions",
+                        "acb_run_files", "acb_run_lines", "acb_runs", "acb_unpaid_codes");
     }
 
     @Test

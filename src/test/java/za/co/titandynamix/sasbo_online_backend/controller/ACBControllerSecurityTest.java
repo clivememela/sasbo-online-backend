@@ -14,6 +14,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbOpeningPositionService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
@@ -60,6 +61,9 @@ class ACBControllerSecurityTest {
     @MockitoBean
     private AcbCalendarService calendar;
 
+    @MockitoBean
+    private AcbOpeningPositionService openingPosition;
+
     @Test
     @DisplayName("approving a run is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
     void approvalIsRefusedToEveryone() throws Exception {
@@ -71,7 +75,7 @@ class ACBControllerSecurityTest {
                 .andExpect(jsonPath("$.details.runId").value("41"));
 
         // Refused BEFORE anything is looked up: the answer says nothing about which runs exist.
-        verifyNoInteractions(this.runs, this.returns, this.calendar);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
     }
 
     @Test
@@ -81,7 +85,7 @@ class ACBControllerSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
                 .andExpect(jsonPath("$.details.runId").value("41"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
     }
 
     @Test
@@ -92,7 +96,18 @@ class ACBControllerSecurityTest {
                         .content("{\"version\": 3}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
+    }
+
+    @Test
+    @DisplayName("🔒 SD3-B: the opening-position upload is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
+    void theOpeningPositionUploadIsRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(post("/api/acb/opening-position")
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .content(new byte[] {'P', 'K', 3, 4}))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
     }
 
     @Test
@@ -104,7 +119,7 @@ class ACBControllerSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
                 .andExpect(jsonPath("$.details.runId").value("41"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
     }
 
     @Test
@@ -123,7 +138,7 @@ class ACBControllerSecurityTest {
                         .content("{\"knownUntil\": \"2028-12-31\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
     }
 
     @Test

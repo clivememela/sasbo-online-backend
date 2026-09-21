@@ -188,7 +188,9 @@ public final class MigrationSeed {
             "V45__acb_unpaid_codes.sql",
             "V46__acb_letters.sql",
             // ACB 01.8: the holiday calendar as data -- acb_holidays and acb_calendar (D30).
-            "V47__acb_holidays.sql");
+            "V47__acb_holidays.sql",
+            // ACB 03.0: the opening arrears position, captured by hand at switch-over (D24).
+            "V48__acb_opening_position.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

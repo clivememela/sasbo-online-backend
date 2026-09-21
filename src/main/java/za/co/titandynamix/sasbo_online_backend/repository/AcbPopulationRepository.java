@@ -30,6 +30,13 @@ public interface AcbPopulationRepository extends Repository<Member, Integer> {
             + "FROM Member m WHERE m.id > :afterId ORDER BY m.id")
     List<MemberDebitRow> findPageAfter(@Param("afterId") Integer afterId, Pageable page);
 
+    /** The members an opening-position sheet names -- one query, whatever the sheet's length (D24). */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.opening.OpeningMemberRow("
+            + "m.id, m.membershipNumber, m.paymentType, m.arrearsBalance) "
+            + "FROM Member m WHERE m.membershipNumber IN :numbers")
+    List<za.co.titandynamix.sasbo_online_backend.acb.opening.OpeningMemberRow> findByMembershipNumbers(
+            @Param("numbers") java.util.Collection<String> numbers);
+
     /** Every bank on record, as the three columns a run matches and prints. */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.BankRow("
             + "b.id, b.name, b.universalBranchCode) FROM Bank b")

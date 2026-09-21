@@ -208,6 +208,21 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * An upload over the multipart limit is refused while the request is PARSED -- before a controller
+     * is chosen, so no controller-scoped advice can answer it (F55). On an ACB route it is a coded
+     * {@code UPLOAD_TOO_LARGE}; anywhere else it answers exactly as the catch-all always has.
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleUploadTooLarge(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        if (request.getRequestURI().startsWith("/api/acb/")) {
+            return handleAcbRefusal(new AcbRefusal(AcbRefusalCode.UPLOAD_TOO_LARGE, "The upload is over its limit.",
+                    Map.of("limitBytes", String.valueOf(ex.getMaxUploadSize()))), request);
+        }
+        return handleGeneralException(ex, request);
+    }
+
+    /**
      * An ACB refusal: its own status, its stable {@code code}, and the facts it is about.
      *
      * <p>The message and details were written by ACB code for the person at the desk -- a run's

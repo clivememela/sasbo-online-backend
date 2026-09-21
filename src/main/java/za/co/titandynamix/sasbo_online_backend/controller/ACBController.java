@@ -16,6 +16,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbOpeningPositionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
@@ -31,6 +32,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbOpeningPositionService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
@@ -62,6 +64,7 @@ public class ACBController {
     private final AcbRunService runs;
     private final AcbReturnsService returns;
     private final AcbCalendarService calendar;
+    private final AcbOpeningPositionService openingPosition;
 
     @GetMapping("/runs")
     public AcbPage<AcbRunSummaryDto> listRuns(@RequestParam(defaultValue = "0") int page,
@@ -221,6 +224,28 @@ public class ACBController {
     @GetMapping("/termination-report")
     public AcbTerminationReportDto terminationReport() {
         return returns.terminationReport();
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The opening arrears position -- captured by hand once, at switch-over (D24)
+    // ------------------------------------------------------------------------------------------
+
+    /** The opening position as it stands: how many members, who entered it, whether it can still change. */
+    @GetMapping("/opening-position")
+    public AcbOpeningPositionDto openingPosition() {
+        return openingPosition.current();
+    }
+
+    /**
+     * 🔒 The upload of the opening-position sheet -- refused to every caller, before a byte of it is
+     * read, until the API knows who is calling (SD3-B): an .xlsx is a zip of XML, and this would be an
+     * anonymous endpoint parsing one from the internet, for an upload used once. Built and proven in
+     * {@code AcbOpeningPositionService.capture}.
+     */
+    @PostMapping("/opening-position")
+    public AcbOpeningPositionDto captureOpeningPosition() {
+        throw new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, "The opening arrears position is captured once "
+                + "administrators sign in to this system. Nothing has been read or stored.");
     }
 
     // ------------------------------------------------------------------------------------------

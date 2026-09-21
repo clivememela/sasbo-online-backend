@@ -93,6 +93,20 @@ public enum AcbRefusalCode {
      * (EH2-A). Answered with the envelope and nothing of what was sent.
      */
     REQUEST_MALFORMED(HttpStatus.BAD_REQUEST),
+    /**
+     * The opening-position sheet has problems, named by row -- at most fifty, with the total -- and
+     * nothing of it is stored: all or nothing (EH2-E). A problem never echoes a cell's value.
+     */
+    OPENING_POSITION_INVALID(HttpStatus.UNPROCESSABLE_ENTITY),
+    /**
+     * The opening position is fixed once the first run's returns are in: from then its unpaids are
+     * counted beside the ledger's, and replacing it would rewrite what the report said (D24).
+     */
+    OPENING_POSITION_LOCKED(HttpStatus.CONFLICT),
+    /** An upload is over its stated limit. The details carry the limit in bytes. */
+    UPLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE),
+    /** An upload is not an {@code .xlsx} sheet that can be read. Nothing of it is evaluated further. */
+    UPLOAD_NOT_A_SHEET(HttpStatus.UNSUPPORTED_MEDIA_TYPE),
     /** The action month is malformed, or not one a run may be prepared for. */
     ACTION_MONTH_INVALID(HttpStatus.BAD_REQUEST),
     /** The day is already in the holiday calendar. The details carry the date and its name. */

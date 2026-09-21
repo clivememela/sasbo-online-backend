@@ -2,6 +2,8 @@ POST /api/acb/calendar/known-until
 GET /api/acb/holidays
 POST /api/acb/holidays
 DELETE /api/acb/holidays/{date}
+GET /api/acb/opening-position
+POST /api/acb/opening-position
 GET /api/acb/runs
 POST /api/acb/runs
 GET /api/acb/runs/{id}
