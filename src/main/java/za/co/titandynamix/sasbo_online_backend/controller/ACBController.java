@@ -18,6 +18,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbOpeningPositionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRatesDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
@@ -33,6 +34,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbOpeningPositionService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbRateService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
@@ -65,6 +67,7 @@ public class ACBController {
     private final AcbReturnsService returns;
     private final AcbCalendarService calendar;
     private final AcbOpeningPositionService openingPosition;
+    private final AcbRateService rates;
 
     @GetMapping("/runs")
     public AcbPage<AcbRunSummaryDto> listRuns(@RequestParam(defaultValue = "0") int page,
@@ -224,6 +227,26 @@ public class ACBController {
     @GetMapping("/termination-report")
     public AcbTerminationReportDto terminationReport() {
         return returns.terminationReport();
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The flat rate, dated -- captured in December for January (Q43)
+    // ------------------------------------------------------------------------------------------
+
+    /** Every dated rate, and -- from December -- the January notice. Open, like every read. */
+    @GetMapping("/rates")
+    public AcbRatesDto rates() {
+        return rates.rates();
+    }
+
+    /**
+     * 🔒 Adding a rate sets what thousands of members are charged -- refused to every caller until the
+     * API knows who is calling (D13). Built and proven in {@code AcbRateService.add}.
+     */
+    @PostMapping("/rates")
+    public AcbRatesDto addRate() {
+        throw new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, "Adding a subscription rate waits until "
+                + "administrators sign in to this system. Nothing has been added.");
     }
 
     // ------------------------------------------------------------------------------------------

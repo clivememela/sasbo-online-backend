@@ -46,6 +46,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbOpeningPositionService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbRateService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 import za.co.titandynamix.sasbo_online_backend.support.LogCapture;
@@ -112,6 +113,9 @@ class ACBControllerTest {
 
     @MockitoBean
     private AcbOpeningPositionService openingPosition;
+
+    @MockitoBean
+    private AcbRateService rates;
 
     @Autowired
     private MeterRegistry meters;

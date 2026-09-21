@@ -15,6 +15,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbOpeningPositionService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbRateService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 
@@ -64,6 +65,9 @@ class ACBControllerSecurityTest {
     @MockitoBean
     private AcbOpeningPositionService openingPosition;
 
+    @MockitoBean
+    private AcbRateService rates;
+
     @Test
     @DisplayName("approving a run is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
     void approvalIsRefusedToEveryone() throws Exception {
@@ -75,7 +79,7 @@ class ACBControllerSecurityTest {
                 .andExpect(jsonPath("$.details.runId").value("41"));
 
         // Refused BEFORE anything is looked up: the answer says nothing about which runs exist.
-        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
     }
 
     @Test
@@ -85,7 +89,7 @@ class ACBControllerSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
                 .andExpect(jsonPath("$.details.runId").value("41"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
     }
 
     @Test
@@ -96,7 +100,18 @@ class ACBControllerSecurityTest {
                         .content("{\"version\": 3}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
+    }
+
+    @Test
+    @DisplayName("🔒 D13, Q43: adding a rate is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
+    void addingARateIsRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(post("/api/acb/rates")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"effectiveFrom\": \"2027-01-01\", \"amount\": 185.00, \"source\": \"AGM\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
     }
 
     @Test
@@ -107,7 +122,7 @@ class ACBControllerSecurityTest {
                         .content(new byte[] {'P', 'K', 3, 4}))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
     }
 
     @Test
@@ -119,7 +134,7 @@ class ACBControllerSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
                 .andExpect(jsonPath("$.details.runId").value("41"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
     }
 
     @Test
@@ -138,7 +153,7 @@ class ACBControllerSecurityTest {
                         .content("{\"knownUntil\": \"2028-12-31\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
-        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition);
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
     }
 
     @Test

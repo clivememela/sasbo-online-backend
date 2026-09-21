@@ -46,9 +46,12 @@ COMMENT ON TABLE acb_rates IS
     'The flat debit-order subscription, dated. A run charges the row with the latest '
     'effective_from on or before its action month; a line keeps what it was charged.';
 
+-- The source was "the month it took effect is unconfirmed" until SASBO answered Q43 on 2026-09-21: the
+-- rate runs from January, is captured in December, and a re-debit keeps the old amount. Amended in
+-- place (unpushed, F53). Next year's row is added through the rates route once B1 lands (01.9).
 INSERT INTO acb_rates (effective_from, amount, source)
 VALUES (DATE '2026-01-01', 174.00,
-        'Charged on every line of the July 2026 bureau file; the month it took effect is unconfirmed');
+        'From January -- confirmed by SASBO 2026-09-21 (Q43); charged on every line of the July 2026 bureau file');
 
 CREATE TABLE acb_runs (
     id                  BIGSERIAL     PRIMARY KEY,

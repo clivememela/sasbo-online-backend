@@ -4,6 +4,8 @@ POST /api/acb/holidays
 DELETE /api/acb/holidays/{date}
 GET /api/acb/opening-position
 POST /api/acb/opening-position
+GET /api/acb/rates
+POST /api/acb/rates
 GET /api/acb/runs
 POST /api/acb/runs
 GET /api/acb/runs/{id}

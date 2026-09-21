@@ -43,6 +43,12 @@ public enum AcbRefusalCode {
     BANK_SUBSCRIPTION_AMBIGUOUS(HttpStatus.UNPROCESSABLE_ENTITY),
     /** No flat rate is in force for the action month, so no line can be priced. */
     RATE_NOT_IN_FORCE(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** A rate is already dated that month. Rows are added, never edited (D25). The details carry the month. */
+    RATE_ALREADY_SET(HttpStatus.CONFLICT),
+    /** A live run has already charged that month; a new rate would reprice it behind its back. */
+    RATE_MONTH_CHARGED(HttpStatus.CONFLICT),
+    /** A new rate starts on the first of a month still to come -- a past row is never edited (D25). */
+    RATE_NOT_FUTURE(HttpStatus.UNPROCESSABLE_ENTITY),
     /**
      * The holiday calendar is not known to the end of the action month, so its dates cannot be
      * computed honestly: a month is never prepared on weekends alone (D30). The details carry the
