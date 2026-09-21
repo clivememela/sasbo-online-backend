@@ -56,7 +56,7 @@ class AcbHeaderDatesTest {
         LocalDate by = LocalDate.of(2026, 10, 17);
         assertThat(AcbRuns.makeByPassed(by, LocalDate.of(2026, 10, 17))).isFalse();
         assertThat(AcbRuns.makeByPassed(by, LocalDate.of(2026, 10, 18))).isTrue();
-        assertThat(AcbRuns.makeByPassed(null, LocalDate.of(2026, 10, 18))).isFalse();
+        assertThat(AcbRuns.makeByPassed((LocalDate) null, LocalDate.of(2026, 10, 18))).isFalse();
     }
 
     @Test
