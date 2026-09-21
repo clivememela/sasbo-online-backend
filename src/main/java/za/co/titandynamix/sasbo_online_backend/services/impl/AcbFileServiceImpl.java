@@ -74,17 +74,19 @@ public class AcbFileServiceImpl implements AcbFileService {
     private final AcbRunLineRepository lines;
     private final AcbAuditTrail audit;
     private final AcbFileProperties properties;
+    private final SeededMembersGuard seededMembers;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final TransactionTemplate tx;
 
     public AcbFileServiceImpl(AcbRunRepository runs, AcbRunLineRepository lines, AcbAuditTrail audit,
-                              AcbFileProperties properties, JdbcTemplate jdbc, Clock clock,
-                              PlatformTransactionManager transactions) {
+                              AcbFileProperties properties, SeededMembersGuard seededMembers, JdbcTemplate jdbc,
+                              Clock clock, PlatformTransactionManager transactions) {
         this.runs = runs;
         this.lines = lines;
         this.audit = audit;
         this.properties = properties;
+        this.seededMembers = seededMembers;
         this.jdbc = jdbc;
         this.clock = clock;
         this.tx = new TransactionTemplate(transactions);
@@ -115,6 +117,9 @@ public class AcbFileServiceImpl implements AcbFileService {
             return served(run, stored.get());
         }
 
+        // Before a byte is written: where the production marker is set, no file is made from a
+        // seeded member (SD3-A). A file already sent is served above as the record it is.
+        seededMembers.refuseSeededMembers(run);
         List<BureauFileLine> fileLines = fileLines(runId);
         BureauFileWriter.Written written = BureauFileWriter.write(properties.settings(), header(run), fileLines);
         requireTrailerMatchesRun(run, written);

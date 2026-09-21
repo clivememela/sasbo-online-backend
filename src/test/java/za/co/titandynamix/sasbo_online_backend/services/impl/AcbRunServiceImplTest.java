@@ -10,6 +10,7 @@ import za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher;
 import za.co.titandynamix.sasbo_online_backend.acb.BankRow;
 import za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendar;
 import za.co.titandynamix.sasbo_online_backend.acb.LineTotals;
+import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbAuditEvent;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRate;
@@ -26,6 +27,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbRunExclusionReposit
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunLineRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
 import za.co.titandynamix.sasbo_online_backend.services.AcbFileService;
+import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -86,7 +88,9 @@ class AcbRunServiceImplTest {
         PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
         service = new AcbRunServiceImpl(runs, lines, exclusions, exclusionCounts, rates, population,
                 new AcbAuditTrail(auditEvents, CLOCK), job, mock(AcbFileService.class), AcbJobLauncher.inline(),
-                HolidayCalendar.WEEKENDS_ONLY, CLOCK, transactions, Duration.ofMinutes(5));
+                HolidayCalendar.WEEKENDS_ONLY,
+                new SeededMembersGuard(new SasboEnvironment(null), new SeedMemberNumbers(), lines),
+                CLOCK, transactions, Duration.ofMinutes(5));
 
         AcbRate rate = new AcbRate();
         rate.setEffectiveFrom(LocalDate.of(2026, 1, 1));

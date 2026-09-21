@@ -45,6 +45,12 @@ public enum AcbRefusalCode {
     FILE_NOT_RENDERED(HttpStatus.CONFLICT),
     /** The run's file passed its purge date; its bytes are gone, its hash and totals remain. */
     FILE_PURGED(HttpStatus.GONE),
+    /**
+     * Where the production marker is set, a run holding a member the seed files list is neither
+     * approved nor made into a file: synthetic people are never debited (SD3-A). The details carry
+     * how many lines. An exact match against the listed numbers, never a numeric range (SD4-E).
+     */
+    FILE_HAS_SEED_MEMBERS(HttpStatus.UNPROCESSABLE_ENTITY),
     /** The run has no such line. The details carry both ids. */
     LINE_NOT_FOUND(HttpStatus.NOT_FOUND),
     /**

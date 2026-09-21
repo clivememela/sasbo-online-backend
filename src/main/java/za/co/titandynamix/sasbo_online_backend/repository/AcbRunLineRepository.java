@@ -41,6 +41,13 @@ public interface AcbRunLineRepository extends JpaRepository<AcbRunLine, Long> {
     List<Object[]> totalsForRuns(@Param("runIds") Collection<Long> runIds);
 
     /**
+     * How many of a run's lines debit a member whose number is one of {@code numbers} -- the seed's
+     * EXACT list, never a numeric range (SD4-E). One query, whatever the run's size.
+     */
+    @Query("SELECT count(l) FROM AcbRunLine l WHERE l.runId = :runId AND l.membershipNumber IN :numbers")
+    long countMembershipNumbersIn(@Param("runId") Long runId, @Param("numbers") Collection<String> numbers);
+
+    /**
      * The unpaids the union decided to present again, from runs that were sent, for months before
      * {@code month}, that no live run has presented yet.
      *

@@ -53,6 +53,7 @@
       {"code": "FILE_LINES_INCOMPLETE", "status": 422},
       {"code": "FILE_NOT_RENDERED", "status": 409},
       {"code": "FILE_PURGED", "status": 410},
+      {"code": "FILE_HAS_SEED_MEMBERS", "status": 422},
       {"code": "LINE_NOT_FOUND", "status": 404},
       {"code": "UNPAID_ALREADY_RECORDED", "status": 409},
       {"code": "UNPAIDS_UNDECIDED", "status": 409},

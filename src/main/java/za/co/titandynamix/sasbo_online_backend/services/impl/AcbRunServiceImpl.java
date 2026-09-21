@@ -85,6 +85,7 @@ public class AcbRunServiceImpl implements AcbRunService {
     private final AcbFileService files;
     private final AcbJobLauncher launcher;
     private final HolidayCalendar calendar;
+    private final SeededMembersGuard seededMembers;
     private final Clock clock;
     private final TransactionTemplate tx;
     private final Duration preparationCeiling;
@@ -94,7 +95,7 @@ public class AcbRunServiceImpl implements AcbRunService {
                              AcbRunExclusionCountRepository exclusionCounts, AcbRateRepository rates,
                              AcbPopulationRepository population, AcbAuditTrail audit,
                              AcbPreparationJob job, AcbFileService files, AcbJobLauncher launcher,
-                             HolidayCalendar calendar,
+                             HolidayCalendar calendar, SeededMembersGuard seededMembers,
                              Clock clock, PlatformTransactionManager transactions,
                              @Value("${acb.jobs.preparation-ceiling:PT5M}") Duration preparationCeiling) {
         this.runs = runs;
@@ -108,6 +109,7 @@ public class AcbRunServiceImpl implements AcbRunService {
         this.files = files;
         this.launcher = launcher;
         this.calendar = calendar;
+        this.seededMembers = seededMembers;
         this.clock = clock;
         this.tx = new TransactionTemplate(transactions);
         this.preparationCeiling = preparationCeiling;
@@ -238,6 +240,7 @@ public class AcbRunServiceImpl implements AcbRunService {
                                 + "say why each member was left out.",
                         AcbRuns.facts(run));
             }
+            seededMembers.refuseSeededMembers(run);
             if (Objects.equals(actor, run.getCreatedBy())) {
                 throw new AcbRefusal(AcbRefusalCode.APPROVER_IS_PREPARER,
                         "The person who prepared a run may not approve it.", AcbRuns.facts(run));
