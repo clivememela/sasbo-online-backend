@@ -30,6 +30,12 @@ public interface AcbPopulationRepository extends Repository<Member, Integer> {
             + "FROM Member m WHERE m.id > :afterId ORDER BY m.id")
     List<MemberDebitRow> findPageAfter(@Param("afterId") Integer afterId, Pageable page);
 
+    /** The statuses of the members a termination report lists (03.5) -- one query for the whole list. */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.MemberStatusRow(m.id, m.status) "
+            + "FROM Member m WHERE m.id IN :ids")
+    List<za.co.titandynamix.sasbo_online_backend.acb.MemberStatusRow> findStatuses(
+            @Param("ids") java.util.Collection<Integer> ids);
+
     /** The members an opening-position sheet names -- one query, whatever the sheet's length (D24). */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.opening.OpeningMemberRow("
             + "m.id, m.membershipNumber, m.paymentType, m.arrearsBalance) "

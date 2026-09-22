@@ -71,4 +71,22 @@ public interface AcbReturnsService {
 
     /** Who three unpaid presentations would terminate -- every unpaid counts (Q27). Terminates nobody. */
     AcbTerminationReportDto terminationReport(int page, int size);
+
+    /**
+     * 03.5 -- terminates a member the termination rule says three unpaid presentations have reached, through
+     * {@code MemberService.changeStatus} with the reason {@code SUBS_IN_ARREARS} and never the whole-record
+     * update (Q25, Q27, R3-9). Refuses a member the rule does not reach ({@code TERMINATION_NOT_DUE}); a member
+     * already terminated is answered as they are. No route calls it while the API is anonymous: ending a
+     * membership waits for B1, like approval.
+     */
+    za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto terminate(Integer memberId, String actor);
+
+    /**
+     * 03.5 -- suspends the member of an unpaid decided SUSPEND -- a code that allows no re-debit (Q40, Q44) --
+     * through {@code changeStatus} with the reason {@code UNPAID_SUSPENDED}. Refuses any other line ({@code
+     * UNPAID_NOT_SUSPENDED}) and a member already terminated ({@code MEMBER_TERMINATED}). No route calls it
+     * while the API is anonymous.
+     */
+    za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto suspendMember(long runId, long lineId,
+                                                                                      String actor);
 }

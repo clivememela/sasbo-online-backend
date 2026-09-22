@@ -83,6 +83,27 @@ class ACBControllerSecurityTest {
     }
 
     @Test
+    @DisplayName("03.5 terminating a membership is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
+    void terminationIsRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(post("/api/acb/termination-report/7/terminate"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
+                .andExpect(jsonPath("$.details.memberId").value("7"));
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
+    }
+
+    @Test
+    @DisplayName("03.5 suspending an unpaid's member is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
+    void suspensionIsRefusedToEveryone() throws Exception {
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/9/suspend-member"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
+                .andExpect(jsonPath("$.details.runId").value("41"))
+                .andExpect(jsonPath("$.details.lineId").value("9"));
+        verifyNoInteractions(this.runs, this.returns, this.calendar, this.openingPosition, this.rates);
+    }
+
+    @Test
     @DisplayName("the bureau file is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")
     void theFileIsRefusedToEveryone() throws Exception {
         this.mockMvc.perform(get("/api/acb/runs/41/file"))

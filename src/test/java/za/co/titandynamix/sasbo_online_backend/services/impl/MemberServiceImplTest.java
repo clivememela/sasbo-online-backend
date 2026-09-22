@@ -134,6 +134,7 @@ class MemberServiceImplTest {
     @Mock private AreaRepository areaRepository;
     @Mock private RecruitmentChannelRepository recruitmentChannelRepository;
     @Mock private RecruiterRepository recruiterRepository;
+    @Mock private za.co.titandynamix.sasbo_online_backend.repository.MemberStatusChangeRepository statusChanges;
 
     @Captor
     private ArgumentCaptor<Member> saved;
@@ -147,7 +148,7 @@ class MemberServiceImplTest {
                 this.subscriptionsRepository, this.bankBranchRepository, this.bankRepository,
                 this.representativeRoleRepository, this.unionStructureRepository,
                 this.jobGradeRepository, this.jobGradeService, this.areaRepository,
-                this.recruitmentChannelRepository, this.recruiterRepository);
+                this.recruitmentChannelRepository, this.recruiterRepository, this.statusChanges);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -789,6 +790,70 @@ class MemberServiceImplTest {
         banking.setAccountType("transmission");
 
         assertThat(this.service.updateBanking(4, banking).orElseThrow().getAccountType()).isEqualTo("Transmission");
+    }
+
+    // ============================================================
+    // 03.5 — changeStatus: the status and nothing else, with its history.
+    // ============================================================
+
+    private static za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest terminated(Long runId,
+                                                                                                          Long lineId) {
+        return new za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest("Terminated",
+                za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason.SUBS_IN_ARREARS, runId, lineId,
+                "administrator", java.time.Instant.parse("2026-09-22T08:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("03.5 changeStatus moves the status and records who, when, from what and why")
+    void changeStatusRecordsItsHistory() {
+        Member member = MemberFixture.aMember();
+        member.setId(4);
+        member.setStatus("Active");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(member));
+
+        Member saved = this.service.changeStatus(4, terminated(null, null)).orElseThrow();
+
+        assertThat(saved.getStatus()).isEqualTo("Terminated");
+        org.mockito.ArgumentCaptor<za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange> row =
+                org.mockito.ArgumentCaptor.forClass(za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange.class);
+        verify(this.statusChanges).save(row.capture());
+        assertThat(row.getValue().getMemberId()).isEqualTo(4);
+        assertThat(row.getValue().getFromStatus()).isEqualTo("Active");
+        assertThat(row.getValue().getToStatus()).isEqualTo("Terminated");
+        assertThat(row.getValue().getReason().name()).isEqualTo("SUBS_IN_ARREARS");
+        assertThat(row.getValue().getChangedBy()).isEqualTo("administrator");
+        assertThat(row.getValue().getChangedAt()).isEqualTo(java.time.Instant.parse("2026-09-22T08:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("🔴 03.5 R-ROB-I: a member the whole-record validation would refuse still changes status -- none runs")
+    void changeStatusNeverRunsTheWholeRecordValidation() {
+        // COSATU without BEC and a debit order with no account number: `update` refuses this member on two
+        // counts, for fields that have nothing to do with a status. The narrow method must not see either.
+        Member member = MemberFixture.aMember();
+        member.setId(4);
+        member.setStatus("Active");
+        member.setIsCosatu("Y");
+        member.setIsBec(Boolean.FALSE);
+        member.setPaymentType("Debit Order");
+        member.setBankAccountNumber(null);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(member));
+
+        assertThat(this.service.changeStatus(4, terminated(null, null)).orElseThrow().getStatus()).isEqualTo("Terminated");
+    }
+
+    @Test
+    @DisplayName("03.5 a change to the status a member already has records nothing, and an unknown member is empty")
+    void changeStatusIsIdempotentAndNamesNoOne() {
+        Member member = MemberFixture.aMember();
+        member.setId(4);
+        member.setStatus("Terminated");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(member));
+        when(this.memberRepository.findById(5)).thenReturn(Optional.empty());
+
+        assertThat(this.service.changeStatus(4, terminated(null, null))).isPresent();
+        assertThat(this.service.changeStatus(5, terminated(null, null))).isEmpty();
+        verify(this.statusChanges, org.mockito.Mockito.never()).save(any());
     }
 
     /** A member the debit-day rule applies to, banked where the seed's day is unusable. */

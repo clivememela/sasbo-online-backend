@@ -191,7 +191,8 @@ public final class MigrationSeed {
             "V47__acb_holidays.sql",
             // ACB 03.0: the opening arrears position, captured by hand at switch-over (D24).
             "V48__acb_opening_position.sql",
-            "V49__acb_member_account_type.sql");
+            "V49__acb_member_account_type.sql",
+            "V50__member_status_changes.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

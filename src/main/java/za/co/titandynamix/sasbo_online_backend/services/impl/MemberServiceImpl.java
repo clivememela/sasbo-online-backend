@@ -6,7 +6,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
+import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
@@ -20,6 +22,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.JobGradeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberStatusChangeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepository;
@@ -54,6 +57,30 @@ public class MemberServiceImpl implements MemberService {
     private final AreaRepository areaRepository;
     private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final RecruiterRepository recruiterRepository;
+    private final MemberStatusChangeRepository statusChanges;
+
+    @Override
+    @Transactional
+    public Optional<Member> changeStatus(Integer memberId, MemberStatusChangeRequest change) {
+        return this.memberRepository.findById(memberId).map(member -> {
+            if (change.toStatus().equals(member.getStatus())) {
+                return member;
+            }
+            MemberStatusChange row = new MemberStatusChange();
+            row.setMemberId(member.getId());
+            row.setFromStatus(member.getStatus());
+            row.setToStatus(change.toStatus());
+            row.setReason(change.reason());
+            row.setRunId(change.runId());
+            row.setLineId(change.lineId());
+            row.setChangedBy(change.actor());
+            row.setChangedAt(change.at());
+            this.statusChanges.save(row);
+            // The status and nothing else: no validator runs here, by design (R-ROB-I).
+            member.setStatus(change.toStatus());
+            return this.memberRepository.save(member);
+        });
+    }
 
     @Override
     public List<Member> findAll() {

@@ -128,6 +128,12 @@ public enum AcbRefusalCode {
      * The action moves money, sends a letter, submits a file or changes a member's status, and the
      * API does not yet know who is calling (register B1). Refused to every caller until it does.
      */
+    /** 03.5: the termination rule does not reach this member -- three unpaid presentations terminate (Q27). */
+    TERMINATION_NOT_DUE(HttpStatus.CONFLICT),
+    /** 03.5: only an unpaid decided SUSPEND suspends its member (Q40, Q44). The details carry the line. */
+    UNPAID_NOT_SUSPENDED(HttpStatus.CONFLICT),
+    /** 03.5: the member's membership is terminated; a suspension would not undo that. */
+    MEMBER_TERMINATED(HttpStatus.CONFLICT),
     IDENTITY_REQUIRED(HttpStatus.FORBIDDEN);
 
     private final HttpStatus status;

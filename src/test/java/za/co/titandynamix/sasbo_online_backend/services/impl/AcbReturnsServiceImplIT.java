@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbLetter;
@@ -59,6 +60,8 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
     private AcbReturnsRepository returnsRepository;
     @Autowired
     private AcbUnpaidCodeRepository codes;
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.repository.MemberStatusChangeRepository statusChangeRepository;
 
     private long run;
     private int member;
@@ -215,6 +218,121 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         });
         assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m))
                 .as("a report terminates nobody").isEqualTo(statusBefore);
+    }
+
+    /** Three unpaid months for the fixture's first member, two (August, September) for the second, none for the third. */
+    private int threeUnpaidMonths() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        int m = AcbRunFixture.FIRST_MEMBER_ID;
+        for (int month = 7; month <= 9; month++) {
+            long run = insertRun(LocalDate.of(2026, month, 1), "SUBMITTED", FROZEN, "system");
+            insertLine(run, m, null, "UNPAID", null, RATE);
+            if (month >= 8) {
+                insertLine(run, m + 1, null, "UNPAID", null, RATE);
+            }
+        }
+        return m;
+    }
+
+    private List<java.util.Map<String, Object>> statusChanges(int memberId) {
+        return jdbc.queryForList("SELECT from_status, to_status, reason, run_id, line_id, changed_by "
+                + "FROM member_status_changes WHERE member_id = ? ORDER BY id", memberId);
+    }
+
+    @Test
+    @DisplayName("03.5 a member three unpaids have reached is terminated -- SUBS_IN_ARREARS, recorded -- and the report says so")
+    void aDueMemberIsTerminated() {
+        int m = threeUnpaidMonths();
+
+        AcbMemberStatusDto done = returns.terminate(m, "administrator");
+
+        assertThat(done.status()).isEqualTo("Terminated");
+        assertThat(done.reason()).isEqualTo("SUBS_IN_ARREARS");
+        assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m)).isEqualTo("Terminated");
+        assertThat(statusChanges(m)).singleElement().satisfies(row -> {
+            assertThat(row.get("to_status")).isEqualTo("Terminated");
+            assertThat(row.get("reason")).isEqualTo("SUBS_IN_ARREARS");
+            assertThat(row.get("run_id")).isNull();
+            assertThat(row.get("changed_by")).isEqualTo("administrator");
+        });
+        assertThat(returns.terminationReport(0, 50).members().content())
+                .filteredOn(c -> c.memberId() == m).singleElement()
+                .satisfies(c -> assertThat(c.status()).isEqualTo("Terminated"));
+
+        // Twice is once: the second call finds the member terminated and records nothing more.
+        returns.terminate(m, "administrator");
+        assertThat(statusChanges(m)).hasSize(1);
+        // Q25: the count SASBO keeps -- "exactly how many members we cancelled on debit orders" -- and the history.
+        assertThat(statusChangeRepository.countByReason(
+                za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason.SUBS_IN_ARREARS)).isEqualTo(1);
+        assertThat(statusChangeRepository.findByMemberIdOrderByChangedAtAscIdAsc(m)).singleElement()
+                .satisfies(change -> assertThat(change.getFromStatus()).isEqualTo("Active"));
+    }
+
+    @Test
+    @DisplayName("🔴 03.5 R3-9: termination goes through changeStatus, never update -- a member update would refuse still ends")
+    void terminationNeverTakesTheWholeRecordPath() {
+        int m = threeUnpaidMonths();
+        // COSATU without BEC: validateStructures refuses this member on any update, over nothing to do with arrears.
+        jdbc.update("UPDATE members SET is_cosatu = 'Y', is_bec = false WHERE id = ?", m);
+
+        assertThat(returns.terminate(m, "administrator").status()).isEqualTo("Terminated");
+    }
+
+    @Test
+    @DisplayName("03.5 a member the rule does not reach is refused TERMINATION_NOT_DUE, and nothing moves")
+    void anUndueMemberIsNotTerminated() {
+        int m = threeUnpaidMonths();
+
+        AcbRefusal atTwo = refusal(() -> returns.terminate(m + 1, "administrator"));
+        assertThat(atTwo.code()).isEqualTo(AcbRefusalCode.TERMINATION_NOT_DUE);
+        assertThat(atTwo.details()).as("listed at two, one short").containsEntry("unpaidCount", "2");
+
+        AcbRefusal atNone = refusal(() -> returns.terminate(m + 2, "administrator"));
+        assertThat(atNone.code()).isEqualTo(AcbRefusalCode.TERMINATION_NOT_DUE);
+        assertThat(atNone.details()).containsEntry("unpaidCount", "fewer than two");
+
+        assertThat(statusChanges(m + 1)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m + 1)).isEqualTo("Active");
+    }
+
+    @Test
+    @DisplayName("03.5 an unpaid decided SUSPEND suspends its member -- UNPAID_SUSPENDED, with its run and line")
+    void aSuspendDecisionSuspendsTheMember() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        int m = AcbRunFixture.FIRST_MEMBER_ID;
+        long september = insertRun(SEPTEMBER, "SUBMITTED", FROZEN, "system");
+        long suspended = insertLine(september, m, null, "UNPAID", "SUSPEND", RATE);
+        long again = insertLine(september, m + 1, null, "UNPAID", "RE_PRESENT", RATE);
+        long undecided = insertLine(september, m + 2, null, "UNPAID", null, RATE);
+
+        AcbMemberStatusDto done = returns.suspendMember(september, suspended, "administrator");
+
+        assertThat(done.status()).isEqualTo("Suspended");
+        assertThat(statusChanges(m)).singleElement().satisfies(row -> {
+            assertThat(row.get("reason")).isEqualTo("UNPAID_SUSPENDED");
+            assertThat(((Number) row.get("run_id")).longValue()).isEqualTo(september);
+            assertThat(((Number) row.get("line_id")).longValue()).isEqualTo(suspended);
+        });
+        assertThat(refusal(() -> returns.suspendMember(september, again, "administrator")).code())
+                .isEqualTo(AcbRefusalCode.UNPAID_NOT_SUSPENDED);
+        assertThat(refusal(() -> returns.suspendMember(september, undecided, "administrator")).code())
+                .isEqualTo(AcbRefusalCode.UNPAID_NOT_SUSPENDED);
+        assertThat(statusChanges(m + 1)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("03.5 a terminated member is not suspended -- MEMBER_TERMINATED")
+    void aTerminatedMemberIsNotSuspended() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        int m = AcbRunFixture.FIRST_MEMBER_ID;
+        jdbc.update("UPDATE members SET status = 'Terminated' WHERE id = ?", m);
+        long september = insertRun(SEPTEMBER, "SUBMITTED", FROZEN, "system");
+        long suspended = insertLine(september, m, null, "UNPAID", "SUSPEND", RATE);
+
+        assertThat(refusal(() -> returns.suspendMember(september, suspended, "administrator")).code())
+                .isEqualTo(AcbRefusalCode.MEMBER_TERMINATED);
+        assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m)).isEqualTo("Terminated");
     }
 
     @Test

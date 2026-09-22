@@ -263,6 +263,30 @@ public class ACBController {
      * (question 27) -- and who is at two, over the last thirteen months, a page at a time. A report:
      * it terminates nobody.
      */
+    /**
+     * 🔒 03.5 -- terminating a member the rule says three unpaids have reached (SUBS_IN_ARREARS) ends a membership,
+     * so it is refused to every caller until the API knows who is calling (B1), like approval. Built and proven in
+     * {@code AcbReturnsService.terminate}.
+     */
+    @PostMapping("/termination-report/{memberId}/terminate")
+    public za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto terminate(
+            @PathVariable("memberId") int memberId) {
+        throw new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, "Terminating a membership waits until administrators "
+                + "sign in to this system. Nobody has been terminated.", Map.of("memberId", String.valueOf(memberId)));
+    }
+
+    /**
+     * 🔒 03.5 -- suspending the member of an unpaid decided SUSPEND changes a member's status, so it is refused to
+     * every caller until B1, like terminating. Built and proven in {@code AcbReturnsService.suspendMember}.
+     */
+    @PostMapping("/runs/{id}/lines/{lineId}/suspend-member")
+    public za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto suspendMember(
+            @PathVariable("id") long id, @PathVariable("lineId") long lineId) {
+        throw new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, "Suspending a member waits until administrators "
+                + "sign in to this system. The member's status is unchanged.",
+                Map.of("runId", String.valueOf(id), "lineId", String.valueOf(lineId)));
+    }
+
     @GetMapping("/termination-report")
     public AcbTerminationReportDto terminationReport(@RequestParam(defaultValue = "0") int page,
                                                      @RequestParam(defaultValue = "50") int size) {

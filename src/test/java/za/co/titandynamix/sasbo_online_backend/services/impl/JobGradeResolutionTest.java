@@ -69,6 +69,7 @@ class JobGradeResolutionTest {
     @Mock private AreaRepository areaRepository;
     @Mock private RecruitmentChannelRepository recruitmentChannelRepository;
     @Mock private RecruiterRepository recruiterRepository;
+    @Mock private za.co.titandynamix.sasbo_online_backend.repository.MemberStatusChangeRepository statusChanges;
 
     private MemberServiceImpl service;
 
@@ -101,7 +102,7 @@ class JobGradeResolutionTest {
                 this.subscriptionsRepository, this.bankBranchRepository, this.bankRepository,
                 this.representativeRoleRepository, this.unionStructureRepository,
                 this.jobGradeRepository, this.jobGradeService, this.areaRepository,
-                this.recruitmentChannelRepository, this.recruiterRepository);
+                this.recruitmentChannelRepository, this.recruiterRepository, this.statusChanges);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
