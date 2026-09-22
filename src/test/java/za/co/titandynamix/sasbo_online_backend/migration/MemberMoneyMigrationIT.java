@@ -70,6 +70,12 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
     /** The migration this test is about. */
     private static final MigrationVersion V40 = MigrationVersion.fromVersion("40");
 
+    /**
+     * The last version of step one's world (00.2): V52 contracts the text half away. The tests of V40's behaviour --
+     * the overlap an old build and a new one share -- run to here, not to LATEST, which is V52's own subject below.
+     */
+    private static final MigrationVersion STEP_ONE = MigrationVersion.fromVersion("51");
+
     private static final String PROBE_DATABASE = "v40_money_probe";
 
     /** The one table V40 creates. */
@@ -164,7 +170,7 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         migrateTo(this.beforeV40);
         insertTheEdgeShapes();
 
-        migrateTo(MigrationVersion.LATEST);
+        migrateTo(STEP_ONE);
 
         assertSoftly(softly -> {
             for (String column : MONEY_COLUMNS) {
@@ -192,7 +198,7 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         // nothing fails anywhere. That swaps a loud failure for a silent one.
         migrateTo(this.beforeV40);
         insertMember("existing", "100.00");
-        migrateTo(MigrationVersion.LATEST);
+        migrateTo(STEP_ONE);
 
         // What the old build does: it knows nothing of *_numeric and writes text.
         this.probe.update("UPDATE members SET monthly_subscription = '174.50' WHERE surname = 'existing'");
@@ -216,7 +222,7 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         // member the amount they had before the deploy.
         migrateTo(this.beforeV40);
         insertMember("existing", "100.00");
-        migrateTo(MigrationVersion.LATEST);
+        migrateTo(STEP_ONE);
 
         // What the new build does: it no longer maps the text column at all.
         this.probe.update("UPDATE members SET monthly_subscription_numeric = 250.00 WHERE surname = 'existing'");
@@ -241,7 +247,7 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         // So the assertion that matters is the non-zero one: the gate must SEE them.
         migrateTo(this.beforeV40);
         insertTheEdgeShapes();
-        migrateTo(MigrationVersion.LATEST);
+        migrateTo(STEP_ONE);
 
         assertThat(gate())
                 .as("every member with a non-blank, unparseable money value must be counted")
@@ -270,7 +276,7 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
                 .isEqualTo("character varying");
         insertTheEdgeShapes();
 
-        migrateTo(MigrationVersion.LATEST);
+        migrateTo(STEP_ONE);
 
         // Softly, because the first disagreeing shape is rarely the only one, and
         // the whole point of a rule table is to see the rule's shape when it breaks.
@@ -336,7 +342,7 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
         insertMember("nine", "9.00");
         insertMember("hundred", "100.00");
 
-        migrateTo(MigrationVersion.LATEST);
+        migrateTo(STEP_ONE);
 
         assertThat(this.probe.queryForList(
                 "SELECT surname FROM members WHERE monthly_subscription_numeric IS NOT NULL"
@@ -371,6 +377,51 @@ class MemberMoneyMigrationIT extends AbstractPostgresIT {
                 .as("every table that existed before V40, plus its report, and nothing else")
                 .containsExactlyInAnyOrderElementsOf(
                         Stream.concat(before.stream(), Stream.of(REPORT_TABLE)).toList());
+    }
+
+    @Test
+    @DisplayName("🔴 R0-7: V52 refuses while any member holds a money value only as text -- and nothing of it lands")
+    void v52RefusesWhileAValueLivesOnlyInText() {
+        migrateTo(this.beforeV40);
+        insertTheEdgeShapes();
+        migrateTo(STEP_ONE);
+        assertThat(gate()).as("the fixture holds text-only values for V52 to find").isPositive();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> migrateTo(MigrationVersion.LATEST))
+                .hasStackTraceContaining("V52 refuses");
+
+        // Flyway runs the file in one transaction on PostgreSQL: the text, the trigger and the gate are all there.
+        assertThat(textColumnsLeft()).containsExactlyInAnyOrderElementsOf(MONEY_COLUMNS);
+        assertThat(gate()).as("the gate is still there to be asked").isPositive();
+    }
+
+    @Test
+    @DisplayName("V52 drops the text half, the trigger and the gate once nothing lives only in text -- and renames nothing")
+    void v52ContractsOnceTheTextIsClean() {
+        // The must-pass twin of the refusal: values that converted, so nothing would be lost.
+        migrateTo(this.beforeV40);
+        insertMember("nine", "9.00");
+        insertMember("hundred", "100.00");
+
+        migrateTo(MigrationVersion.LATEST);
+
+        assertThat(textColumnsLeft()).as("the four VARCHAR columns are gone").isEmpty();
+        assertThat(numericOf("monthly_subscription", "hundred")).as("the numeric twin, under its own name")
+                .isEqualByComparingTo("100.00");
+        assertThat(this.probe.queryForObject(
+                "SELECT count(*) FROM pg_trigger WHERE tgname = 'members_money_keep_in_step'", Integer.class)).isZero();
+        assertThat(this.probe.queryForObject("SELECT count(*) FROM pg_proc WHERE proname IN "
+                + "('members_money_only_in_text', 'members_money_keep_in_step')", Integer.class)).isZero();
+        assertThat(this.probe.queryForObject(
+                "SELECT count(*) FROM pg_proc WHERE proname = 'money_text_as_numeric'", Integer.class))
+                .as("the parse rule stays: it reads no column").isOne();
+    }
+
+    /** Which of the four VARCHAR money columns the probe's members table still has. */
+    private List<String> textColumnsLeft() {
+        return this.probe.queryForList("SELECT column_name FROM information_schema.columns WHERE table_name = 'members'"
+                + " AND column_name IN ('monthly_subscription', 'current_balance', 'arrears_balance', 'last_month_balance')",
+                String.class);
     }
 
     // ── the machinery ────────────────────────────────────────────────────────────────────────

@@ -29,7 +29,7 @@ class SeedMoneyIT extends AbstractWritingIT {
     private MemberRepository members;
 
     @Test
-    @DisplayName("the seeded subscription lands in the numeric twin, and the text column keeps in step")
+    @DisplayName("the seeded subscription lands in the numeric twin -- the text twin is gone since V52 (00.2 step two)")
     void theSeededSubscriptionIsNumeric() throws Exception {
         List<Member> seeded;
         try (InputStream stream = getClass().getClassLoader().getResourceAsStream("data/members.json")) {
@@ -46,9 +46,11 @@ class SeedMoneyIT extends AbstractWritingIT {
         members.saveAndFlush(first);
 
         Map<String, Object> row = jdbc.queryForMap(
-                "SELECT monthly_subscription_numeric, monthly_subscription FROM members WHERE membership_number = ?",
+                "SELECT monthly_subscription_numeric FROM members WHERE membership_number = ?",
                 first.getMembershipNumber());
         assertThat((BigDecimal) row.get("monthly_subscription_numeric")).isEqualByComparingTo(expected);
-        assertThat(new BigDecimal((String) row.get("monthly_subscription"))).isEqualByComparingTo(expected);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM information_schema.columns "
+                + "WHERE table_name = 'members' AND column_name = 'monthly_subscription'", Integer.class))
+                .as("V52 dropped the text twin, which only an old build ever read").isZero();
     }
 }
