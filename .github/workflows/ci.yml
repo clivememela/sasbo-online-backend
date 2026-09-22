@@ -1,8 +1,8 @@
 # CI for the SASBO Online backend: the gate on every pull request and on every push to `main`.
 #
-# ADVISORY. This workflow deploys nothing and references no secret: Render still deploys `main` exactly as
-# before. A deploy job is added later, in its own pull request, and only runs on `main` after both gate
-# jobs are green.
+# ADVISORY. This workflow deploys nothing and references no secret, and nothing else deploys the backend either:
+# since 2026-09-22 the project runs locally, having left the incumbent developer's Render. A deploy job, when
+# there is a host again, comes in its own pull request and only runs on `main` after both gate jobs are green.
 #
 # Two gate jobs in parallel, because they are two diagnoses: `build` is `./gradlew build` (Checkstyle +
 # the fast H2 lane, no Docker — the everyday command), `integration` is `./gradlew integrationTest`
