@@ -31,7 +31,7 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 25 # 2 vCPU; the first run also fills the Gradle cache
+    timeout-minutes: 25 # measured on the runner: 1.8-2.8 min green; a cold Gradle cache adds 60-90 s
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,7 +80,7 @@ jobs:
   integration:
     name: integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 30 # measured on the runner: 2.0-3.4 min, a fresh Postgres container included
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -116,8 +116,12 @@ jobs:
           if-no-files-found: warn
 
   # ------------------------------------------------------------------------------------------------
-  # changes — the path filter, in its own job (see the client repository's ci.yml: the same script).
-  # Every ambiguous case resolves to DEPLOY. The skip set is `*.md`. Nothing consumes the output yet.
+  # changes — the path filter, in its OWN JOB on purpose. A `paths-ignore` on the workflow `on:` block
+  # would also skip `build` and `integration`, which the future deploy job needs — and a skipped required
+  # job BLOCKS its dependent. Every ambiguous case resolves to DEPLOY: a filter that skips everything passes
+  # its own test with a production that never moves. The skip set is `*.md` — the only files in this repo
+  # that cannot change what ships. Nothing consumes the output yet; it is observed first. (The client
+  # repository's ci.yml carries the same script.)
   # ------------------------------------------------------------------------------------------------
   changes:
     name: changes
