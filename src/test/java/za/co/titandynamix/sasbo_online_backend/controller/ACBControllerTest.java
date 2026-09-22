@@ -559,11 +559,12 @@ class ACBControllerTest {
 
         when(returns.terminationReport(0, 50)).thenReturn(new AcbTerminationReportDto("2026-10", "stated", new AcbPage<>(
                 List.of(new AcbTerminationReportDto.Candidate(7, "M-200001", "Botha", 3, true, 3,
-                        List.of("2026-10", "2026-11", "2026-11"), 0)), 0, 50, 1, 1)));
+                        List.of("2026-10", "2026-11", "2026-11"), 0, "Active")), 0, 50, 1, 1)));
         this.mockMvc.perform(get("/api/acb/termination-report"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.countingFrom").value("2026-10"))
                 .andExpect(jsonPath("$.members.content[0].unpaidCount").value(3))
+                .andExpect(jsonPath("$.members.content[0].status").value("Active"))
                 .andExpect(jsonPath("$.members.content[0].terminate").value(true))
                 .andExpect(jsonPath("$.members.content[0].unpaidMonths[2]").value("2026-11"))
                 .andExpect(jsonPath("$.members.totalElements").value(1))
