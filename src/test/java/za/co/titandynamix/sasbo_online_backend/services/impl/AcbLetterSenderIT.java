@@ -164,11 +164,10 @@ class AcbLetterSenderIT extends AbstractAcbIT {
     @Test
     @DisplayName("the letter sent is the letter recorded: a member whose details moved since is not sent another")
     void aChangedLetterIsNotSent() {
-        // The first attempt fails, so the letter is still waiting when the member moves house.
-        doThrow(new MailSendException("down"))
-                .doAnswer(invocation -> sent.add(invocation.getArgument(0)))
-                .when(mail).send(any(MimeMessage.class));
-        long line = unpaidRecordedBy("administrator");
+        // A letter still WAITING for the sender when the member moves house: recorded by the anonymous API, which
+        // the sender never sends for, then owned by a person as sign-in would -- so nothing sent it in between.
+        long line = unpaidRecordedBy(AcbActor.SYSTEM);
+        jdbc.update("UPDATE acb_letters SET queued_by = 'administrator' WHERE line_id = ?", line);
         jdbc.update("UPDATE members SET address = '9 Moved Street' WHERE id = ?", AcbRunFixture.FIRST_MEMBER_ID);
 
         assertThat(sender.sendDue()).isZero();
