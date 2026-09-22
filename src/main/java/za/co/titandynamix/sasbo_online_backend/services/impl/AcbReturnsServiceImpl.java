@@ -105,12 +105,15 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     private final TransactionTemplate tx;
     private final MeterRegistry meters;
     private final MemberService memberService;
+    private final AcbLetterSender sender;
+    private final za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher launcher;
 
     public AcbReturnsServiceImpl(AcbRunRepository runs, AcbRunLineRepository lines, AcbReturnsRepository returns,
                                  AcbUnpaidCodeRepository codes, AcbLetterRepository letters, AcbAuditTrail audit,
                                  AcbPopulationRepository population,
                                  Clock clock, PlatformTransactionManager transactions, MeterRegistry meters,
-                                 MemberService memberService) {
+                                 MemberService memberService, AcbLetterSender sender,
+                                 za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher launcher) {
         this.runs = runs;
         this.lines = lines;
         this.returns = returns;
@@ -122,6 +125,8 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         this.tx = new TransactionTemplate(transactions);
         this.meters = meters;
         this.memberService = memberService;
+        this.sender = sender;
+        this.launcher = launcher;
     }
 
     @Override
@@ -161,6 +166,8 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         });
         if (Boolean.TRUE.equals(recorded)) {
             meters.counter("acb.unpaids.recorded").increment();
+            // D23: emailed the same day -- by the sender, after the recording has committed, off this thread.
+            launcher.launch(sender::sendDue);
         }
         return withSuggestion(requireLine(runId, lineId));
     }
@@ -448,6 +455,12 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     }
 
     @Override
+    public byte[] letterSpecimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template) {
+        return za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument.specimen(template,
+                AcbTime.today(clock));
+    }
+
+    @Override
     public AcbMemberStatusDto terminate(Integer memberId, String actor) {
         return tx.execute(state -> {
             AcbTerminationReportDto.Candidate candidate = judgeEveryone().candidates().stream()
@@ -509,6 +522,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         letter.setChannel(LetterChannel.EMAIL);
         letter.setAttempts(0);
         letter.setCreatedAt(now);
+        letter.setQueuedBy(actor);
 
         LetterRecipient recipient = returns.findRecipient(line.getMemberId()).orElse(null);
         String email = recipient == null ? null : recipient.email();
@@ -533,10 +547,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     }
 
     private LetterRenderer.LetterData letterData(AcbRun run, AcbRunLine line, LetterRecipient recipient, String wording) {
-        return new LetterRenderer.LetterData(
-                AcbTime.today(clock), recipient.areaName(), recipient.title(), line.getInitials(), line.getSurname(),
-                recipient.addressLines(), null, line.getMembershipNumber(), line.getAccountNumber(),
-                line.getBankName(), YearMonth.from(run.getActionMonth()), wording, line.getDebitDay());
+        return LetterRenderer.dataFor(AcbTime.today(clock), run, line, recipient, wording);
     }
 
     private AcbRun requireReturnable(long runId) {

@@ -2,6 +2,8 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -285,6 +287,23 @@ public class ACBController {
         throw new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, "Suspending a member waits until administrators "
                 + "sign in to this system. The member's status is unchanged.",
                 Map.of("runId", String.valueOf(id), "lineId", String.valueOf(lineId)));
+    }
+
+    /**
+     * 03.3 -- a specimen of one of the union's three letters, as a PDF on the letterhead, for the letters review
+     * SASBO asked for (question 32 c). Synthetic from the address to the account, so it reads openly, like the
+     * holiday calendar: no member's letter is ever served here.
+     */
+    // No `produces` on the mapping: a template that is not one of the three must still answer the JSON
+    // envelope (REQUEST_MALFORMED), and a PDF-only mapping would refuse to write it.
+    @GetMapping("/letters/specimen/{template}")
+    public ResponseEntity<byte[]> letterSpecimen(
+            @PathVariable("template") za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"specimen-" + template.name().toLowerCase(java.util.Locale.ROOT) + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(returns.letterSpecimen(template));
     }
 
     @GetMapping("/termination-report")

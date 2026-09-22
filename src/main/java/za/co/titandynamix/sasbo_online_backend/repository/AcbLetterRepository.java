@@ -12,6 +12,10 @@ public interface AcbLetterRepository extends JpaRepository<AcbLetter, Long> {
 
     Optional<AcbLetter> findByLineId(Long lineId);
 
+    /** The letters in one state for one channel -- the sender reads the RENDERED emails (03.3). */
+    List<AcbLetter> findByStatusAndChannel(za.co.titandynamix.sasbo_online_backend.enums.LetterStatus status,
+                                           za.co.titandynamix.sasbo_online_backend.enums.LetterChannel channel);
+
     /** The letters of a page of lines -- one query. */
     List<AcbLetter> findByLineIdIn(java.util.Collection<Long> lineIds);
 

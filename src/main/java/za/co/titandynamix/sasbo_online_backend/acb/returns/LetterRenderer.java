@@ -94,6 +94,20 @@ public final class LetterRenderer {
         }
     }
 
+    /**
+     * The data a letter is filled from, on {@code date}: the run's month, the unpaid line's snapshot, the member's
+     * address as the record holds it. The recording renders with today; the sender renders again with the day it
+     * was first rendered, so the two can be compared by their hash (03.3).
+     */
+    public static LetterData dataFor(LocalDate date,
+                                     za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun run,
+                                     za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine line,
+                                     LetterRecipient recipient, String wording) {
+        return new LetterData(date, recipient.areaName(), recipient.title(), line.getInitials(), line.getSurname(),
+                recipient.addressLines(), null, line.getMembershipNumber(), line.getAccountNumber(),
+                line.getBankName(), YearMonth.from(run.getActionMonth()), wording, line.getDebitDay());
+    }
+
     /** The letter's text, every placeholder filled. */
     public static String render(LetterTemplate template, LetterData data) {
         Map<String, String> values = data.values();

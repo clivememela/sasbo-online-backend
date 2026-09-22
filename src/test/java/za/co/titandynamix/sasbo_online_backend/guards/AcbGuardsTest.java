@@ -36,7 +36,7 @@ import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.ass
  *   <li>No controller reaches the mail sender or a letters job.</li>
  *   <li>Every refusal code is published in the committed vocabulary, with its status -- and thrown
  *       somewhere, so the vocabulary lists no refusal the server cannot give.</li>
- *   <li>The migration chain names V40 to V50.</li>
+ *   <li>The migration chain names V40 to V51.</li>
  * </ul>
  *
  * <p>"ACB sources" are discovered, not listed: every class in the {@code acb} package, and every
@@ -298,7 +298,7 @@ class AcbGuardsTest {
     // ------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("the migration chain names ACB's V40 to V50")
+    @DisplayName("the migration chain names ACB's V40 to V51")
     void theChainNamesAcbsMigrations() {
         assertThat(MigrationSeed.MIGRATIONS).contains(
                 "V40__member_money_columns_to_numeric_step_one.sql",
@@ -311,6 +311,7 @@ class AcbGuardsTest {
                 "V47__acb_holidays.sql",
                 "V48__acb_opening_position.sql",
                 "V49__acb_member_account_type.sql",
-                "V50__member_status_changes.sql");
+                "V50__member_status_changes.sql",
+                "V51__acb_letters_queued_by.sql");
     }
 }

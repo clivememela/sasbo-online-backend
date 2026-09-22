@@ -618,4 +618,23 @@ class ACBControllerTest {
                     .isInstanceOf(NoResourceFoundException.class);
         }
     }
+
+    @Test
+    @DisplayName("03.3 a letter specimen is a PDF, inline, named for its template -- and a template that is not one is malformed")
+    void aLetterSpecimenIsAPdf() throws Exception {
+        when(returns.letterSpecimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate.RE_DEBIT))
+                .thenReturn("%PDF-1.7 specimen".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+
+        this.mockMvc.perform(get("/api/acb/letters/specimen/RE_DEBIT"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .contentType(org.springframework.http.MediaType.APPLICATION_PDF))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Content-Disposition", "inline; filename=\"specimen-re_debit.pdf\""));
+
+        this.mockMvc.perform(get("/api/acb/letters/specimen/NO_SUCH_LETTER"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"));
+    }
+
 }

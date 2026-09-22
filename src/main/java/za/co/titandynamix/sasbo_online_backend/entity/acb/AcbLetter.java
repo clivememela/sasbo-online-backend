@@ -80,4 +80,8 @@ public class AcbLetter {
 
     @Column(name = "handled_at")
     private Instant handledAt;
+
+    /** Who queued it (V51): a letter is sent only if a named administrator's recording queued it (03.3, B1). */
+    @Column(name = "queued_by", length = 100)
+    private String queuedBy;
 }
