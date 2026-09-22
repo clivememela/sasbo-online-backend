@@ -57,14 +57,18 @@ import java.util.Set;
  *
  * <h2>Once</h2>
  * Each letter is CLAIMED by a conditional update on its attempt count, so two senders never both send it, and it
- * is sent only while RENDERED -- never again once SENT (R-ROB-G, the A50 lesson). A delivery that fails is tried
- * again on the next run, up to {@link #MAX_ATTEMPTS}, and then left FAILED with its failure's class.
+ * is sent only while RENDERED -- never again once SENT (R-ROB-G, the A50 lesson).
+ *
+ * <h2>A letter that does not go is seen, and sent again by a person</h2>
+ * A delivery that fails is FAILED at once, with its failure's class -- never the message, which can carry the
+ * address -- beside the attempt its claim counted (EH-E, R3-7). It waits on the run's held-letters worklist, where
+ * an administrator sends it again (the next claim makes the count 2) or marks it handled. Nothing here retries it
+ * unseen: the sender runs when an unpaid is recorded, so a quiet retry could wait for days looking pending. Each
+ * run of the sender writes one INFO line of counts, never a line per letter.
  */
 @Slf4j
 @Component
 public class AcbLetterSender {
-
-    static final int MAX_ATTEMPTS = 3;
 
     /** The actors whose letters are never sent: the anonymous API, and the seed. */
     static final Set<String> NEVER_SENT_FOR = Set.of(AcbActor.SYSTEM, "seed");
@@ -116,14 +120,23 @@ public class AcbLetterSender {
                     + "nothing sent");
             return 0;
         }
+        int due = 0;
         int sent = 0;
         for (AcbLetter letter : letters.findByStatusAndChannel(LetterStatus.RENDERED, LetterChannel.EMAIL)) {
             if (letter.getQueuedBy() == null || NEVER_SENT_FOR.contains(letter.getQueuedBy())) {
                 continue;
             }
-            if (claim(letter) && deliver(letter, sender)) {
+            if (!claim(letter)) {
+                continue;
+            }
+            due++;
+            if (deliver(letter, sender)) {
                 sent++;
             }
+        }
+        if (due > 0) {
+            // One line per run, never one per letter -- and counts only: no address, no name (EH-E).
+            log.info("ACB letters: {} sent, {} failed, of {} due", sent, due - sent, due);
         }
         return sent;
     }
@@ -139,12 +152,12 @@ public class AcbLetterSender {
         try {
             body = renderAgain(letter);
         } catch (RuntimeException e) {
-            fail(letter, "LETTER_NOT_RENDERABLE: " + e.getClass().getSimpleName(), true);
+            fail(letter, "LETTER_NOT_RENDERABLE: " + e.getClass().getSimpleName());
             return false;
         }
         if (!LetterRenderer.bodySha256(body).equals(letter.getBodySha256())) {
             // The member's details moved since the letter was recorded: it is not the letter anybody recorded.
-            fail(letter, "LETTER_CHANGED_SINCE_RENDERED", true);
+            fail(letter, "LETTER_CHANGED_SINCE_RENDERED");
             return false;
         }
         try {
@@ -157,7 +170,7 @@ public class AcbLetterSender {
             helper.addAttachment(ATTACHMENT, new ByteArrayDataSource(LetterDocument.render(body), "application/pdf"));
             sender.send(message);
         } catch (MailException | MessagingException e) {
-            fail(letter, e.getClass().getSimpleName(), false);
+            fail(letter, e.getClass().getSimpleName());
             return false;
         }
         jdbc.update("UPDATE acb_letters SET status = 'SENT', sent_at = ?, failure_class = NULL "
@@ -176,12 +189,9 @@ public class AcbLetterSender {
         return LetterRenderer.render(letter.getTemplate(), LetterRenderer.dataFor(rendered, run, line, recipient, wording));
     }
 
-    /** A failed delivery: said on the letter, FAILED at once when retrying cannot help, or after the last attempt. */
-    private void fail(AcbLetter letter, String failure, boolean final_) {
-        jdbc.update("UPDATE acb_letters SET failure_class = ?, "
-                        + "status = CASE WHEN ? OR attempts >= ? THEN 'FAILED' ELSE status END "
-                        + "WHERE id = ? AND status = 'RENDERED'",
-                failure.length() > 200 ? failure.substring(0, 200) : failure, final_, MAX_ATTEMPTS, letter.getId());
-        log.warn("ACB letter {} not sent: {}", letter.getId(), failure);
+    /** A letter that did not go: FAILED at once, with its failure's class, for a person to see (EH-E, R3-7). */
+    private void fail(AcbLetter letter, String failure) {
+        jdbc.update("UPDATE acb_letters SET status = 'FAILED', failure_class = ? WHERE id = ? AND status = 'RENDERED'",
+                failure.length() > 200 ? failure.substring(0, 200) : failure, letter.getId());
     }
 }

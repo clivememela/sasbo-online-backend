@@ -227,8 +227,9 @@ public class ACBController {
     }
 
     /**
-     * 🔒 Sending a held letter once the member has an address -- mail to a member, so refused to every
-     * caller until the API knows who is calling (D13, B1).
+     * 🔒 Sending a letter that could not go -- held until the member has an address, or a send that FAILED -- is
+     * mail to a member, so refused to every caller until the API knows who is calling (D13, B1). The service
+     * does it ({@code sendHeldLetter}), proven in its integration lane.
      */
     @PostMapping("/runs/{id}/letters/{letterId}/send")
     public AcbHeldLetterDto sendLetter(@PathVariable("id") long id) {

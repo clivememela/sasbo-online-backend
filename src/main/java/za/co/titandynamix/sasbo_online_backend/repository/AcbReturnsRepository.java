@@ -102,16 +102,20 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
                                    @Param("decision") UnpaidDecision decision,
                                    Pageable pageable);
 
-    /** A run's held letters, with each member's addresses as they stand now -- one query, paged (Q46). */
+    /**
+     * A run's letters that could not go -- held, or FAILED -- with each member's addresses as they stand now: one
+     * query, paged (Q46, EH-E). A held letter's reason is its status reason; a failed one's, its failure's class.
+     */
     @Query(value = "SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.HeldLetterRow("
-            + "l.id, rl.id, rl.memberId, rl.membershipNumber, rl.surname, l.template, l.statusReason, "
-            + "m.personalEmail, m.workEmail, m.preferredEmail) "
+            + "l.id, rl.id, rl.memberId, rl.membershipNumber, rl.surname, l.template, l.status, "
+            + "coalesce(l.statusReason, l.failureClass), m.personalEmail, m.workEmail, m.preferredEmail) "
             + "FROM AcbLetter l, AcbRunLine rl, Member m "
-            + "WHERE l.lineId = rl.id AND rl.memberId = m.id AND rl.runId = :runId AND l.status = :held "
+            + "WHERE l.lineId = rl.id AND rl.memberId = m.id AND rl.runId = :runId AND l.status IN :held "
             + "ORDER BY l.id",
             countQuery = "SELECT count(l) FROM AcbLetter l, AcbRunLine rl WHERE l.lineId = rl.id "
-            + "AND rl.runId = :runId AND l.status = :held")
-    Page<HeldLetterRow> findHeldLetters(@Param("runId") Long runId, @Param("held") LetterStatus held, Pageable pageable);
+            + "AND rl.runId = :runId AND l.status IN :held")
+    Page<HeldLetterRow> findHeldLetters(@Param("runId") Long runId, @Param("held") Collection<LetterStatus> held,
+                                        Pageable pageable);
 
     /** What a letter needs of the member it goes to. */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient("

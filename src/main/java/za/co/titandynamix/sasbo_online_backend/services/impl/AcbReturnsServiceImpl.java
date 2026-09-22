@@ -248,15 +248,18 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     /** The note is kept to this many characters -- refused beyond it, never cut (SD3-D). */
     static final int HANDLED_NOTE_LIMIT = 300;
 
+    /** The letters that could not go: held for want of an address, or a send that FAILED (Q46, EH-E). */
+    static final Set<LetterStatus> COULD_NOT_GO = EnumSet.of(LetterStatus.QUEUED, LetterStatus.FAILED);
+
     @Override
     public AcbPage<AcbHeldLetterDto> heldLetters(long runId, int page, int size) {
         runs.findById(runId).orElseThrow(() -> AcbRuns.notFound(runId));
         PageRequest request = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), AcbRunServiceImpl.MAX_PAGE_SIZE));
-        return AcbPage.of(returns.findHeldLetters(runId, LetterStatus.QUEUED, request), row -> {
+        return AcbPage.of(returns.findHeldLetters(runId, COULD_NOT_GO, request), row -> {
             String now = new LetterRecipient(row.memberId(), null, null, row.personalEmail(), row.workEmail(),
                     row.preferredEmail(), null).email();
             return new AcbHeldLetterDto(row.letterId(), row.lineId(), row.memberId(), row.membershipNumber(),
-                    row.surname(), row.template(), row.reason(), LetterRecipient.sendable(now));
+                    row.surname(), row.template(), row.status(), row.reason(), LetterRecipient.sendable(now));
         });
     }
 
@@ -271,13 +274,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
             AcbLetter letter = letters.findById(letterId).orElseThrow(() -> new AcbRefusal(AcbRefusalCode.LINE_NOT_FOUND,
                     "There is no letter " + letterId + ".", Map.of("letterId", String.valueOf(letterId))));
             AcbRunLine line = requireLine(runId, letter.getLineId());
-            if (letter.getStatus() != LetterStatus.QUEUED) {
-                Map<String, String> facts = new LinkedHashMap<>();
-                facts.put("letterId", String.valueOf(letterId));
-                facts.put("status", letter.getStatus().name());
-                throw new AcbRefusal(AcbRefusalCode.LETTER_NOT_HELD, "Only a held letter is dealt with by hand; this one is "
-                        + letter.getStatus() + ".", facts);
-            }
+            requireCouldNotGo(letter, "dealt with by hand");
             letter.setStatus(LetterStatus.HANDLED);
             letter.setHandledNote(how);
             letter.setHandledAt(AcbTime.instant(clock));
@@ -288,11 +285,59 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         return heldLetterDto(letterId);
     }
 
+    @Override
+    public AcbHeldLetterDto sendHeldLetter(long runId, long letterId, String actor) {
+        tx.executeWithoutResult(status -> {
+            AcbLetter letter = letters.findById(letterId).orElseThrow(() -> new AcbRefusal(AcbRefusalCode.LINE_NOT_FOUND,
+                    "There is no letter " + letterId + ".", Map.of("letterId", String.valueOf(letterId))));
+            AcbRunLine line = requireLine(runId, letter.getLineId());
+            requireCouldNotGo(letter, "sent again");
+            LetterRecipient recipient = returns.findRecipient(line.getMemberId()).orElse(null);
+            String email = recipient == null ? null : recipient.email();
+            if (email == null || !LetterRecipient.sendable(email)) {
+                // 🔒 SD3-C: never to no address, and never to one that could carry a header or a second recipient.
+                throw new AcbRefusal(AcbRefusalCode.LETTER_NO_ADDRESS, "This member has no address the letter can go "
+                        + "to yet. Nothing has been sent.", Map.of("letterId", String.valueOf(letterId)));
+            }
+            AcbRun run = runs.findById(runId).orElseThrow(() -> AcbRuns.notFound(runId));
+            UnpaidReason reason = UnpaidReason.valueOf(line.getUnpaidReason());
+            String wording = codes.findById(line.getUnpaidCode()).map(AcbUnpaidCode::getWording).orElse(reason.wording());
+            // Rendered NOW, from the member as they stand: the letter the sender checks is the one this person sends.
+            String body = LetterRenderer.render(letter.getTemplate(), letterData(run, line, recipient, wording));
+            String was = letter.getStatus().name();
+            letter.setStatus(LetterStatus.RENDERED);
+            letter.setStatusReason(null);
+            letter.setFailureClass(null);
+            letter.setRenderedAt(AcbTime.instant(clock));
+            letter.setBodySha256(LetterRenderer.bodySha256(body));
+            letter.setAddressSnapshot(email);
+            letter.setQueuedBy(actor);
+            letters.saveAndFlush(letter);
+            audit.record(runId, line.getId(), "LETTER_SENT_AGAIN", null, null,
+                    "a " + was.toLowerCase(java.util.Locale.ROOT) + " letter sent again", actor);
+        });
+        // After the commit, off this thread: the sender claims it, counts the attempt, and sends it once (D23).
+        launcher.launch(sender::sendDue);
+        return heldLetterDto(letterId);
+    }
+
+    /** A letter is dealt with by hand or sent again only while it could not go -- held, or FAILED. */
+    private static void requireCouldNotGo(AcbLetter letter, String what) {
+        if (!COULD_NOT_GO.contains(letter.getStatus())) {
+            Map<String, String> facts = new LinkedHashMap<>();
+            facts.put("letterId", String.valueOf(letter.getId()));
+            facts.put("status", letter.getStatus().name());
+            throw new AcbRefusal(AcbRefusalCode.LETTER_NOT_HELD, "Only a letter that could not go is " + what
+                    + "; this one is " + letter.getStatus() + ".", facts);
+        }
+    }
+
     private AcbHeldLetterDto heldLetterDto(long letterId) {
         AcbLetter letter = letters.findById(letterId).orElseThrow();
         AcbRunLine line = lines.findById(letter.getLineId()).orElseThrow();
+        String reason = letter.getStatusReason() != null ? letter.getStatusReason() : letter.getFailureClass();
         return new AcbHeldLetterDto(letter.getId(), line.getId(), line.getMemberId(), line.getMembershipNumber(),
-                line.getSurname(), letter.getTemplate(), letter.getStatusReason(), false);
+                line.getSurname(), letter.getTemplate(), letter.getStatus(), reason, false);
     }
 
     @Override

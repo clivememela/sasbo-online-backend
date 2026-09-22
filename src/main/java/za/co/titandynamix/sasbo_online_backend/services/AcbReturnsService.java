@@ -49,16 +49,26 @@ public interface AcbReturnsService {
     AcbRunLineDto permit(long runId, long lineId, String note, String actor);
 
     /**
-     * The run's held letters -- no address, or one that cannot be sent to -- as the worklist Q46 asks for,
-     * each saying whether the member now has an address it could go to. A page at a time.
+     * The run's letters that could not go -- held for want of an address it can go to, or a send that FAILED --
+     * as the worklist Q46 and EH-E ask for, each saying whether the member now has an address it could go to.
+     * A page at a time.
      */
     AcbPage<AcbHeldLetterDto> heldLetters(long runId, int page, int size);
 
     /**
-     * Marks a held letter dealt with by hand, with a note of how (Q46): it leaves the worklist and is
-     * never sent afterwards. {@code LETTER_NOT_HELD} for a letter that is not held.
+     * Marks a letter that could not go dealt with by hand, with a note of how (Q46): it leaves the worklist and
+     * is never sent afterwards. {@code LETTER_NOT_HELD} for any other letter.
      */
     AcbHeldLetterDto markHandled(long runId, long letterId, String note, String actor);
+
+    /**
+     * Sends a letter that could not go -- once the member has an address it can go to (Q46), or again after a send
+     * that FAILED (EH-E, R3-7): rendered now, by {@code actor}, and handed to the sender after this commits; the
+     * sender's claim counts the attempt. {@code LETTER_NOT_HELD} for any other letter; {@code LETTER_NO_ADDRESS}
+     * while the member has no address it can go to. No route calls it while the API is anonymous (B1): a letter
+     * the anonymous API queued is never sent.
+     */
+    AcbHeldLetterDto sendHeldLetter(long runId, long letterId, String actor);
 
     /**
      * The Debits screen's member search (04.1): part of a surname or membership number, or a whole

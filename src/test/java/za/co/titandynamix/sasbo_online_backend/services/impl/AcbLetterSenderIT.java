@@ -132,29 +132,42 @@ class AcbLetterSenderIT extends AbstractAcbIT {
     }
 
     @Test
-    @DisplayName("a delivery that fails is tried again, and FAILED with its reason after the third attempt")
-    void aFailingDeliveryIsCountedThenFailed() {
-        doThrow(new MailSendException("the mail server is down")).when(mail).send(any(MimeMessage.class));
+    @DisplayName("🔴 R3-7, EH-E: a send that fails is FAILED at once -- its class, never its message, attempt 1 -- on the worklist; sent again, it counts 2 and goes once")
+    void aFailedSendIsSeenThenSentAgain() {
+        doThrow(new MailSendException("refused for member@example.org")).when(mail).send(any(MimeMessage.class));
 
         long line = unpaidRecordedBy("administrator");
-        sender.sendDue();
-        sender.sendDue();
 
-        AcbLetter letter = letters.findByLineId(line).orElseThrow();
-        assertThat(letter.getAttempts()).isEqualTo(AcbLetterSender.MAX_ATTEMPTS);
-        assertThat(letter.getStatus()).isEqualTo(LetterStatus.FAILED);
-        assertThat(letter.getFailureClass()).isEqualTo("MailSendException");
-        assertThat(sender.sendDue()).as("a FAILED letter is not tried again").isZero();
+        AcbLetter failed = letters.findByLineId(line).orElseThrow();
+        assertThat(failed.getStatus()).isEqualTo(LetterStatus.FAILED);
+        assertThat(failed.getAttempts()).isEqualTo(1);
+        assertThat(failed.getFailureClass()).as("the class, never the message").isEqualTo("MailSendException");
+        assertThat(sender.sendDue()).as("nothing tries a FAILED letter again unseen").isZero();
+        long run = jdbc.queryForObject("SELECT run_id FROM acb_run_lines WHERE id = ?", Long.class, line);
+        assertThat(returns.heldLetters(run, 0, 50).content()).singleElement().satisfies(held -> {
+            assertThat(held.status()).isEqualTo(LetterStatus.FAILED);
+            assertThat(held.reason()).isEqualTo("MailSendException");
+            assertThat(held.canSend()).isTrue();
+        });
+
+        doAnswer(invocation -> sent.add(invocation.getArgument(0))).when(mail).send(any(MimeMessage.class));
+        returns.sendHeldLetter(run, failed.getId(), "administrator");
+
+        AcbLetter again = letters.findByLineId(line).orElseThrow();
+        assertThat(again.getStatus()).isEqualTo(LetterStatus.SENT);
+        assertThat(again.getAttempts()).as("a retry makes it 2").isEqualTo(2);
+        assertThat(again.getFailureClass()).isNull();
+        assertThat(sent).hasSize(1);
+        assertThat(returns.heldLetters(run, 0, 50).content()).isEmpty();
     }
 
     @Test
     @DisplayName("the letter sent is the letter recorded: a member whose details moved since is not sent another")
     void aChangedLetterIsNotSent() {
-        // The first attempt fails, so the letter is still waiting when the member moves house.
-        doThrow(new MailSendException("down"))
-                .doAnswer(invocation -> sent.add(invocation.getArgument(0)))
-                .when(mail).send(any(MimeMessage.class));
-        long line = unpaidRecordedBy("administrator");
+        // A letter still WAITING for the sender when the member moves house: recorded by the anonymous API, which
+        // the sender never sends for, then owned by a person as sign-in would -- so nothing sent it in between.
+        long line = unpaidRecordedBy(AcbActor.SYSTEM);
+        jdbc.update("UPDATE acb_letters SET queued_by = 'administrator' WHERE line_id = ?", line);
         jdbc.update("UPDATE members SET address = '9 Moved Street' WHERE id = ?", AcbRunFixture.FIRST_MEMBER_ID);
 
         assertThat(sender.sendDue()).isZero();
