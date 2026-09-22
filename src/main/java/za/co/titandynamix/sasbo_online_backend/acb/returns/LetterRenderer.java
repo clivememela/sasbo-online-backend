@@ -108,6 +108,20 @@ public final class LetterRenderer {
                 line.getBankName(), YearMonth.from(run.getActionMonth()), wording, line.getDebitDay());
     }
 
+    /**
+     * The letter's fingerprint, kept by the letters table instead of its body (R-SEC-C): the SHA-256 of its UTF-8
+     * text, in lower-case hex. The recording writes it, and the sender compares it before sending (03.3), so the two
+     * share this one definition.
+     */
+    public static String bodySha256(String body) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(body.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is required of every Java runtime", impossible);
+        }
+    }
+
     /** The letter's text, every placeholder filled. */
     public static String render(LetterTemplate template, LetterData data) {
         Map<String, String> values = data.values();

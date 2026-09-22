@@ -48,7 +48,6 @@ import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -538,7 +537,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
             String body = LetterRenderer.render(template, letterData(run, line, recipient, wording));
             letter.setStatus(LetterStatus.RENDERED);
             letter.setRenderedAt(now);
-            letter.setBodySha256(AcbFileServiceImpl.sha256(body.getBytes(StandardCharsets.UTF_8)));
+            letter.setBodySha256(LetterRenderer.bodySha256(body));
             letter.setAddressSnapshot(email);
         }
         letters.save(letter);

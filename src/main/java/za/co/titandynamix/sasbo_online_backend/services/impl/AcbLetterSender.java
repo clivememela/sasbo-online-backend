@@ -29,7 +29,6 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbRunLineRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbUnpaidCodeRepository;
 
-import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -143,7 +142,7 @@ public class AcbLetterSender {
             fail(letter, "LETTER_NOT_RENDERABLE: " + e.getClass().getSimpleName(), true);
             return false;
         }
-        if (!AcbFileServiceImpl.sha256(body.getBytes(StandardCharsets.UTF_8)).equals(letter.getBodySha256())) {
+        if (!LetterRenderer.bodySha256(body).equals(letter.getBodySha256())) {
             // The member's details moved since the letter was recorded: it is not the letter anybody recorded.
             fail(letter, "LETTER_CHANGED_SINCE_RENDERED", true);
             return false;
