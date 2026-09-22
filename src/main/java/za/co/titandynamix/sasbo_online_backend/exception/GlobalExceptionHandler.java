@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -204,5 +205,66 @@ public class GlobalExceptionHandler {
                 null
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    /**
+     * An upload over the multipart limit is refused while the request is PARSED -- before a controller
+     * is chosen, so no controller-scoped advice can answer it (F55). On an ACB route it is a coded
+     * {@code UPLOAD_TOO_LARGE}; anywhere else it answers exactly as the catch-all always has.
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleUploadTooLarge(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        if (request.getRequestURI().startsWith("/api/acb/")) {
+            return handleAcbRefusal(new AcbRefusal(AcbRefusalCode.UPLOAD_TOO_LARGE, "The upload is over its limit.",
+                    Map.of("limitBytes", String.valueOf(ex.getMaxUploadSize()))), request);
+        }
+        return handleGeneralException(ex, request);
+    }
+
+    /**
+     * An ACB refusal: its own status, its stable {@code code}, and the facts it is about.
+     *
+     * <p>The message and details were written by ACB code for the person at the desk -- a run's
+     * state and version, a month, a bank's name -- so they are returned as they are. That is the
+     * difference from the catch-all above, which must assume a message is hostile to show.
+     */
+    @ExceptionHandler(AcbRefusal.class)
+    public ResponseEntity<ApiErrorResponse> handleAcbRefusal(AcbRefusal ex, HttpServletRequest request) {
+        HttpStatus status = ex.code().status();
+        ApiErrorResponse response = new ApiErrorResponse(
+                LocalDateTime.now(ZoneId.of("UTC")),
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null,
+                ex.code().name(),
+                ex.details().isEmpty() ? null : ex.details()
+        );
+        return ResponseEntity.status(status).body(response);
+    }
+
+    /**
+     * Two writers raced for one versioned record and this one lost: a 409, never a 500.
+     *
+     * <p>ACB translates its own races into {@code RUN_VERSION_CONFLICT} with the run's current state
+     * before one can reach here, so this is the net under whatever versioned record comes next.
+     * It carries no {@code code} because it cannot know what the record was. 🔒 The exception's
+     * message names the entity and its id and is logged, not returned.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiErrorResponse> handleOptimisticLockFailure(
+            ObjectOptimisticLockingFailureException ex, HttpServletRequest request) {
+        log.warn("Optimistic lock failure on {}: {}", request.getRequestURI(), ex.getPersistentClassName());
+        ApiErrorResponse response = new ApiErrorResponse(
+                LocalDateTime.now(ZoneId.of("UTC")),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                "Someone else changed this record first. Reload it to see their change, then try again.",
+                request.getRequestURI(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 }

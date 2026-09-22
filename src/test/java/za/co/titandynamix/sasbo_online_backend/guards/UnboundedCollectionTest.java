@@ -67,9 +67,11 @@ class UnboundedCollectionTest {
             "DeletionCodeController",
             "deletion reason codes -- reference data; ceiling ~40",
             "JobGradeController",
-            "job grades per bank -- reference data; ceiling 27, asserted by the migration seed",
-            "ACBController",
-            "ACB debit-day configuration -- reference data; ceiling ~10");
+            "job grades per bank -- reference data; ceiling 27, asserted by the migration seed");
+    // ACBController was here -- "ACB debit-day configuration, reference data", excusing a
+    // controller that had no endpoints at all (register E7). Removed with its hand-written
+    // `continue` below when ACB's first routes landed: the runs grow one a month and the lines by
+    // thousands, so the guard now judges ACB like any other controller, and every ACB list is paged.
 
     private static final Pattern COLLECTION_ENDPOINT = Pattern.compile(
             "@GetMapping[^\\n]*\\n(?:\\s*@[^\\n]*\\n)*\\s*public\\s+(?:ResponseEntity<)?"
@@ -135,13 +137,8 @@ class UnboundedCollectionTest {
             // asserting that the controller EXISTS would leave an entry sitting
             // on a controller that no longer returns a collection -- an
             // exemption for a rule it is no longer breaking, which is exactly
-            // the stale-list rot every other guard here asserts against.
-            //
-            // ACBController is the deliberate exception: it exposes no
-            // endpoints at all, which is itself a recorded finding.
-            if (entry.getKey().equals("ACBController")) {
-                continue;
-            }
+            // the stale-list rot every other guard here asserts against. It has
+            // no exceptions now: the one it had, ACBController, left the list.
             assertThat(ENDPOINTS)
                     .as("%s is allowlisted as bounded-by-nature but no longer returns a "
                             + "collection. Delete the entry", entry.getKey())

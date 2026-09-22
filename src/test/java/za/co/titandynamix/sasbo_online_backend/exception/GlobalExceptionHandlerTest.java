@@ -75,6 +75,30 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("🧪 R1-21, F55: an upload over the multipart limit on an ACB route is UPLOAD_TOO_LARGE, with the limit -- not the catch-all's 500")
+    void anAcbUploadOverTheLimitIsCoded() {
+        Mockito.when(this.request.getRequestURI()).thenReturn("/api/acb/opening-position");
+        ResponseEntity<ApiErrorResponse> response = this.handler.handleUploadTooLarge(
+                new org.springframework.web.multipart.MaxUploadSizeExceededException(1_048_576L), this.request);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("UPLOAD_TOO_LARGE");
+        assertThat(response.getBody().details()).containsEntry("limitBytes", "1048576");
+    }
+
+    @Test
+    @DisplayName("the twin: the same exception anywhere else answers exactly as the catch-all always has")
+    void aNonAcbUploadOverTheLimitIsUnchanged() {
+        ResponseEntity<ApiErrorResponse> response = this.handler.handleUploadTooLarge(
+                new org.springframework.web.multipart.MaxUploadSizeExceededException(1_048_576L), this.request);
+        ResponseEntity<ApiErrorResponse> catchAll = this.handler.handleGeneralException(
+                new org.springframework.web.multipart.MaxUploadSizeExceededException(1_048_576L), this.request);
+        assertThat(response.getStatusCode()).isEqualTo(catchAll.getStatusCode());
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isNull();
+    }
+
+    @Test
     @DisplayName("a missing entity becomes 404 with the full envelope")
     void entityNotFoundBecomes404() {
         ResponseEntity<ApiErrorResponse> response = this.handler.handleEntityNotFound(

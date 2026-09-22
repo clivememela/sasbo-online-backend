@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.support;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -30,6 +31,81 @@ public final class MigrationSeed {
     public static final int UNION_STRUCTURES = 19;
     public static final int REPRESENTATIVE_ROLES = 6;
     public static final int RECRUITERS = 33;
+
+    /**
+     * {@code acb_rates} is V41's seed: the one flat rate the July 2026 bureau file charged. A run
+     * cannot be priced without it, so it is restored after every reset like the other seeds.
+     */
+    public static final int ACB_RATES = 1;
+
+    /**
+     * {@code acb_unpaid_codes} is V45's seed: the four numeric codes on Standard Bank's returns
+     * report of 21 August 2026 (2, 4, 30, 34), each mapped to a reason -- the last two wordings
+     * inferred and marked so, until question 39 is answered.
+     */
+    public static final List<UnpaidCode> ACB_UNPAID_CODES = List.of(
+            new UnpaidCode("2", "NOT_PROVIDED_FOR", Boolean.TRUE),
+            new UnpaidCode("4", "PAYMENT_STOPPED", Boolean.FALSE),
+            new UnpaidCode("30", "NO_AUTHORITY_TO_DEBIT", null),
+            new UnpaidCode("34", "AUTHORISATION_CANCELLED", null));
+
+    /**
+     * One of V45's codes: what it means, and whether it allows a re-debit -- yes, no, or {@code null}
+     * for unknown (Q40, Q44), each flag inferred until the bank's list is in hand (Q39).
+     */
+    public record UnpaidCode(String code, String reason, Boolean reDebitAllowed) {
+    }
+
+    /** One statutory public holiday, as V47 seeds it. */
+    public record Holiday(LocalDate date, String name) {
+        Holiday(String date, String name) {
+            this(LocalDate.parse(date), name);
+        }
+    }
+
+    /**
+     * {@code acb_holidays} is V47's seed: South Africa's statutory public holidays for 2026 and 2027 --
+     * the Public Holidays Act's schedule, Good Friday and Family Day, and each Monday the Act's Sunday
+     * rule makes a holiday, as its own row (D30). THE ONE COPY of the list (F47): the window fixture's
+     * {@code za-statutory} set and the tests' calendar ({@code AcbCalendars}) read it, and
+     * {@code AcbHolidayCalendarIT} asserts the migrated table equals it. Checked against a printed
+     * calendar, and re-derived independently by the planning pack's own script.
+     *
+     * <p>⚠️ Days declared ad hoc -- the 2026 local-government election day among them -- are not here:
+     * they are added as data when declared, which is why the calendar says until when it is known.
+     */
+    public static final List<Holiday> ACB_HOLIDAYS = List.of(
+            new Holiday("2026-01-01", "New Year's Day"),
+            new Holiday("2026-03-21", "Human Rights Day"),
+            new Holiday("2026-04-03", "Good Friday"),
+            new Holiday("2026-04-06", "Family Day"),
+            new Holiday("2026-04-27", "Freedom Day"),
+            new Holiday("2026-05-01", "Workers' Day"),
+            new Holiday("2026-06-16", "Youth Day"),
+            new Holiday("2026-08-09", "National Women's Day"),
+            new Holiday("2026-08-10", "National Women's Day, observed"),
+            new Holiday("2026-09-24", "Heritage Day"),
+            new Holiday("2026-12-16", "Day of Reconciliation"),
+            new Holiday("2026-12-25", "Christmas Day"),
+            new Holiday("2026-12-26", "Day of Goodwill"),
+            new Holiday("2027-01-01", "New Year's Day"),
+            new Holiday("2027-03-21", "Human Rights Day"),
+            new Holiday("2027-03-22", "Human Rights Day, observed"),
+            new Holiday("2027-03-26", "Good Friday"),
+            new Holiday("2027-03-29", "Family Day"),
+            new Holiday("2027-04-27", "Freedom Day"),
+            new Holiday("2027-05-01", "Workers' Day"),
+            new Holiday("2027-06-16", "Youth Day"),
+            new Holiday("2027-08-09", "National Women's Day"),
+            new Holiday("2027-09-24", "Heritage Day"),
+            new Holiday("2027-12-16", "Day of Reconciliation"),
+            new Holiday("2027-12-25", "Christmas Day"),
+            new Holiday("2027-12-26", "Day of Goodwill"),
+            new Holiday("2027-12-27", "Day of Goodwill, observed"));
+
+    /** {@code acb_calendar}'s one row, V47's: the calendar's name and the last date it is complete for. */
+    public static final String ACB_CALENDAR_NAME = "za-statutory";
+    public static final LocalDate ACB_CALENDAR_KNOWN_UNTIL = LocalDate.of(2027, 12, 31);
 
     /** The root of the structure hierarchy, {@code union_structures.id = 1}. */
     public static final String ROOT_STRUCTURE = "SASBO";
@@ -100,7 +176,21 @@ public final class MigrationSeed {
             //
             // Step ONE of the money migration: the four member money columns become
             // NUMERIC(12,2) beside the text they came from, which V49 drops later (D16).
-            "V40__member_money_columns_to_numeric_step_one.sql");
+            "V40__member_money_columns_to_numeric_step_one.sql",
+            // ACB P1: the run and the dated flat rate (V41), its lines (V42), its audit trail (V43).
+            // V49 stays reserved for the money migration's second step.
+            "V41__acb_runs.sql",
+            "V42__acb_run_lines.sql",
+            "V43__acb_audit_events.sql",
+            // ACB P2: the bureau file a run produced, kept as the evidence of what was sent.
+            "V44__acb_run_files.sql",
+            // ACB P3: the bank's numeric unpaid codes, mapped to reasons (V45); the letters (V46).
+            "V45__acb_unpaid_codes.sql",
+            "V46__acb_letters.sql",
+            // ACB 01.8: the holiday calendar as data -- acb_holidays and acb_calendar (D30).
+            "V47__acb_holidays.sql",
+            // ACB 03.0: the opening arrears position, captured by hand at switch-over (D24).
+            "V48__acb_opening_position.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

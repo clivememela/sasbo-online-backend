@@ -20,9 +20,9 @@ import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Province;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
-import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
-import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
-import za.co.titandynamix.sasbo_online_backend.enums.SubscriptionsStatus;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbLogging;
+import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
+import za.co.titandynamix.sasbo_online_backend.services.impl.AcbHistorySeeder;
 import za.co.titandynamix.sasbo_online_backend.repository.*;
 
 import java.io.InputStream;
@@ -40,10 +40,15 @@ public class DataSeeder implements ApplicationRunner {
     private final ProvinceRepository provinceRepository;
     private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final RecruiterRepository recruiterRepository;
-    private final SubscriptionsRepository subscriptionsRepository;
     private final BankSeeder bankSeeder;
     private final JobGradeSeeder jobGradeSeeder;
     private final AreaRepository areaRepository;
+    private final SubscriptionSeeder subscriptionSeeder;
+    private final DebitOrderMemberSeeder debitOrderMemberSeeder;
+    private final SeedMemberNumbers seedMemberNumbers;
+    private final SeedMemberRepository seedMembers;
+    private final SasboEnvironment environment;
+    private final AcbHistorySeeder acbHistorySeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -145,7 +150,19 @@ public class DataSeeder implements ApplicationRunner {
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .build();
 
-        if (this.memberRepository.count() == 0) {
+        // 🔒 SYNTHETIC PEOPLE ARE NEVER SEEDED WHERE THE PRODUCTION MARKER IS SET (SD3-A). A brand-new
+        // production database is empty at its first boot -- exactly when the table-empty guard below
+        // opens -- and the debit-order members are at real banks, with account numbers that pass the
+        // shape gate: a bureau file is an instruction to take money. So the marker is the lock, not
+        // the emptiness of a table. The reference data further down (banks, grades, areas, the
+        // subscription rows, provinces) is real and is seeded everywhere.
+        if (this.environment.isProduction()) {
+            long seeded = this.seedMembers.countMembershipNumbersIn(this.seedMemberNumbers.all());
+            if (seeded > 0) {
+                log.warn("{} seeded (synthetic) member(s) are on this PRODUCTION database. No bureau file will "
+                        + "include them (FILE_HAS_SEED_MEMBERS); they should be removed", seeded);
+            }
+        } else if (this.memberRepository.count() == 0) {
             ClassPathResource membersResource = new ClassPathResource("data/members.json");
             try (InputStream stream = membersResource.getInputStream()) {
                 List<Member> members = readSeedMembers(stream);
@@ -166,6 +183,11 @@ public class DataSeeder implements ApplicationRunner {
                 log.info("Seeded {} members", members.size());
             }
         }
+
+        // The debit-order population a run is prepared from (D33): WHEN ABSENT, keyed by membership
+        // number, so it also reaches a database that was started long ago. Never in production -- the
+        // seeder checks the marker itself, so no caller can forget to.
+        this.debitOrderMemberSeeder.seed();
 
         // Row by row, not behind a table-empty guard: see BankSeeder and BankSeederIT.
         this.bankSeeder.seed();
@@ -227,36 +249,11 @@ public class DataSeeder implements ApplicationRunner {
             log.info("Seeded {} areas", areas.size());
         }
 
-        ClassPathResource subscriptionsResource = new ClassPathResource("data/subscriptions.json");
-        try (InputStream subsStream = subscriptionsResource.getInputStream()) {
-            List<SubscriptionsDto> subsDtos = mapper.readValue(subsStream, new TypeReference<>() {});
-            int desired = subsDtos.size();
-            long existing = this.subscriptionsRepository.count();
-            log.info("subscriptionsRepository.count() = {}, desired seed size = {}", existing, desired);
-            List<Bank> allBanks = this.bankRepository.findAll();
-            if (existing < desired) {
-                List<Subscriptions> subs = subsDtos.stream().map(dto -> {
-                    Subscriptions s = new Subscriptions();
-                    s.setId(null);
-                    if (dto.bankName() != null) {
-                        allBanks.stream()
-                                .filter(b -> b.getName().equalsIgnoreCase(dto.bankName()))
-                                .findFirst()
-                                .ifPresent(s::setBank);
-                    }
-                    s.setAcbDebitDay(dto.acbDebitDay());
-                    s.setSubscriptionAmount(dto.subscriptionAmount());
-                    s.setIsCoreBanking(dto.isCoreBanking());
-                    s.setStatus(dto.status() == null ? SubscriptionsStatus.PENDING : dto.status());
-                    s.setRegistrationDate(dto.registrationDate());
-                    return s;
-                }).toList();
-                this.subscriptionsRepository.saveAll(subs);
-                log.info("Seeded {} subscriptions", subs.size());
-            } else {
-                log.info("Skipping subscriptions seed; existing ({} ) >= desired ({})", existing, desired);
-            }
-        }
+        // 🔴 F54. This was BY COUNT and all at once -- `if (existing < desired)` then every row -- so a
+        // corrected row never reached a database that already held fifteen, and a sixteenth would have
+        // doubled all of them. Per row, keyed by bank, and Standard Bank's orphan repaired: see
+        // SubscriptionSeeder.
+        this.subscriptionSeeder.seed();
 
         // Representatives are created manually via API; no seeding needed
         if (this.representativeRepository.count() == 0) {
@@ -305,6 +302,17 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
+        // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
+        // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).
+        // 🔒 Its failure is caught and logged with its cause, never fatal: a demo must start, and must not
+        // hide the fault either (SD3-I). The production marker was validated at binding, outside this
+        // catch (F59), and the seeder itself never runs where it is set (SD3-A).
+        try {
+            this.acbHistorySeeder.seed();
+        } catch (RuntimeException seedingFailed) {
+            log.error("The A.C.B. history could not be seeded; the application starts without it",
+                    AcbLogging.scrubbed(seedingFailed));
+        }
     }
 
 }

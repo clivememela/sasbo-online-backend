@@ -24,16 +24,18 @@ package za.co.titandynamix.sasbo_online_backend.utils;
  * the 20th: subscriptions are collected in the second half of the month, and no
  * source offers a reason to allow earlier.
  *
- * <h2>The business-day rule is NOT here yet</h2>
- * Not computed on the server. The rule, as the signed specification states it (18 August session,
- * "SASBO Membership System" line 1862, and the A.7 glossary): a weekend or non-business day moves
- * BACKWARD to the most recent business day in the same month; only where backward would fall below the
- * 20th does it move FORWARD (the session's example: a Sunday 20th is processed on Monday the 21st, which
- * SASBO's re-debit letter matches). So a date never falls below the 20th nor leaves its month.
- * An earlier note here said "forward, backward only at month end" -- that matched all three worked
- * examples and disagreed with the rule on 56 of 288 cells in 2026-2027 (day 25 in July 2026: Friday
- * the 24th, not Monday the 27th). The client's debitDate.js carries the rule (A57); the ACB arc computes
- * collection dates.
+ * <h2>The business-day rule lives in {@code acb.DebitWindow}, not here</h2>
+ * A weekend or non-business day moves FORWARD to the next business day in the same month; only where
+ * forward would leave the month does it move BACKWARD. So a date never falls below the 20th nor leaves
+ * its month. That is SASBO's answer to question 33 (21 September 2026: "if a debit date is on the 25th
+ * and it is a Saturday it will move to the following business day which is the 27 ... we never go into
+ * the next month"), and their July 2026 bureau file did exactly that.
+ * The signed specification (18 August session, "SASBO Membership System" line 1862, and the A.7
+ * glossary) says BACKWARD first; SASBO's answer overrules it, and both repositories ran the backward
+ * reading until the answer came. The two readings agree on all three of the specification's worked
+ * examples and differ on 56 of 288 cells in 2026-2027 (day 25 in July 2026: Monday the 27th, not
+ * Friday the 24th). The client's debitDate.js carries the same rule; both are tested against the one
+ * generated fixture, debit-window.json.
  */
 public final class DebitDay {
 
