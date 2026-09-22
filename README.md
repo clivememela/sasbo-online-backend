@@ -4,7 +4,7 @@ REST API backend for the **SASBO** membership management system (South African B
 Handles member records, bank and branch information, union representatives, subscriptions, recruitment
 channels, and the administrative reference data that supports member capture and maintenance.
 
-The API is consumed by a companion single-page frontend — [`sasbo-online`](https://github.com/clivememela/sasbo-online)
+The API is consumed by a companion single-page frontend — [`sasbo-online`](https://github.com/Fazlu101/sasbo-online)
 (React + Vite) — and is designed to run on [Render](https://render.com) in production and on a developer
 machine with PostgreSQL and Gradle.
 
@@ -57,7 +57,7 @@ Two parallel repositories make up the full system:
 | Repository                                             | Stack                        | Port | Purpose            |
 |--------------------------------------------------------|------------------------------|------|--------------------|
 | `sasbo-online-backend` (this repo)                     | Java 21 · Spring Boot · Gradle | 8080 | REST API           |
-| [`sasbo-online`](https://github.com/clivememela/sasbo-online) | React · Vite                | 5173 | SPA frontend       |
+| [`sasbo-online`](https://github.com/Fazlu101/sasbo-online) | React · Vite                | 5173 | SPA frontend       |
 
 ---
 
@@ -238,7 +238,7 @@ sasbo-online-backend/
 
 ```bash
 # 1. Clone
-git clone https://github.com/clivememela/sasbo-online-backend.git
+git clone https://github.com/Fazlu101/sasbo-online-backend.git
 cd sasbo-online-backend
 
 # 2. Create a local environment override (see Configuration for why .env.local is required)
@@ -651,7 +651,7 @@ here).
 
 ## Frontend integration
 
-The companion SPA [`sasbo-online`](https://github.com/clivememela/sasbo-online) calls the API via an
+The companion SPA [`sasbo-online`](https://github.com/Fazlu101/sasbo-online) calls the API via an
 `apiUrl()` utility in `src/services/api.js`:
 
 - **Development:** Vite's dev server proxy (`vite.config.js`) forwards `/api` requests to
@@ -706,4 +706,4 @@ See [Running the application → Docker](#docker). The image runs as a non-root 
 
 ---
 
-*Built and maintained by [Titan Dynamix](https://github.com/clivememela) (`za.co.titandynamix`).*
+*The Java package namespace `za.co.titandynamix` is kept from the original codebase.*

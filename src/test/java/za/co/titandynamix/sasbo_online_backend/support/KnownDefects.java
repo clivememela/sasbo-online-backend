@@ -207,27 +207,6 @@ public final class KnownDefects {
                     + "derivation happens.";
 
     /**
-     * {@code SecurityConfig} allows the origin PATTERN {@code https://*.vercel.app}
-     * on a policy with {@code allowCredentials(true)}, registered on every path of
-     * an API whose every route is {@code permitAll}. {@code vercel.app} is a public
-     * suffix, so the pattern matches every site anybody has ever deployed to
-     * Vercel, and any of them may make credentialed cross-origin requests that
-     * read and write the member register.
-     *
-     * <p>Introduced upstream by server {@code 6c00b82} (2026-09-10), which
-     * replaced a fixed origin list with patterns. The remediation this project
-     * had already agreed -- name the real hosts; {@code *.sasbo.online} is fine,
-     * because every host it matches is one somebody here created -- is the shape
-     * it should have taken. Register row B7.
-     */
-    public static final String CORS_TRUSTS_EVERY_VERCEL_DEPLOYMENT =
-            "KNOWN DEFECT: the credentialed CORS policy allows https://*.vercel.app, and "
-                    + "vercel.app is a public suffix, so every site ever deployed to Vercel "
-                    + "may read and write the member register cross-origin with credentials. "
-                    + "This test asserts that no wildcard origin pattern escapes a domain this "
-                    + "project controls.";
-
-    /**
      * Production runs {@code spring.jpa.hibernate.ddl-auto: update}, so Hibernate
      * alters the live schema at boot to match the entities -- outside the
      * migration chain, and without ever dropping a column. A mapped field with no

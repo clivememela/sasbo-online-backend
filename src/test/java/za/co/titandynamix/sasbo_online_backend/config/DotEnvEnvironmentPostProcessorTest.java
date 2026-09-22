@@ -34,11 +34,11 @@ class DotEnvEnvironmentPostProcessorTest {
     @DisplayName("reads plain KEY=VALUE pairs and preserves file order")
     void readsPlainPairs() {
         Map<String, Object> parsed = DotEnvEnvironmentPostProcessor.parse("""
-                DB_USERNAME=clivememela
+                DB_USERNAME=sasbo
                 SERVER_PORT=8080
                 """);
 
-        assertEquals("clivememela", parsed.get("DB_USERNAME"));
+        assertEquals("sasbo", parsed.get("DB_USERNAME"));
         assertEquals("8080", parsed.get("SERVER_PORT"));
         assertEquals(List.of("DB_USERNAME", "SERVER_PORT"), List.copyOf(parsed.keySet()));
     }
@@ -131,9 +131,9 @@ class DotEnvEnvironmentPostProcessorTest {
     void stripsByteOrderMark() {
         // Notepad and PowerShell redirection both write a BOM. Without stripping it the first key
         // becomes "\uFEFFDB_USERNAME", which silently fails to match anything.
-        Map<String, Object> parsed = DotEnvEnvironmentPostProcessor.parse("\uFEFFDB_USERNAME=clivememela\n");
+        Map<String, Object> parsed = DotEnvEnvironmentPostProcessor.parse("\uFEFFDB_USERNAME=sasbo\n");
 
-        assertEquals("clivememela", parsed.get("DB_USERNAME"));
+        assertEquals("sasbo", parsed.get("DB_USERNAME"));
         assertTrue(parsed.containsKey("DB_USERNAME"));
     }
 
