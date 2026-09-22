@@ -621,6 +621,7 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
 
         List<AcbHeldLetterDto> held = returns.heldLetters(run, 0, 50).content();
         assertThat(held).singleElement().satisfies(letter -> {
+            assertThat(letter.status()).isEqualTo(LetterStatus.QUEUED);
             assertThat(letter.reason()).isEqualTo("NO_EMAIL");
             assertThat(letter.canSend()).isFalse();
         });
@@ -639,6 +640,39 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         AcbRefusal again = catchThrowableOfType(AcbRefusal.class, () -> returns.markHandled(run, letterId, "twice", "admin-a"));
         assertThat(again.code()).isEqualTo(AcbRefusalCode.LETTER_NOT_HELD);
         assertThat(again.details()).containsEntry("status", "HANDLED");
+    }
+
+    @Test
+    @DisplayName("Q46: a held letter is sent once the member has an address -- rendered then, by whoever sends it -- never to no address, and never twice")
+    void aHeldLetterIsSentOnceThereIsAnAddress() {
+        AcbRunFixture.insert(jdbc, 15, 2);
+        long run = insertRun(LocalDate.of(2026, 9, 1), "SUBMITTED", FROZEN, "system");
+        long line = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID, null, "PENDING", null, RATE);
+        returns.recordUnpaid(run, line, new RecordUnpaidRequest("4", "2026-09-28", UnpaidDecision.SUSPEND), "system");
+        long letterId = returns.heldLetters(run, 0, 50).content().get(0).letterId();
+
+        AcbRefusal noAddress = catchThrowableOfType(AcbRefusal.class, () -> returns.sendHeldLetter(run, letterId, "admin-a"));
+        assertThat(noAddress.code()).isEqualTo(AcbRefusalCode.LETTER_NO_ADDRESS);
+        assertThat(noAddress.details()).containsEntry("letterId", String.valueOf(letterId));
+        assertThat(jdbc.queryForObject("SELECT status FROM acb_letters WHERE id = ?", String.class, letterId))
+                .as("nothing moved").isEqualTo("QUEUED");
+
+        jdbc.update("UPDATE members SET personal_email = 'member@example.org' WHERE id = ?", AcbRunFixture.FIRST_MEMBER_ID);
+        returns.sendHeldLetter(run, letterId, "admin-a");
+
+        // Sending is switched off in this context -- the default until the letters review -- so it waits RENDERED.
+        assertThat(jdbc.queryForMap("SELECT status, status_reason, queued_by, address_snapshot, "
+                + "body_sha256 IS NOT NULL AS hashed FROM acb_letters WHERE id = ?", letterId))
+                .containsEntry("status", "RENDERED").containsEntry("status_reason", null)
+                .containsEntry("queued_by", "admin-a").containsEntry("address_snapshot", "member@example.org")
+                .containsEntry("hashed", true);
+        assertThat(returns.heldLetters(run, 0, 50).content()).as("it left the worklist").isEmpty();
+        assertThat(jdbc.queryForObject("SELECT reason FROM acb_audit_events WHERE kind = 'LETTER_SENT_AGAIN'", String.class))
+                .isEqualTo("a queued letter sent again");
+
+        AcbRefusal twice = catchThrowableOfType(AcbRefusal.class, () -> returns.sendHeldLetter(run, letterId, "admin-a"));
+        assertThat(twice.code()).isEqualTo(AcbRefusalCode.LETTER_NOT_HELD);
+        assertThat(twice.details()).containsEntry("status", "RENDERED");
     }
 
     @Test
