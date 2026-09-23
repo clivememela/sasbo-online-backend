@@ -1,8 +1,8 @@
 # CI for the SASBO Online backend: the gate on every pull request and on every push to `main`.
 #
-# ADVISORY. This workflow deploys nothing and references no secret: Render still deploys `main` exactly as
-# before. A deploy job is added later, in its own pull request, and only runs on `main` after both gate
-# jobs are green.
+# ADVISORY. This workflow deploys nothing and references no secret, and nothing else deploys the backend either:
+# since 2026-09-22 the project runs locally, having left the incumbent developer's Render. A deploy job, when
+# there is a host again, comes in its own pull request and only runs on `main` after both gate jobs are green.
 #
 # Two gate jobs in parallel, because they are two diagnoses: `build` is `./gradlew build` (Checkstyle +
 # the fast H2 lane, no Docker — the everyday command), `integration` is `./gradlew integrationTest`
@@ -31,7 +31,7 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 25 # 2 vCPU; the first run also fills the Gradle cache
+    timeout-minutes: 25 # measured on the runner: 1.8-2.8 min green; a cold Gradle cache adds 60-90 s
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,10 +56,11 @@ jobs:
         run: ./gradlew build --no-daemon
       # Non-vacuity canary: a lane that ran ZERO tests is green for the wrong reason — a tag that excluded
       # everything, a glob that matched nothing. The floor sits well BELOW the real count and is never raised
-      # to match it. Set from the first measured `main` run; warns until then.
+      # to match it. Set on 2026-09-22 from the first measured `main` run (1cff09d): 707 test cases in this
+      # lane, 258 in integration. The floor is what lets this step fail; at 0 it could only warn.
       - name: The fast lane actually ran tests
         env:
-          FLOOR: 0 # ← set from the first main run's count, with headroom
+          FLOOR: 560 # 707 on the first main run; well below, and never raised to match
         run: |
           set -euo pipefail
           n=$( (grep -rho '<testcase ' reports/junit/test --include='*.xml' 2>/dev/null || true) | wc -l)
@@ -80,7 +81,7 @@ jobs:
   integration:
     name: integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 30 # measured on the runner: 2.0-3.4 min, a fresh Postgres container included
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -97,7 +98,7 @@ jobs:
         run: ./gradlew integrationTest --no-daemon
       - name: The integration lane actually ran tests
         env:
-          FLOOR: 0 # ← set from the first main run's count, with headroom
+          FLOOR: 200 # 258 on the first main run; well below, and never raised to match
         run: |
           set -euo pipefail
           n=$( (grep -rho '<testcase ' reports/junit/integrationTest --include='*.xml' 2>/dev/null || true) | wc -l)
@@ -116,8 +117,12 @@ jobs:
           if-no-files-found: warn
 
   # ------------------------------------------------------------------------------------------------
-  # changes — the path filter, in its own job (see the client repository's ci.yml: the same script).
-  # Every ambiguous case resolves to DEPLOY. The skip set is `*.md`. Nothing consumes the output yet.
+  # changes — the path filter, in its OWN JOB on purpose. A `paths-ignore` on the workflow `on:` block
+  # would also skip `build` and `integration`, which the future deploy job needs — and a skipped required
+  # job BLOCKS its dependent. Every ambiguous case resolves to DEPLOY: a filter that skips everything passes
+  # its own test with a production that never moves. The skip set is `*.md` — the only files in this repo
+  # that cannot change what ships. Nothing consumes the output yet; it is observed first. (The client
+  # repository's ci.yml carries the same script.)
   # ------------------------------------------------------------------------------------------------
   changes:
     name: changes

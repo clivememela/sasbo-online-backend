@@ -4,9 +4,9 @@ REST API backend for the **SASBO** membership management system (South African B
 Handles member records, bank and branch information, union representatives, subscriptions, recruitment
 channels, and the administrative reference data that supports member capture and maintenance.
 
-The API is consumed by a companion single-page frontend — [`sasbo-online`](https://github.com/clivememela/sasbo-online)
-(React + Vite) — and is designed to run on [Render](https://render.com) in production and on a developer
-machine with PostgreSQL and Gradle.
+The API is consumed by a companion single-page frontend — [`sasbo-online`](https://github.com/Fazlu101/sasbo-online)
+(React + Vite) — and runs on a developer machine with PostgreSQL and Gradle. Since 2026-09-22 the project is
+local only: it left the incumbent developer's Render and Vercel, and nothing deploys `main`.
 
 ---
 
@@ -57,7 +57,7 @@ Two parallel repositories make up the full system:
 | Repository                                             | Stack                        | Port | Purpose            |
 |--------------------------------------------------------|------------------------------|------|--------------------|
 | `sasbo-online-backend` (this repo)                     | Java 21 · Spring Boot · Gradle | 8080 | REST API           |
-| [`sasbo-online`](https://github.com/clivememela/sasbo-online) | React · Vite                | 5173 | SPA frontend       |
+| [`sasbo-online`](https://github.com/Fazlu101/sasbo-online) | React · Vite                | 5173 | SPA frontend       |
 
 ---
 
@@ -238,7 +238,7 @@ sasbo-online-backend/
 
 ```bash
 # 1. Clone
-git clone https://github.com/clivememela/sasbo-online-backend.git
+git clone https://github.com/Fazlu101/sasbo-online-backend.git
 cd sasbo-online-backend
 
 # 2. Create a local environment override (see Configuration for why .env.local is required)
@@ -275,7 +275,7 @@ hardcoded connection string.
 | `SPRING_DATASOURCE_PASSWORD` | DB password                                          | Yes              |
 | `SSL_MODE`                   | PostgreSQL `sslmode` (e.g. `require` in prod)       | Yes              |
 | `SERVER_PORT`                | HTTP port (defaults to `8080`)                      | No               |
-| `FRONTEND_URL`               | Production frontend origin for CORS allow-list       | Prod only        |
+| `FRONTEND_URL`               | Read by nothing since `6c00b82`; see [CORS](#cors)   | No               |
 
 ### `.env` / `.env.local` loading
 
@@ -632,14 +632,15 @@ Timestamps are UTC. The catch-all 500 handler logs the full stack trace before r
 
 `corsConfigurationSource()` builds an allow-list:
 
-- Origins: `http://localhost:5173` (the dev SPA) plus the value of `FRONTEND_URL` if set (trailing slashes
-  stripped). When `FRONTEND_URL` is blank, only localhost is allowed.
+- Origins: `http://localhost:5173` (the Vite dev server) and nothing else. The compose stack needs no entry:
+  its nginx serves the client and proxies `/api` on the one origin.
 - Methods: `GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD`.
 - Headers: `*`; credentials allowed; max age 3600s.
 - Registered globally against `/**`.
 
-To allow a production frontend, set `FRONTEND_URL` to the deployed SPA origin (and ensure it is allow-listed
-here).
+To allow a hosted frontend, add its origin in `corsConfigurationSource()`. `CorsPolicyTest` holds the list
+closed, so admitting an origin is a deliberate edit with a test to update, never an environment variable
+(`FRONTEND_URL` has been read by nothing since `6c00b82`).
 
 > ⚠️ **Getting this wrong does not look like a CORS problem.** The application starts perfectly and every
 > read works — only `POST`, `PUT`, `PATCH` and `DELETE` are refused, with `403 Invalid CORS request` and an
@@ -651,31 +652,31 @@ here).
 
 ## Frontend integration
 
-The companion SPA [`sasbo-online`](https://github.com/clivememela/sasbo-online) calls the API via an
+The companion SPA [`sasbo-online`](https://github.com/Fazlu101/sasbo-online) calls the API via an
 `apiUrl()` utility in `src/services/api.js`:
 
-- **Development:** Vite's dev server proxy (`vite.config.js`) forwards `/api` requests to
-  `http://localhost:8080`, so the SPA and API share an origin and CORS is not exercised.
-- **Production:** the frontend sets `VITE_API_BASE_URL` to the backend's deployed URL (e.g. on Render), and
-  the backend must allow-list that origin via `FRONTEND_URL`.
+- **Development:** the client's tracked `.env` sets `VITE_API_BASE_URL=http://localhost:8080`, so the SPA on
+  `http://localhost:5173` calls the API cross-origin. That is what the CORS allow-list above admits. (The
+  client has no dev-server proxy.)
+- **Hosted:** none for now. The project is local only since 2026-09-22.
 
 ---
 
 ## Deployment
 
-### Render (recommended PaaS)
+None for now. Since 2026-09-22 the project runs locally: it left the incumbent developer's Render and Vercel.
+Run it with `./gradlew bootRun` against a local PostgreSQL (see
+[Running the application](#running-the-application)), or as the image below.
 
-`system.properties` declares `java.runtime.version=21`, the runtime hint Render uses. Deploy as a Spring
-Boot/Gradle service and set the environment variables from the [table above](#environment-variables):
+When it is hosted again, the service needs the variables from the [table above](#environment-variables):
 
 - `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`
-- `SSL_MODE=require` (enforce TLS to the managed Postgres)
-- `SERVER_PORT=8080`
-- `FRONTEND_URL=https://<your-frontend-origin>`
+- `SSL_MODE=require` (enforce TLS to a managed Postgres)
+- `SERVER_PORT` if the host does not route to `8080`
 
-Flyway runs on startup (`baseline-on-migrate: true`, `baseline-version: 0`) so a fresh database is brought
-up to the latest schema automatically. Hibernate `ddl-auto: update` will additionally add any new entity
-columns.
+and its frontend's origin added in `corsConfigurationSource()` (see [CORS](#cors)). Flyway runs on startup
+(`baseline-on-migrate: true`, `baseline-version: 0`), so a fresh database is brought up to the latest schema
+automatically. Hibernate `ddl-auto: update` additionally adds any new entity columns.
 
 ### Docker
 
@@ -706,4 +707,4 @@ See [Running the application → Docker](#docker). The image runs as a non-root 
 
 ---
 
-*Built and maintained by [Titan Dynamix](https://github.com/clivememela) (`za.co.titandynamix`).*
+*The Java package namespace `za.co.titandynamix` is kept from the original codebase.*

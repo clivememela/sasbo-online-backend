@@ -27,7 +27,7 @@ import java.util.Map;
  * IDE run configuration.
  *
  * <p><b>Why this exists.</b> {@code application.yaml} reads its datasource settings from environment
- * variables, which the host injects in production (see {@code render.yaml}). Locally nothing read
+ * variables, which a host injects in a deployment. Locally nothing read
  * {@code .env} at all, so the file sat in the repository looking authoritative while having no
  * effect. This closes that gap with no new dependency — it is plain JDK file reading.
  *
@@ -38,7 +38,7 @@ import java.util.Map;
  * <ul>
  *   <li>{@code .env} is <b>tracked in git</b>, so it is present in every deployment. Reading it
  *       unconditionally would make a committed file part of production configuration.</li>
- *   <li>That is not hypothetical here. {@code render.yaml} publishes <b>{@code DB_SSLMODE}</b> while
+ *   <li>That was not hypothetical here. The deployment config of the time published <b>{@code DB_SSLMODE}</b> while
  *       {@code application.yaml} reads <b>{@code ${SSL_MODE}}</b> — different names. The committed
  *       {@code .env} carries {@code SSL_MODE=prefer}. An unguarded loader would therefore quietly
  *       satisfy that placeholder in production with <i>prefer</i>, downgrading a database connection

@@ -40,13 +40,12 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Use allowed origin PATTERNS to support wildcards for Vercel and sasbo online previews
+        // Local only (2026-09-22): the project left the incumbent's Vercel and Render, so the one origin is the
+        // Vite dev server. A hosted front end, when there is one, is added here deliberately -- CorsPolicyTest
+        // keeps the list closed. (The compose stack needs no entry: nginx serves the client and proxies /api on
+        // the same origin.)
         config.setAllowedOriginPatterns(List.of(
-                "http://localhost:5173",
-                "https://vercel.app",
-                "https://*.vercel.app", // This allows any Vercel deployment URL
-                "https://sasbo.online",
-                "https://*.sasbo.online"
+                "http://localhost:5173"
         ));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
