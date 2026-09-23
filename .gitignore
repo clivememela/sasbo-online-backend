@@ -1,4 +1,7 @@
-HELP.md
+# HELP.md is TRACKED and kept (Spring Initializr's reference links). The rule that used to sit here claimed to
+# exclude it and could not: git applies no ignore rule to a path it already tracks. A rule that cannot do what it
+# says is worse than no rule, because the next reader trusts it -- which is exactly how a live key stayed in a
+# tracked .env behind a .gitignore line for months (register B2, on the client side).
 .gradle
 build/
 # Test reports. Written by the test and integrationTest tasks, which put JUnit XML
@@ -45,6 +48,8 @@ out/
 .vscode/
 /.refact
 .DS_Store
+# ^ correct, and it did nothing for src/main/java/za/co/titandynamix/sasbo_online_backend/.DS_Store,
+#   committed in 70dbe4d before this rule could matter. Untracked on 2026-09-23; the rule holds it now.
 
 # Stakpak session files
 .stakpak/session*
