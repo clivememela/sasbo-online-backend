@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.acb;
 
+import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
@@ -213,13 +214,26 @@ public final class RunPreparer {
         return Optional.empty();
     }
 
-    /** Rule 7. The file and the letters print both; a line without them cannot be written. */
+    /**
+     * Rule 7. The file and the letters print the membership number and the surname, and the file
+     * prints the account type (00.5); a line without them cannot be written. A member captured
+     * before V49 has no type, and is named here rather than guessed at.
+     */
     static Optional<String> snapshotProblem(MemberDebitRow member) {
         if (isBlank(member.membershipNumber())) {
             return Optional.of("no membership number");
         }
         if (isBlank(member.surname())) {
             return Optional.of("no surname");
+        }
+        if (isBlank(member.accountType())) {
+            return Optional.of("no account type");
+        }
+        try {
+            AccountType.fromString(member.accountType());
+        } catch (IllegalArgumentException unknown) {
+            return Optional.of("account type " + raw(member.accountType())
+                    + " is not Cheque, Savings or Transmission");
         }
         return Optional.empty();
     }
@@ -237,9 +251,8 @@ public final class RunPreparer {
                 bank.name(),
                 bank.universalBranchCode(),
                 member.bankAccountNumber().trim(),
-                // The member record carries no account type yet -- the capture arc's field. The
-                // line records that honestly, and the file refuses to render until it is known.
-                null,
+                // The digit the file prints (00.5). Rule 7 has already refused a member without one.
+                AccountType.fromString(member.accountType()).getCode(),
                 member.debitDay(),
                 actionDate,
                 amount);
@@ -271,8 +284,7 @@ public final class RunPreparer {
      *
      * @param rePresentsLineId the earlier unpaid this line presents again, or {@code null} for the
      *                         member's own debit this month
-     * @param accountType      1, 2 or 3 as the file prints it; {@code null} until the member record
-     *                         carries one
+     * @param accountType      1, 2 or 3 as the file prints it, from the member's account type (00.5)
      */
     public record PreparedLine(
             Integer memberId,

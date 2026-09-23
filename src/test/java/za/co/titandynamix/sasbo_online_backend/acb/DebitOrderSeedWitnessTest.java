@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * subscription row attached to the bank its name matches, the 160 of {@code members.json} and the 150 of
  * {@code debit_order_members.json}. The generated file says, per member, what the population rule must
  * make of them; this prepares a month and holds the rule to every one of those statements. The 160 keep
- * their own witness ({@link RunPreparerSeedWitnessTest}: one of them is debited).
+ * their own witness ({@link RunPreparerSeedWitnessTest}: since {@code 00.5} none of them is debited).
  *
  * <p>No database: the same rule the job runs, over the same rows, read from the files. The integration
  * lane proves the database half -- that the seeder puts these rows there, once.
@@ -42,7 +42,10 @@ class DebitOrderSeedWitnessTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    /** The one member of the original 160 the rule debits (RunPreparerSeedWitnessTest). */
+    /**
+     * The one member of the original 160 the rule debited until 00.5 (RunPreparerSeedWitnessTest) -- left out
+     * now for the account type {@code members.json} never carried, which is not touched (D33).
+     */
     private static final String THE_ORIGINAL_SEEDS_ONE = "M-100116";
 
     @Test
@@ -55,10 +58,10 @@ class DebitOrderSeedWitnessTest {
                 expected.add(m.membershipNumber());
             }
         }
-        expected.add(THE_ORIGINAL_SEEDS_ONE);
         Set<String> debited = prepared.lines().stream().map(PreparedLine::membershipNumber)
                 .collect(Collectors.toCollection(TreeSet::new));
         assertThat(debited).as("the run's members, as a set of membership numbers").isEqualTo(expected);
+        assertThat(debited).as("the original seed's one, untyped since 00.5").doesNotContain(THE_ORIGINAL_SEEDS_ONE);
         // Each member is debited once: no re-presentations exist in a seed with no history.
         assertThat(prepared.lineCount()).isEqualTo(expected.size());
     }
@@ -137,13 +140,14 @@ class DebitOrderSeedWitnessTest {
             preparer.accept(new MemberDebitRow((Integer) m.get("id"), (String) m.get("membershipNumber"),
                     (String) m.get("surname"), (String) m.get("initials"), (String) m.get("status"),
                     (String) m.get("paymentType"), (String) m.get("bankName"), (String) m.get("bankAccountNumber"),
-                    (Integer) m.get("debitDay")));
+                    (Integer) m.get("debitDay"), (String) m.get("accountType")));
         }
         List<SeedDebitOrderMember> generated = generated();
         for (int i = 0; i < generated.size(); i++) {
             SeedDebitOrderMember m = generated.get(i);
             preparer.accept(new MemberDebitRow(generatedId(i), m.membershipNumber(), m.surname(), m.initials(),
-                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay()));
+                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay(),
+                    m.accountType()));
         }
         return preparer.finish();
     }

@@ -76,6 +76,14 @@ public class Member {
      * OPTIONAL when paymentType = "Payroll"
      */
     private String bankAccountNumber;
+    /**
+     * The type of the account the debit order draws on -- "Cheque", "Savings" or "Transmission", as
+     * the capture screen offers it (ACB {@code 00.5}, V49). The bureau file prints its digit on every
+     * debit; {@code null} for every member captured before V49, whom the run leaves out and names.
+     * @see za.co.titandynamix.sasbo_online_backend.enums.AccountType
+     * @see MemberValidator#validateAccountType(Member, boolean)
+     */
+    private String accountType;
     private String branch;
     private String ibtNo;
     /*private String workIbtNo;*/

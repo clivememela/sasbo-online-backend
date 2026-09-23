@@ -25,8 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * with.
  *
  * <p>The planning pack measures the same thing with its own script, independently of this code, and
- * the two agree: <b>one</b> member of 160 is debited, and the other 159 are excluded for five
- * different reasons. Almost every run on the seed is nearly empty -- which is why the run fixture
+ * the two agree: <b>none</b> of the 160 is debited since {@code 00.5} -- the one member every other rule
+ * passes, M-100116, has no account type, because {@code members.json} predates the field and is not
+ * touched (D33) -- and they are excluded for six different reasons. Almost every run on the seed is nearly empty -- which is why the run fixture
  * exists, and why this is a WITNESS and not a fixture. The day the seed is corrected this test goes
  * red; the answer then is to find the new numbers, not to delete the test.
  *
@@ -39,7 +40,7 @@ class RunPreparerSeedWitnessTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @Test
-    @DisplayName("1 of 160 is debited; 159 are excluded, each for the first rule they fail")
+    @DisplayName("0 of 160 is debited since 00.5; every one is excluded, for the first rule they fail")
     void theSeedIsAWitness() throws IOException {
         Preparation prepared = prepareTheSeed(YearMonth.of(2026, 10));
 
@@ -54,25 +55,35 @@ class RunPreparerSeedWitnessTest {
                 .as("the seed's debited members. If this moved, the seed changed: find the new "
                         + "witness and update it here AND in the planning pack's facts script -- do not "
                         + "delete the test")
-                .isEqualTo(1);
+                .isEqualTo(0);
         assertThat(byReason).containsExactlyInAnyOrderEntriesOf(Map.of(
                 AcbExclusionReason.NOT_DEBIT_ORDER, 103,
                 AcbExclusionReason.STATUS_NOT_ACTIVE, 40,
                 AcbExclusionReason.NO_BANK_ON_RECORD, 6,
                 AcbExclusionReason.NO_SUBSCRIPTION_ROW, 9,
-                AcbExclusionReason.DAY_OUT_OF_WINDOW, 1));
+                AcbExclusionReason.DAY_OUT_OF_WINDOW, 1,
+                AcbExclusionReason.SNAPSHOT_INCOMPLETE, 1));
         // The listed reasons among the Active debit-order members: the report an administrator reads.
-        assertThat(prepared.exclusions()).hasSize(16);
+        assertThat(prepared.exclusions()).hasSize(17);
         assertThat(prepared.lineCount() + byReason.values().stream().mapToInt(Integer::intValue).sum())
                 .as("every seeded member accounted for exactly once").isEqualTo(160);
     }
 
     @Test
-    @DisplayName("the one debited member is the one the planning pack names")
-    void theDebitedMember() throws IOException {
-        PreparedLine line = prepareTheSeed(YearMonth.of(2026, 10)).lines().get(0);
-        assertThat(line.membershipNumber()).isEqualTo("M-100116");
-        assertThat(line.debitDay()).isEqualTo(28);
+    @DisplayName("the member the planning pack names is left out for the account type the seed never had")
+    void theOnceDebitedMemberIsNamed() throws IOException {
+        // M-100116, on the 28th, was the one member of 160 this rule debited until 00.5 (F27). It passes every
+        // rule but the new one, and the sheet says exactly which field to capture.
+        Integer id = read("data/members.json").stream()
+                .filter(m -> "M-100116".equals(m.get("membershipNumber")))
+                .map(m -> (Integer) m.get("id")).findFirst().orElseThrow();
+        assertThat(prepareTheSeed(YearMonth.of(2026, 10)).exclusions())
+                .filteredOn(e -> e.memberId().equals(id))
+                .singleElement()
+                .satisfies(e -> {
+                    assertThat(e.reason()).isEqualTo(AcbExclusionReason.SNAPSHOT_INCOMPLETE);
+                    assertThat(e.detail()).isEqualTo("no account type");
+                });
     }
 
     @Test
@@ -124,7 +135,8 @@ class RunPreparerSeedWitnessTest {
                     (String) m.get("paymentType"),
                     (String) m.get("bankName"),
                     (String) m.get("bankAccountNumber"),
-                    (Integer) m.get("debitDay")));
+                    (Integer) m.get("debitDay"),
+                    (String) m.get("accountType")));
         }
         return preparer.finish();
     }

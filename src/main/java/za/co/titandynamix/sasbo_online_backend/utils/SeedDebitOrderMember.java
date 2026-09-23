@@ -46,6 +46,7 @@ public record SeedDebitOrderMember(
         String branch,
         String bankName,
         String bankAccountNumber,
+        String accountType,
         String ibtNo,
         String paymentType,
         Integer debitDay,
@@ -84,6 +85,7 @@ public record SeedDebitOrderMember(
         member.setBranch(branch);
         member.setBankName(bankName);
         member.setBankAccountNumber(bankAccountNumber);
+        member.setAccountType(accountType);
         member.setIbtNo(ibtNo);
         member.setPaymentType(paymentType);
         member.setDebitDay(debitDay);

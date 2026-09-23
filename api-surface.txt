@@ -2,6 +2,7 @@ POST /api/acb/calendar/known-until
 GET /api/acb/holidays
 POST /api/acb/holidays
 DELETE /api/acb/holidays/{date}
+GET /api/acb/letters/specimen/{template}
 POST /api/acb/members/search
 GET /api/acb/opening-position
 POST /api/acb/opening-position
@@ -23,12 +24,14 @@ POST /api/acb/runs/{id}/letters/{letterId}/send
 GET /api/acb/runs/{id}/lines
 POST /api/acb/runs/{id}/lines/{lineId}/decision
 POST /api/acb/runs/{id}/lines/{lineId}/permission
+POST /api/acb/runs/{id}/lines/{lineId}/suspend-member
 POST /api/acb/runs/{id}/lines/{lineId}/unpaid
 POST /api/acb/runs/{id}/returned
 GET /api/acb/runs/{id}/returns
 POST /api/acb/runs/{id}/submitted
 GET /api/acb/runs/{id}/unpaids
 GET /api/acb/termination-report
+POST /api/acb/termination-report/{memberId}/terminate
 GET /api/areas
 GET /api/banks
 GET /api/banks/branches

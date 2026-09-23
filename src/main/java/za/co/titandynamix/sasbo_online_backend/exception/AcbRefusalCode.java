@@ -113,8 +113,16 @@ public enum AcbRefusalCode {
     UPLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE),
     /** An upload is not an {@code .xlsx} sheet that can be read. Nothing of it is evaluated further. */
     UPLOAD_NOT_A_SHEET(HttpStatus.UNSUPPORTED_MEDIA_TYPE),
-    /** Only a held letter is dealt with by hand. The details carry the letter's id and status (Q46). */
+    /**
+     * Only a letter that could not go -- held for want of an address, or a send that FAILED -- is dealt with by
+     * hand or sent again. The details carry the letter's id and status (Q46, EH-E).
+     */
     LETTER_NOT_HELD(HttpStatus.CONFLICT),
+    /**
+     * A held letter goes only to an address it can go to: the member still has none, or one that could carry a
+     * header or a second recipient (SD3-C). Nothing is sent. The details carry the letter's id.
+     */
+    LETTER_NO_ADDRESS(HttpStatus.CONFLICT),
     /** The action month is malformed, or not one a run may be prepared for. */
     ACTION_MONTH_INVALID(HttpStatus.BAD_REQUEST),
     /** The day is already in the holiday calendar. The details carry the date and its name. */
@@ -128,6 +136,12 @@ public enum AcbRefusalCode {
      * The action moves money, sends a letter, submits a file or changes a member's status, and the
      * API does not yet know who is calling (register B1). Refused to every caller until it does.
      */
+    /** 03.5: the termination rule does not reach this member -- three unpaid presentations terminate (Q27). */
+    TERMINATION_NOT_DUE(HttpStatus.CONFLICT),
+    /** 03.5: only an unpaid decided SUSPEND suspends its member (Q40, Q44). The details carry the line. */
+    UNPAID_NOT_SUSPENDED(HttpStatus.CONFLICT),
+    /** 03.5: the member's membership is terminated; a suspension would not undo that. */
+    MEMBER_TERMINATED(HttpStatus.CONFLICT),
     IDENTITY_REQUIRED(HttpStatus.FORBIDDEN);
 
     private final HttpStatus status;

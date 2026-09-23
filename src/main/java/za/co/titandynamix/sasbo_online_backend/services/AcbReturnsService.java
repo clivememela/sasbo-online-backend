@@ -49,16 +49,26 @@ public interface AcbReturnsService {
     AcbRunLineDto permit(long runId, long lineId, String note, String actor);
 
     /**
-     * The run's held letters -- no address, or one that cannot be sent to -- as the worklist Q46 asks for,
-     * each saying whether the member now has an address it could go to. A page at a time.
+     * The run's letters that could not go -- held for want of an address it can go to, or a send that FAILED --
+     * as the worklist Q46 and EH-E ask for, each saying whether the member now has an address it could go to.
+     * A page at a time.
      */
     AcbPage<AcbHeldLetterDto> heldLetters(long runId, int page, int size);
 
     /**
-     * Marks a held letter dealt with by hand, with a note of how (Q46): it leaves the worklist and is
-     * never sent afterwards. {@code LETTER_NOT_HELD} for a letter that is not held.
+     * Marks a letter that could not go dealt with by hand, with a note of how (Q46): it leaves the worklist and
+     * is never sent afterwards. {@code LETTER_NOT_HELD} for any other letter.
      */
     AcbHeldLetterDto markHandled(long runId, long letterId, String note, String actor);
+
+    /**
+     * Sends a letter that could not go -- once the member has an address it can go to (Q46), or again after a send
+     * that FAILED (EH-E, R3-7): rendered now, by {@code actor}, and handed to the sender after this commits; the
+     * sender's claim counts the attempt. {@code LETTER_NOT_HELD} for any other letter; {@code LETTER_NO_ADDRESS}
+     * while the member has no address it can go to. No route calls it while the API is anonymous (B1): a letter
+     * the anonymous API queued is never sent.
+     */
+    AcbHeldLetterDto sendHeldLetter(long runId, long letterId, String actor);
 
     /**
      * The Debits screen's member search (04.1): part of a surname or membership number, or a whole
@@ -71,4 +81,29 @@ public interface AcbReturnsService {
 
     /** Who three unpaid presentations would terminate -- every unpaid counts (Q27). Terminates nobody. */
     AcbTerminationReportDto terminationReport(int page, int size);
+
+    /**
+     * 03.3 -- a SPECIMEN of one of the union's three letters, as the member would receive it: a PDF on the
+     * letterhead, filled from a member who does not exist. It is what the letters review SASBO asked for reads
+     * (question 32 c).
+     */
+    byte[] letterSpecimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template);
+
+    /**
+     * 03.5 -- terminates a member the termination rule says three unpaid presentations have reached, through
+     * {@code MemberService.changeStatus} with the reason {@code SUBS_IN_ARREARS} and never the whole-record
+     * update (Q25, Q27, R3-9). Refuses a member the rule does not reach ({@code TERMINATION_NOT_DUE}); a member
+     * already terminated is answered as they are. No route calls it while the API is anonymous: ending a
+     * membership waits for B1, like approval.
+     */
+    za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto terminate(Integer memberId, String actor);
+
+    /**
+     * 03.5 -- suspends the member of an unpaid decided SUSPEND -- a code that allows no re-debit (Q40, Q44) --
+     * through {@code changeStatus} with the reason {@code UNPAID_SUSPENDED}. Refuses any other line ({@code
+     * UNPAID_NOT_SUSPENDED}) and a member already terminated ({@code MEMBER_TERMINATED}). No route calls it
+     * while the API is anonymous.
+     */
+    za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto suspendMember(long runId, long lineId,
+                                                                                      String actor);
 }

@@ -106,7 +106,7 @@ class AcbPreparationJobLogsTest {
     @DisplayName("a preparation logs the run's id and its counts -- the member's account is nowhere")
     void aPreparationLogsNoAccount() {
         when(population.findPageAfter(eq(AcbPreparationJob.BEFORE_FIRST_MEMBER), any())).thenReturn(List.of(new MemberDebitRow(
-                7, "M-200001", "Botha", "AB", "Active", "Debit Order", "Alpha Bank", SYNTHETIC_ACCOUNT, 25)));
+                7, "M-200001", "Botha", "AB", "Active", "Debit Order", "Alpha Bank", SYNTHETIC_ACCOUNT, 25, "Cheque")));
 
         job.prepare(1L);
 

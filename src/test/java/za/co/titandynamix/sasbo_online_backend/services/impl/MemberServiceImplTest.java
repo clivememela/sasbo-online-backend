@@ -134,6 +134,7 @@ class MemberServiceImplTest {
     @Mock private AreaRepository areaRepository;
     @Mock private RecruitmentChannelRepository recruitmentChannelRepository;
     @Mock private RecruiterRepository recruiterRepository;
+    @Mock private za.co.titandynamix.sasbo_online_backend.repository.MemberStatusChangeRepository statusChanges;
 
     @Captor
     private ArgumentCaptor<Member> saved;
@@ -147,7 +148,7 @@ class MemberServiceImplTest {
                 this.subscriptionsRepository, this.bankBranchRepository, this.bankRepository,
                 this.representativeRoleRepository, this.unionStructureRepository,
                 this.jobGradeRepository, this.jobGradeService, this.areaRepository,
-                this.recruitmentChannelRepository, this.recruiterRepository);
+                this.recruitmentChannelRepository, this.recruiterRepository, this.statusChanges);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -166,6 +167,8 @@ class MemberServiceImplTest {
         // paymentType has to resolve, or validation rejects the whole member
         // before the save and this test would prove nothing about the fields.
         captured.setPaymentType("Payroll");
+        // And the account type (00.5): a synthetic string is not one of the three, and the validator says so.
+        captured.setAccountType("Transmission");
         // Likewise the structure answers: Synthetic sets every Boolean, so COSATU Local
         // arrives true beside a synthetic isCosatu that is not "Y", which
         // validateStructures correctly refuses (COSATU requires BEC; Local requires COSATU).
@@ -508,6 +511,7 @@ class MemberServiceImplTest {
         Member member = MemberFixture.aMember();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        member.setAccountType("Cheque");
         member.setBankName("Absa Bank Limited");
         member.setDebitDay(25);
 
@@ -533,6 +537,7 @@ class MemberServiceImplTest {
         Member member = MemberFixture.aMember();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        member.setAccountType("Cheque");
         member.setBankName("Nedbank Limited");
         member.setDebitDay(31);
 
@@ -709,11 +714,154 @@ class MemberServiceImplTest {
                 .isNull();
     }
 
+    // ============================================================
+    // 00.5 — the account type: required where the save could give it, never on an unrelated edit.
+    // ============================================================
+
+    @Test
+    @DisplayName("00.5 a new debit-order member without an account type is refused, and nothing is saved")
+    void createRefusesADebitOrderWithoutAnAccountType() {
+        bankOffers("Absa Bank Limited", 25);
+        Member member = debitOrderMemberAtAbsa();
+        member.setAccountType(null);
+        member.setDebitDay(25);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.create(member))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Account type is required when payment type is 'Debit Order'");
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+    }
+
+    @Test
+    @DisplayName("00.5 ...and one given in any spelling is stored as the capture screen offers it")
+    void createStoresTheAccountTypesDisplayName() {
+        bankOffers("Absa Bank Limited", 25);
+        Member member = debitOrderMemberAtAbsa();
+        member.setAccountType(" SAVINGS ");
+        member.setDebitDay(25);
+
+        assertThat(this.service.create(member).getAccountType()).isEqualTo("Savings");
+    }
+
+    @Test
+    @DisplayName("00.5 an edit of another field is never refused for the type a member was captured without")
+    void anUnrelatedEditIsNotRefusedForAMissingType() {
+        // R-ROB-I: every member captured before V49 has no type. Correcting their phone number must save.
+        bankOffers("Absa Bank Limited", 25);
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setAccountType(null);
+        existing.setDebitDay(25);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member edit = new Member();
+        edit.setPhone("+27 82 000 0009");
+
+        // The property is the validator's, not the mapper's (a bare mock here, as the note above says): the save
+        // happens, and the type the member was captured without stays unset rather than being refused or guessed.
+        assertThat(this.service.update(4, edit)).isPresent();
+        verify(this.memberRepository).save(existing);
+        assertThat(existing.getAccountType()).isNull();
+    }
+
+    @Test
+    @DisplayName("00.5 banking details saved as a debit order must carry the type -- the one screen it is edited on")
+    void updateBankingRequiresTheType() {
+        bankOffers("Absa Bank Limited", 25);
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setDebitDay(25);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        Member banking = bankingPayloadFor(existing, 25);
+        banking.setAccountType(null);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.updateBanking(4, banking))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Account type is required when payment type is 'Debit Order'");
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+    }
+
+    @Test
+    @DisplayName("00.5 ...and a type given there replaces the stored one")
+    void updateBankingStoresTheType() {
+        bankOffers("Absa Bank Limited", 25);
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setDebitDay(25);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        Member banking = bankingPayloadFor(existing, 25);
+        banking.setAccountType("transmission");
+
+        assertThat(this.service.updateBanking(4, banking).orElseThrow().getAccountType()).isEqualTo("Transmission");
+    }
+
+    // ============================================================
+    // 03.5 — changeStatus: the status and nothing else, with its history.
+    // ============================================================
+
+    private static za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest terminated(Long runId,
+                                                                                                          Long lineId) {
+        return new za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest("Terminated",
+                za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason.SUBS_IN_ARREARS, runId, lineId,
+                "administrator", java.time.Instant.parse("2026-09-22T08:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("03.5 changeStatus moves the status and records who, when, from what and why")
+    void changeStatusRecordsItsHistory() {
+        Member member = MemberFixture.aMember();
+        member.setId(4);
+        member.setStatus("Active");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(member));
+
+        Member saved = this.service.changeStatus(4, terminated(null, null)).orElseThrow();
+
+        assertThat(saved.getStatus()).isEqualTo("Terminated");
+        org.mockito.ArgumentCaptor<za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange> row =
+                org.mockito.ArgumentCaptor.forClass(za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange.class);
+        verify(this.statusChanges).save(row.capture());
+        assertThat(row.getValue().getMemberId()).isEqualTo(4);
+        assertThat(row.getValue().getFromStatus()).isEqualTo("Active");
+        assertThat(row.getValue().getToStatus()).isEqualTo("Terminated");
+        assertThat(row.getValue().getReason().name()).isEqualTo("SUBS_IN_ARREARS");
+        assertThat(row.getValue().getChangedBy()).isEqualTo("administrator");
+        assertThat(row.getValue().getChangedAt()).isEqualTo(java.time.Instant.parse("2026-09-22T08:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("🔴 03.5 R-ROB-I: a member the whole-record validation would refuse still changes status -- none runs")
+    void changeStatusNeverRunsTheWholeRecordValidation() {
+        // COSATU without BEC and a debit order with no account number: `update` refuses this member on two
+        // counts, for fields that have nothing to do with a status. The narrow method must not see either.
+        Member member = MemberFixture.aMember();
+        member.setId(4);
+        member.setStatus("Active");
+        member.setIsCosatu("Y");
+        member.setIsBec(Boolean.FALSE);
+        member.setPaymentType("Debit Order");
+        member.setBankAccountNumber(null);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(member));
+
+        assertThat(this.service.changeStatus(4, terminated(null, null)).orElseThrow().getStatus()).isEqualTo("Terminated");
+    }
+
+    @Test
+    @DisplayName("03.5 a change to the status a member already has records nothing, and an unknown member is empty")
+    void changeStatusIsIdempotentAndNamesNoOne() {
+        Member member = MemberFixture.aMember();
+        member.setId(4);
+        member.setStatus("Terminated");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(member));
+        when(this.memberRepository.findById(5)).thenReturn(Optional.empty());
+
+        assertThat(this.service.changeStatus(4, terminated(null, null))).isPresent();
+        assertThat(this.service.changeStatus(5, terminated(null, null))).isEmpty();
+        verify(this.statusChanges, org.mockito.Mockito.never()).save(any());
+    }
+
     /** A member the debit-day rule applies to, banked where the seed's day is unusable. */
     private static Member debitOrderMemberAtAbsa() {
         Member member = MemberFixture.aMember();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        member.setAccountType("Cheque");
         member.setBankName("Absa Bank Limited");
         return member;
     }
@@ -723,6 +871,7 @@ class MemberServiceImplTest {
         Member banking = new Member();
         banking.setBankName(existing.getBankName());
         banking.setBankAccountNumber(existing.getBankAccountNumber());
+        banking.setAccountType(existing.getAccountType());
         banking.setPaymentType(existing.getPaymentType());
         banking.setDebitDay(debitDay);
         return banking;

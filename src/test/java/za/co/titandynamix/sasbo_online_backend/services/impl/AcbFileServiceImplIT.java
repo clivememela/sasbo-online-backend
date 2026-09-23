@@ -46,20 +46,24 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
     @Autowired
     private AcbFileService files;
 
-    /** A prepared October run from the fixture, approved by someone other than its preparer. */
-    private AcbRunDto approvedRun(boolean withAccountTypes) {
+    /**
+     * A prepared October, approved by someone other than its preparer. Since 00.5 the lines carry the members' own
+     * account types, snapshotted by the preparer -- this used to write them in by hand. {@code preV49} blanks them,
+     * the state of a run prepared before the member held a type, which the file still refuses.
+     */
+    private AcbRunDto approvedRun(boolean preV49) {
         AcbRunFixture.insert(jdbc, 15, 2).assertSize();
         AcbRunDto prepared = runs.get(runs.prepare("2026-10", "system").id());
-        if (withAccountTypes) {
-            jdbc.update("UPDATE acb_run_lines SET account_type = 1 WHERE run_id = ?", prepared.id());
+        if (preV49) {
+            jdbc.update("UPDATE acb_run_lines SET account_type = NULL WHERE run_id = ?", prepared.id());
         }
         return runs.approve(prepared.id(), prepared.version(), "approver", "totals checked");
     }
 
     @Test
-    @DisplayName("a run whose lines carry no account type refuses to render, and says how many")
+    @DisplayName("a run whose lines carry no account type -- prepared before V49 -- refuses to render, and says how many")
     void noAccountTypeNoFile() {
-        AcbRunDto run = approvedRun(false);
+        AcbRunDto run = approvedRun(true);
         AcbRefusal refused = refusal(() -> files.render(run.id(), "approver"));
         assertThat(refused.code()).isEqualTo(AcbRefusalCode.FILE_LINES_INCOMPLETE);
         assertThat(refused.details()).containsEntry("no account type", String.valueOf(run.lineCount()));
@@ -67,9 +71,9 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
     }
 
     @Test
-    @DisplayName("an approved run renders: its trailer is the run's totals, and each line learns its sequence")
+    @DisplayName("an approved run renders from the members' own account types (00.5): the trailer is the run's totals")
     void anApprovedRunRenders() {
-        AcbRunDto run = approvedRun(true);
+        AcbRunDto run = approvedRun(false);
 
         RenderedFile file = files.render(run.id(), "approver");
 
@@ -82,6 +86,10 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
         assertThat(records).allSatisfy(r -> assertThat(r).hasSize(180));
         assertThat(records.get(0)).startsWith("02");
         assertThat(records.get(records.size() - 1)).startsWith("94");
+        // Position 47 of every debit is its type of account (fileLayout.md), the member's Cheque -- from the record,
+        // through the run's snapshot, to the file, with nothing written in by hand.
+        assertThat(records).filteredOn(r -> r.startsWith("50")).hasSize(run.lineCount())
+                .allSatisfy(r -> assertThat(r.charAt(46)).as("type of account").isEqualTo('1'));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_run_lines WHERE run_id = ? AND file_sequence IS NULL",
                 Integer.class, run.id())).as("every line knows its sequence").isZero();
     }
@@ -89,7 +97,7 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
     @Test
     @DisplayName("🔒 R2-5, D31: the header's creation date is the day the file was MADE -- the frozen clock's, not three days before the first debit")
     void theCreationDateIsTheRenderDay() {
-        AcbRunDto run = approvedRun(true);
+        AcbRunDto run = approvedRun(false);
         // Before the file is made the run says when it must be made by, and that it has not been.
         assertThat(run.creationDate()).isNull();
         assertThat(run.makeBy()).isEqualTo(LocalDate.parse(run.firstDueDate()).minusDays(3).toString());
@@ -113,7 +121,7 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
     @Test
     @DisplayName("rendering the same run again gives the same bytes -- the stored file, proved by its hash")
     void renderingAgainIsIdempotent() {
-        AcbRunDto run = approvedRun(true);
+        AcbRunDto run = approvedRun(false);
         RenderedFile first = files.render(run.id(), "approver");
         RenderedFile again = files.render(run.id(), "approver");
         assertThat(again.sha256()).isEqualTo(first.sha256());
@@ -124,7 +132,7 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
     @Test
     @DisplayName("a run whose lines changed after its file was made refuses to render a different one")
     void aChangedRunRefuses() {
-        AcbRunDto run = approvedRun(true);
+        AcbRunDto run = approvedRun(false);
         files.render(run.id(), "approver");
         jdbc.update("UPDATE acb_run_lines SET surname = 'Changed' WHERE id = "
                 + "(SELECT min(id) FROM acb_run_lines WHERE run_id = ?)", run.id());
@@ -146,7 +154,7 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
     @Test
     @DisplayName("submission is recorded only once there is a file, and a submitted run serves the file it sent")
     void submissionNeedsAFile() {
-        AcbRunDto run = approvedRun(true);
+        AcbRunDto run = approvedRun(false);
         assertThat(refusal(() -> runs.recordSubmitted(run.id(), run.version(), "cfo", "uploaded")).code())
                 .isEqualTo(AcbRefusalCode.FILE_NOT_RENDERED);
 
@@ -159,7 +167,7 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
     @Test
     @DisplayName("past its purge date a file's bytes go, its hash stays, and serving it says why")
     void purging() {
-        AcbRunDto run = approvedRun(true);
+        AcbRunDto run = approvedRun(false);
         RenderedFile rendered = files.render(run.id(), "approver");
         runs.recordSubmitted(run.id(), run.version(), "cfo", "uploaded");
         jdbc.update("UPDATE acb_run_files SET keep_until = DATE '2026-09-01' WHERE run_id = ?", run.id());

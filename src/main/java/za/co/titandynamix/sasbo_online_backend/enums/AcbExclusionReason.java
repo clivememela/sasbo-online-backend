@@ -29,7 +29,10 @@ public enum AcbExclusionReason {
     DAY_OUT_OF_WINDOW(true),
     /** The account number is not one to eleven digits -- the width the bureau file gives it. */
     ACCOUNT_SHAPE_INVALID(true),
-    /** Something the file and the letters print is missing: the membership number or surname. */
+    /**
+     * Something the file or the letters print is missing: the membership number, the surname, or
+     * -- since 00.5 -- the account type, which every member captured before V49 lacks.
+     */
     SNAPSHOT_INCOMPLETE(true);
 
     private final boolean listed;

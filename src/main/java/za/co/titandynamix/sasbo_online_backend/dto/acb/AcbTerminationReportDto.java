@@ -25,6 +25,7 @@ public record AcbTerminationReportDto(
      *                         streak while Q49 is unanswered, so either reading is in front of whoever decides
      * @param unpaidMonths     the months of the streak's unpaids, oldest first
      * @param openingUnpaids   unpaids brought from the old system by the opening position (D24)
+     * @param status           the member's status now -- "Terminated" once the report's word has been acted on (03.5)
      */
     public record Candidate(
             Integer memberId,
@@ -34,6 +35,7 @@ public record AcbTerminationReportDto(
             boolean terminate,
             int twelveMonthTotal,
             List<String> unpaidMonths,
-            int openingUnpaids) {
+            int openingUnpaids,
+            String status) {
     }
 }

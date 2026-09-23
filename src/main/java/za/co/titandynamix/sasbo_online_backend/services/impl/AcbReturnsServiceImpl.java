@@ -6,11 +6,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
+import za.co.titandynamix.sasbo_online_backend.acb.MemberStatusRow;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRenderer;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.PresentationRow;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.TerminationRule;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.OpeningRow;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbPage;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
@@ -20,15 +22,18 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberSearchRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbLetter;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbUnpaidCode;
+import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterChannel;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
+import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
@@ -40,8 +45,9 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbUnpaidCodeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbPopulationRepository;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
+import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -97,11 +103,16 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     private final Clock clock;
     private final TransactionTemplate tx;
     private final MeterRegistry meters;
+    private final MemberService memberService;
+    private final AcbLetterSender sender;
+    private final za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher launcher;
 
     public AcbReturnsServiceImpl(AcbRunRepository runs, AcbRunLineRepository lines, AcbReturnsRepository returns,
                                  AcbUnpaidCodeRepository codes, AcbLetterRepository letters, AcbAuditTrail audit,
                                  AcbPopulationRepository population,
-                                 Clock clock, PlatformTransactionManager transactions, MeterRegistry meters) {
+                                 Clock clock, PlatformTransactionManager transactions, MeterRegistry meters,
+                                 MemberService memberService, AcbLetterSender sender,
+                                 za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher launcher) {
         this.runs = runs;
         this.lines = lines;
         this.returns = returns;
@@ -112,6 +123,9 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         this.clock = clock;
         this.tx = new TransactionTemplate(transactions);
         this.meters = meters;
+        this.memberService = memberService;
+        this.sender = sender;
+        this.launcher = launcher;
     }
 
     @Override
@@ -151,6 +165,8 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         });
         if (Boolean.TRUE.equals(recorded)) {
             meters.counter("acb.unpaids.recorded").increment();
+            // D23: emailed the same day -- by the sender, after the recording has committed, off this thread.
+            launcher.launch(sender::sendDue);
         }
         return withSuggestion(requireLine(runId, lineId));
     }
@@ -232,15 +248,18 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     /** The note is kept to this many characters -- refused beyond it, never cut (SD3-D). */
     static final int HANDLED_NOTE_LIMIT = 300;
 
+    /** The letters that could not go: held for want of an address, or a send that FAILED (Q46, EH-E). */
+    static final Set<LetterStatus> COULD_NOT_GO = EnumSet.of(LetterStatus.QUEUED, LetterStatus.FAILED);
+
     @Override
     public AcbPage<AcbHeldLetterDto> heldLetters(long runId, int page, int size) {
         runs.findById(runId).orElseThrow(() -> AcbRuns.notFound(runId));
         PageRequest request = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), AcbRunServiceImpl.MAX_PAGE_SIZE));
-        return AcbPage.of(returns.findHeldLetters(runId, LetterStatus.QUEUED, request), row -> {
+        return AcbPage.of(returns.findHeldLetters(runId, COULD_NOT_GO, request), row -> {
             String now = new LetterRecipient(row.memberId(), null, null, row.personalEmail(), row.workEmail(),
                     row.preferredEmail(), null).email();
             return new AcbHeldLetterDto(row.letterId(), row.lineId(), row.memberId(), row.membershipNumber(),
-                    row.surname(), row.template(), row.reason(), LetterRecipient.sendable(now));
+                    row.surname(), row.template(), row.status(), row.reason(), LetterRecipient.sendable(now));
         });
     }
 
@@ -255,13 +274,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
             AcbLetter letter = letters.findById(letterId).orElseThrow(() -> new AcbRefusal(AcbRefusalCode.LINE_NOT_FOUND,
                     "There is no letter " + letterId + ".", Map.of("letterId", String.valueOf(letterId))));
             AcbRunLine line = requireLine(runId, letter.getLineId());
-            if (letter.getStatus() != LetterStatus.QUEUED) {
-                Map<String, String> facts = new LinkedHashMap<>();
-                facts.put("letterId", String.valueOf(letterId));
-                facts.put("status", letter.getStatus().name());
-                throw new AcbRefusal(AcbRefusalCode.LETTER_NOT_HELD, "Only a held letter is dealt with by hand; this one is "
-                        + letter.getStatus() + ".", facts);
-            }
+            requireCouldNotGo(letter, "dealt with by hand");
             letter.setStatus(LetterStatus.HANDLED);
             letter.setHandledNote(how);
             letter.setHandledAt(AcbTime.instant(clock));
@@ -272,11 +285,59 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         return heldLetterDto(letterId);
     }
 
+    @Override
+    public AcbHeldLetterDto sendHeldLetter(long runId, long letterId, String actor) {
+        tx.executeWithoutResult(status -> {
+            AcbLetter letter = letters.findById(letterId).orElseThrow(() -> new AcbRefusal(AcbRefusalCode.LINE_NOT_FOUND,
+                    "There is no letter " + letterId + ".", Map.of("letterId", String.valueOf(letterId))));
+            AcbRunLine line = requireLine(runId, letter.getLineId());
+            requireCouldNotGo(letter, "sent again");
+            LetterRecipient recipient = returns.findRecipient(line.getMemberId()).orElse(null);
+            String email = recipient == null ? null : recipient.email();
+            if (email == null || !LetterRecipient.sendable(email)) {
+                // 🔒 SD3-C: never to no address, and never to one that could carry a header or a second recipient.
+                throw new AcbRefusal(AcbRefusalCode.LETTER_NO_ADDRESS, "This member has no address the letter can go "
+                        + "to yet. Nothing has been sent.", Map.of("letterId", String.valueOf(letterId)));
+            }
+            AcbRun run = runs.findById(runId).orElseThrow(() -> AcbRuns.notFound(runId));
+            UnpaidReason reason = UnpaidReason.valueOf(line.getUnpaidReason());
+            String wording = codes.findById(line.getUnpaidCode()).map(AcbUnpaidCode::getWording).orElse(reason.wording());
+            // Rendered NOW, from the member as they stand: the letter the sender checks is the one this person sends.
+            String body = LetterRenderer.render(letter.getTemplate(), letterData(run, line, recipient, wording));
+            String was = letter.getStatus().name();
+            letter.setStatus(LetterStatus.RENDERED);
+            letter.setStatusReason(null);
+            letter.setFailureClass(null);
+            letter.setRenderedAt(AcbTime.instant(clock));
+            letter.setBodySha256(LetterRenderer.bodySha256(body));
+            letter.setAddressSnapshot(email);
+            letter.setQueuedBy(actor);
+            letters.saveAndFlush(letter);
+            audit.record(runId, line.getId(), "LETTER_SENT_AGAIN", null, null,
+                    "a " + was.toLowerCase(java.util.Locale.ROOT) + " letter sent again", actor);
+        });
+        // After the commit, off this thread: the sender claims it, counts the attempt, and sends it once (D23).
+        launcher.launch(sender::sendDue);
+        return heldLetterDto(letterId);
+    }
+
+    /** A letter is dealt with by hand or sent again only while it could not go -- held, or FAILED. */
+    private static void requireCouldNotGo(AcbLetter letter, String what) {
+        if (!COULD_NOT_GO.contains(letter.getStatus())) {
+            Map<String, String> facts = new LinkedHashMap<>();
+            facts.put("letterId", String.valueOf(letter.getId()));
+            facts.put("status", letter.getStatus().name());
+            throw new AcbRefusal(AcbRefusalCode.LETTER_NOT_HELD, "Only a letter that could not go is " + what
+                    + "; this one is " + letter.getStatus() + ".", facts);
+        }
+    }
+
     private AcbHeldLetterDto heldLetterDto(long letterId) {
         AcbLetter letter = letters.findById(letterId).orElseThrow();
         AcbRunLine line = lines.findById(letter.getLineId()).orElseThrow();
+        String reason = letter.getStatusReason() != null ? letter.getStatusReason() : letter.getFailureClass();
         return new AcbHeldLetterDto(letter.getId(), line.getId(), line.getMemberId(), line.getMembershipNumber(),
-                line.getSurname(), letter.getTemplate(), letter.getStatusReason(), false);
+                line.getSurname(), letter.getTemplate(), letter.getStatus(), reason, false);
     }
 
     @Override
@@ -352,6 +413,35 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
 
     @Override
     public AcbTerminationReportDto terminationReport(int page, int size) {
+        Judged judged = judgeEveryone();
+        List<AcbTerminationReportDto.Candidate> candidates = judged.candidates();
+
+        int pageSize = Math.min(Math.max(size, 1), AcbRunServiceImpl.MAX_PAGE_SIZE);
+        int pageNumber = Math.max(page, 0);
+        int start = Math.min(pageNumber * pageSize, candidates.size());
+        List<AcbTerminationReportDto.Candidate> content =
+                List.copyOf(candidates.subList(start, Math.min(start + pageSize, candidates.size())));
+        int totalPages = (candidates.size() + pageSize - 1) / pageSize;
+
+        LocalDate firstSent = runs.firstMonthIn(AcbRuns.SENT);
+        String countingFrom = firstSent == null ? null : YearMonth.from(firstSent).toString();
+        String blindness = judged.openingMembers() == 0 ? BLINDNESS
+                : "Counted from the opening arrears position captured at switch-over (" + judged.openingMembers()
+                        + " member(s)) and every month this system has sent since. A member not on it started at nought.";
+        return new AcbTerminationReportDto(countingFrom, blindness,
+                new AcbPage<>(content, pageNumber, pageSize, candidates.size(), totalPages));
+    }
+
+    /** Every member at two unpaids or more, judged, in the report's order -- and how many the opening position names. */
+    private record Judged(List<AcbTerminationReportDto.Candidate> candidates, int openingMembers) {
+    }
+
+    /**
+     * The termination rule over every member it could reach: one bounded query for the histories (SD3-K), one for
+     * the opening position, one for the listed members' statuses. The report pages it; {@link #terminate} asks it
+     * about one member, so the two can never judge a member differently.
+     */
+    private Judged judgeEveryone() {
         YearMonth current = AcbTime.currentMonth(clock);
         YearMonth from = current.minusMonths(WINDOW_MONTHS - 1L);
         YearMonth twelveFrom = current.minusMonths(11);
@@ -390,26 +480,75 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
             String surname = latest != null ? latest.surname() : brought.surname();
             candidates.add(new AcbTerminationReportDto.Candidate(memberId, number, surname, verdict.count(),
                     verdict.terminate(), twelveMonthTotal,
-                    verdict.unpaidMonths().stream().map(YearMonth::toString).toList(), openingUnpaids));
+                    verdict.unpaidMonths().stream().map(YearMonth::toString).toList(), openingUnpaids, null));
+        }
+        if (!candidates.isEmpty()) {
+            Map<Integer, String> statuses = new java.util.HashMap<>();
+            for (MemberStatusRow row : population.findStatuses(
+                    candidates.stream().map(AcbTerminationReportDto.Candidate::memberId).toList())) {
+                statuses.put(row.id(), row.status());
+            }
+            candidates.replaceAll(c -> new AcbTerminationReportDto.Candidate(c.memberId(), c.membershipNumber(),
+                    c.surname(), c.unpaidCount(), c.terminate(), c.twelveMonthTotal(), c.unpaidMonths(),
+                    c.openingUnpaids(), statuses.get(c.memberId())));
         }
         candidates.sort(Comparator.comparing(AcbTerminationReportDto.Candidate::terminate).reversed()
                 .thenComparing(Comparator.comparingInt(AcbTerminationReportDto.Candidate::unpaidCount).reversed())
                 .thenComparing(c -> String.valueOf(c.membershipNumber())));
+        return new Judged(candidates, opening.size());
+    }
 
-        int pageSize = Math.min(Math.max(size, 1), AcbRunServiceImpl.MAX_PAGE_SIZE);
-        int pageNumber = Math.max(page, 0);
-        int start = Math.min(pageNumber * pageSize, candidates.size());
-        List<AcbTerminationReportDto.Candidate> content =
-                List.copyOf(candidates.subList(start, Math.min(start + pageSize, candidates.size())));
-        int totalPages = (candidates.size() + pageSize - 1) / pageSize;
+    @Override
+    public byte[] letterSpecimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template) {
+        return za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument.specimen(template,
+                AcbTime.today(clock));
+    }
 
-        LocalDate firstSent = runs.firstMonthIn(AcbRuns.SENT);
-        String countingFrom = firstSent == null ? null : YearMonth.from(firstSent).toString();
-        String blindness = opening.isEmpty() ? BLINDNESS
-                : "Counted from the opening arrears position captured at switch-over (" + opening.size()
-                        + " member(s)) and every month this system has sent since. A member not on it started at nought.";
-        return new AcbTerminationReportDto(countingFrom, blindness,
-                new AcbPage<>(content, pageNumber, pageSize, candidates.size(), totalPages));
+    @Override
+    public AcbMemberStatusDto terminate(Integer memberId, String actor) {
+        return tx.execute(state -> {
+            AcbTerminationReportDto.Candidate candidate = judgeEveryone().candidates().stream()
+                    .filter(c -> c.memberId().equals(memberId)).findFirst().orElse(null);
+            if (candidate == null || !candidate.terminate()) {
+                String count = candidate == null ? "fewer than two" : String.valueOf(candidate.unpaidCount());
+                throw new AcbRefusal(AcbRefusalCode.TERMINATION_NOT_DUE,
+                        "Three unpaid presentations in a row terminate a membership (question 27); this member has "
+                                + count + ".",
+                        Map.of("memberId", String.valueOf(memberId), "unpaidCount", count));
+            }
+            // R3-9: the status, through the narrow method -- never the whole-record update.
+            Member member = memberService.changeStatus(memberId, new MemberStatusChangeRequest(
+                            MemberStatuses.TERMINATED, MemberStatusReason.SUBS_IN_ARREARS, null, null, actor,
+                            AcbTime.instant(clock)))
+                    .orElseThrow(() -> new IllegalStateException("member " + memberId + " is on the report and not on record"));
+            return new AcbMemberStatusDto(member.getId(), member.getMembershipNumber(), member.getStatus(),
+                    MemberStatusReason.SUBS_IN_ARREARS.name());
+        });
+    }
+
+    @Override
+    public AcbMemberStatusDto suspendMember(long runId, long lineId, String actor) {
+        return tx.execute(state -> {
+            AcbRunLine line = requireLine(runId, lineId);
+            if (line.getOutcome() != AcbLineOutcome.UNPAID || line.getDecision() != UnpaidDecision.SUSPEND) {
+                throw new AcbRefusal(AcbRefusalCode.UNPAID_NOT_SUSPENDED,
+                        "Only an unpaid decided SUSPEND suspends its member; this line is " + line.getOutcome()
+                                + (line.getDecision() == null ? ", undecided" : ", " + line.getDecision()) + ".",
+                        lineFacts(line));
+            }
+            Member current = memberService.findById(line.getMemberId())
+                    .orElseThrow(() -> new IllegalStateException("line " + lineId + " debits no member on record"));
+            if (current.getStatus() != null && MemberStatuses.TERMINATED.equalsIgnoreCase(current.getStatus().trim())) {
+                throw new AcbRefusal(AcbRefusalCode.MEMBER_TERMINATED,
+                        "This member's membership is terminated; a suspension would not undo that.", lineFacts(line));
+            }
+            Member member = memberService.changeStatus(line.getMemberId(), new MemberStatusChangeRequest(
+                            MemberStatuses.SUSPENDED, MemberStatusReason.UNPAID_SUSPENDED, runId, lineId, actor,
+                            AcbTime.instant(clock)))
+                    .orElseThrow();
+            return new AcbMemberStatusDto(member.getId(), member.getMembershipNumber(), member.getStatus(),
+                    MemberStatusReason.UNPAID_SUSPENDED.name());
+        });
     }
 
     // ------------------------------------------------------------------------------------------
@@ -427,6 +566,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         letter.setChannel(LetterChannel.EMAIL);
         letter.setAttempts(0);
         letter.setCreatedAt(now);
+        letter.setQueuedBy(actor);
 
         LetterRecipient recipient = returns.findRecipient(line.getMemberId()).orElse(null);
         String email = recipient == null ? null : recipient.email();
@@ -442,7 +582,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
             String body = LetterRenderer.render(template, letterData(run, line, recipient, wording));
             letter.setStatus(LetterStatus.RENDERED);
             letter.setRenderedAt(now);
-            letter.setBodySha256(AcbFileServiceImpl.sha256(body.getBytes(StandardCharsets.UTF_8)));
+            letter.setBodySha256(LetterRenderer.bodySha256(body));
             letter.setAddressSnapshot(email);
         }
         letters.save(letter);
@@ -451,10 +591,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     }
 
     private LetterRenderer.LetterData letterData(AcbRun run, AcbRunLine line, LetterRecipient recipient, String wording) {
-        return new LetterRenderer.LetterData(
-                AcbTime.today(clock), recipient.areaName(), recipient.title(), line.getInitials(), line.getSurname(),
-                recipient.addressLines(), null, line.getMembershipNumber(), line.getAccountNumber(),
-                line.getBankName(), YearMonth.from(run.getActionMonth()), wording, line.getDebitDay());
+        return LetterRenderer.dataFor(AcbTime.today(clock), run, line, recipient, wording);
     }
 
     private AcbRun requireReturnable(long runId) {

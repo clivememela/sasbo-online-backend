@@ -559,11 +559,12 @@ class ACBControllerTest {
 
         when(returns.terminationReport(0, 50)).thenReturn(new AcbTerminationReportDto("2026-10", "stated", new AcbPage<>(
                 List.of(new AcbTerminationReportDto.Candidate(7, "M-200001", "Botha", 3, true, 3,
-                        List.of("2026-10", "2026-11", "2026-11"), 0)), 0, 50, 1, 1)));
+                        List.of("2026-10", "2026-11", "2026-11"), 0, "Active")), 0, 50, 1, 1)));
         this.mockMvc.perform(get("/api/acb/termination-report"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.countingFrom").value("2026-10"))
                 .andExpect(jsonPath("$.members.content[0].unpaidCount").value(3))
+                .andExpect(jsonPath("$.members.content[0].status").value("Active"))
                 .andExpect(jsonPath("$.members.content[0].terminate").value(true))
                 .andExpect(jsonPath("$.members.content[0].unpaidMonths[2]").value("2026-11"))
                 .andExpect(jsonPath("$.members.totalElements").value(1))
@@ -617,4 +618,23 @@ class ACBControllerTest {
                     .isInstanceOf(NoResourceFoundException.class);
         }
     }
+
+    @Test
+    @DisplayName("03.3 a letter specimen is a PDF, inline, named for its template -- and a template that is not one is malformed")
+    void aLetterSpecimenIsAPdf() throws Exception {
+        when(returns.letterSpecimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate.RE_DEBIT))
+                .thenReturn("%PDF-1.7 specimen".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+
+        this.mockMvc.perform(get("/api/acb/letters/specimen/RE_DEBIT"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .contentType(org.springframework.http.MediaType.APPLICATION_PDF))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Content-Disposition", "inline; filename=\"specimen-re_debit.pdf\""));
+
+        this.mockMvc.perform(get("/api/acb/letters/specimen/NO_SUCH_LETTER"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"));
+    }
+
 }

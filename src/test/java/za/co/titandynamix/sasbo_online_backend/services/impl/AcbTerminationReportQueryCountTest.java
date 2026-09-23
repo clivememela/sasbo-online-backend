@@ -57,6 +57,17 @@ class AcbTerminationReportQueryCountTest {
         }
     }
 
+    // The service's collaborators this report never calls: the member service (03.5's status changes), and the
+    // letter sender and its launcher (03.3). Mocked, so the slice holds the report's own statements and nothing else.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.MemberService memberService;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private AcbLetterSender letterSender;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher launcher;
+
     /** Thirty-six months: October 2023 to September 2026. */
     private static final YearMonth FIRST = YearMonth.of(2023, 10);
     private static final int MONTHS = 36;

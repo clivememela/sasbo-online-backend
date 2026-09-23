@@ -2,6 +2,8 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -225,8 +227,9 @@ public class ACBController {
     }
 
     /**
-     * 🔒 Sending a held letter once the member has an address -- mail to a member, so refused to every
-     * caller until the API knows who is calling (D13, B1).
+     * 🔒 Sending a letter that could not go -- held until the member has an address, or a send that FAILED -- is
+     * mail to a member, so refused to every caller until the API knows who is calling (D13, B1). The service
+     * does it ({@code sendHeldLetter}), proven in its integration lane.
      */
     @PostMapping("/runs/{id}/letters/{letterId}/send")
     public AcbHeldLetterDto sendLetter(@PathVariable("id") long id) {
@@ -263,6 +266,47 @@ public class ACBController {
      * (question 27) -- and who is at two, over the last thirteen months, a page at a time. A report:
      * it terminates nobody.
      */
+    /**
+     * 🔒 03.5 -- terminating a member the rule says three unpaids have reached (SUBS_IN_ARREARS) ends a membership,
+     * so it is refused to every caller until the API knows who is calling (B1), like approval. Built and proven in
+     * {@code AcbReturnsService.terminate}.
+     */
+    @PostMapping("/termination-report/{memberId}/terminate")
+    public za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto terminate(
+            @PathVariable("memberId") int memberId) {
+        throw new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, "Terminating a membership waits until administrators "
+                + "sign in to this system. Nobody has been terminated.", Map.of("memberId", String.valueOf(memberId)));
+    }
+
+    /**
+     * 🔒 03.5 -- suspending the member of an unpaid decided SUSPEND changes a member's status, so it is refused to
+     * every caller until B1, like terminating. Built and proven in {@code AcbReturnsService.suspendMember}.
+     */
+    @PostMapping("/runs/{id}/lines/{lineId}/suspend-member")
+    public za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto suspendMember(
+            @PathVariable("id") long id, @PathVariable("lineId") long lineId) {
+        throw new AcbRefusal(AcbRefusalCode.IDENTITY_REQUIRED, "Suspending a member waits until administrators "
+                + "sign in to this system. The member's status is unchanged.",
+                Map.of("runId", String.valueOf(id), "lineId", String.valueOf(lineId)));
+    }
+
+    /**
+     * 03.3 -- a specimen of one of the union's three letters, as a PDF on the letterhead, for the letters review
+     * SASBO asked for (question 32 c). Synthetic from the address to the account, so it reads openly, like the
+     * holiday calendar: no member's letter is ever served here.
+     */
+    // No `produces` on the mapping: a template that is not one of the three must still answer the JSON
+    // envelope (REQUEST_MALFORMED), and a PDF-only mapping would refuse to write it.
+    @GetMapping("/letters/specimen/{template}")
+    public ResponseEntity<byte[]> letterSpecimen(
+            @PathVariable("template") za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"specimen-" + template.name().toLowerCase(java.util.Locale.ROOT) + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(returns.letterSpecimen(template));
+    }
+
     @GetMapping("/termination-report")
     public AcbTerminationReportDto terminationReport(@RequestParam(defaultValue = "0") int page,
                                                      @RequestParam(defaultValue = "50") int size) {
