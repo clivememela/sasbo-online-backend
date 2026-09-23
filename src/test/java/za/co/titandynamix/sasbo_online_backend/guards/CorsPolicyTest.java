@@ -1,13 +1,11 @@
 package za.co.titandynamix.sasbo_online_backend.guards;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
-import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 
 import java.util.List;
 import java.util.Objects;
@@ -56,8 +54,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Server {@code 6c00b82} replaced the fixed origin list and {@code FRONTEND_URL}
  * with origin patterns, one of them {@code https://*.vercel.app} — unsafe for the
  * reason {@link #CONTROLLED_DOMAINS} gives. {@link #noUncontrolledWildcardOrigin()}
- * caught it and is disabled against register row <b>B7</b> rather than weakened;
- * {@link #theVercelWildcardIsStillTheOnlyUncontrolledOne()} is its live pin.
+ * caught it and was disabled against register row <b>B7</b> rather than weakened.
+ *
+ * <h2>✅ 2026-09-22 — B7 fixed</h2>
+ * The project left the incumbent's Vercel and Render and runs locally, so the Vercel patterns and the
+ * {@code sasbo.online} ones went with them: the allow-list is the Vite dev server alone.
+ * {@link #noUncontrolledWildcardOrigin()} runs again, and the live pin that stood in for it while it
+ * was disabled is deleted, as its own message said to do.
  *
  * <p>Three tests about {@code FRONTEND_URL} — trailing slashes stripped, no
  * duplicate, no empty origin — were <b>deleted</b>, not disabled: no code reads
@@ -162,12 +165,9 @@ class CorsPolicyTest {
         // bound on a credentialed policy -- and a list that may hold anything so
         // long as it holds something does not bound it.
         //
-        // ⚠️ TWO ENTRIES HERE ARE KNOWN FINDINGS, recorded rather than blessed.
-        // `https://vercel.app` is a bare apex matching no real deployment, and
-        // `https://*.vercel.app` is register row B7, guarded by the disabled test
-        // below and pinned by the live one after it. When either is removed this
-        // assertion reddens, which is correct: this list is the record of what the
-        // policy allowed, and changing it is the deliberate act.
+        // This list is the record of what the policy allows, and changing it is the
+        // deliberate act. Since 2026-09-22 (local only) it is the Vite dev server
+        // alone; the Vercel entries -- B7 -- left with the incumbent's hosting.
         CorsConfiguration policy = policy();
 
         assertThat(policy.getAllowedOrigins())
@@ -182,15 +182,10 @@ class CorsPolicyTest {
                         + "ability to read and write the member register with cookies, so it "
                         + "is added here as well as in SecurityConfig -- deliberately, once")
                 .containsExactlyInAnyOrder(
-                        "http://localhost:5173",
-                        "https://vercel.app",
-                        "https://*.vercel.app",
-                        "https://sasbo.online",
-                        "https://*.sasbo.online");
+                        "http://localhost:5173");
     }
 
     @Test
-    @Disabled(KnownDefects.CORS_TRUSTS_EVERY_VERCEL_DEPLOYMENT)
     @DisplayName("🔴 permits no wildcard origin outside a domain this project controls")
     void noUncontrolledWildcardOrigin() {
         // 🔴 THE DANGEROUS ONE. An origin pattern is the documented way to have a
@@ -205,22 +200,6 @@ class CorsPolicyTest {
                         + "plaintext origin trusted with credentials. Extend CONTROLLED_DOMAINS "
                         + "only for a domain this project actually owns")
                 .isEmpty();
-    }
-
-    @Test
-    @DisplayName("🔴 B7 still reproduces: the only uncontrolled wildcard is https://*.vercel.app")
-    void theVercelWildcardIsStillTheOnlyUncontrolledOne() {
-        // The defect stated positively -- this file's counterpart to
-        // MemberControllerSecurityTest.theRealSecurityConfigIsLoaded. The test above
-        // is disabled, so it runs nowhere; this runs everywhere, and it reddens in
-        // both directions that matter. EMPTY: B7 is fixed. LONGER: a second
-        // uncontrolled wildcard arrived, which the closed list only catches when
-        // nobody updates it in the same commit.
-        assertThat(uncontrolledWildcards(policy()))
-                .as("B7 has changed. If this is empty, B7 is fixed: enable "
-                        + "noUncontrolledWildcardOrigin and delete the KnownDefects row. If it "
-                        + "has grown, another uncontrolled wildcard is on a credentialed policy")
-                .containsExactly("https://*.vercel.app");
     }
 
     @Test
