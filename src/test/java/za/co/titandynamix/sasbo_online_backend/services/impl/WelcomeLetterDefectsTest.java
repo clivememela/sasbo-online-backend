@@ -89,6 +89,14 @@ class WelcomeLetterDefectsTest {
      */
     private static final String TSHIVENDA_SURNAME = "Nemaḓaḓa";
 
+    /**
+     * The same surname as the member actually reads it since the ACB arc's {@code 848db29}:
+     * {@code LetterPdf.printable()} replaces every character the font cannot encode with a
+     * question mark, so both ḓ become '?'. Written out rather than derived, so the
+     * expectation cannot follow the code that produces it.
+     */
+    private static final String SUBSTITUTED_SURNAME = "Nema?a?a";
+
     @Mock
     private JavaMailSender mailSender;
 
@@ -248,9 +256,21 @@ class WelcomeLetterDefectsTest {
         assertThat(imagesIn(pdf)).as("A66 has changed: the PDF draws an image now").isZero();
     }
 
+    // ⚠️ A68 CHANGED SHAPE ON 2026-09-23, FROM A LOUD FAILURE TO A SILENT ONE, and the
+    // old pin is what said so: `aNameOutsideLatin1StillThrows` asserted the abort and went
+    // red on the merge of `phase/11-main-refresh` into main (run 35845115913) --
+    // "Expecting code to raise a throwable". The ACB arc's `848db29` (03.3) draws every
+    // letter through `LetterPdf`, whose `printable()` replaces each character the font
+    // cannot encode with '?'. So nothing throws, the member IS captured (the severe half
+    // of A64 is gone) -- and the member reads their own name spelled "Nema?a?a".
+    //
+    // 🔑 THAT IS WHY THE CASE BELOW ASSERTS THE NAME IS IN THE LETTER rather than that
+    // nothing was raised: a no-throw assertion calls a substituting writer fixed. The pin
+    // that replaced it asserts today's truth instead, so it reddens when the name is
+    // really written. A68 stays OPEN, with its severity re-read, not struck.
     @Test
     @Disabled(KnownDefects.WELCOME_LETTER_PDF_CANNOT_WRITE_SOME_NAMES)
-    @DisplayName("🔴 A68: a member whose name holds a letter outside Latin-1 still gets their letter")
+    @DisplayName("🔴 A68: a member whose name holds a letter outside Latin-1 reads it as written")
     void aNameOutsideLatin1IsWritten() throws Exception {
         Member member = member();
         member.setSurname(TSHIVENDA_SURNAME);
@@ -260,18 +280,28 @@ class WelcomeLetterDefectsTest {
     }
 
     @Test
-    @DisplayName("🔴 A68 still reproduces: a name the PDF's font cannot encode aborts the letter")
-    void aNameOutsideLatin1StillThrows() {
+    @DisplayName("🔴 A68 still reproduces, in its new shape: the letter is written with '?' where the name was")
+    void aNameOutsideLatin1IsWrittenAsQuestionMarks() throws Exception {
         Member member = member();
         member.setSurname(TSHIVENDA_SURNAME);
 
-        // Since 99936a5 the capture IS the send (A64), so this throw is not only a
-        // lost letter: POST /api/members?sendWelcome=true rolls the member back.
-        assertThatThrownBy(() -> new EmailServiceImpl(this.mailSender).buildWelcomeLetterPdf(member))
-                .as("A68 has changed: the letter was written. If the surname is in it, enable "
-                        + "aNameOutsideLatin1IsWritten and strike the row")
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("is not available");
+        String letter = textOf(new EmailServiceImpl(this.mailSender).buildWelcomeLetterPdf(member));
+
+        // The must-pass half. Without it, an empty PDF -- or a reader that extracted
+        // nothing -- would satisfy the absence below and call the defect reproduced.
+        assertThat(letter)
+                .as("the letter WAS written and its text can be read: the member's own first "
+                        + "name, which Latin-1 holds, is in it")
+                .contains("Thandi");
+        assertThat(letter)
+                .as("A68 has changed: the surname is in the letter. If it is spelled as written, "
+                        + "enable aNameOutsideLatin1IsWritten and strike the row")
+                .doesNotContain(TSHIVENDA_SURNAME);
+        assertThat(letter)
+                .as("today's shape: LetterPdf.printable() substitutes '?' for every character "
+                        + "the Standard-14 font cannot encode, and says nothing -- the letter's "
+                        + "SHA-256 is over the TEXT, so even the sender's fingerprint agrees")
+                .contains(SUBSTITUTED_SURNAME);
     }
 
     @Test
