@@ -565,6 +565,11 @@ class MemberServiceImplTest {
         Member member = MemberFixture.aMember();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        // Required of a Debit Order since the ACB arc's account-type rule reached main
+        // (MemberValidator.validateAccountType); without it `create` refuses this member
+        // before the debit day is ever derived, and the case would pass or fail for a
+        // reason that has nothing to do with A67.
+        member.setAccountType("Cheque");
         member.setBankName("Nedbank Limited");
         member.setDebitDay(22);
 
@@ -581,6 +586,10 @@ class MemberServiceImplTest {
         Member member = MemberFixture.aMember();
         member.setPaymentType("Debit Order");
         member.setBankAccountNumber("1234567890");
+        // As above: the account type is what the ACB arc's rule now requires of a Debit
+        // Order. This twin's job is the DEFAULT -- with no day chosen, the bank's day is
+        // taken -- so it must reach the derivation at all.
+        member.setAccountType("Cheque");
         member.setBankName("Nedbank Limited");
         member.setDebitDay(null);
 

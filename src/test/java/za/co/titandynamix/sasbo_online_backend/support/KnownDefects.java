@@ -319,17 +319,24 @@ public final class KnownDefects {
                     + "image are missing. This test asserts the PDF carries them.";
 
     /**
-     * The welcome-letter PDF is drawn in Standard-14 Times-Roman, whose WinAnsi
-     * encoding holds Latin-1 and little more, so a name or address with any other
-     * letter -- Tshivenḓa's ḓ and ṱ, Afrikaans ŉ, a Polish Ł -- makes PDFBox throw.
-     * Since server 99936a5 the send is part of the capture (A64), so the member is
-     * not captured either. Register row A68.
+     * The letter PDF is drawn in Standard-14 Times-Roman, whose WinAnsi encoding holds
+     * Latin-1 and little more, so a name or address with any other letter -- Tshivenḓa's
+     * ḓ and ṱ, Afrikaans ŉ, a Polish Ł -- cannot be written as spelled.
+     *
+     * <p>⚠️ RE-READ 2026-09-23, AND IT CHANGED SHAPE. It used to THROW, and since server
+     * 99936a5 the send is part of the capture (A64), so the member was not captured
+     * either. The ACB arc's {@code 848db29} draws every letter through {@code LetterPdf},
+     * whose {@code printable()} substitutes '?' for each character the font cannot encode.
+     * So the capture now succeeds and the member reads "Nema?a?a" on their own welcome
+     * letter -- a LOUD failure became a SILENT one. Nothing records it: the letter's
+     * SHA-256 is taken over the TEXT, so the sender's fingerprint matches the mangled PDF,
+     * and every ACB letter draws through the same path. Register row A68.
      */
     public static final String WELCOME_LETTER_PDF_CANNOT_WRITE_SOME_NAMES =
-            "KNOWN DEFECT: the welcome-letter PDF's font cannot encode letters outside Latin-1, so a "
-                    + "member whose name holds one (a Tshivenda letter, say) gets an exception instead of "
-                    + "a letter -- and, since capture is the send, is not captured. This test asserts the "
-                    + "letter is written.";
+            "KNOWN DEFECT: the letter PDF's Standard-14 font cannot encode letters outside Latin-1, so "
+                    + "a member whose name holds one (a Tshivenda letter, say) reads '?' in place of it "
+                    + "-- silently, since 848db29 substitutes rather than throws. This test asserts the "
+                    + "name is written as spelled.";
 
     /**
      * {@code MemberServiceImpl.applyBankDebitDay} replaces the member's debit day with
