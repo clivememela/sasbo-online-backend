@@ -56,10 +56,11 @@ jobs:
         run: ./gradlew build --no-daemon
       # Non-vacuity canary: a lane that ran ZERO tests is green for the wrong reason — a tag that excluded
       # everything, a glob that matched nothing. The floor sits well BELOW the real count and is never raised
-      # to match it. Set from the first measured `main` run; warns until then.
+      # to match it. Set on 2026-09-22 from the first measured `main` run (1cff09d): 707 test cases in this
+      # lane, 258 in integration. The floor is what lets this step fail; at 0 it could only warn.
       - name: The fast lane actually ran tests
         env:
-          FLOOR: 0 # ← set from the first main run's count, with headroom
+          FLOOR: 560 # 707 on the first main run; well below, and never raised to match
         run: |
           set -euo pipefail
           n=$( (grep -rho '<testcase ' reports/junit/test --include='*.xml' 2>/dev/null || true) | wc -l)
@@ -97,7 +98,7 @@ jobs:
         run: ./gradlew integrationTest --no-daemon
       - name: The integration lane actually ran tests
         env:
-          FLOOR: 0 # ← set from the first main run's count, with headroom
+          FLOOR: 200 # 258 on the first main run; well below, and never raised to match
         run: |
           set -euo pipefail
           n=$( (grep -rho '<testcase ' reports/junit/integrationTest --include='*.xml' 2>/dev/null || true) | wc -l)
