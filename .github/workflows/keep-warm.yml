@@ -1,0 +1,39 @@
+# Keeps the Render free-tier backend from spinning down by touching its health
+# endpoint every 10 minutes. Pure curl, no `uses:` — the CI guard forbids
+# tag-pinned actions, and a ping needs no checkout or toolchain.
+#
+# The backend URL lives in the repository variable RENDER_BACKEND_URL so it is
+# set in ONE place. The literal fallback keeps the warmer working before that
+# variable is created, and matches the value already committed in .env.production.
+name: keep-warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # UTC; GitHub may delay scheduled runs under load
+  workflow_dispatch:          # fire by hand to verify it works
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Ping the backend health endpoint
+        env:
+          # Repository variable, else the known Render URL. Public value, so a
+          # variable rather than a secret: secrets are masked and meant for credentials.
+          BACKEND: ${{ vars.RENDER_BACKEND_URL || 'https://sasbo-online-backend-latest-docker.onrender.com' }}
+        run: |
+          set -uo pipefail
+          url="${BACKEND%/}/actuator/health"
+          echo "warming $url"
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "$url" || echo 000)
+            echo "attempt $i -> HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "::warning::backend did not report healthy after 3 attempts"
+          exit 0
