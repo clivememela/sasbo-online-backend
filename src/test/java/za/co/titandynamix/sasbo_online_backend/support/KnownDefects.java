@@ -293,4 +293,51 @@ public final class KnownDefects {
                     + "can be stored under one membership number -- production held every member "
                     + "twice on 2026-09-16. (The identity-number half is fixed by V26.) This test "
                     + "asserts the database refuses a repeated membership number.";
+
+    /**
+     * {@code GlobalExceptionHandler} does not extend {@code ResponseEntityExceptionHandler},
+     * so its catch-all {@code @ExceptionHandler(Exception.class)} claims Spring MVC's own
+     * request-shape exceptions before {@code DefaultHandlerExceptionResolver} can answer
+     * them: a non-numeric id, an unreadable body, a missing parameter and an unsupported
+     * method all answer 500. Register row A63.
+     */
+    public static final String MALFORMED_REQUESTS_ANSWER_500 =
+            "KNOWN DEFECT: a malformed request -- a non-numeric id, an unreadable body, a missing "
+                    + "parameter, an unsupported method -- is claimed by the catch-all and answers 500, "
+                    + "so a caller's mistake reads as a server fault. This test asserts 400 (405 for "
+                    + "the method).";
+
+    /**
+     * Since server 99936a5 the welcome letter is emailed as a PDF that
+     * {@code EmailServiceImpl.convertDocxToPdf} rebuilds from the template's BODY
+     * paragraphs only, so the six text boxes (the membership-number banner and the
+     * whole onboarding page) and every image are not in it. Register row A66.
+     */
+    public static final String WELCOME_LETTER_PDF_DROPS_THE_TEMPLATE =
+            "KNOWN DEFECT: the emailed welcome letter is a PDF rebuilt from the template's body "
+                    + "paragraphs only, so the membership-number banner, the onboarding page and every "
+                    + "image are missing. This test asserts the PDF carries them.";
+
+    /**
+     * The welcome-letter PDF is drawn in Standard-14 Times-Roman, whose WinAnsi
+     * encoding holds Latin-1 and little more, so a name or address with any other
+     * letter -- Tshivenḓa's ḓ and ṱ, Afrikaans ŉ, a Polish Ł -- makes PDFBox throw.
+     * Since server 99936a5 the send is part of the capture (A64), so the member is
+     * not captured either. Register row A68.
+     */
+    public static final String WELCOME_LETTER_PDF_CANNOT_WRITE_SOME_NAMES =
+            "KNOWN DEFECT: the welcome-letter PDF's font cannot encode letters outside Latin-1, so a "
+                    + "member whose name holds one (a Tshivenda letter, say) gets an exception instead of "
+                    + "a letter -- and, since capture is the send, is not captured. This test asserts the "
+                    + "letter is written.";
+
+    /**
+     * {@code MemberServiceImpl.applyBankDebitDay} replaces the member's debit day with
+     * the bank's subscription day whenever the bank's day is inside 20-31 -- on create,
+     * update and updateBanking -- so a day the administrator chose is lost without a
+     * word. SASBO, 2026-09-21 (Q42): the day must be flexible. Register row A67.
+     */
+    public static final String MEMBER_DEBIT_DAY_OVERWRITTEN_BY_THE_BANKS =
+            "KNOWN DEFECT: a member's chosen debit day is replaced by the bank's subscription day "
+                    + "whenever the bank's day is in range. This test asserts the member's choice stands.";
 }
