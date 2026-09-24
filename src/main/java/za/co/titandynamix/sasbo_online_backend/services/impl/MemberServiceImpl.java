@@ -4,9 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
@@ -31,6 +33,7 @@ import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -305,9 +308,25 @@ public class MemberServiceImpl implements MemberService {
      * <p>🔑 The owner settled it on 2026-09-09: a RECRUITER signed the member up and
      * lives in {@code recruiters}; a REPRESENTATIVE sits on a structure and stays
      * Edit Member's business. Two concepts that one column had been serving.
+     *
+     * <p>🔴 FIX: Added logging when recruiter name does not resolve, to surface silent failures.
      */
     private void resolveRecruiter(String name, Member target) {
-        resolveByName(name, this::selectableRecruiterNamed, target::setRecruiter);
+        if (name == null) {
+            // Field not mentioned in request - leave alone
+            return;
+        }
+        if (name.isBlank()) {
+            // Explicitly cleared
+            target.setRecruiter(null);
+            return;
+        }
+        // Lookup the recruiter
+        Optional<Recruiter> found = this.selectableRecruiterNamed(name.trim());
+        if (found.isEmpty()) {
+            log.warn("Recruiter '{}' not found or is marked as a vacancy", name);
+        }
+        target.setRecruiter(found.orElse(null));
     }
 
     /**
@@ -583,6 +602,8 @@ public class MemberServiceImpl implements MemberService {
     /**
      * Formats a PhysicalAddress into a single-line string.
      * Skips null/blank parts, joins with commas.
+     *
+     * <p>🔴 FIX: Explicitly uses Objects.nonNull to ensure null-safety in the stream.
      */
     private String formatPhysicalAddress(PhysicalAddress addr) {
         if (addr == null) {
@@ -595,11 +616,11 @@ public class MemberServiceImpl implements MemberService {
                         getCityName(addr),
                         getProvinceName(addr),
                         addr.getPostalCode())
-                .filter(part -> part != null && !part.isBlank())
+                .filter(Objects::nonNull)
                 .map(String::trim)
+                .filter(part -> !part.isBlank())
                 .reduce((a, b) -> a + ", " + b)
                 .orElse("");
-
     }
 
     private String getSuburbName(PhysicalAddress addr) {

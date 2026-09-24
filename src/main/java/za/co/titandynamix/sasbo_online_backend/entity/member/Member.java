@@ -126,7 +126,6 @@ public class Member {
     private Boolean isRepresentative;
 
     // Representatives (§4.1, §4.2)
-    /** The representative responsible for recruiting this member. */
     // Self-referencing link: A member recruited by another member acting as a Rep
     /** Resolved from the transient {@code areasRep}, never bound directly. */
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
@@ -336,15 +335,15 @@ public class Member {
     }
 
     /**
-     * 🔒 Read-only over the wire. This association cascades {@code ALL}, so while
-     * the member endpoints bind the entity under {@code permitAll()}, a bound
-     * {@code user} object is an anonymous write straight into the {@code users}
-     * table — {@code username}, {@code enabled} and {@code userRoles} included.
-     * ({@code password} happens to be {@code @JsonIgnore}d; that is luck, not a
-     * design.) Account creation belongs to the user endpoints.
+     * 🔒 Read-only over the wire. This association cascades only PERSIST and MERGE,
+     * preventing accidental deletion of User records when a Member is removed.
+     * Account creation and deletion belong to the user endpoints, not member operations.
+     * <p>
+     * 🔴 FIX: Changed from CascadeType.ALL to {PERSIST, MERGE} to prevent orphaned
+     * deletes. Members may be deleted or merged, but Users have their own lifecycle.
      */
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToOne(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "user_id", unique = true)
     private User user;
 

@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.validator;
 
+import lombok.extern.slf4j.Slf4j;
 import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
@@ -8,6 +9,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
  * Validator for Member entity business rules.
  * Enforces conditional field requirements based on payment type.
  */
+@Slf4j
 public class MemberValidator {
 
     /**
@@ -30,13 +32,13 @@ public class MemberValidator {
             return;
         }
 
-        // Resolve the payment type; skip validation for unrecognised values
+        // Resolve the payment type; log a warning for unrecognised values
         // (e.g. legacy data such as "Cash" stored before the current scheme)
         PaymentType paymentType;
         try {
             paymentType = PaymentType.fromString(paymentTypeStr);
-        } catch (IllegalArgumentException ignored) {
-            // Unknown payment type — allow it through; banking rules cannot be enforced
+        } catch (IllegalArgumentException e) {
+            log.warn("Unknown payment type: {}. Skipping validation. Supported: Debit Order, Payroll Deduction", paymentTypeStr);
             return;
         }
 
@@ -79,8 +81,13 @@ public class MemberValidator {
      *
      * <p>A {@code null} {@code previousDebitDay} means create: nothing was stored,
      * so every day is a new choice and the range binds all of them.
+     *
+     * <p>🔴 FIX: Added null guard to prevent NPE when submitted is null.
      */
     private static boolean debitDayWasChanged(Integer submitted, Integer previousDebitDay) {
+        if (submitted == null) {
+            return previousDebitDay != null;
+        }
         return !submitted.equals(previousDebitDay);
     }
 

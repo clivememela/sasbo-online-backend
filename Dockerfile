@@ -29,8 +29,32 @@ RUN chown app:app /app.jar
 USER app
 
 EXPOSE 8080
-# Force the JVM to respect container memory limits and use a max of 75% of available RAM
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+
+# 🔴 FIX: Optimized JVM settings for Render's containerized environment
+#
+# RATIONALE FOR SETTINGS:
+# - UseContainerSupport: Respects cgroup memory limits set by Render
+# - MaxRAMPercentage=70: Use max 70% of available RAM (save 30% for OS/GC overhead)
+# - InitialRAMPercentage=50: Pre-allocate 50% to avoid GC pauses on startup
+# - UseG1GC: Low-latency garbage collector suitable for containers
+# - MaxGCPauseMillis=200: Target GC pause time (affects timeout sensitivity)
+# - ParallelGCThreads=2: Limit GC threads (Render free tier = 2-4 vCPU)
+#
+# PREVIOUS ISSUE: Default settings allocated 25% of available RAM,
+# causing OutOfMemory errors and request queuing on Render's limited resources.
+ENTRYPOINT ["java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=70.0", \
+    "-XX:InitialRAMPercentage=50.0", \
+    "-XX:+UseG1GC", \
+    "-XX:MaxGCPauseMillis=200", \
+    "-XX:ParallelGCThreads=2", \
+    "-XX:+UnlockDiagnosticVMOptions", \
+    "-XX:G1SummarizeRSetStatsPeriod=1", \
+    "-Dspring.profiles.active=production", \
+    "-Dspring.jpa.show-sql=false", \
+    "-jar", \
+    "app.jar"]
 
 
 

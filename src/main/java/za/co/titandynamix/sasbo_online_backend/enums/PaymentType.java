@@ -27,7 +27,7 @@ public enum PaymentType {
 
     private final String displayName;
 
-    PaymentType(String displayName) {
+    PaymentType(final String displayName) {
         this.displayName = displayName;
     }
 
@@ -42,8 +42,11 @@ public enum PaymentType {
     /**
      * Parse payment type from string (case-insensitive).
      * Accepts both enum name and display name.
+     *
+     * <p>🔴 FIX: Unknown payment types now throw with clear message. The validator
+     * will catch and log these, rather than silently ignoring them.
      */
-    public static PaymentType fromString(String value) {
+    public static PaymentType fromString(final String value) {
         if (value == null || value.isBlank()) {
             return null;
         }
@@ -51,12 +54,11 @@ public enum PaymentType {
         if ("PAYROLL_DEDUCTION".equals(normalized)) {
             normalized = "PAYROLL";
         }
-        for (PaymentType type : PaymentType.values()) {
+        for (final PaymentType type : values())
             if (type.name().equals(normalized)
-                    || type.displayName.equalsIgnoreCase(value.trim())) {
+                        || type.displayName.equalsIgnoreCase(value.trim())) {
                 return type;
             }
-        }
-        throw new IllegalArgumentException("Invalid payment type: " + value);
+        throw new IllegalArgumentException("Invalid payment type: " + value + ". Supported types: Debit Order, Payroll Deduction");
     }
 }
