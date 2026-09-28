@@ -166,8 +166,14 @@ class CorsPolicyTest {
         // long as it holds something does not bound it.
         //
         // This list is the record of what the policy allows, and changing it is the
-        // deliberate act. Since 2026-09-22 (local only) it is the Vite dev server
+        // deliberate act. From 2026-09-22 (local only) it was the Vite dev server
         // alone; the Vercel entries -- B7 -- left with the incumbent's hosting.
+        //
+        // 2026-09-28: `https://dev.sasbo.online` joins it. The owner's backend went
+        // live on Render that day and the front end at that host calls it
+        // cross-origin -- its Vercel build has no /api proxy, only an SPA fallback.
+        // ONE HOST, NOT A PATTERN: B7 was `https://*.vercel.app`, and the difference
+        // is the whole of noUncontrolledWildcardOrigin() below.
         CorsConfiguration policy = policy();
 
         assertThat(policy.getAllowedOrigins())
@@ -182,7 +188,8 @@ class CorsPolicyTest {
                         + "ability to read and write the member register with cookies, so it "
                         + "is added here as well as in SecurityConfig -- deliberately, once")
                 .containsExactlyInAnyOrder(
-                        "http://localhost:5173");
+                        "http://localhost:5173",
+                        "https://dev.sasbo.online");
     }
 
     @Test
