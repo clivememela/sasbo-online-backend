@@ -206,29 +206,19 @@ public final class KnownDefects {
                     + "not agree. This test sends what the browser sends and asserts the "
                     + "derivation happens.";
 
-    /**
-     * Production runs {@code spring.jpa.hibernate.ddl-auto: update}, so Hibernate
-     * alters the live schema at boot to match the entities -- outside the
-     * migration chain, and without ever dropping a column. A mapped field with no
-     * migration becomes a column in production that no migration-built database
-     * has. Register row C1; {@code is_bargaining_council} (C13) is the instance
-     * that arrived on 2026-09-16.
-     */
-    public static final String PRODUCTION_HIBERNATE_WRITES_THE_SCHEMA =
-            "KNOWN DEFECT: production runs ddl-auto: update, so Hibernate alters the live schema "
-                    + "outside the migration chain and production drifts from every database "
-                    + "the migrations build. This test asserts production only validates.";
-
-    /**
-     * {@code ace7297} turned on {@code spring.jpa.show-sql}, which prints every
-     * statement to stdout regardless of the {@code org.hibernate.SQL} level set
-     * beside it, and the root logger has run at DEBUG since before this suite
-     * existed. Register row C11.
-     */
-    public static final String PRODUCTION_LOGS_EVERY_STATEMENT =
-            "KNOWN DEFECT: production echoes every SQL statement (show-sql: true) and runs the "
-                    + "root logger at DEBUG, on a service holding identity and bank account "
-                    + "numbers. This test asserts neither is on.";
+    // ✅ C1 and C11 were here, and both are FIXED as of 2026-09-28.
+    //
+    // C1 -- production ran `ddl-auto: update`, so Hibernate altered the live schema outside the
+    // migration chain. Now `validate`, with `generate-ddl` removed: Flyway alone owns the schema.
+    // ⚠️ C13 (`is_bargaining_council`) is NOT closed by that. It reached the live database while
+    // `update` was on and is still there; the fix stops the next one, not this one.
+    //
+    // C11 -- `show-sql: true` and a DEBUG root logger on a service holding identity and bank
+    // account numbers. Both off. It was also the whole of a production slowdown that day.
+    //
+    // Their rows are deleted rather than kept as history because a KnownDefects constant is read
+    // as "this is still broken": `ProductionConfigTest` now RUNS the two guards that were disabled
+    // behind them, and the `...StillReproduces` pins that named them are gone with them.
 
     /**
      * {@code SBV Services (Pty) Ltd} and {@code South African Reserve Bank} were

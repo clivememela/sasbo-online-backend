@@ -28,6 +28,10 @@ COPY --from=build /home/gradle/project/build/libs/sasbo-online-backend-0.0.1-SNA
 RUN chown app:app /app.jar
 USER app
 
+# The LOCAL default only. The runtime port is `server.port` (`${SERVER_PORT:8080}`), and a host that
+# chooses its own must set SERVER_PORT to match: Render health-checks $PORT, which defaults to 10000,
+# and Spring Boot reads SERVER_PORT rather than PORT -- so `sasbo-api` sets SERVER_PORT=10000. This line
+# is metadata and binds nothing; it is kept at the local value so `docker run -p 8080:8080` still works.
 EXPOSE 8080
 # Force the JVM to respect container memory limits and use a max of 75% of available RAM
 ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
