@@ -14,9 +14,29 @@ spring:
     validate-on-migrate: false
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
-    generate-ddl: true
+      # 🔴 `validate`, NOT `update` -- Flyway owns the schema and Hibernate only checks it.
+      #
+      # This file used to say `update`, which meant BOTH managed the schema: Flyway built it from the
+      # migrations, then Hibernate altered it to match the entity classes, adding whatever the migrations
+      # had not. The database then holds columns no migration created, it differs from any environment
+      # built from migrations alone, and `validate-on-migrate: false` below means nothing ever says so.
+      #
+      # 🔑 The decision was already made and written down -- for the tests only.
+      # `src/test/resources/application-integration.yaml` has said `ddl-auto: validate` all along, with
+      # the comment "The schema under test is the one production runs. ddl-auto would test Hibernate's
+      # opinion of the schema instead, which is the drift this whole arc exists to close." That premise
+      # was false in production until this change: production ran Hibernate's opinion.
+      #
+      # So this costs nothing to prove -- the integration lane has been running `validate` against a real
+      # Postgres built by Flyway on every green run. It makes a disagreement between entities and
+      # migrations a LOUD startup failure instead of a silent schema edit.
+      ddl-auto: validate
+    # 🔴 Off. On 2026-09-28 this was the whole of a production slowdown: every query's SQL went to the
+    # host's log pipeline, and on a 0.5-CPU instance that I/O compounded -- four identical calls to
+    # /api/banks took 3.1s, 6.8s, 7.1s, then 11.8s. With it off the same call is ~1.3s, flat.
+    show-sql: false
+    # `generate-ddl` is Hibernate's other route to writing DDL, and it is removed for the same reason
+    # `ddl-auto` is no longer `update`: exactly one thing owns this schema, and it is Flyway.
     open-in-view: false
     properties:
       hibernate:
@@ -43,6 +63,29 @@ spring:
           starttls:
             enable: true
 
+# 🔴 THE MAIL HEALTH INDICATOR IS OFF, AND WITHOUT THIS THE APPLICATION IS UNDEPLOYABLE.
+#
+# `/actuator/health` is not "is this app alive" -- it is the AGGREGATE of every auto-configured
+# HealthIndicator, and any one of them DOWN makes the endpoint return HTTP 503.
+#
+# `spring-boot-starter-mail` is on the classpath, so `MailHealthIndicator` auto-configures and
+# authenticates to MAIL_HOST on every check. In any environment without mail credentials -- which is
+# every environment we have -- it throws `AuthenticationFailedException: failed to connect, no password
+# specified?`, health is DOWN, and the endpoint answers 503.
+#
+# On 2026-09-28 that cost FOUR consecutive fifteen-minute deploys on Render. Each one polled
+# /actuator/health, got 503 every time, logged "==> Timed Out" and killed a perfectly healthy
+# application -- while Flyway had the schema at V52, Hikari had its pool, and startup took 67 seconds.
+# It looks exactly like a broken app and is nothing of the kind.
+#
+# 🔑 Readiness means "can this instance serve requests". An API that cannot send email still serves
+# every request, so SMTP being unconfigured must never take it out of rotation. Turn this back on only
+# together with real mail credentials, and even then prefer a readiness GROUP over the full aggregate.
+management:
+  health:
+    mail:
+      enabled: false
+
 server:
   port: ${SERVER_PORT:8080}
   error:
@@ -53,7 +96,12 @@ server:
 
 logging:
   level:
-    root: DEBUG
+    # INFO, not DEBUG. As DEBUG this printed every Hibernate SQL AST, every alias registration and every
+    # entity -- a 2026-09-28 deploy spent fifteen minutes seeding with most of it formatting log lines
+    # nobody reads, and `EntityPrinter` wrote real subscription amounts into the host's logs, where
+    # anyone with dashboard access can read them. The application's own package stays at DEBUG below,
+    # so its detail is kept and the framework firehose is not.
+    root: INFO
     za.co.titandynamix: DEBUG
     org.springframework.web.servlet.DispatcherServlet: DEBUG
     org.springframework.web.filter.CommonsRequestLoggingFilter: WARN
