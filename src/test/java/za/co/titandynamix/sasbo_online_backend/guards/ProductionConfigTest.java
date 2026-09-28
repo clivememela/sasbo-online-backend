@@ -1,12 +1,10 @@
 package za.co.titandynamix.sasbo_online_backend.guards;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
-import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -205,8 +203,19 @@ class ProductionConfigTest {
                 .isEqualTo("false");
     }
 
+    /**
+     * ✅ C1 FIXED 2026-09-28 -- {@code ddl-auto: validate}, and {@code generate-ddl} removed with it.
+     *
+     * <p>This test was {@code @Disabled} behind a KnownDefects row, paired with a
+     * {@code productionStillRunsUpdate} pin that asserted the defect was still there. Fixing the
+     * config reddened the pin, the pin named this test, and the pair is now retired: the guard runs
+     * and the pin is deleted. ⚠️ Read the pin's own instruction before ever re-disabling this --
+     * a guard turned off to make a build green is a defect nobody is looking for any more.
+     *
+     * <p>🔑 C13 ({@code is_bargaining_council}) is NOT closed by this. That column reached the live
+     * database while `update` was on, and it is still there; this only stops the next one.
+     */
     @Test
-    @Disabled(KnownDefects.PRODUCTION_HIBERNATE_WRITES_THE_SCHEMA)
     @DisplayName("🔴 C1: never lets Hibernate write the live schema -- migrations own it")
     void productionNeverWritesTheSchema() {
         assertThat(schemaWritingActions(production()))
@@ -215,16 +224,6 @@ class ProductionConfigTest {
                         + "exactly how is_bargaining_council (C13) reached the live database "
                         + "while every migration-built database lacks it. Use `validate`")
                 .isEmpty();
-    }
-
-    @Test
-    @DisplayName("🔴 C1 still reproduces: production runs ddl-auto: update")
-    void productionStillRunsUpdate() {
-        assertThat(schemaWritingActions(production()))
-                .as("C1 has changed. If `update` is gone and nothing writes the schema, C1 is "
-                        + "fixed: enable productionNeverWritesTheSchema and delete the KnownDefects "
-                        + "row. If a different value is here, read it before touching this pin")
-                .containsExactly(Map.entry("spring.jpa.hibernate.ddlauto", "update"));
     }
 
     @Test
@@ -237,8 +236,16 @@ class ProductionConfigTest {
                 .isNotEqualTo("false");
     }
 
+    /**
+     * ✅ C11 FIXED 2026-09-28 -- {@code show-sql: false} and the root logger at INFO.
+     *
+     * <p>Retired the same way C1 was: the {@code productionStillLogsEveryStatement} pin reddened,
+     * named this test, and both halves are now gone. The fix was not only about noise -- on
+     * 2026-09-28 {@code show-sql} was the whole of a production slowdown, four identical calls to
+     * {@code /api/banks} taking 3.1s, 6.8s, 7.1s then 11.8s as the log I/O compounded on a
+     * 0.5-CPU instance. With it off the same call is ~1.3s, flat.
+     */
     @Test
-    @Disabled(KnownDefects.PRODUCTION_LOGS_EVERY_STATEMENT)
     @DisplayName("🟠 C11: does not echo every SQL statement, or run the root logger at DEBUG")
     void productionLogsQuietly() {
         Map<String, String> config = production();
@@ -253,15 +260,4 @@ class ProductionConfigTest {
                 .isNotEqualTo("debug");
     }
 
-    @Test
-    @DisplayName("🟠 C11 still reproduces: show-sql is on and the root logger is at DEBUG")
-    void productionStillLogsEveryStatement() {
-        Map<String, String> config = production();
-
-        assertThat(List.of(config.get("spring.jpa.showsql"), config.get("logging.level.root")))
-                .as("C11 has changed. If neither is set this way any more, C11 is fixed: enable "
-                        + "productionLogsQuietly and delete the KnownDefects row. If only one "
-                        + "changed, update this pin to the half that remains")
-                .containsExactly("true", "debug");
-    }
 }
