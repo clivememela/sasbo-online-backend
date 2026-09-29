@@ -344,15 +344,22 @@ public class Member {
     }
 
     /**
-     * 🔒 Read-only over the wire. This association cascades {@code ALL}, so while
-     * the member endpoints bind the entity under {@code permitAll()}, a bound
-     * {@code user} object is an anonymous write straight into the {@code users}
-     * table — {@code username}, {@code enabled} and {@code userRoles} included.
-     * ({@code password} happens to be {@code @JsonIgnore}d; that is luck, not a
-     * design.) Account creation belongs to the user endpoints.
+     * 🔒 Read-only over the wire. This association cascades {@code PERSIST} and
+     * {@code MERGE}, so while the member endpoints bind the entity under
+     * {@code permitAll()}, a bound {@code user} object is an anonymous write straight
+     * into the {@code users} table — {@code username}, {@code enabled} and
+     * {@code userRoles} included. ({@code password} happens to be {@code @JsonIgnore}d;
+     * that is luck, not a design.) Account creation belongs to the user endpoints.
+     *
+     * <p>It cascaded {@code ALL} until 2026-09-29, and {@code ALL} includes
+     * {@code REMOVE}: deleting a member would have deleted the login linked to it.
+     * Nothing deletes a member today, so that path was latent; the narrowing is the
+     * incumbent's ({@code cb08ba2}), whose edit also deleted the paragraph above. The
+     * paragraph stays -- a narrower cascade does not close the write path it describes.
+     * {@code MemberUserCascadeTest} holds the narrowing.
      */
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToOne(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "user_id", unique = true)
     private User user;
 
