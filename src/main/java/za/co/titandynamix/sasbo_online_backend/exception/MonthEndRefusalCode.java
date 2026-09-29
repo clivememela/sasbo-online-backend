@@ -67,7 +67,30 @@ public enum MonthEndRefusalCode {
      * 03.1: the change was asked for on a stale view -- the member is not in the status the screen showed (MV-5). The
      * details say what the status is now, when it changed and by whom. Nothing was changed.
      */
-    STATUS_CHANGED_SINCE(HttpStatus.CONFLICT);
+    STATUS_CHANGED_SINCE(HttpStatus.CONFLICT),
+    /** 04.2: a month that has not begun -- after the server's own, in SASBO's zone. The details carry both. */
+    MONTH_NOT_BEGUN(HttpStatus.BAD_REQUEST),
+    /**
+     * 04.2: the month has been taken already -- refused by the partial unique index where two takes meet, never by
+     * looking first (ME-12, MV-28). The details say who took it and when. A second take, if SASBO wants one, is a new
+     * version beside the first (MM51), and is not built.
+     */
+    MONTH_ALREADY_TAKEN(HttpStatus.CONFLICT),
+    /**
+     * 04.2: the month cannot be taken here -- what it would be frozen from is not on record: the workplaces (MD54). A
+     * month frozen with none would be kept that way by its own triggers. The details name what is missing.
+     */
+    MONTH_NOT_READY(HttpStatus.CONFLICT),
+    /**
+     * 04.2: a past month that has not been taken. Its statistics are read from what was frozen, never worked out again
+     * in place (MD19); only the open month is answered live. The details carry the month and the open month.
+     */
+    MONTH_NOT_TAKEN(HttpStatus.NOT_FOUND),
+    /**
+     * 04.2: refused to every caller until this system knows who is calling -- as ACB's writes are (MD4): taking a
+     * month freezes its figures for good, and a listing names members. Nothing was done.
+     */
+    IDENTITY_REQUIRED(HttpStatus.FORBIDDEN);
 
     private final HttpStatus status;
 

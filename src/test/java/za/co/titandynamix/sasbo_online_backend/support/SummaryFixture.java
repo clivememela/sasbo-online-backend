@@ -3,8 +3,10 @@ package za.co.titandynamix.sasbo_online_backend.support;
 import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.dto.summary.MemberSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.monthend.MonthEndCount;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -217,6 +219,98 @@ public final class SummaryFixture {
         assertThat(answer.unplaced().noTableCode()).isEqualTo(1);
         assertThat(answer.membersFrom()).isEqualTo("2019-01-01");
         assertThat(answer.leaversFrom()).isEqualTo("2026-06-01");
+    }
+
+    // ------------------------------------------------------------------------------------------ the month taken (04.2)
+
+    /**
+     * A workplace's frozen row of September, as the fixture's arithmetic gives it: its area, table code and complement
+     * as they stood, and on record, suspended, opening, joined, left, reinstated and the earliest Date Joined.
+     */
+    public record ExpectedFact(String area, Integer tableCode, Integer complement, long onRecord, long suspended,
+                               long opening, long joined, long left, long reinstated, String membersFrom) {
+    }
+
+    /** September's rows, by R/A number -- 0 is the row of the members with no workplace. */
+    public static final Map<Integer, ExpectedFact> SEPTEMBER_FACTS = Map.of(
+            900001, new ExpectedFact("A", 901, 20, 9, 1, 7, 1, 0, 1, "2019-01-01"),
+            900002, new ExpectedFact("A", 902, 10, 3, 0, 3, 0, 0, 0, "2021-01-01"),
+            900003, new ExpectedFact("B", 901, 5, 2, 0, 3, 1, 2, 0, "2020-01-01"),
+            900004, new ExpectedFact("B", null, 3, 1, 0, 1, 0, 0, 0, "2020-01-01"),
+            0, new ExpectedFact(null, null, null, 2, 0, 2, 0, 0, 0, "2022-01-01"));
+
+    /**
+     * September taken, held to the fixture's arithmetic on either database (MV-49): every row a workplace with its
+     * lineage as it stood, every count at its own grain -- and each figure that appears twice equal in both (MV-16).
+     * The fixture's members pay as {@code Payroll}, which is not a way of paying the member record stores today, so
+     * every one of them is OTHER, as stored (BR41), and none has a subscription on record.
+     */
+    public static void assertTakenSeptember(List<MonthEndFactsRepository.Fact> facts,
+                                            List<MonthEndFactsRepository.Count> counts) {
+        Map<Long, Integer> raByKey = new LinkedHashMap<>();
+        for (MonthEndFactsRepository.Fact fact : facts) {
+            raByKey.put(fact.workplaceKey(), fact.raNumber() == null ? 0 : fact.raNumber());
+        }
+        assertThat(raByKey.values()).as("one row a workplace, and one for the members with none")
+                .containsExactlyInAnyOrderElementsOf(SEPTEMBER_FACTS.keySet());
+        for (MonthEndFactsRepository.Fact fact : facts) {
+            int ra = raByKey.get(fact.workplaceKey());
+            ExpectedFact want = SEPTEMBER_FACTS.get(ra);
+            String what = "workplace " + ra;
+            assertThat(fact.areaLetter()).as("%s: area as it stood", what).isEqualTo(want.area());
+            assertThat(fact.tableCode()).as("%s: table code as it stood", what).isEqualTo(want.tableCode());
+            assertThat(fact.complement()).as("%s: complement", what).isEqualTo(want.complement());
+            assertThat(fact.onRecord()).as("%s: on record", what).isEqualTo(want.onRecord());
+            assertThat(fact.suspended()).as("%s: suspended", what).isEqualTo(want.suspended());
+            assertThat(fact.paying()).as("%s: paying", what).isEqualTo(want.onRecord() - want.suspended());
+            assertThat(fact.opening()).as("%s: opening", what).isEqualTo(want.opening());
+            assertThat(fact.joined()).as("%s: joined", what).isEqualTo(want.joined());
+            assertThat(fact.left()).as("%s: left", what).isEqualTo(want.left());
+            assertThat(fact.reinstated()).as("%s: reinstated", what).isEqualTo(want.reinstated());
+            assertThat(fact.onRecord()).as("%s: the movement closes (rule S)", what)
+                    .isEqualTo(fact.opening() + fact.joined() - fact.left() + fact.reinstated());
+            assertThat(fact.membersFrom()).as("%s: the earliest Date Joined", what).hasToString(want.membersFrom());
+            assertThat(fact.byDebitOrder() + fact.byDeduction()).as("%s: none pays a way stored today", what).isZero();
+            assertThat(fact.byOther()).as("%s: 'Payroll' is other, as stored (BR41)", what).isEqualTo(fact.paying());
+            assertThat(fact.debitOrderRand().add(fact.deductionRand()).add(fact.otherRand()))
+                    .as("%s: no subscription on record", what).isZero();
+            assertThat(fact.representatives() + fact.committeeMembers() + fact.seeded()).as(what).isZero();
+        }
+        MonthEndFactsRepository.Fact main = facts.stream().filter(f -> Integer.valueOf(900001).equals(f.raNumber()))
+                .findFirst().orElseThrow();
+        assertThat(main).extracting(MonthEndFactsRepository.Fact::tableCodeName, MonthEndFactsRepository.Fact::employerName,
+                        MonthEndFactsRepository.Fact::groupName, MonthEndFactsRepository.Fact::groupCore,
+                        MonthEndFactsRepository.Fact::regionCode, MonthEndFactsRepository.Fact::committeeCode,
+                        MonthEndFactsRepository.Fact::committeeName)
+                .as("the main street's lineage as it stood")
+                .containsExactly("INVENTED BANK", "INVENTED BANK", "INVENTED GROUP ONE", true, "NORTH", "Q01",
+                        "INVENTED NORTH COMMITTEE");
+        assertThat(facts.stream().mapToLong(MonthEndFactsRepository.Fact::onRecord).sum())
+                .as("MV-16: the rows sum to the summary's whole").isEqualTo(WHOLE.onRecord());
+
+        List<String> found = counts.stream().map(c -> c.measure() + " " + raByKey.get(c.workplaceKey()) + " " + c.code()
+                + " " + c.name() + " " + c.detail() + " = " + c.members()).toList();
+        assertThat(found).as("the counts at their own grain").containsExactlyInAnyOrder(
+                "LEFT_BY_CODE 900003 2 Resigned Society null = 1",
+                "LEFT_BY_CODE 900003 5 Subscription in Arrears null = 1",
+                "SUSPENDED_BY_CODE 900001 null null null = 1",
+                "RECRUITED_BY 900001 null null null = 1",
+                "RECRUITED_BY 900003 null null null = 1",
+                "UNKNOWN_STATUS 0 null Inactive null = 1");
+        for (MonthEndFactsRepository.Fact fact : facts) {
+            assertThat(sum(counts, fact.workplaceKey(), MonthEndCount.Measure.LEFT_BY_CODE))
+                    .as("MV-16: the leavers by code are the row's left").isEqualTo(fact.left());
+            assertThat(sum(counts, fact.workplaceKey(), MonthEndCount.Measure.SUSPENDED_BY_CODE))
+                    .as("MV-16: the suspended by code are the row's suspended").isEqualTo(fact.suspended());
+            assertThat(sum(counts, fact.workplaceKey(), MonthEndCount.Measure.RECRUITED_BY))
+                    .as("MV-16: the recruits are the row's joined").isEqualTo(fact.joined());
+        }
+    }
+
+    private static long sum(List<MonthEndFactsRepository.Count> counts, long workplaceKey,
+                            MonthEndCount.Measure measure) {
+        return counts.stream().filter(c -> c.workplaceKey() == workplaceKey && c.measure() == measure)
+                .mapToLong(MonthEndFactsRepository.Count::members).sum();
     }
 
     private static void assertFigures(String what, MemberSummaryDto.Figures got, Expected want) {

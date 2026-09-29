@@ -22,11 +22,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
+import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
 import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
+import za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.WorkplaceSeeder;
 
 import java.io.IOException;
@@ -35,6 +39,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -93,14 +98,24 @@ class MonthEndExamplesTest {
         }
     }
 
-    /** A request of an example: a method, an address, and a body where it has one. {@code {member}} is the invented member. */
-    record Example(String method, String path, String body, boolean gateHeld) {
+    /**
+     * A request of an example: a method, an address, and a body where it has one. {@code {member}} is the invented
+     * member. {@code gateHeld}: asked with both of the figures' places taken. {@code withoutWorkplaces}: asked in a
+     * transaction that has emptied the workplaces and is rolled back after -- what a deployment with none on record
+     * answers (04.2, MD54).
+     */
+    record Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces) {
         Example(String method, String path, String body) {
-            this(method, path, body, false);
+            this(method, path, body, false, false);
+        }
+
+        Example(String method, String path, String body, boolean gateHeld) {
+            this(method, path, body, gateHeld, false);
         }
 
         String key() {
             return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}")
+                    .replaceAll("/\\d{4}-\\d{2}(/|$)", "/{month}$1")
                     .replaceAll("/\\d+/", "/{id}/");
         }
     }
@@ -125,8 +140,15 @@ class MonthEndExamplesTest {
         routes.add(new Example("POST", "/api/members/{member}/status", "{\"toStatus\": \"Resigned\", "
                 + "\"expectedStatus\": \"Active\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 2, "
                 + "\"note\": \"Invented: moved away\"}"));
+        // 04.2: the months taken -- the invented August, taken as the seed takes a month, at the frozen clock -- and
+        // that month's record.
+        routes.add(new Example("GET", "/api/month-end/months", null));
+        routes.add(new Example("GET", "/api/month-end/" + TAKEN, null));
         return routes;
     }
+
+    /** The month the invented rows have taken. */
+    static final String TAKEN = "2026-08";
 
     private static Map<MonthEndRefusalCode, Example> refusals() {
         Map<MonthEndRefusalCode, Example> provoked = new EnumMap<>(MonthEndRefusalCode.class);
@@ -162,6 +184,14 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.SUMMARY_UNAVAILABLE, new Example("GET", "/api/members/summary", null, true));
         provoked.put(MonthEndRefusalCode.HISTORY_PAGE_INVALID, new Example("GET", "/api/members/{member}/history?page=99",
                 null));
+        // 04.2: the take says what it knows of the month, then refuses every caller -- and a past month not taken.
+        String take = "/api/month-end/%s/take";
+        provoked.put(MonthEndRefusalCode.MONTH_NOT_BEGUN, new Example("POST", take.formatted("2026-10"), null));
+        provoked.put(MonthEndRefusalCode.MONTH_ALREADY_TAKEN, new Example("POST", take.formatted(TAKEN), null));
+        provoked.put(MonthEndRefusalCode.MONTH_NOT_READY, new Example("POST", take.formatted("2026-07"), null, false,
+                true));
+        provoked.put(MonthEndRefusalCode.IDENTITY_REQUIRED, new Example("POST", take.formatted("2026-07"), null));
+        provoked.put(MonthEndRefusalCode.MONTH_NOT_TAKEN, new Example("GET", "/api/month-end/2026-07", null));
         return provoked;
     }
 
@@ -174,6 +204,12 @@ class MonthEndExamplesTest {
 
     @Autowired
     private za.co.titandynamix.sasbo_online_backend.services.SummaryGate gate;
+
+    @Autowired
+    private MonthEndTakes takes;
+
+    @Autowired
+    private PlatformTransactionManager transactions;
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -242,6 +278,8 @@ class MonthEndExamplesTest {
         jdbc.update("INSERT INTO member_changes (member_id, save_id, field, old_value, new_value, changed_by, changed_at) "
                 + "SELECT id, 'invented-save-2', 'cellTel', '+27 60 555 0001', '+27 60 555 0002', 'system', "
                 + "TIMESTAMP WITH TIME ZONE '2026-09-10 08:00:00+00:00' FROM members WHERE membership_number = ?", MEMBER);
+        // 04.2: August taken, as the seed takes a month -- through the real take, at the frozen clock.
+        takes.take(YearMonth.parse(TAKEN), DemonstrationMemberSeeder.SEED_ACTOR);
     }
 
     private void workplace(int ra, String name, String employer, Integer tableCode, String by, String area,
@@ -257,10 +295,24 @@ class MonthEndExamplesTest {
         Integer member = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = ?", Integer.class, MEMBER);
         String path = example.path().replace("{member}", String.valueOf(member));
         MockHttpServletRequestBuilder request = switch (example.method()) {
-            case "POST" -> post(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
+            case "POST" -> example.body() == null ? post(path)
+                    : post(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             default -> get(path);
         };
+        if (example.withoutWorkplaces()) {
+            // Asked in a transaction that has emptied the workplaces, and rolled back: the request runs on this
+            // thread, so the route reads what this transaction sees.
+            return new TransactionTemplate(transactions).execute(status -> {
+                status.setRollbackOnly();
+                jdbc.update("DELETE FROM workplaces");
+                try {
+                    return mockMvc.perform(request).andReturn();
+                } catch (Exception failed) {
+                    throw new IllegalStateException(failed);
+                }
+            });
+        }
         if (!example.gateHeld()) {
             return mockMvc.perform(request).andReturn();
         }

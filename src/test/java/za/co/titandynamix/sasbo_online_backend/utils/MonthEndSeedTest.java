@@ -15,12 +15,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import za.co.titandynamix.sasbo_online_backend.entity.monthend.MonthEndCount;
+import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
 import za.co.titandynamix.sasbo_online_backend.support.ConnectionStatements;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -457,5 +462,99 @@ class MonthEndSeedTest {
         } finally {
             jdbc.update("DELETE FROM workplaces WHERE ra_number = 999999");
         }
+    }
+
+    // ------------------------------------------------------------------------------------------ 04.2, the months taken
+
+    @Autowired
+    private MonthEndTakeSeeder takeSeeder;
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes takes;
+
+    @Autowired
+    private MonthEndFactsRepository facts;
+
+    @Autowired
+    private MemberSummaryRepository summaryStatement;
+
+    @Autowired
+    private SeedMemberNumbers seedNumbers;
+
+    @Test
+    @DisplayName("🔒 04.2, BR65: the three months before the clock's are TAKEN on a fresh demonstration database -- on H2, in a whole start")
+    void theThreePastMonthsAreTaken() {
+        List<MonthEndFactsRepository.TakenMonth> taken = takes.takenMonths();
+        assertThat(taken).extracting(MonthEndFactsRepository.TakenMonth::monthStart)
+                .containsExactly(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 7, 1), LocalDate.of(2026, 6, 1));
+        assertThat(taken).extracting(MonthEndFactsRepository.TakenMonth::takenBy)
+                .containsOnly(DemonstrationMemberSeeder.SEED_ACTOR);
+        long open = rows("SELECT count(*) FROM workplaces WHERE closed_on IS NULL");
+        for (MonthEndFactsRepository.TakenMonth month : taken) {
+            List<MonthEndFactsRepository.Fact> frozen = facts.facts(month.id());
+            assertThat(frozen.stream().filter(f -> f.workplaceKey() != 0).count())
+                    .as("%s: a row for every open workplace", month.monthStart()).isGreaterThanOrEqualTo(open);
+            assertThat(frozen.stream().map(MonthEndFactsRepository.Fact::workplaceKey).distinct().count())
+                    .as("one row a workplace").isEqualTo(frozen.size());
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 MV-16: each month taken is the figures' own statement for that month -- the whole, figure for figure, over the demonstration")
+    void theTakenMonthsAreTheFigures() {
+        for (MonthEndFactsRepository.TakenMonth month : takes.takenMonths()) {
+            List<MonthEndFactsRepository.Fact> frozen = facts.facts(month.id());
+            List<MonthEndFactsRepository.Count> counts = facts.counts(month.id());
+            List<MemberSummaryRepository.Line> live = summaryStatement.figures(new MemberSummaryRepository.Ask(
+                    MonthRange.of(java.time.YearMonth.from(month.monthStart())), SummaryGrouping.AREA, true, true,
+                    null, null, seedNumbers.all()));
+            List<MemberSummaryRepository.Line> liveRows = live.stream()
+                    .filter(l -> l.part().equals(MemberSummaryRepository.ROW)).toList();
+            String what = month.monthStart().toString();
+
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::onRecord).sum()).as("%s on record", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::onRecord).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::suspended).sum()).as("%s suspended", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::suspended).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::opening).sum()).as("%s opening", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::opening).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::joined).sum()).as("%s joined", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::joined).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::left).sum()).as("%s left", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::left).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::reinstated).sum()).as("%s reinstated", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::reinstated).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::seeded).sum()).as("%s seeded", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::seeded).sum());
+            assertThat(frozen.stream().filter(f -> f.complement() != null).mapToLong(MonthEndFactsRepository.Fact::complement)
+                    .sum()).as("%s complement", what).isEqualTo(live.stream()
+                    .filter(l -> l.part().equals(MemberSummaryRepository.COMPLEMENT))
+                    .mapToLong(MemberSummaryRepository.Line::complement).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::left).sum()).as("%s has leavers", what)
+                    .isPositive();
+
+            assertThat(measured(counts, MonthEndCount.Measure.LEFT_BY_CODE)).as("%s: the leavers by code", what)
+                    .isEqualTo(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::left).sum());
+            assertThat(measured(counts, MonthEndCount.Measure.SUSPENDED_BY_CODE)).as("%s: the suspended by code", what)
+                    .isEqualTo(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::suspended).sum());
+            assertThat(measured(counts, MonthEndCount.Measure.RECRUITED_BY)).as("%s: the recruits", what)
+                    .isEqualTo(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::joined).sum());
+            assertThat(counts).filteredOn(c -> c.measure() == MonthEndCount.Measure.LEFT_BY_CODE)
+                    .as("%s: the past's leavers carry SASBO's numbers (RC7)", what)
+                    .allSatisfy(c -> assertThat(c.code()).isIn(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 MR-PERF-19: a second start takes no month, in one statement")
+    void theTakesSecondStartIsPinned() {
+        long statements = ConnectionStatements.during(() -> assertThat(takeSeeder.seed()).isZero());
+
+        assertThat(statements).as("one read of the months taken, and nothing written").isEqualTo(1);
+    }
+
+    private static long measured(List<MonthEndFactsRepository.Count> counts, MonthEndCount.Measure measure) {
+        return counts.stream().filter(c -> c.measure() == measure).mapToLong(MonthEndFactsRepository.Count::members)
+                .sum();
     }
 }

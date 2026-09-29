@@ -39,7 +39,9 @@ class MonthEndGuardsTest {
                         || c.path().toString().replace('\\', '/').contains("/dto/reference/")
                         || c.path().toString().replace('\\', '/').contains("/dto/workplace/")
                         || c.path().toString().replace('\\', '/').contains("/entity/reference/")
-                        || c.path().toString().replace('\\', '/').contains("/entity/workplace/"))
+                        || c.path().toString().replace('\\', '/').contains("/entity/workplace/")
+                        || c.path().toString().replace('\\', '/').contains("/dto/monthend/")
+                        || c.path().toString().replace('\\', '/').contains("/entity/monthend/"))
                 .toList();
     }
 
@@ -54,7 +56,8 @@ class MonthEndGuardsTest {
             "DemonstrationMember", "DemonstrationMemberSeeder", "MemberSummaryController", "MemberSummaryService",
             "MemberSummaryServiceImpl", "MemberSummaryRepository", "MemberSummaryDto", "SummaryGate", "SummaryGrouping",
             "MonthRange", "SmallCounts", "MemberHistoryController", "MemberHistoryService", "MemberHistoryRepository",
-            "MemberHistoryPageDto", "MemberTrail");
+            "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
+            "MonthEndTakeSeeder");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -329,5 +332,8 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/members/summary", "counts, under rule C: a membership below five at a named employer "
                     + "or table code never leaves the server (MD4, MD37)"),
             Map.entry("GET /api/members/{id}/history", "as open as every member read is today (MR-SEC-1); named in B1's "
-                    + "list, and refusing from the day sign-in exists"));
+                    + "list, and refusing from the day sign-in exists"),
+            Map.entry("GET /api/month-end/months", "which months are taken, when and by whom: no member, no workplace"),
+            Map.entry("GET /api/month-end/{month}", "one month's record -- taken or open, when and by whom: no member, "
+                    + "no workplace"));
 }
