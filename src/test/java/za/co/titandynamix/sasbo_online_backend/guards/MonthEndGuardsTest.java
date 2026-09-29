@@ -57,7 +57,7 @@ class MonthEndGuardsTest {
             "MemberSummaryServiceImpl", "MemberSummaryRepository", "MemberSummaryDto", "SummaryGate", "SummaryGrouping",
             "MonthRange", "SmallCounts", "MemberHistoryController", "MemberHistoryService", "MemberHistoryRepository",
             "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
-            "MonthEndTakeSeeder");
+            "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -335,5 +335,15 @@ class MonthEndGuardsTest {
                     + "list, and refusing from the day sign-in exists"),
             Map.entry("GET /api/month-end/months", "which months are taken, when and by whom: no member, no workplace"),
             Map.entry("GET /api/month-end/{month}", "one month's record -- taken or open, when and by whom: no member, "
-                    + "no workplace"));
+                    + "no workplace"),
+            Map.entry("GET /api/month-end/{month}/new-and-deleted", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/membership", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/leavers", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/branches", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/recruitment", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/representatives", STATISTIC));
+
+    /** Why a statistic of month end is open (04.3 to 04.8). */
+    static final String STATISTIC = "counts, under rule C -- a membership below five at a named employer, table code or "
+            + "group never leaves the server -- and cut by where members work only where the switch says all (MD62)";
 }

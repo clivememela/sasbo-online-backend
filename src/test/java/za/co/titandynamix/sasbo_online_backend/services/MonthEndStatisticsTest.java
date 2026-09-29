@@ -1,0 +1,223 @@
+package za.co.titandynamix.sasbo_online_backend.services;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
+import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
+import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
+import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndStatisticDto;
+import za.co.titandynamix.sasbo_online_backend.dto.summary.MemberSummaryDto;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.SasboReferenceRepository;
+import za.co.titandynamix.sasbo_online_backend.support.StatisticsExpectations;
+import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
+import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
+import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
+
+import java.time.Clock;
+import java.time.YearMonth;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static za.co.titandynamix.sasbo_online_backend.support.StatisticsExpectations.rows;
+import static za.co.titandynamix.sasbo_online_backend.support.StatisticsExpectations.sheet;
+import static za.co.titandynamix.sasbo_online_backend.support.StatisticsExpectations.total;
+
+/**
+ * The statistics of a month, on H2 (month end 04.3 to 04.8): {@link SummaryFixture}'s September, each statistic held
+ * to {@link StatisticsExpectations} -- the table the integration lane holds PostgreSQL to (MV-49) -- open and taken
+ * alike; the year to date the sum of the months taken; a total equal to the figures' own (MV-16); the refusals; and
+ * the switch below {@code all}.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+        "sasbo.workplaces=all",
+        "spring.datasource.url=jdbc:h2:mem:month-end-statistics;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"})
+@Import(MonthEndStatisticsTest.AtTheFixturesClock.class)
+@DisplayName("The statistics of a month, on H2")
+class MonthEndStatisticsTest {
+
+    @TestConfiguration
+    static class AtTheFixturesClock {
+        @Bean
+        @Primary
+        Clock theFixturesClock() {
+            return Clock.fixed(SummaryFixture.NOW, AcbTime.ZONE);
+        }
+    }
+
+    /** Nothing of the seed's: only the fixture is on this database. */
+    @MockitoBean
+    private DataSeeder noSeed;
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Autowired
+    private MemberRepository members;
+
+    @Autowired
+    private MonthEndStatistics statistics;
+
+    @Autowired
+    private MonthEndTakes takes;
+
+    @Autowired
+    private MemberSummaryService summaries;
+
+    @Autowired
+    private MonthEndFactsRepository facts;
+
+    @Autowired
+    private SasboReferenceRepository codes;
+
+    @Autowired
+    private SasboEnvironment environment;
+
+    @Autowired
+    private SeedMemberNumbers seedNumbers;
+
+    @Autowired
+    private SummaryGate gate;
+
+    @BeforeEach
+    void thePopulationAndNothingTaken() {
+        Long present = jdbc.queryForObject("SELECT count(*) FROM workplaces WHERE ra_number = 900001", Long.class);
+        if (present == null || present == 0) {
+            SummaryFixture.insert(jdbc, members);
+        }
+        jdbc.update("DELETE FROM month_end_counts");
+        jdbc.update("DELETE FROM month_end_workplaces");
+        jdbc.update("DELETE FROM month_end_months");
+    }
+
+    @Test
+    @DisplayName("🔒 MV-49: every statistic of the open September, as the fixture's arithmetic gives it")
+    void theOpenMonth() {
+        MonthEndStatisticDto newAndDeleted = statistics.newAndDeleted("2026-09", null, null);
+        assertThat(newAndDeleted.state()).isEqualTo("OPEN");
+        assertThat(newAndDeleted.takenAt()).isNull();
+        StatisticsExpectations.assertNewAndDeleted(newAndDeleted);
+        StatisticsExpectations.assertMembership(statistics.membership("2026-09", null, null));
+        StatisticsExpectations.assertLeavers(statistics.leavers("2026-09", null, null));
+        StatisticsExpectations.assertBranches(statistics.branches("2026-09", null, null));
+        StatisticsExpectations.assertRecruitment(statistics.recruitment("2026-09", null, null), 2);
+        StatisticsExpectations.assertRepresentatives(statistics.representatives("2026-09", null, null));
+    }
+
+    @Test
+    @DisplayName("🔒 MD19: September taken answers what the open September answered -- read from what was frozen")
+    void theTakenMonthIsTheOpenMonth() {
+        MonthEndStatisticDto open = statistics.membership("2026-09", null, null);
+        takes.take(SummaryFixture.MONTH, "seed");
+
+        MonthEndStatisticDto taken = statistics.membership("2026-09", null, null);
+        assertThat(taken.state()).isEqualTo("TAKEN");
+        assertThat(taken.takenBy()).isEqualTo("seed");
+        assertThat(taken.sheets()).as("the same sheets, figure for figure").isEqualTo(open.sheets());
+        StatisticsExpectations.assertNewAndDeleted(statistics.newAndDeleted("2026-09", null, null));
+        StatisticsExpectations.assertLeavers(statistics.leavers("2026-09", null, null));
+        StatisticsExpectations.assertBranches(statistics.branches("2026-09", null, null));
+        StatisticsExpectations.assertRecruitment(statistics.recruitment("2026-09", null, null), 2);
+        StatisticsExpectations.assertRepresentatives(statistics.representatives("2026-09", null, null));
+        assertThat(statistics.branches("2026-09", null, null)).as("asked again: byte for byte")
+                .isEqualTo(statistics.branches("2026-09", null, null));
+    }
+
+    @Test
+    @DisplayName("🔒 rule Y: the year to date is the sum of the months taken -- June, August and September's leavers")
+    void theYearToDate() {
+        takes.take(YearMonth.of(2026, 6), "seed");
+        takes.take(YearMonth.of(2026, 8), "seed");
+        takes.take(SummaryFixture.MONTH, "seed");
+
+        MonthEndStatisticDto answer = statistics.newAndDeleted("2026-09", null, null);
+        assertThat(rows(sheet(answer, "year-left"))).as("m9 left W1 in June; m16 W3 in August; two more in September")
+                .containsExactly("A: 1 0 1", "B: 3 0 3", "~NO_WORKPLACE: - - 0");
+        assertThat(total(sheet(answer, "year-left"))).as("the summary's left in 2026").isEqualTo("4 0 4");
+        assertThat(total(sheet(answer, "year-joined"))).isEqualTo("2 0 2");
+        assertThat(answer.notes()).anyMatch(n -> n.contains("June 2026, August 2026, September 2026"));
+    }
+
+    @Test
+    @DisplayName("🔒 MV-16: each statistic's total is the figures' own for the month")
+    void theTotalsAreTheSummarys() {
+        MemberSummaryDto summary = summaries.summary("2026-09", "group", null, null);
+
+        assertThat(total(sheet(statistics.membership("2026-09", null, null), "by-table-code"))).startsWith(
+                summary.totals().onRecord() + " " + summary.totals().paying() + " " + summary.totals().suspended() + " ");
+        assertThat(total(sheet(statistics.newAndDeleted("2026-09", null, null), "month-joined")))
+                .endsWith(" " + summary.totals().joined());
+        assertThat(total(sheet(statistics.newAndDeleted("2026-09", null, null), "month-left")))
+                .endsWith(" " + summary.totals().left());
+        assertThat(total(sheet(statistics.branches("2026-09", null, null), "by-area")))
+                .startsWith(summary.totals().complement() + " " + summary.totals().paying() + " "
+                        + summary.totals().penetration().toPlainString());
+    }
+
+    @Test
+    @DisplayName("every output takes an area or a region: area B is its own rows, and its total")
+    void anArea() {
+        MonthEndStatisticDto b = statistics.newAndDeleted("2026-09", "b", null);
+
+        assertThat(b.area()).isEqualTo("B");
+        assertThat(rows(sheet(b, "month-left"))).containsExactly("B: 2 0 2");
+        assertThat(total(sheet(b, "month-left"))).isEqualTo("2 0 2");
+        assertThat(rows(sheet(statistics.branches("2026-09", null, "SOUTH"), "by-area")))
+                .containsExactly("B: 8 3 0.3750 0.00 5 2");
+    }
+
+    @Test
+    @DisplayName("the refusals: a past month not taken, an area not on record, an area and a region together")
+    void theRefusals() {
+        assertThatThrownBy(() -> statistics.membership("2026-07", null, null))
+                .isInstanceOfSatisfying(MonthEndRefusal.class,
+                        r -> assertThat(r.code()).isEqualTo(MonthEndRefusalCode.MONTH_NOT_TAKEN));
+        assertThatThrownBy(() -> statistics.membership("2026-10", null, null))
+                .isInstanceOfSatisfying(MonthEndRefusal.class,
+                        r -> assertThat(r.code()).isEqualTo(MonthEndRefusalCode.MONTH_NOT_BEGUN));
+        assertThatThrownBy(() -> statistics.membership("2026-09", "Q", null))
+                .isInstanceOfSatisfying(MonthEndRefusal.class,
+                        r -> assertThat(r.code()).isEqualTo(MonthEndRefusalCode.SUMMARY_AREA_UNKNOWN));
+        assertThatThrownBy(() -> statistics.membership("2026-09", "A", "NORTH"))
+                .isInstanceOfSatisfying(MonthEndRefusal.class, r -> {
+                    assertThat(r.code()).isEqualTo(MonthEndRefusalCode.REQUEST_MALFORMED);
+                    assertThat(r.details()).containsEntry("field", "region");
+                });
+        assertThat(MonthEndStatistics.listingRefused("new-members").code())
+                .isEqualTo(MonthEndRefusalCode.IDENTITY_REQUIRED);
+    }
+
+    @Test
+    @DisplayName("🔒 MD62, MV-55: below 'all' a sheet cut by where members work is the totals and one row, with no staff number")
+    void belowAll() {
+        MonthEndStatistics atNames = new MonthEndStatistics(takes, facts, codes, new WorkplaceSwitch("names"),
+                environment, seedNumbers, gate);
+
+        MonthEndStatisticDto branches = atNames.branches("2026-09", null, null);
+        assertThat(branches.workplacesServed()).isEqualTo("NAMES");
+        assertThat(rows(sheet(branches, "by-area"))).containsExactly("~ALL: - 16 - 0.00 - -");
+        assertThat(rows(sheet(atNames.membership("2026-09", null, null), "by-table-code")))
+                .containsExactly("~ALL: 17 16 1 0.00 0 0.00 0 0.00 16 0.00 -");
+        assertThat(rows(sheet(atNames.newAndDeleted("2026-09", null, null), "month-joined")))
+                .containsExactly("~ALL: - - 2");
+        assertThat(rows(sheet(atNames.newAndDeleted("2026-09", "A", null), "month-joined")))
+                .as("an area asked below 'all' holds nobody").isEmpty();
+        assertThat(rows(sheet(atNames.membership("2026-09", null, null), "suspended-by-code")))
+                .as("a code is no place: the same at every switch").containsExactly("~NO_CODE: 1");
+        List<String> notes = branches.notes();
+        assertThat(notes).anyMatch(n -> n.contains("not served in full"));
+    }
+}

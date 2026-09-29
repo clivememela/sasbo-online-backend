@@ -21,6 +21,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
 import za.co.titandynamix.sasbo_online_backend.support.ConnectionStatements;
+import za.co.titandynamix.sasbo_online_backend.support.StatisticsExpectations;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -551,6 +552,68 @@ class MonthEndSeedTest {
         long statements = ConnectionStatements.during(() -> assertThat(takeSeeder.seed()).isZero());
 
         assertThat(statements).as("one read of the months taken, and nothing written").isEqualTo(1);
+    }
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.services.MonthEndStatistics statistics;
+
+    @Test
+    @DisplayName("🔒 MV-16: over the demonstration, each statistic of each month taken totals the month's facts -- and a sheet's rows sum to it")
+    void theStatisticsTotalTheFacts() {
+        for (MonthEndFactsRepository.TakenMonth month : takes.takenMonths()) {
+            String asked = java.time.YearMonth.from(month.monthStart()).toString();
+            List<MonthEndFactsRepository.Fact> frozen = facts.facts(month.id());
+            long onRecord = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::onRecord).sum();
+            long paying = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::paying).sum();
+            long suspended = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::suspended).sum();
+            long joined = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::joined).sum();
+            long left = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::left).sum();
+
+            var membership = statistics.membership(asked, null, null);
+            var newAndDeleted = statistics.newAndDeleted(asked, null, null);
+            var leavers = statistics.leavers(asked, null, null);
+            var branches = statistics.branches(asked, null, null);
+            var recruitment = statistics.recruitment(asked, null, null);
+            var representatives = statistics.representatives(asked, null, null);
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(membership, "by-table-code")))
+                    .as("%s: on record, paying, suspended", asked).startsWith(onRecord + " " + paying + " " + suspended + " ");
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(newAndDeleted, "month-joined")))
+                    .as("%s: joined", asked).endsWith(" " + joined);
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(newAndDeleted, "month-left")))
+                    .as("%s: left", asked).endsWith(" " + left);
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(leavers, "by-area")))
+                    .as("%s: the leavers by reason", asked).endsWith(" " + left);
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(branches, "by-area")).split(" ")[1])
+                    .as("%s: members", asked).isEqualTo(String.valueOf(paying));
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(recruitment, "by-channel")).split(" ")[0])
+                    .as("%s: the recruits", asked).isEqualTo(String.valueOf(joined));
+
+            for (var answer : List.of(membership, newAndDeleted, leavers, branches, recruitment, representatives)) {
+                for (var sheet : answer.sheets()) {
+                    if (sheet.key().equals("by-group") || sheet.total() == null) {
+                        continue;
+                    }
+                    for (int column = 0; column < sheet.columns().size(); column++) {
+                        if (!sheet.columns().get(column).kind().equals("COUNT") || sheet.total().cells().get(column) == null) {
+                            continue;
+                        }
+                        final int c = column;
+                        java.math.BigDecimal shown = sheet.rows().stream()
+                                .filter(r -> r.cells() != null && r.cells().get(c) != null)
+                                .map(r -> r.cells().get(c)).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                        boolean hidden = sheet.rows().stream().anyMatch(r -> r.cells() == null);
+                        String what = asked + " " + answer.statistic() + " " + sheet.key() + " " + sheet.columns().get(c).key();
+                        if (hidden) {
+                            assertThat(shown).as("%s: what is shown never exceeds the total", what)
+                                    .isLessThanOrEqualTo(sheet.total().cells().get(c));
+                        } else if (!sheet.key().startsWith("year") && !answer.statistic().equals("recruitment")) {
+                            assertThat(shown).as("%s: the rows sum to the total", what)
+                                    .isEqualByComparingTo(sheet.total().cells().get(c));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static long measured(List<MonthEndFactsRepository.Count> counts, MonthEndCount.Measure measure) {

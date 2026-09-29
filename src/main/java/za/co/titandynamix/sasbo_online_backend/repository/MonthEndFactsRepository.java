@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.repository;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -47,10 +48,17 @@ public class MonthEndFactsRepository {
     public static final String DEBIT_ORDER = "Debit Order";
     public static final String PAYROLL_DEDUCTION = "Payroll Deduction";
 
+    /** The take's: a month is taken whole, however long the database takes over it. */
     private final NamedParameterJdbcTemplate jdbc;
+
+    /** Every read's: bounded like every figure query, below the browser's slow notice (MD47, ME-15). */
+    private final NamedParameterJdbcTemplate bounded;
 
     public MonthEndFactsRepository(DataSource dataSource) {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
+        JdbcTemplate limited = new JdbcTemplate(dataSource);
+        limited.setQueryTimeout(MemberSummaryRepository.TIMEOUT_SECONDS);
+        this.bounded = new NamedParameterJdbcTemplate(limited);
     }
 
     /** A taken month's record. */
@@ -99,96 +107,210 @@ public class MonthEndFactsRepository {
                 FROM (""" + factsStatement() + ") f", arguments(month, seeded).addValue("monthId", monthId));
     }
 
-    /**
-     * The month's leavers, by SASBO's deletion code and the reason under it -- one statement. A leaver with no code
-     * (ACB's {@code SUBS_IN_ARREARS}) is counted under the reason as stored. 🔴 The reason is CAST to text: H2 builds
-     * the column from the entity as an ENUM, and a {@code CASE} that mixes it with a code's name takes the ENUM's type
-     * and refuses the name ("Value not permitted", run 36627331294).
-     */
+    /** The month's leavers, by SASBO's deletion code and the reason under it -- one statement. */
     public int insertLeftByCode(long monthId, MonthRange month) {
-        String toKind = MemberSummaryRepository.kind("c.to_status");
-        String fromKind = MemberSummaryRepository.kind("c.from_status");
-        return jdbc.update("""
-                INSERT INTO month_end_counts (month_id, month_start, workplace_key, measure, code, name, detail, members)
-                SELECT :monthId, :firstDay, l.workplace_key, 'LEFT_BY_CODE', l.code, l.name, l.detail, COUNT(*)
-                FROM (
-                  SELECT COALESCE(m.workplace_id, 0) AS workplace_key,
-                    COALESCE(p.sasbo_code, d.sasbo_code) AS code,
-                    CASE WHEN d.id IS NULL THEN CAST(c.reason AS VARCHAR(255))
-                         ELSE CAST(COALESCE(p.name, d.name) AS VARCHAR(255)) END AS name,
-                    CASE WHEN p.id IS NOT NULL THEN d.name END AS detail
-                  FROM member_status_changes c
-                  JOIN members m ON m.id = c.member_id
-                  LEFT JOIN deletion_codes d ON d.id = c.deletion_code_id
-                  LEFT JOIN deletion_codes p ON p.id = d.parent_id
-                  WHERE c.changed_at >= :start AND c.changed_at < :next
-                    AND %1$s = 'L' AND COALESCE(%2$s, '?') <> 'L'
-                ) l
-                GROUP BY l.workplace_key, l.code, l.name, l.detail
-                """.formatted(toKind, fromKind), arguments(month, List.of()).addValue("monthId", monthId));
+        return insertCounts(monthId, month, MonthEndCount.Measure.LEFT_BY_CODE);
     }
 
-    /**
-     * The suspended at the month's end, by the suspension code of the change that suspended them -- the last change
-     * into a suspended status before the month ended. A member suspended with no change on record (captured so) has
-     * none, and is counted without a code -- one statement.
-     */
+    /** The suspended at the month's end, by the suspension code of the change that suspended them -- one statement. */
     public int insertSuspendedByCode(long monthId, MonthRange month) {
-        String toKind = MemberSummaryRepository.kind("c.to_status");
-        String laterKind = MemberSummaryRepository.kind("y.to_status");
-        return jdbc.update("""
-                INSERT INTO month_end_counts (month_id, month_start, workplace_key, measure, code, name, detail, members)
-                SELECT :monthId, :firstDay, s.workplace_key, 'SUSPENDED_BY_CODE', s.code, s.name, CAST(NULL AS VARCHAR(255)),
-                  COUNT(*)
-                FROM (
-                  SELECT COALESCE(k.workplace_id, 0) AS workplace_key, sc.code AS code,
-                    CASE WHEN sc.id IS NOT NULL THEN CAST(sc.name AS VARCHAR(255))
-                         ELSE CAST(last_in.reason AS VARCHAR(255)) END AS name
-                  FROM (%1$s) k
-                  LEFT JOIN (
-                    SELECT c.member_id, c.suspension_code_id, c.reason FROM member_status_changes c
-                    WHERE c.changed_at < :next AND %2$s = 'S'
-                      AND NOT EXISTS (SELECT 1 FROM member_status_changes y WHERE y.member_id = c.member_id
-                        AND y.changed_at < :next AND %3$s = 'S'
-                        AND (y.changed_at > c.changed_at OR (y.changed_at = c.changed_at AND y.id > c.id)))
-                  ) last_in ON last_in.member_id = k.member_id
-                  LEFT JOIN suspension_codes sc ON sc.id = last_in.suspension_code_id
-                  WHERE k.end_kind = 'S'
-                ) s
-                GROUP BY s.workplace_key, s.code, s.name
-                """.formatted(kinds(), toKind, laterKind), arguments(month, List.of()).addValue("monthId", monthId));
+        return insertCounts(monthId, month, MonthEndCount.Measure.SUSPENDED_BY_CODE);
     }
 
-    /** The month's recruits -- a Date Joined in the month, whatever their status now (rule N) -- by recruiter and channel. */
+    /** The month's recruits, by recruiter and channel -- one statement. */
     public int insertRecruited(long monthId, MonthRange month) {
-        return jdbc.update("""
-                INSERT INTO month_end_counts (month_id, month_start, workplace_key, measure, code, name, detail, members)
-                SELECT :monthId, :firstDay, r.workplace_key, 'RECRUITED_BY', r.code, r.name, r.detail, COUNT(*)
-                FROM (
-                  SELECT COALESCE(m.workplace_id, 0) AS workplace_key, m.recruiter_id AS code, rc.name AS name,
-                    ch.name AS detail
-                  FROM members m
-                  LEFT JOIN recruiters rc ON rc.id = m.recruiter_id
-                  LEFT JOIN recruitment_channel ch ON ch.id = m.recruitment_channel_id
-                  WHERE m.join_date >= :firstDay AND m.join_date < :firstDayOfNext
-                ) r
-                GROUP BY r.workplace_key, r.code, r.name, r.detail
-                """, arguments(month, List.of()).addValue("monthId", monthId));
+        return insertCounts(monthId, month, MonthEndCount.Measure.RECRUITED_BY);
     }
 
     /** The members whose status at the month's end nobody knows (rule X), by the status as stored -- one statement. */
     public int insertUnknownStatuses(long monthId, MonthRange month) {
+        return insertCounts(monthId, month, MonthEndCount.Measure.UNKNOWN_STATUS);
+    }
+
+    private int insertCounts(long monthId, MonthRange month, MonthEndCount.Measure measure) {
         return jdbc.update("""
                 INSERT INTO month_end_counts (month_id, month_start, workplace_key, measure, code, name, detail, members)
-                SELECT :monthId, :firstDay, u.workplace_key, 'UNKNOWN_STATUS', CAST(NULL AS INTEGER), u.name,
-                  CAST(NULL AS VARCHAR(255)), COUNT(*)
-                FROM (
-                  SELECT COALESCE(k.workplace_id, 0) AS workplace_key, k.end_status AS name
-                  FROM (%s) k
-                  WHERE k.end_status IS NOT NULL AND k.end_kind IS NULL
-                ) u
-                GROUP BY u.workplace_key, u.name
-                """.formatted(kinds()), arguments(month, List.of()).addValue("monthId", monthId));
+                SELECT :monthId, :firstDay, x.workplace_key, x.measure, x.code, x.name, x.detail, x.members
+                FROM (""" + countsStatement(measure) + ") x", arguments(month, List.of()).addValue("monthId", monthId));
+    }
+
+    /**
+     * A count at its own grain, for one month -- the columns {@code workplace_key, measure, code, name, detail,
+     * members}, one row a workplace and a value:
+     * <ul>
+     *   <li>{@code LEFT_BY_CODE}: the month's changes INTO a leaving status (rule L), by SASBO's number -- the code's
+     *       own, or the one it is a reason under -- with the reason under it as the detail. A leaver with no code
+     *       (ACB's {@code SUBS_IN_ARREARS}) is counted under the reason as stored;</li>
+     *   <li>{@code SUSPENDED_BY_CODE}: the suspended at the month's end, by the code of the last change into a
+     *       suspended status before it ended. Suspended with no change on record (captured so): no code;</li>
+     *   <li>{@code RECRUITED_BY}: a Date Joined in the month, whatever the status now (rule N), by recruiter and
+     *       channel;</li>
+     *   <li>{@code UNKNOWN_STATUS}: a status at the month's end nobody knows (rule X), as stored.</li>
+     * </ul>
+     * 🔴 Every text is CAST: H2 builds {@code member_status_changes.reason} from the entity as an ENUM, and a
+     * {@code CASE} that mixes it with a code's name took the ENUM's type and refused the name (run 36627331294).
+     */
+    static String countsStatement(MonthEndCount.Measure measure) {
+        String toKind = MemberSummaryRepository.kind("c.to_status");
+        String fromKind = MemberSummaryRepository.kind("c.from_status");
+        return switch (measure) {
+            case LEFT_BY_CODE -> """
+                    SELECT l.workplace_key AS workplace_key, CAST('LEFT_BY_CODE' AS VARCHAR(20)) AS measure,
+                      l.code AS code, l.name AS name, l.detail AS detail, COUNT(*) AS members
+                    FROM (
+                      SELECT COALESCE(m.workplace_id, 0) AS workplace_key,
+                        COALESCE(p.sasbo_code, d.sasbo_code) AS code,
+                        CASE WHEN d.id IS NULL THEN CAST(c.reason AS VARCHAR(255))
+                             ELSE CAST(COALESCE(p.name, d.name) AS VARCHAR(255)) END AS name,
+                        CASE WHEN p.id IS NOT NULL THEN CAST(d.name AS VARCHAR(255)) END AS detail
+                      FROM member_status_changes c
+                      JOIN members m ON m.id = c.member_id
+                      LEFT JOIN deletion_codes d ON d.id = c.deletion_code_id
+                      LEFT JOIN deletion_codes p ON p.id = d.parent_id
+                      WHERE c.changed_at >= :start AND c.changed_at < :next
+                        AND %1$s = 'L' AND COALESCE(%2$s, '?') <> 'L'
+                    ) l
+                    GROUP BY l.workplace_key, l.code, l.name, l.detail
+                    """.formatted(toKind, fromKind);
+            case SUSPENDED_BY_CODE -> """
+                    SELECT s.workplace_key AS workplace_key, CAST('SUSPENDED_BY_CODE' AS VARCHAR(20)) AS measure,
+                      s.code AS code, s.name AS name, CAST(NULL AS VARCHAR(255)) AS detail, COUNT(*) AS members
+                    FROM (
+                      SELECT COALESCE(k.workplace_id, 0) AS workplace_key, sc.code AS code,
+                        CASE WHEN sc.id IS NOT NULL THEN CAST(sc.name AS VARCHAR(255))
+                             ELSE CAST(last_in.reason AS VARCHAR(255)) END AS name
+                      FROM (%1$s) k
+                      LEFT JOIN (
+                        SELECT c.member_id, c.suspension_code_id, c.reason FROM member_status_changes c
+                        WHERE c.changed_at < :next AND %2$s = 'S'
+                          AND NOT EXISTS (SELECT 1 FROM member_status_changes y WHERE y.member_id = c.member_id
+                            AND y.changed_at < :next AND %3$s = 'S'
+                            AND (y.changed_at > c.changed_at OR (y.changed_at = c.changed_at AND y.id > c.id)))
+                      ) last_in ON last_in.member_id = k.member_id
+                      LEFT JOIN suspension_codes sc ON sc.id = last_in.suspension_code_id
+                      WHERE k.end_kind = 'S'
+                    ) s
+                    GROUP BY s.workplace_key, s.code, s.name
+                    """.formatted(kinds(), toKind, MemberSummaryRepository.kind("y.to_status"));
+            case RECRUITED_BY -> """
+                    SELECT r.workplace_key AS workplace_key, CAST('RECRUITED_BY' AS VARCHAR(20)) AS measure,
+                      r.code AS code, r.name AS name, r.detail AS detail, COUNT(*) AS members
+                    FROM (
+                      SELECT COALESCE(m.workplace_id, 0) AS workplace_key, m.recruiter_id AS code,
+                        CAST(rc.name AS VARCHAR(255)) AS name, CAST(ch.name AS VARCHAR(255)) AS detail
+                      FROM members m
+                      LEFT JOIN recruiters rc ON rc.id = m.recruiter_id
+                      LEFT JOIN recruitment_channel ch ON ch.id = m.recruitment_channel_id
+                      WHERE m.join_date >= :firstDay AND m.join_date < :firstDayOfNext
+                    ) r
+                    GROUP BY r.workplace_key, r.code, r.name, r.detail
+                    """;
+            case UNKNOWN_STATUS -> """
+                    SELECT u.workplace_key AS workplace_key, CAST('UNKNOWN_STATUS' AS VARCHAR(20)) AS measure,
+                      CAST(NULL AS INTEGER) AS code, u.name AS name, CAST(NULL AS VARCHAR(255)) AS detail,
+                      COUNT(*) AS members
+                    FROM (
+                      SELECT COALESCE(k.workplace_id, 0) AS workplace_key, CAST(k.end_status AS VARCHAR(255)) AS name
+                      FROM (%s) k
+                      WHERE k.end_status IS NOT NULL AND k.end_kind IS NULL
+                    ) u
+                    GROUP BY u.workplace_key, u.name
+                    """.formatted(kinds());
+        };
+    }
+
+    // ------------------------------------------------------------------------------------------------ the open month
+
+    /**
+     * The open month's rows, worked out now by the very statement a take freezes -- so a statistic of the open month
+     * and the same statistic of the month once taken are read the same way (MD19). Bounded like every figure query.
+     */
+    public List<Fact> liveFacts(MonthRange month, Collection<String> seeded) {
+        return bounded.query("SELECT f.* FROM (" + factsStatement() + ") f ORDER BY f.workplace_key",
+                arguments(month, seeded), MonthEndFactsRepository::fact);
+    }
+
+    /** The open month's counts, every grain, in one statement. */
+    public List<Count> liveCounts(MonthRange month) {
+        String all = String.join(" UNION ALL ", countsStatement(MonthEndCount.Measure.LEFT_BY_CODE),
+                countsStatement(MonthEndCount.Measure.SUSPENDED_BY_CODE),
+                countsStatement(MonthEndCount.Measure.RECRUITED_BY),
+                countsStatement(MonthEndCount.Measure.UNKNOWN_STATUS));
+        return bounded.query("SELECT x.* FROM (" + all + ") x ORDER BY x.workplace_key, x.measure",
+                arguments(month, List.of()), MonthEndFactsRepository::count);
+    }
+
+    // ------------------------------------------------------------------------------------------------ the year to date
+
+    /**
+     * The movement of a year's taken months from {@code yearStart} up to, not including, {@code until}: joined and
+     * left, summed by the lineage each month stood in -- the year to date is the sum of the taken months (rule Y), and
+     * a month is read as it was taken (MV-30).
+     */
+    public record YearMovement(boolean noWorkplace, String areaLetter, String regionCode, String regionName,
+                               Boolean groupCore, Integer tableCode, String tableCodeName, long joined, long left) {
+    }
+
+    /** {@link YearMovement}'s rows, in one statement. */
+    public List<YearMovement> yearMovement(LocalDate yearStart, LocalDate until) {
+        return bounded.query("""
+                SELECT CASE WHEN f.workplace_key = 0 THEN 1 ELSE 0 END AS no_workplace, f.area_letter, f.region_code,
+                  f.region_name, f.group_core, f.table_code, f.table_code_name, SUM(f.joined) AS joined,
+                  SUM(f.left_count) AS left_count
+                FROM month_end_workplaces f
+                JOIN month_end_months mm ON mm.id = f.month_id AND mm.replaces_id IS NULL
+                WHERE f.month_start >= :yearStart AND f.month_start < :until
+                GROUP BY CASE WHEN f.workplace_key = 0 THEN 1 ELSE 0 END, f.area_letter, f.region_code, f.region_name,
+                  f.group_core, f.table_code, f.table_code_name
+                """, new MapSqlParameterSource("yearStart", yearStart).addValue("until", until), (rs, n) ->
+                new YearMovement(rs.getInt("no_workplace") == 1, rs.getString("area_letter"), rs.getString("region_code"),
+                        rs.getString("region_name"), orNull(rs, rs.getBoolean("group_core")), orNull(rs, rs.getInt("table_code")),
+                        rs.getString("table_code_name"), rs.getLong("joined"), rs.getLong("left_count")));
+    }
+
+    /** The recruits of a year's taken months before {@code until}, by recruiter and channel and the lineage they stood in. */
+    public record YearRecruits(Integer code, String name, String detail, boolean noWorkplace, String areaLetter,
+                               String regionCode, Boolean groupCore, Integer tableCode, String tableCodeName,
+                               long members) {
+    }
+
+    /** {@link YearRecruits}' rows, in one statement. */
+    public List<YearRecruits> yearRecruits(LocalDate yearStart, LocalDate until) {
+        return bounded.query("""
+                SELECT c.code, c.name, c.detail, CASE WHEN c.workplace_key = 0 THEN 1 ELSE 0 END AS no_workplace,
+                  f.area_letter, f.region_code, f.group_core, f.table_code, f.table_code_name, SUM(c.members) AS members
+                FROM month_end_counts c
+                JOIN month_end_months mm ON mm.id = c.month_id AND mm.replaces_id IS NULL
+                LEFT JOIN month_end_workplaces f ON f.month_id = c.month_id AND f.workplace_key = c.workplace_key
+                WHERE c.measure = 'RECRUITED_BY' AND c.month_start >= :yearStart AND c.month_start < :until
+                GROUP BY c.code, c.name, c.detail, CASE WHEN c.workplace_key = 0 THEN 1 ELSE 0 END, f.area_letter,
+                  f.region_code, f.group_core, f.table_code, f.table_code_name
+                """, new MapSqlParameterSource("yearStart", yearStart).addValue("until", until), (rs, n) ->
+                new YearRecruits(orNull(rs, rs.getInt("code")), rs.getString("name"), rs.getString("detail"),
+                        rs.getInt("no_workplace") == 1, rs.getString("area_letter"), rs.getString("region_code"),
+                        orNull(rs, rs.getBoolean("group_core")), orNull(rs, rs.getInt("table_code")),
+                        rs.getString("table_code_name"), rs.getLong("members")));
+    }
+
+    /** How many members were captured with a Date Joined in the month -- as the records stand now. */
+    public long joinedNow(MonthRange month) {
+        Long n = bounded.queryForObject("SELECT COUNT(*) FROM members WHERE join_date >= :firstDay "
+                + "AND join_date < :firstDayOfNext", arguments(month, List.of()), Long.class);
+        return n == null ? 0 : n;
+    }
+
+    /** Whether an area letter is on record. */
+    public boolean areaOnRecord(String letter) {
+        Long n = bounded.queryForObject("SELECT COUNT(*) FROM sasbo_areas WHERE letter = :letter",
+                new MapSqlParameterSource("letter", letter), Long.class);
+        return n != null && n > 0;
+    }
+
+    /** Whether a region code is on record. */
+    public boolean regionOnRecord(String code) {
+        Long n = bounded.queryForObject("SELECT COUNT(*) FROM sasbo_regions WHERE code = :code",
+                new MapSqlParameterSource("code", code), Long.class);
+        return n != null && n > 0;
     }
 
     // ------------------------------------------------------------------------------------------------ reads
@@ -234,7 +356,7 @@ public class MonthEndFactsRepository {
 
     /** A taken month's rows, by the workplace. */
     public List<Fact> facts(long monthId) {
-        return jdbc.query("""
+        return bounded.query("""
                 SELECT workplace_key, workplace_id, ra_number, table_code, table_code_name, employer_ordinal,
                   employer_name, group_name, group_ordinal, group_core, area_letter, region_code, region_name,
                   committee_code, committee_name, complement, on_record, suspended, paying, opening, joined, left_count,
@@ -246,7 +368,7 @@ public class MonthEndFactsRepository {
 
     /** A taken month's counts. */
     public List<Count> counts(long monthId) {
-        return jdbc.query("""
+        return bounded.query("""
                 SELECT workplace_key, measure, code, name, detail, members FROM month_end_counts
                 WHERE month_id = :monthId ORDER BY workplace_key, measure, code, name, detail
                 """, new MapSqlParameterSource("monthId", monthId), MonthEndFactsRepository::count);

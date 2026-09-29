@@ -41,7 +41,9 @@ class MonthEndRoutesTest {
     /** The arc's routes that refuse every caller until sign-in exists (MD4), each named by the unit that adds it. */
     static final Set<String> REFUSING = Set.of(
             // 04.2: taking a month freezes its figures for good (MD4); proved refusing by MonthEndControllerTest.
-            "POST /api/month-end/{month}/take");
+            "POST /api/month-end/{month}/take",
+            // 04.3, 04.7, 04.8: a listing names members; proved refusing by MonthEndStatisticsControllerSecurityTest.
+            "GET /api/month-end/{month}/listings/{listing}");
 
     @Autowired
     @Qualifier("requestMappingHandlerMapping")

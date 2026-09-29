@@ -59,7 +59,7 @@ class MigrationChainContentTest {
     }
 
     @Test
-    @DisplayName("the chain builds 48 tables")
+    @DisplayName("the chain builds the pinned number of tables -- the pin's comment names what each migration added")
     void tableCount() {
         // 24 until V40, which adds members_money_migration_report -- the record of
         // every money value it could not convert verbatim. A migration that adds a

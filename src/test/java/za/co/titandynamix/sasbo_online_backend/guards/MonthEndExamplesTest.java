@@ -144,6 +144,11 @@ class MonthEndExamplesTest {
         // that month's record.
         routes.add(new Example("GET", "/api/month-end/months", null));
         routes.add(new Example("GET", "/api/month-end/" + TAKEN, null));
+        // 04.3 to 04.8: each statistic of the invented August, read from what was frozen.
+        for (String statistic : List.of("new-and-deleted", "membership", "leavers", "branches", "recruitment",
+                "representatives")) {
+            routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/" + statistic, null));
+        }
         return routes;
     }
 
