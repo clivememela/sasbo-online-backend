@@ -158,7 +158,7 @@ public class MemberStatusServiceImpl implements MemberStatusService {
         return codes.suspensionCode(number).map(SasboReferenceRepository.Code::id)
                 .orElseThrow(() -> new MonthEndRefusal(MonthEndRefusalCode.SUSPENSION_CODE_UNKNOWN,
                         "That reason for suspending is not on the list. Choose another.",
-                        Map.of("suspensionCode", String.valueOf(number), "known",
+                        MonthEndRefusal.details("suspensionCode", String.valueOf(number), "known",
                                 codes.suspensionCodeNumbers().stream().map(String::valueOf)
                                         .collect(Collectors.joining(",")))));
     }
