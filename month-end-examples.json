@@ -477,6 +477,44 @@
         "leaversFrom" : null
       }
     },
+    "GET /api/members/{id}/history" : {
+      "request" : "GET /api/members/{id}/history",
+      "status" : 200,
+      "body" : {
+        "content" : [
+          {
+            "kind" : "FIELD",
+            "id" : 2,
+            "changedAt" : "2026-09-10T08:00:00Z",
+            "changedBy" : "system",
+            "what" : "cellTel",
+            "from" : "+27 60 555 0001",
+            "to" : "+27 60 555 0002",
+            "reason" : null,
+            "code" : null,
+            "saveId" : "invented-save-2",
+            "note" : null
+          },
+          {
+            "kind" : "FIELD",
+            "id" : 1,
+            "changedAt" : "2026-09-01T08:00:00Z",
+            "changedBy" : "system",
+            "what" : "captured",
+            "from" : null,
+            "to" : "M-900001",
+            "reason" : null,
+            "code" : null,
+            "saveId" : "invented-save-1",
+            "note" : null
+          }
+        ],
+        "page" : 0,
+        "size" : 50,
+        "totalElements" : 2,
+        "totalPages" : 1
+      }
+    },
     "POST /api/members/{id}/status" : {
       "request" : "POST /api/members/{id}/status",
       "requestBody" : {
@@ -629,6 +667,23 @@
         "message" : "The figures are taking too long to work out just now. Nothing is wrong with the members' records. Try again in a moment.",
         "path" : "/api/members/summary",
         "code" : "SUMMARY_UNAVAILABLE"
+      }
+    },
+    "HISTORY_PAGE_INVALID" : {
+      "request" : "GET /api/members/{id}/history?page=99",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That page of the history does not exist.",
+        "path" : "/api/members/{id}/history",
+        "code" : "HISTORY_PAGE_INVALID",
+        "details" : {
+          "page" : "99",
+          "size" : "50",
+          "maxSize" : "200"
+        }
       }
     },
     "MEMBER_NOT_FOUND" : {

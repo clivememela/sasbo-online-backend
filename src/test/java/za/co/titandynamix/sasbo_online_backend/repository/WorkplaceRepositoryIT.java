@@ -4,13 +4,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceDto;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplacePageDto;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractSwitchedOnIT;
 import za.co.titandynamix.sasbo_online_backend.utils.ReferenceListSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.WorkplaceSeeder;
 
@@ -27,9 +26,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * the server in its own order, every filter, a page that does not exist refused, and a search that is literal --
  * the collation, the {@code LIKE} and its escape are the database's, so this is where they are proved.
  */
-@TestPropertySource(properties = "sasbo.workplaces=all")
 @DisplayName("SASBO's workplaces on PostgreSQL")
-class WorkplaceRepositoryIT extends AbstractWritingIT {
+class WorkplaceRepositoryIT extends AbstractSwitchedOnIT {
 
     @Autowired
     private WorkplaceRepository repository;

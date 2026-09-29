@@ -53,6 +53,7 @@ GET /api/members/userRoles
 GET /api/members/{id}
 PUT /api/members/{id}
 PATCH /api/members/{id}/banking
+GET /api/members/{id}/history
 POST /api/members/{id}/send-welcome
 POST /api/members/{id}/status
 PATCH /api/members/{id}/subscription

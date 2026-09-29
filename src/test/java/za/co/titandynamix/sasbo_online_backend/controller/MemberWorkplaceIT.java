@@ -4,16 +4,14 @@ import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractSwitchedOnIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 import za.co.titandynamix.sasbo_online_backend.support.QueryCount;
 
@@ -34,10 +32,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * held at 5 members and at 50, each at a workplace of its own (MR-PERF-9); V56's key and index by name (MR-ROB-21).
  * Every workplace here is invented (MD57).
  */
-@AutoConfigureMockMvc
-@TestPropertySource(properties = "sasbo.workplaces=all")
 @DisplayName("A member's workplace, on PostgreSQL")
-class MemberWorkplaceIT extends AbstractWritingIT {
+class MemberWorkplaceIT extends AbstractSwitchedOnIT {
 
     @Autowired
     private MockMvc mockMvc;

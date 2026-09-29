@@ -10,6 +10,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberHistoryRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
@@ -36,6 +37,9 @@ class MemberHistoryIT extends AbstractWritingIT {
 
     @Autowired
     private MemberHistoryService history;
+
+    @Autowired
+    private MemberHistoryRepository historyStatement;
 
     @Autowired
     private PlatformTransactionManager transactions;
@@ -123,6 +127,25 @@ class MemberHistoryIT extends AbstractWritingIT {
         DatabaseReset.reset(jdbc);
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM member_changes", Long.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("MemberHistoryRepository's one statement on PostgreSQL: SASBO's code by its number, and the total beside the page")
+    void theStatementOnPostgres() {
+        Member captured = members.create(MemberFixture.aMember());
+        jdbc.update("INSERT INTO deletion_codes (sasbo_code, name) VALUES (2, 'Resigned Society')");
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at, "
+                + "deletion_code_id) SELECT ?, 'Active', 'Resigned', 'DELETION_CODE', 'system', now() + interval '1 hour', "
+                + "id FROM deletion_codes WHERE sasbo_code = 2", captured.getId());
+
+        MemberHistoryRepository.Slice slice = historyStatement.page(captured.getId(), 0, 1);
+
+        assertThat(slice.total()).as("the total counts every entry, not the page").isEqualTo(2);
+        assertThat(slice.entries()).singleElement().satisfies(entry -> {
+            assertThat(entry.kind()).isEqualTo("STATUS");
+            assertThat(entry.code()).as("SASBO's number, never the table's id (RC7)").isEqualTo(2);
+            assertThat(entry.reason()).isEqualTo("DELETION_CODE");
+        });
     }
 
     @Test

@@ -139,6 +139,7 @@
       {"code": "SUMMARY_MONTH_INVALID", "status": 400},
       {"code": "SUMMARY_MONTH_IN_FUTURE", "status": 400},
       {"code": "SUMMARY_UNAVAILABLE", "status": 503},
+      {"code": "HISTORY_PAGE_INVALID", "status": 400},
       {"code": "MEMBER_NOT_FOUND", "status": 404},
       {"code": "STATUS_UNKNOWN", "status": 400},
       {"code": "STATUS_REASON_REQUIRED", "status": 400},

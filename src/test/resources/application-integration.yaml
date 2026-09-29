@@ -23,6 +23,13 @@ spring:
       # Bounded, so a container that never becomes reachable fails the test in
       # seconds with a clear message instead of hanging the build.
       connection-timeout: 10000
+      # Two connections open a context, not Hikari's default of ten. Every test
+      # context the lane caches keeps its pool against the ONE container, which
+      # takes a hundred clients: at ten a context, a dozen contexts is the lot,
+      # and whichever class asked last was refused -- "FATAL: sorry, too many
+      # clients already" -- on the order the classes happened to run in (month
+      # end 03.5, run 36617779535). A pool still grows to ten under load.
+      minimum-idle: 2
 
 logging:
   level:

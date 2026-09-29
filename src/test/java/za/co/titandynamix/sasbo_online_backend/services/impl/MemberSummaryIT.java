@@ -6,14 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusKind;
 import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
@@ -21,12 +15,11 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberSummaryService;
-import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractSwitchedOnIT;
 import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -43,19 +36,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * vocabulary's leaving statuses (MD66); and a figure query that outlives its timeout answered
  * {@code SUMMARY_UNAVAILABLE}, proved with a statement made to wait on a lock and never with a sleep (MV-25).
  */
-@TestPropertySource(properties = "sasbo.workplaces=all")
-@Import(MemberSummaryIT.AtTheFixturesClock.class)
 @DisplayName("The figures of a month, on PostgreSQL")
-class MemberSummaryIT extends AbstractWritingIT {
-
-    @TestConfiguration
-    static class AtTheFixturesClock {
-        @Bean
-        @Primary
-        Clock theFixturesClock() {
-            return Clock.fixed(SummaryFixture.NOW, AcbTime.ZONE);
-        }
-    }
+class MemberSummaryIT extends AbstractSwitchedOnIT {
 
     @Autowired
     private MemberRepository members;
