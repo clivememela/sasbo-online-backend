@@ -8,10 +8,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.web.bind.annotation.*;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberDto;
 import za.co.titandynamix.sasbo_online_backend.dto.member.PaymentTypeMetadataDto;
 import za.co.titandynamix.sasbo_online_backend.dto.member.SubscriptionUpdateRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.member.WelcomeLetterMetadataDto;
 import za.co.titandynamix.sasbo_online_backend.dto.representative.RepresentativeRoleDto;
 import za.co.titandynamix.sasbo_online_backend.dto.representative.UnionStructureDto;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
@@ -20,6 +22,7 @@ import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.services.EmailService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
+import za.co.titandynamix.sasbo_online_backend.services.impl.WelcomeLetterDispatcher;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,6 +35,8 @@ public class MemberController {
     private final MemberService memberService;
     private final MemberMapper memberMapper;
     private final RepresentativeService representativeService;
+    private final WelcomeLetterDispatcher welcomeLetters;
+    private final TransactionOperations transactions;
     @Autowired(required = false)
     private EmailService emailService;
 
@@ -50,15 +55,36 @@ public class MemberController {
                        .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Captures a member, and -- when asked -- then attempts their welcome letter.
+     *
+     * <p>🔴 A64: THE LETTER IS NO LONGER PART OF THE CAPTURE. This answered 503 before saving wherever
+     * mail was not configured, and sent inside the capture's own {@code @Transactional}, so a failed
+     * send rolled the member back. The capture now runs in its own transaction and COMMITS; only then
+     * is the letter attempted, and what happened to it comes back as {@code welcomeLetter} beside the
+     * saved member. Nothing about a letter can refuse or undo a capture any more.
+     *
+     * <p>The transaction is programmatic rather than {@code @Transactional} because its boundary must
+     * end INSIDE this method: the member is mapped while its lazy associations can still load
+     * ({@code open-in-view} is off), and the letter goes out after the commit.
+     */
     @PostMapping
-    @Transactional
     public ResponseEntity<MemberDto> create(
             @RequestBody Member member,
             @RequestParam(name = "sendWelcome", required = false, defaultValue = "false") boolean sendWelcome) {
-        if (sendWelcome && this.emailService == null) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
-        }
+        Captured captured = this.transactions.execute(status -> capture(member));
 
+        if (sendWelcome) {
+            captured.body().setWelcomeLetter(this.welcomeLetters.sendAfterCapture(captured.member()));
+        }
+        return ResponseEntity.ok(captured.body());
+    }
+
+    /** The saved member, and the answer mapped from it while its transaction was still open. */
+    private record Captured(Member member, MemberDto body) {
+    }
+
+    private Captured capture(Member member) {
         // The user-id scrub that stood here is gone because it is now unreachable:
         // Member.user is @JsonProperty(access = READ_ONLY), so Jackson -- the only
         // thing that constructs this parameter -- never populates it. Leaving it
@@ -85,12 +111,7 @@ public class MemberController {
         }
 
         Member savedMember = this.memberService.create(member);
-
-        if (sendWelcome) {
-            this.emailService.sendWelcomeLetter(savedMember);
-        }
-
-        return ResponseEntity.ok(this.memberMapper.toDto(savedMember));
+        return new Captured(savedMember, this.memberMapper.toDto(savedMember));
     }
 
     @GetMapping("/userRoles")
@@ -184,6 +205,16 @@ public class MemberController {
                            return ResponseEntity.ok().headers(headers).body(preview);
                        })
                        .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Whether a capture's welcome letter is emailed here (A64). The capture screen reads it to say so
+     * BEFORE Send is pressed: where mail is not configured the member is still saved, and the clerk
+     * must not be told that a letter is on its way.
+     */
+    @GetMapping("/metadata/welcome-letter")
+    public WelcomeLetterMetadataDto getWelcomeLetterMetadata() {
+        return new WelcomeLetterMetadataDto(this.welcomeLetters.emailEnabled());
     }
 
     @GetMapping("/metadata/payment-types")

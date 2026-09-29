@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -24,6 +25,8 @@ import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureReposito
 import za.co.titandynamix.sasbo_online_backend.services.EmailService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
+import za.co.titandynamix.sasbo_online_backend.services.impl.WelcomeLetterDispatcher;
+import za.co.titandynamix.sasbo_online_backend.support.NoTransactions;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,7 +67,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * </ul>
  */
 @WebMvcTest(MemberController.class)
-@Import({GlobalExceptionHandler.class, JacksonConfig.class, MemberMapperImpl.class})
+@Import({GlobalExceptionHandler.class, JacksonConfig.class, MemberMapperImpl.class,
+        WelcomeLetterDispatcher.class, NoTransactions.class})
 @AutoConfigureMockMvc(addFilters = false)
 // The @Nested blocks below name the outer fields bare -- mockMvc, not
 // this.mockMvc. Inside a nested class `this` is the INNER instance, so the
@@ -282,33 +287,92 @@ class MemberControllerTest {
         }
 
         @Test
-        @DisplayName("when sendWelcome is requested, triggers emailService and succeeds")
+        @DisplayName("when sendWelcome is requested, the member is saved FIRST, then sent the letter, and the answer says SENT")
         void sendsWelcomeLetterWhenRequested() throws Exception {
-            Member created = member(3, "Botha");
+            Member created = withAddress(member(3, "Botha"));
             when(memberService.create(any(Member.class))).thenReturn(created);
 
             mockMvc.perform(post("/api/members?sendWelcome=true")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"surname\":\"Botha\"}"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(3));
+                    .andExpect(jsonPath("$.id").value(3))
+                    .andExpect(jsonPath("$.welcomeLetter").value("SENT"));
 
-            verify(emailService).sendWelcomeLetter(created);
+            // The order is the fix (A64): a letter only ever goes to a member who is already saved.
+            InOrder sequence = inOrder(memberService, emailService);
+            sequence.verify(memberService).create(any(Member.class));
+            sequence.verify(emailService).sendWelcomeLetter(created);
         }
 
         @Test
-        @DisplayName("when sendWelcome fails, error response is returned")
-        void failsWhenSendWelcomeFails() throws Exception {
-            Member created = member(3, "Botha");
+        @DisplayName("🔴 A64: when the letter fails, the capture still answers 200 with the saved member, and says FAILED")
+        void aFailedSendStillAnswersWithTheSavedMember() throws Exception {
+            // This answered with the send's error, and the capture's transaction had rolled the
+            // member back underneath it. The member is saved; only the letter failed.
+            Member created = withAddress(member(3, "Botha"));
             when(memberService.create(any(Member.class))).thenReturn(created);
-            doThrow(new IllegalArgumentException("No email address is available for this member."))
+            doThrow(new RuntimeException("Failed to send welcome letter to thandi.botha@example.invalid: 535"))
                     .when(emailService).sendWelcomeLetter(created);
 
             mockMvc.perform(post("/api/members?sendWelcome=true")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"surname\":\"Botha\"}"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("No email address is available for this member."));
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(3))
+                    .andExpect(jsonPath("$.welcomeLetter").value("FAILED"))
+                    // B8: the failure's text names the recipient; the answer carries none of it.
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain("Failed to send"));
+        }
+
+        @Test
+        @DisplayName("🔴 A64: a member with no email address is saved, no letter is attempted, and the answer says NO_ADDRESS")
+        void aMemberWithNoAddressIsSavedWithoutAnAttempt() throws Exception {
+            when(memberService.create(any(Member.class))).thenReturn(member(3, "Botha"));
+
+            mockMvc.perform(post("/api/members?sendWelcome=true")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(3))
+                    .andExpect(jsonPath("$.welcomeLetter").value("NO_ADDRESS"));
+
+            verify(emailService, never()).sendWelcomeLetter(any());
+        }
+
+        @Test
+        @DisplayName("a capture that did not ask for the letter sends none, and its answer carries no welcomeLetter key")
+        void noLetterWasAskedFor() throws Exception {
+            // The must-pass half of the three above: the key is there because a letter was asked for.
+            when(memberService.create(any(Member.class))).thenReturn(withAddress(member(3, "Botha")));
+
+            mockMvc.perform(post("/api/members")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"surname\":\"Botha\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.welcomeLetter").doesNotExist());
+
+            verify(emailService, never()).sendWelcomeLetter(any());
+        }
+    }
+
+    /** A member the letter can reach -- the {@link #member} helper carries no address. */
+    private static Member withAddress(Member member) {
+        member.setPersonalEmail("thandi.botha@example.invalid");
+        return member;
+    }
+
+    @Nested
+    @DisplayName("GET /api/members/metadata/welcome-letter")
+    class WelcomeLetterMetadata {
+
+        @Test
+        @DisplayName("says the letter is emailed, where mail is configured")
+        void saysEmailIsOn() throws Exception {
+            mockMvc.perform(get("/api/members/metadata/welcome-letter"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.emailEnabled").value(true));
         }
     }
 

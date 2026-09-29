@@ -25,7 +25,9 @@ import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureReposito
 import za.co.titandynamix.sasbo_online_backend.services.EmailService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
+import za.co.titandynamix.sasbo_online_backend.services.impl.WelcomeLetterDispatcher;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
+import za.co.titandynamix.sasbo_online_backend.support.NoTransactions;
 
 import java.util.stream.Stream;
 
@@ -60,6 +62,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(MemberController.class)
 @Import({GlobalExceptionHandler.class, JacksonConfig.class, MemberMapperImpl.class,
+        WelcomeLetterDispatcher.class, NoTransactions.class,
         MalformedRequestDefectsTest.RequiredParameterProbe.class})
 @AutoConfigureMockMvc(addFilters = false)
 @DisplayName("A request the API cannot read (A63)")
