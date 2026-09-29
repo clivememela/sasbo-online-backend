@@ -205,6 +205,28 @@
         ]
       }
     },
+    "GET /api/reference/deletion-codes" : {
+      "request" : "GET /api/reference/deletion-codes",
+      "status" : 200,
+      "body" : {
+        "list" : "deletionCodes",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "code" : 2,
+            "name" : "Resigned Society",
+            "under" : null
+          },
+          {
+            "code" : 5,
+            "name" : "Subscription in Arrears",
+            "under" : null
+          }
+        ]
+      }
+    },
     "GET /api/reference/status" : {
       "request" : "GET /api/reference/status",
       "status" : 200,

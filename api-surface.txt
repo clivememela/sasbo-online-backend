@@ -67,6 +67,7 @@ PUT /api/recruitment-channels/{id}
 GET /api/reference/areas
 GET /api/reference/committee-provinces
 GET /api/reference/committees
+GET /api/reference/deletion-codes
 GET /api/reference/employer-groups
 GET /api/reference/employers
 GET /api/reference/regions
