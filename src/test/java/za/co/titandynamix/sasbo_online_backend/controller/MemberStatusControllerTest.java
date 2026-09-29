@@ -1,5 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -10,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusAnswer;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusRequest;
@@ -70,11 +73,14 @@ class MemberStatusControllerTest {
     @Test
     @DisplayName("ME-11: a member's id that is a word, a body that is not JSON, a code that is a word -- REQUEST_MALFORMED, the field named")
     void aRequestItCannotRead() throws Exception {
-        mockMvc.perform(post("/api/members/PLANTEDWORD/status").contentType(MediaType.APPLICATION_JSON).content("{}"))
+        MvcResult aWordForAnId = mockMvc.perform(post("/api/members/PLANTEDWORD/status")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
                 .andExpect(jsonPath("$.details.field").value("id"))
-                .andExpect(content().string(not(containsString("PLANTEDWORD"))));
+                .andReturn();
+        // The envelope's path is the address the caller sent, as on every route; nothing else gives the word back.
+        assertThat(withoutThePath(aWordForAnId)).doesNotContain("PLANTEDWORD");
         mockMvc.perform(post("/api/members/7/status").contentType(MediaType.APPLICATION_JSON).content("{\"toStatus\": "))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"));
@@ -83,5 +89,11 @@ class MemberStatusControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details.field").value("deletionCode"))
                 .andExpect(content().string(not(containsString("PLANTEDCODE"))));
+    }
+
+    private static String withoutThePath(MvcResult result) throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(result.getResponse().getContentAsString());
+        body.remove("path");
+        return body.toString();
     }
 }

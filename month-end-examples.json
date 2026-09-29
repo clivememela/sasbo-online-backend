@@ -1,6 +1,6 @@
 {
   "_generated" : "./gradlew generateApiSurface -- do not edit by hand",
-  "_holds" : "invented lists and invented workplaces only -- nothing of SASBO's (MD57)",
+  "_holds" : "invented lists, invented workplaces and an invented member only -- nothing of SASBO's (MD57)",
   "answers" : {
     "GET /api/reference/regions" : {
       "request" : "GET /api/reference/regions",
@@ -284,11 +284,11 @@
           },
           {
             "list" : "deletionCodes",
-            "rows" : 0,
+            "rows" : 2,
             "printedOn" : "2026-08-31",
             "confirmedOn" : null,
             "seededAt" : "2026-09-29T08:00:00Z",
-            "reason" : "EMPTY",
+            "reason" : null,
             "failure" : null
           }
         ],
@@ -350,6 +350,35 @@
         "totalPages" : 2,
         "reason" : null
       }
+    },
+    "POST /api/members/{id}/status" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Resigned",
+        "expectedStatus" : "Active",
+        "reason" : "DELETION_CODE",
+        "deletionCode" : 2,
+        "note" : "Invented: moved away"
+      },
+      "status" : 200,
+      "body" : {
+        "memberId" : 1,
+        "membershipNumber" : "M-900001",
+        "status" : "Resigned",
+        "change" : {
+          "id" : 1,
+          "fromStatus" : "Active",
+          "toStatus" : "Resigned",
+          "reason" : "DELETION_CODE",
+          "deletionCode" : 2,
+          "deletionReason" : "Resigned Society",
+          "suspensionCode" : null,
+          "suspensionReason" : null,
+          "note" : "Invented: moved away",
+          "changedBy" : "system",
+          "changedAt" : "2026-09-29T08:00:00Z"
+        }
+      }
     }
   },
   "refusals" : {
@@ -382,6 +411,149 @@
           "page" : "9",
           "size" : "2",
           "maxSize" : "200"
+        }
+      }
+    },
+    "MEMBER_NOT_FOUND" : {
+      "request" : "POST /api/members/999999/status",
+      "requestBody" : {
+        "toStatus" : "Resigned",
+        "reason" : "DELETION_CODE",
+        "deletionCode" : 2
+      },
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "That member is no longer on record.",
+        "path" : "/api/members/{id}/status",
+        "code" : "MEMBER_NOT_FOUND",
+        "details" : {
+          "memberId" : "999999"
+        }
+      }
+    },
+    "STATUS_UNKNOWN" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Gone",
+        "reason" : "DELETION_CODE",
+        "deletionCode" : 2
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "\"Gone\" is not a membership status.",
+        "path" : "/api/members/{id}/status",
+        "code" : "STATUS_UNKNOWN",
+        "details" : {
+          "toStatus" : "Gone",
+          "known" : "Active,Pending,Suspended,Resigned,Retired,Terminated"
+        }
+      }
+    },
+    "STATUS_REASON_REQUIRED" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Resigned"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Say why this member is moving to Resigned.",
+        "path" : "/api/members/{id}/status",
+        "code" : "STATUS_REASON_REQUIRED",
+        "details" : {
+          "toStatus" : "Resigned"
+        }
+      }
+    },
+    "STATUS_REASON_MISMATCH" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Resigned",
+        "reason" : "SUSPENSION_CODE",
+        "suspensionCode" : 11
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That reason does not fit Resigned.",
+        "path" : "/api/members/{id}/status",
+        "code" : "STATUS_REASON_MISMATCH",
+        "details" : {
+          "toStatus" : "Resigned",
+          "reason" : "SUSPENSION_CODE",
+          "fits" : "DELETION_CODE"
+        }
+      }
+    },
+    "DELETION_CODE_UNKNOWN" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Resigned",
+        "reason" : "DELETION_CODE",
+        "deletionCode" : 77
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That reason is no longer on the list. Choose another.",
+        "path" : "/api/members/{id}/status",
+        "code" : "DELETION_CODE_UNKNOWN",
+        "details" : {
+          "deletionCode" : "77"
+        }
+      }
+    },
+    "SUSPENSION_CODE_UNKNOWN" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Suspended",
+        "reason" : "SUSPENSION_CODE",
+        "suspensionCode" : 77
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That reason for suspending is not on the list. Choose another.",
+        "path" : "/api/members/{id}/status",
+        "code" : "SUSPENSION_CODE_UNKNOWN",
+        "details" : {
+          "suspensionCode" : "77",
+          "known" : "11,13,19"
+        }
+      }
+    },
+    "STATUS_CHANGED_SINCE" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Resigned",
+        "expectedStatus" : "Pending",
+        "reason" : "DELETION_CODE",
+        "deletionCode" : 2
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This member was moved to Active. Nothing was changed.",
+        "path" : "/api/members/{id}/status",
+        "code" : "STATUS_CHANGED_SINCE",
+        "details" : {
+          "currentStatus" : "Active"
         }
       }
     }

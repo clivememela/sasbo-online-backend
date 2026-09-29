@@ -92,9 +92,51 @@
     "seedFailures": ["UNREADABLE", "REFUSED", "INTERRUPTED", "UNKNOWN"],
     "workplacePageMaxSize": 200,
     "searchMaxLength": 100,
+    "memberStatuses": [
+      {"name": "Active", "kind": "NEITHER"},
+      {"name": "Pending", "kind": "NEITHER"},
+      {"name": "Suspended", "kind": "SUSPENDED"},
+      {"name": "Resigned", "kind": "LEAVING"},
+      {"name": "Retired", "kind": "LEAVING"},
+      {"name": "Terminated", "kind": "LEAVING"}
+    ],
+    "statusReasons": ["SUBS_IN_ARREARS", "UNPAID_SUSPENDED", "DELETION_CODE", "SUSPENSION_CODE", "REINSTATED", "CAPTURED"],
+    "deletionCodes": [
+      {"code": 1, "name": "Left service"},
+      {"code": 2, "name": "Resigned Society"},
+      {"code": 3, "name": "Enrolled In error"},
+      {"code": 4, "name": "Deceased"},
+      {"code": 5, "name": "Subscription in Arrears"},
+      {"code": 6, "name": "Duplication"},
+      {"code": 7, "name": "Unwanted / Supervisor"},
+      {"code": 8, "name": "Dismissed"},
+      {"code": 9, "name": "Invalid Information"},
+      {"code": 10, "name": "Blacklisted"},
+      {"code": null, "under": 2, "name": "Financial"},
+      {"code": null, "under": 2, "name": "Personal"},
+      {"code": null, "under": 2, "name": "Undisclosed"},
+      {"code": null, "under": 2, "name": "Poor Service"},
+      {"code": null, "under": 2, "name": "Other Union"}
+    ],
+    "suspensionCodes": [
+      {"code": 11, "name": "NOT ON PAYROLL"},
+      {"code": 13, "name": "DEBIT RETURNED"},
+      {"code": 19, "name": "INVALID ACCOUNT"}
+    ],
+    "acbReasonReadings": [
+      {"reason": "SUBS_IN_ARREARS", "deletionCode": 5, "proposed": true},
+      {"reason": "UNPAID_SUSPENDED", "suspensionCode": 13, "proposed": true}
+    ],
     "refusalCodes": [
       {"code": "REQUEST_MALFORMED", "status": 400},
-      {"code": "WORKPLACE_PAGE_INVALID", "status": 400}
+      {"code": "WORKPLACE_PAGE_INVALID", "status": 400},
+      {"code": "MEMBER_NOT_FOUND", "status": 404},
+      {"code": "STATUS_UNKNOWN", "status": 400},
+      {"code": "STATUS_REASON_REQUIRED", "status": 400},
+      {"code": "STATUS_REASON_MISMATCH", "status": 400},
+      {"code": "DELETION_CODE_UNKNOWN", "status": 400},
+      {"code": "SUSPENSION_CODE_UNKNOWN", "status": 400},
+      {"code": "STATUS_CHANGED_SINCE", "status": 409}
     ]
   }
 }
