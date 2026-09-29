@@ -482,6 +482,9 @@ class MonthEndSeedTest {
     @Autowired
     private SeedMemberNumbers seedNumbers;
 
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactions;
+
     @Test
     @DisplayName("🔒 04.2, BR65: the three months before the clock's are TAKEN on a fresh demonstration database -- on H2, in a whole start")
     void theThreePastMonthsAreTaken() {
@@ -506,9 +509,18 @@ class MonthEndSeedTest {
         for (MonthEndFactsRepository.TakenMonth month : takes.takenMonths()) {
             List<MonthEndFactsRepository.Fact> frozen = facts.facts(month.id());
             List<MonthEndFactsRepository.Count> counts = facts.counts(month.id());
-            List<MemberSummaryRepository.Line> live = summaryStatement.figures(new MemberSummaryRepository.Ask(
-                    MonthRange.of(java.time.YearMonth.from(month.monthStart())), SummaryGrouping.AREA, true, true,
-                    null, null, seedNumbers.all()));
+            // Rule F reads a taken month from its facts, so the figures' own statement is asked with the months
+            // taken set aside -- in a transaction rolled back after, which H2, having no trigger, allows.
+            List<MemberSummaryRepository.Line> live = new org.springframework.transaction.support.TransactionTemplate(
+                    transactions).execute(status -> {
+                        status.setRollbackOnly();
+                        jdbc.update("DELETE FROM month_end_counts");
+                        jdbc.update("DELETE FROM month_end_workplaces");
+                        jdbc.update("DELETE FROM month_end_months");
+                        return summaryStatement.figures(new MemberSummaryRepository.Ask(
+                                MonthRange.of(java.time.YearMonth.from(month.monthStart())), SummaryGrouping.AREA, true,
+                                true, null, null, seedNumbers.all()));
+                    });
             List<MemberSummaryRepository.Line> liveRows = live.stream()
                     .filter(l -> l.part().equals(MemberSummaryRepository.ROW)).toList();
             String what = month.monthStart().toString();

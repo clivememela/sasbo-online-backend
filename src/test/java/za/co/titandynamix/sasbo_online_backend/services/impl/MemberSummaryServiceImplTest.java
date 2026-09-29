@@ -48,7 +48,7 @@ class MemberSummaryServiceImplTest {
 
     private static MemberSummaryRepository.Line check() {
         return new MemberSummaryRepository.Line(MemberSummaryRepository.CHECK, null, null, false, null, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, null, 0, null, 1, null);
+                0, 0, 0, 0, 0, null, 0, null, 1, null, null, null);
     }
 
     @Test

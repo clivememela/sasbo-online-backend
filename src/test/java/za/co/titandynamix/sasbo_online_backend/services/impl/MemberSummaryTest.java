@@ -100,6 +100,39 @@ class MemberSummaryTest {
         assertThat(summaries.summary("2026-09", null, null, null).monthFromTheServer()).isFalse();
     }
 
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes takes;
+
+    @Test
+    @DisplayName("🔒 rule F: a TAKEN month is read from its facts -- every grouping the fixture's arithmetic, as taken on, in one statement")
+    void aTakenMonth() {
+        try {
+            takes.take(java.time.YearMonth.of(2026, 6), "seed");
+            takes.take(java.time.YearMonth.of(2026, 8), "seed");
+            takes.take(SummaryFixture.MONTH, "seed");
+            for (String by : GROUPINGS) {
+                MemberSummaryDto answer = summaries.summary("2026-09", by, null, null);
+                SummaryFixture.assertAnswer(answer, by);
+                assertThat(answer.takenAt()).isEqualTo(SummaryFixture.NOW.toString());
+                assertThat(answer.takenBy()).isEqualTo("seed");
+                assertThat(answer.groupedAsAt()).as("placed as they stood the day it was taken").isEqualTo("2026-09-15");
+            }
+            assertThat(ConnectionStatements.during(() -> summaries.summary("2026-09", "employer", null, null)))
+                    .as("MR-ROB-18: a taken month is one statement too").isEqualTo(1);
+            // MV-30: a workplace moved to another area afterwards leaves the taken month as it stood.
+            jdbc.update("UPDATE workplaces SET area_id = (SELECT id FROM sasbo_areas WHERE letter = 'B') "
+                    + "WHERE ra_number = 900001");
+            SummaryFixture.assertAnswer(summaries.summary("2026-09", "area", null, null), "area");
+            assertThat(summaries.summary("2026-07", "group", null, null).takenAt()).as("July was not taken").isNull();
+        } finally {
+            jdbc.update("UPDATE workplaces SET area_id = (SELECT id FROM sasbo_areas WHERE letter = 'A') "
+                    + "WHERE ra_number = 900001");
+            jdbc.update("DELETE FROM month_end_counts");
+            jdbc.update("DELETE FROM month_end_workplaces");
+            jdbc.update("DELETE FROM month_end_months");
+        }
+    }
+
     @Test
     @DisplayName("🔒 MR-ROB-18, MV-24: a request is ONE statement, counted at the connection")
     void oneStatement() {

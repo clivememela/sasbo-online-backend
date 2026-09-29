@@ -12,7 +12,9 @@ import java.util.List;
  * yet taken (rule F, MR-ROB-19). {@code workplacesServed} is the deployment's switch (MD62): below {@code ALL} the
  * figures are the totals and one row, and no penetration. {@code seededMembers} is how many of the members on record a
  * seed file lists -- so that a screen can say whose figures these are; nought where the production marker is set.
- * {@code membersFrom} and {@code leaversFrom} say how far back each figure can see. Dates are ISO strings (MD16).
+ * {@code membersFrom} and {@code leaversFrom} say how far back each figure can see. {@code takenAt} and
+ * {@code takenBy} say when and by whom the month was taken, where it was: its figures are then read from what was frozen
+ * (rule F, 04.2) and the screen says "as taken on"; {@code null} for a month not taken. Dates are ISO strings (MD16).
  */
 public record MemberSummaryDto(
         String month,
@@ -27,7 +29,9 @@ public record MemberSummaryDto(
         Unplaced unplaced,
         long seededMembers,
         String membersFrom,
-        String leaversFrom) {
+        String leaversFrom,
+        String takenAt,
+        String takenBy) {
 
     /**
      * The figures of the whole, or of one row. <em>On record</em>, <em>suspended</em> and <em>paying</em> are the

@@ -53,7 +53,7 @@ class MemberSummaryControllerTest {
     void theRequestReachesTheService() throws Exception {
         when(summaries.summary("2026-09", "area", "A", null)).thenReturn(new MemberSummaryDto("2026-09", false, "area",
                 "A", null, "ALL", "2026-09-15", figures(5), List.of(new MemberSummaryDto.Row("A", "A", null, false, false,
-                figures(5))), new MemberSummaryDto.Unplaced(List.of(), 0L, 0), 0, "2019-01-01", null));
+                figures(5))), new MemberSummaryDto.Unplaced(List.of(), 0L, 0), 0, "2019-01-01", null, null, null));
 
         mockMvc.perform(get("/api/members/summary").param("month", "2026-09").param("by", "area").param("area", "A"))
                 .andExpect(status().isOk())

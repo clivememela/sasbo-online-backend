@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusKind;
+import za.co.titandynamix.sasbo_online_backend.dto.summary.MemberSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
@@ -63,6 +64,26 @@ class MemberSummaryIT extends AbstractSwitchedOnIT {
     @DisplayName("🔒 MV-49: every figure of every row, for each grouping -- the answer H2 gives, from the same fixture")
     void everyGrouping(String by) {
         SummaryFixture.assertAnswer(summaries.summary("2026-09", by, null, null), by);
+    }
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes takes;
+
+    @Test
+    @DisplayName("🔒 rule F, MV-49: a TAKEN month is read from its facts on PostgreSQL -- every grouping, as H2 answers it")
+    void aTakenMonth() {
+        takes.take(java.time.YearMonth.of(2026, 6), "seed");
+        takes.take(java.time.YearMonth.of(2026, 8), "seed");
+        takes.take(SummaryFixture.MONTH, "seed");
+
+        for (String by : GROUPINGS) {
+            MemberSummaryDto answer = summaries.summary("2026-09", by, null, null);
+            SummaryFixture.assertAnswer(answer, by);
+            assertThat(answer.takenBy()).isEqualTo("seed");
+        }
+        jdbc.update("UPDATE workplaces SET area_id = (SELECT id FROM sasbo_areas WHERE letter = 'B') "
+                + "WHERE ra_number = 900001");
+        SummaryFixture.assertAnswer(summaries.summary("2026-09", "area", null, null), "area");
     }
 
     @Test

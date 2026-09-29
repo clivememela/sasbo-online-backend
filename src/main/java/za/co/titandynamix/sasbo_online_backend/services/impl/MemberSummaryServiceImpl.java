@@ -201,13 +201,18 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
         Long noWorkplace = grouped ? rows.stream()
                 .filter(r -> r.key().equals(MemberSummaryRepository.NO_WORKPLACE))
                 .findFirst().map(r -> rowFigures.get(rows.indexOf(r)).onRecord()).orElse(0L) : null;
+        // Rule F: a month taken was placed by where its members worked that day, and is read from what was frozen.
+        java.time.Instant takenAt = check == null ? null : check.takenAt();
+        String groupedAsAt = takenAt != null ? takenAt.atZone(MonthRange.ZONE).toLocalDate().toString()
+                : LocalDate.now(clock.withZone(MonthRange.ZONE)).toString();
         return new MemberSummaryDto(asked.toString(), fromTheServer, grouping.wire(), area, region,
-                workplaceSwitch.mode().name(), LocalDate.now(clock.withZone(MonthRange.ZONE)).toString(), totals, rows,
+                workplaceSwitch.mode().name(), groupedAsAt, totals, rows,
                 new MemberSummaryDto.Unplaced(unknown, noWorkplace, noTableCode),
                 environment.isProduction() ? 0 : seeded,
                 membersFrom == null ? null : membersFrom.toString(),
                 check == null || check.leaversFrom() == null ? null
-                        : check.leaversFrom().atZone(MonthRange.ZONE).toLocalDate().toString());
+                        : check.leaversFrom().atZone(MonthRange.ZONE).toLocalDate().toString(),
+                takenAt == null ? null : takenAt.toString(), check == null ? null : check.takenBy());
     }
 
     /** One row's figures, or the whole's: paying and the movement's leftover worked out, the penetration with them. */
