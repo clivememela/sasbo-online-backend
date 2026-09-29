@@ -51,6 +51,7 @@ public class DataSeeder implements ApplicationRunner {
     private final AcbHistorySeeder acbHistorySeeder;
     private final ReferenceListSeeder referenceListSeeder;
     private final WorkplaceSeeder workplaceSeeder;
+    private final DemonstrationMemberSeeder demonstrationMemberSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -311,6 +312,10 @@ public class DataSeeder implements ApplicationRunner {
         // stand on them, which are seeded only where the deployment's switch is set (MD45, MD53).
         seedMonthEnd("SASBO's lists", this.referenceListSeeder::seed);
         seedMonthEnd("SASBO's workplaces", this.workplaceSeeder::seed);
+        // Then the members who stand at them (01.4): the invented, and the seed's own 310 given a workplace in the
+        // same areas -- both only where the switch says all, never where the production marker is set (MD53).
+        seedMonthEnd("the invented members", () -> seedQuietly(this.demonstrationMemberSeeder::seed));
+        seedMonthEnd("the seed members' workplaces", () -> seedQuietly(this.demonstrationMemberSeeder::place));
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).
@@ -329,6 +334,20 @@ public class DataSeeder implements ApplicationRunner {
      * One call of month end's block, caught (MD65, MV-58): logged scrubbed -- the class and the stack, never the
      * message, which may quote a row -- and the start goes on to the next.
      */
+    /** A seeder that reads its file: an unreadable file is a failure of the seeder, caught like any other. */
+    private static void seedQuietly(IoSeeder seeder) {
+        try {
+            seeder.seed();
+        } catch (java.io.IOException unreadable) {
+            throw new java.io.UncheckedIOException(unreadable);
+        }
+    }
+
+    @FunctionalInterface
+    private interface IoSeeder {
+        int seed() throws java.io.IOException;
+    }
+
     private static void seedMonthEnd(String what, Runnable seeder) {
         try {
             seeder.run();

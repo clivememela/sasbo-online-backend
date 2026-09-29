@@ -50,7 +50,8 @@ class MonthEndGuardsTest {
             "SasboReferenceRepository", "WorkplaceRepository", "ReferenceListService", "WorkplaceService",
             "ReferenceListServiceImpl", "WorkplaceServiceImpl", "ListSync", "ReferenceListSeeder", "WorkplaceSeeder",
             "MemberStatusController", "MemberStatusService", "MemberStatusServiceImpl", "MemberStatusRequest",
-            "MemberStatusAnswer", "MemberStatusKind", "MemberWorkplaces", "WorkplaceEntityRepository");
+            "MemberStatusAnswer", "MemberStatusKind", "MemberWorkplaces", "WorkplaceEntityRepository",
+            "DemonstrationMember", "DemonstrationMemberSeeder");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 

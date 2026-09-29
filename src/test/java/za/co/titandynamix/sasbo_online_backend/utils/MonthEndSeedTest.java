@@ -21,7 +21,9 @@ import za.co.titandynamix.sasbo_online_backend.support.ConnectionStatements;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
@@ -66,6 +68,9 @@ class MonthEndSeedTest {
 
     @Autowired
     private WorkplaceSeeder workplaces;
+
+    @Autowired
+    private DemonstrationMemberSeeder invented;
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -160,14 +165,93 @@ class MonthEndSeedTest {
                         + "(SELECT 1 FROM committees c WHERE c.code = w.committee_code)"));
     }
 
+    /** Every member's membership number, and the R/A number of the workplace they stand at. */
+    private Map<String, Integer> standing() {
+        Map<String, Integer> at = new HashMap<>();
+        jdbc.query("SELECT m.membership_number, w.ra_number FROM members m JOIN workplaces w ON w.id = m.workplace_id",
+                rs -> {
+                    at.put(rs.getString(1), rs.getInt(2));
+                });
+        return at;
+    }
+
     @Test
-    @DisplayName("the switch at all changes no member: the 160 and the 150 are there, and nobody else")
-    void theSwitchChangesNoMember() throws IOException {
+    @DisplayName("MD53, MV-45: the switch at all puts the invented members on record -- the 160, the 150 and the file's own, and nobody else")
+    void theSwitchPutsTheInventedMembersOnRecord() throws IOException {
         long original;
         try (InputStream stream = new ClassPathResource("data/members.json").getInputStream()) {
             original = DataSeeder.readSeedMembers(stream).size();
         }
-        assertThat(members.count()).isEqualTo(original + DebitOrderMemberSeeder.readSeedFile().members().size());
+        assertThat(members.count()).isEqualTo(original + DebitOrderMemberSeeder.readSeedFile().members().size()
+                + DemonstrationMemberSeeder.readSeedFile().count());
+    }
+
+    @Test
+    @DisplayName("MD35, MR-ROB-32: every member of the seed stands where the file says -- the invented, and the 310 by their placements")
+    void everyMemberStandsWhereTheFileSays() throws IOException {
+        DemonstrationMember.SeedFile file = DemonstrationMemberSeeder.readSeedFile();
+        Map<String, Integer> expected = new HashMap<>();
+        file.members().forEach(m -> expected.put(m.membershipNumber(), m.workplaceRaNumber()));
+        file.placements().forEach(p -> expected.put(p.membershipNumber(), p.workplaceRaNumber()));
+
+        assertThat(standing()).isEqualTo(expected);
+        assertThat(rows("SELECT count(*) FROM members WHERE workplace_id IS NULL"))
+                .as("on a fresh demonstration database with the switch at all, no member of the seed is without one")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("🔒 MR-PERF-19: a second start of the invented members and the placements is two statements, and writes nothing")
+    void theInventedMembersSecondStartIsPinned() {
+        Map<String, Integer> before = standing();
+        long statements = ConnectionStatements.during(() -> {
+            try {
+                assertThat(invented.seed()).isZero();
+                assertThat(invented.place()).isZero();
+            } catch (IOException unreadable) {
+                throw new java.io.UncheckedIOException(unreadable);
+            }
+        });
+        assertThat(statements).as("one read of the file's numbers on record, one of the seed's members without a workplace")
+                .isEqualTo(2);
+        assertThat(standing()).isEqualTo(before);
+    }
+
+    @Test
+    @DisplayName("MV-46: the step fills only what is empty -- a workplace a person chose stays, one never given is filled")
+    void thePlacementsFillOnlyWhatIsEmpty() throws IOException {
+        List<DemonstrationMember.Placement> placements = DemonstrationMemberSeeder.readSeedFile().placements();
+        DemonstrationMember.Placement chosen = placements.get(0);
+        DemonstrationMember.Placement empty = placements.get(1);
+        Integer another = jdbc.queryForObject("SELECT min(ra_number) FROM workplaces WHERE ra_number <> ?", Integer.class,
+                chosen.workplaceRaNumber());
+        jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = ?) "
+                + "WHERE membership_number = ?", another, chosen.membershipNumber());
+        jdbc.update("UPDATE members SET workplace_id = NULL WHERE membership_number = ?", empty.membershipNumber());
+        try {
+            assertThat(invented.place()).isEqualTo(1);
+
+            assertThat(standing()).containsEntry(chosen.membershipNumber(), another)
+                    .containsEntry(empty.membershipNumber(), empty.workplaceRaNumber());
+        } finally {
+            jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = ?) "
+                    + "WHERE membership_number = ?", chosen.workplaceRaNumber(), chosen.membershipNumber());
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 BR36: the A.C.B. history, prepared with the invented members on record, lists none of them -- no line, no listed exclusion")
+    void acbListsNoInventedMember() throws IOException {
+        List<String> numbers = DemonstrationMemberSeeder.readSeedFile().members().stream()
+                .map(DemonstrationMember::membershipNumber).toList();
+        List<String> lined = jdbc.queryForList("SELECT DISTINCT m.membership_number FROM acb_run_lines l "
+                + "JOIN members m ON m.id = l.member_id", String.class);
+        List<String> listed = jdbc.queryForList("SELECT DISTINCT m.membership_number FROM acb_run_exclusions x "
+                + "JOIN members m ON m.id = x.member_id", String.class);
+
+        assertThat(lined).as("the history was prepared, or this proves nothing").isNotEmpty();
+        assertThat(lined).as("an invented member on a debit line").doesNotContainAnyElementsOf(numbers);
+        assertThat(listed).as("an invented member on the 'left out, and why' sheet").doesNotContainAnyElementsOf(numbers);
     }
 
     @Test

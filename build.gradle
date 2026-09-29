@@ -245,6 +245,9 @@ tasks.register('generateApiSurface', Test) {
 		// month-end-examples.json: month end's golden answers (MD48) -- a real answer for each route of the arc and an
 		// envelope for each refusal, made from invented rows by the running server and copied to the client (BR69).
 		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.guards.MonthEndExamplesTest'
+		// data/demonstration_members.json: the invented members who stand at SASBO's workplaces (01.4), generated
+		// with a fixed random seed from the workplaces and nine proportions, and checked byte for byte (BR69).
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberGeneratorTest'
 	}
 
 	systemProperty 'apiSurface.write', 'true'
