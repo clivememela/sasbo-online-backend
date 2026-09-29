@@ -21,6 +21,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.services.EmailService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
 import za.co.titandynamix.sasbo_online_backend.services.impl.WelcomeLetterDispatcher;
 
@@ -37,6 +38,8 @@ public class MemberController {
     private final RepresentativeService representativeService;
     private final WelcomeLetterDispatcher welcomeLetters;
     private final TransactionOperations transactions;
+    /** Month end 01.3: each answer names the member's workplace as the deployment's switch allows (MD62). */
+    private final MemberWorkplaces workplaces;
     @Autowired(required = false)
     private EmailService emailService;
 
@@ -44,14 +47,28 @@ public class MemberController {
     @Transactional(readOnly = true)
     public List<MemberDto> getAll() {
         return this.memberService.findAll().stream()
-                       .map(this.memberMapper::toDto)
+                       .map(this::inAList)
                        .toList();
+    }
+
+    /** A member in the list: the workplace as three scalars, as the switch allows (month end 01.3, MD62). */
+    private MemberDto inAList(Member member) {
+        MemberDto answer = this.memberMapper.toDto(member);
+        this.workplaces.inAList(answer);
+        return answer;
+    }
+
+    /** The answer for one member: the workplace as the switch allows, and the workplace's lineage (01.3). */
+    private MemberDto forOne(Member member) {
+        MemberDto answer = this.memberMapper.toDto(member);
+        this.workplaces.forOne(answer);
+        return answer;
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<MemberDto> getById(@PathVariable Integer id) {
         return this.memberService.findById(id)
-                       .map(member -> ResponseEntity.ok(this.memberMapper.toDto(member)))
+                       .map(member -> ResponseEntity.ok(this.forOne(member)))
                        .orElse(ResponseEntity.notFound().build());
     }
 
@@ -111,7 +128,7 @@ public class MemberController {
         }
 
         Member savedMember = this.memberService.create(member);
-        return new Captured(savedMember, this.memberMapper.toDto(savedMember));
+        return new Captured(savedMember, this.forOne(savedMember));
     }
 
     @GetMapping("/userRoles")
@@ -150,14 +167,14 @@ public class MemberController {
             }
         }
         return this.memberService.update(id, member)
-                       .map(updated -> ResponseEntity.ok(this.memberMapper.toDto(updated)))
+                       .map(updated -> ResponseEntity.ok(this.forOne(updated)))
                        .orElse(ResponseEntity.notFound().build());
     }
 
     @PatchMapping("/{id}/banking")
     public ResponseEntity<MemberDto> updateBanking(@PathVariable Integer id, @RequestBody Member member) {
         return this.memberService.updateBanking(id, member)
-                       .map(updated -> ResponseEntity.ok(this.memberMapper.toDto(updated)))
+                       .map(updated -> ResponseEntity.ok(this.forOne(updated)))
                        .orElse(ResponseEntity.notFound().build());
     }
 
@@ -172,7 +189,7 @@ public class MemberController {
             @PathVariable Integer id,
             @RequestBody SubscriptionUpdateRequest request) {
         return this.memberService.updateMonthlySubscription(id, request.getMonthlySubscription())
-                       .map(updated -> ResponseEntity.ok(this.memberMapper.toDto(updated)))
+                       .map(updated -> ResponseEntity.ok(this.forOne(updated)))
                        .orElse(ResponseEntity.notFound().build());
     }
 

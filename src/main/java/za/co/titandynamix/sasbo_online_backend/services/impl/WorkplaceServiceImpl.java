@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 import org.springframework.stereotype.Service;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
 import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceDto;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplacePageDto;
 import za.co.titandynamix.sasbo_online_backend.enums.ListEmptyReason;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
@@ -14,6 +15,7 @@ import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * SASBO's workplaces, a page at a time, answered as the switch allows (01.2, MD62).
@@ -66,6 +68,14 @@ public class WorkplaceServiceImpl implements WorkplaceService {
         }
         int pages = (int) ((slice.total() + rows - 1) / rows);
         return new WorkplacePageDto(slice.rows(), number, rows, slice.total(), pages, null);
+    }
+
+    @Override
+    public Optional<WorkplaceDto> one(long id) {
+        if (!workplaceSwitch.workplacesOnRecord()) {
+            return Optional.empty();
+        }
+        return workplaces.one(id, workplaceSwitch.staffNumbersServed());
     }
 
     /** Why a page came back empty: nothing at all, where no workplace is on record; else a filter found none. */

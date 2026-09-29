@@ -46,6 +46,7 @@ import java.util.TreeSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 /**
  * THE GOLDEN ANSWERS (month end, MD48, MV-32): {@value #FILE_NAME} -- a real answer for each route of the arc and an
@@ -139,6 +140,10 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.STATUS_CHANGED_SINCE, new Example("POST", status,
                 "{\"toStatus\": \"Resigned\", \"expectedStatus\": \"Pending\", \"reason\": \"DELETION_CODE\", "
                         + "\"deletionCode\": 2}"));
+        // 01.3: thrown under MemberController and answered by the global handler (ME-12) -- a save that names a
+        // workplace not on record here.
+        provoked.put(MonthEndRefusalCode.WORKPLACE_UNKNOWN, new Example("PUT", "/api/members/{member}",
+                "{\"workplaceId\": 999999}"));
         return provoked;
     }
 
@@ -223,9 +228,11 @@ class MonthEndExamplesTest {
     private MvcResult perform(Example example) throws Exception {
         Integer member = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = ?", Integer.class, MEMBER);
         String path = example.path().replace("{member}", String.valueOf(member));
-        MockHttpServletRequestBuilder request = example.method().equals("POST")
-                ? post(path).contentType(MediaType.APPLICATION_JSON).content(example.body())
-                : get(path);
+        MockHttpServletRequestBuilder request = switch (example.method()) {
+            case "POST" -> post(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
+            case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
+            default -> get(path);
+        };
         return mockMvc.perform(request).andReturn();
     }
 
@@ -235,7 +242,8 @@ class MonthEndExamplesTest {
             object.put("timestamp", TIMESTAMP);
         }
         if (body instanceof ObjectNode object && object.has("path")) {
-            object.put("path", object.path("path").asText().replaceAll("/api/members/\\d+/", "/api/members/{id}/"));
+            object.put("path", object.path("path").asText()
+                    .replaceAll("/api/members/\\d+(/|$)", "/api/members/{id}$1"));
         }
         if (body instanceof ObjectNode object && object.path("change") instanceof ObjectNode change) {
             change.put("id", 1);

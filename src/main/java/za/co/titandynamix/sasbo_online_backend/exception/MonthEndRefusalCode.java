@@ -26,6 +26,12 @@ public enum MonthEndRefusalCode {
     REQUEST_MALFORMED(HttpStatus.BAD_REQUEST),
     /** 01.2: a page of the workplaces that does not exist. The details carry the page, the size and the ceiling. */
     WORKPLACE_PAGE_INVALID(HttpStatus.BAD_REQUEST),
+    /**
+     * 01.3: a member's save names a workplace that is not on record here -- or none is served here (MD62). Looked for
+     * BEFORE the save, so the database's foreign key is never what refuses it; answered by the global handler, the
+     * save running under {@code MemberController} (ME-12). The details carry the id asked for. Nothing was written.
+     */
+    WORKPLACE_UNKNOWN(HttpStatus.BAD_REQUEST),
     /** 03.1: the member is no longer on record. The details carry the id asked for. */
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND),
     /** 03.1: not one of the statuses the record takes. The details carry the ones it does. */

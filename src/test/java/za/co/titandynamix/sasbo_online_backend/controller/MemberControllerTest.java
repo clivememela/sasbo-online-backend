@@ -85,6 +85,10 @@ class MemberControllerTest {
     @MockitoBean
     private RepresentativeService representativeService;
 
+    /** Month end 01.3: does nothing here, so every answer is the mapper's, as it was before the workplace. */
+    @MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces memberWorkplaces;
+
     // MemberMapperImpl is imported for real, so its three @Autowired
     // repositories have to exist. They are only used on the toEntity path,
     // which this slice does not exercise -- but the context will not start

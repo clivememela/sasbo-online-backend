@@ -1,6 +1,9 @@
 package za.co.titandynamix.sasbo_online_backend.services;
 
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceDto;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplacePageDto;
+
+import java.util.Optional;
 
 /**
  * SASBO's workplaces, a page at a time (01.2) -- answered as the deployment's switch allows (MD62): nothing at
@@ -24,4 +27,11 @@ public interface WorkplaceService {
      */
     WorkplacePageDto page(Integer page, Integer size, Long employer, Integer tableCode, String area, String committee,
                           String search);
+
+    /**
+     * One workplace and its lineage, by its id on record -- the lineage the answer for one member carries (01.3). As
+     * the switch allows (MD62): empty at {@code none}, whatever the table holds; without the staff complement at
+     * {@code names}. Empty where there is no such workplace.
+     */
+    Optional<WorkplaceDto> one(long id);
 }

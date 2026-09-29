@@ -16,6 +16,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.representative.Representat
 import za.co.titandynamix.sasbo_online_backend.entity.representative.UnionStructure;
 import za.co.titandynamix.sasbo_online_backend.dto.member.StringArrayToCommaSeparatedDeserializer;
 import za.co.titandynamix.sasbo_online_backend.entity.user.User;
+import za.co.titandynamix.sasbo_online_backend.entity.workplace.Workplace;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
 import java.math.BigDecimal;
@@ -178,6 +179,17 @@ public class Member {
     @JoinColumn(name = "structure_id")
     private UnionStructure structure;
 
+    /**
+     * The workplace this member stands at -- one of SASBO's, by its R/A number (month end 01.3). Every figure SASBO
+     * reads is grouped through it. Resolved from the transient {@code workplaceId}, NEVER BOUND: a workplace object in
+     * a save changes nothing (BR66), and a save that names none leaves it as it was (MD58). Answered as the
+     * deployment's switch allows (MD62), by {@code MemberController}.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "workplace_id")
+    private Workplace workplace;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_grade_id")
     private JobGrade jobGrade;
@@ -290,6 +302,14 @@ public class Member {
      */
     @Transient
     private Integer roleId;
+
+    /**
+     * Transient field carrying the workplace a save names (month end 01.3) -- its id on record, as
+     * {@code structureId} and {@code roleId} are. Resolved in the service, which refuses one that is not on record
+     * {@code WORKPLACE_UNKNOWN} before anything is written. {@code null} leaves the member's workplace as it was.
+     */
+    @Transient
+    private Long workplaceId;
 
     /**
      * What the server did with the submitted job grade -- MATCHED, CAPTURED or

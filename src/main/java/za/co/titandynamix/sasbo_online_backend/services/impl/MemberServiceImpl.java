@@ -29,6 +29,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepo
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces;
 import za.co.titandynamix.sasbo_online_backend.utils.SaIdParser;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
@@ -58,6 +59,8 @@ public class MemberServiceImpl implements MemberService {
     private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final RecruiterRepository recruiterRepository;
     private final MemberStatusChangeRepository statusChanges;
+    /** Month end 01.3: the workplace a save names, looked for before anything is written. */
+    private final MemberWorkplaces workplaces;
 
     @Override
     @Transactional
@@ -151,6 +154,8 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Member create(Member member) {
         member.setId(null);
+        // Month end 01.3, FIRST: a workplace not on record is refused before anything is resolved or written (ME-12).
+        this.workplaces.resolve(member.getWorkplaceId(), member);
         resolveStructureAndRole(member);
         resolveRecruiter(member.getRecruitmentRep(), member);
         resolveAreaRecruited(member.getAreaRecruited(), member);
@@ -195,6 +200,9 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
+            // Month end 01.3, FIRST: a workplace not on record is refused before anything is merged or written (ME-12);
+            // onto `existing`, because the merge ignores `workplace`. None named leaves it as it was (MD58).
+            this.workplaces.resolve(updated.getWorkplaceId(), existing);
             // 🗣️ Decision ⑥. Read BEFORE the merge overwrites it: the range is
             // enforced on a day the caller changed, not on one it sent back unchanged.
             Integer previousDebitDay = existing.getDebitDay();
