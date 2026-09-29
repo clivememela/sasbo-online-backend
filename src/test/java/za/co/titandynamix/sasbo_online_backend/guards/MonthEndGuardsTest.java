@@ -51,7 +51,9 @@ class MonthEndGuardsTest {
             "ReferenceListServiceImpl", "WorkplaceServiceImpl", "ListSync", "ReferenceListSeeder", "WorkplaceSeeder",
             "MemberStatusController", "MemberStatusService", "MemberStatusServiceImpl", "MemberStatusRequest",
             "MemberStatusAnswer", "MemberStatusKind", "MemberWorkplaces", "WorkplaceEntityRepository",
-            "DemonstrationMember", "DemonstrationMemberSeeder");
+            "DemonstrationMember", "DemonstrationMemberSeeder", "MemberSummaryController", "MemberSummaryService",
+            "MemberSummaryServiceImpl", "MemberSummaryRepository", "MemberSummaryDto", "SummaryGate", "SummaryGrouping",
+            "MonthRange", "SmallCounts");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -321,5 +323,7 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
             Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
             Map.entry("POST /api/members/{id}/status", "as open as the PUT it replaces (MD13); named in B1's list, "
-                    + "and refusing from the day sign-in exists"));
+                    + "and refusing from the day sign-in exists"),
+            Map.entry("GET /api/members/summary", "counts, under rule C: a membership below five at a named employer "
+                    + "or table code never leaves the server (MD4, MD37)"));
 }

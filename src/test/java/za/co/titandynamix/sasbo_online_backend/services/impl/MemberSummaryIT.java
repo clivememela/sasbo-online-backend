@@ -1,0 +1,125 @@
+package za.co.titandynamix.sasbo_online_backend.services.impl;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.FieldSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
+import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusKind;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
+import za.co.titandynamix.sasbo_online_backend.services.MemberSummaryService;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
+import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
+import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
+
+import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * The figures of September 2026, on PostgreSQL (02.2): {@link SummaryFixture}'s one population and one expected
+ * answer -- the same H2 is held to, figure for figure (MV-49, BR65); the partial index's predicate held to the
+ * vocabulary's leaving statuses (MD66); and a figure query that outlives its timeout answered
+ * {@code SUMMARY_UNAVAILABLE}, proved with a statement made to wait on a lock and never with a sleep (MV-25).
+ */
+@TestPropertySource(properties = "sasbo.workplaces=all")
+@Import(MemberSummaryIT.AtTheFixturesClock.class)
+@DisplayName("The figures of a month, on PostgreSQL")
+class MemberSummaryIT extends AbstractWritingIT {
+
+    @TestConfiguration
+    static class AtTheFixturesClock {
+        @Bean
+        @Primary
+        Clock theFixturesClock() {
+            return Clock.fixed(SummaryFixture.NOW, AcbTime.ZONE);
+        }
+    }
+
+    @Autowired
+    private MemberRepository members;
+
+    @Autowired
+    private MemberSummaryService summaries;
+
+    @Autowired
+    private PlatformTransactionManager transactions;
+
+    static final List<String> GROUPINGS = SummaryFixture.GROUPINGS;
+
+    @BeforeEach
+    void thePopulation() {
+        SummaryFixture.insert(jdbc, members);
+    }
+
+    @ParameterizedTest(name = "by {0}")
+    @FieldSource("GROUPINGS")
+    @DisplayName("🔒 MV-49: every figure of every row, for each grouping -- the answer H2 gives, from the same fixture")
+    void everyGrouping(String by) {
+        SummaryFixture.assertAnswer(summaries.summary("2026-09", by, null, null), by);
+    }
+
+    @Test
+    @DisplayName("🔒 MD66: the partial index's predicate is the vocabulary's leaving statuses, and members_join_date is there")
+    void theIndexIsHeldToTheVocabulary() {
+        String definition = jdbc.queryForObject("SELECT indexdef FROM pg_indexes WHERE indexname = 'members_on_record'",
+                String.class);
+        List<String> excluded = new ArrayList<>();
+        Matcher quoted = Pattern.compile("'([^']+)'").matcher(definition.substring(definition.indexOf("WHERE")));
+        while (quoted.find()) {
+            excluded.add(quoted.group(1));
+        }
+        List<String> leaving = MemberStatuses.KINDS.entrySet().stream()
+                .filter(e -> e.getValue() == MemberStatusKind.LEAVING).map(e -> e.getKey()).toList();
+
+        assertThat(excluded).as("the statuses the index leaves out").containsExactlyInAnyOrderElementsOf(leaving);
+        assertThat(jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = 'members'", String.class))
+                .contains("members_on_record", "members_join_date");
+    }
+
+    @Test
+    @DisplayName("🔒 MD47, MV-25: a figure query that waits on a lock past its timeout is SUMMARY_UNAVAILABLE -- never a hang")
+    void aQueryThatOutlivesItsTimeout() throws Exception {
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        TransactionTemplate holding = new TransactionTemplate(transactions);
+        Thread holder = new Thread(() -> holding.executeWithoutResult(status -> {
+            jdbc.execute("LOCK TABLE members IN ACCESS EXCLUSIVE MODE");
+            locked.countDown();
+            try {
+                release.await(30, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }), "month-end-holds-the-members");
+        holder.start();
+        assertThat(locked.await(10, TimeUnit.SECONDS)).as("the lock was taken").isTrue();
+        try {
+            assertThatThrownBy(() -> summaries.summary("2026-09", "group", null, null))
+                    .isInstanceOfSatisfying(MonthEndRefusal.class,
+                            refusal -> assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.SUMMARY_UNAVAILABLE));
+        } finally {
+            release.countDown();
+            holder.join(30_000);
+        }
+        SummaryFixture.assertAnswer(summaries.summary("2026-09", "group", null, null), "group");
+    }
+}

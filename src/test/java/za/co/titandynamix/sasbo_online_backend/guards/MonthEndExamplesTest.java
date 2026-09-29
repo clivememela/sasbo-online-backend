@@ -94,7 +94,11 @@ class MonthEndExamplesTest {
     }
 
     /** A request of an example: a method, an address, and a body where it has one. {@code {member}} is the invented member. */
-    record Example(String method, String path, String body) {
+    record Example(String method, String path, String body, boolean gateHeld) {
+        Example(String method, String path, String body) {
+            this(method, path, body, false);
+        }
+
         String key() {
             return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}")
                     .replaceAll("/\\d+/", "/{id}/");
@@ -114,6 +118,8 @@ class MonthEndExamplesTest {
             routes.add(new Example("GET", "/api/reference/" + list, null));
         }
         routes.add(new Example("GET", "/api/workplaces?page=0&size=2", null));
+        // 02.2: the figures of the clock's month, by employer group -- the first screen's one request (MD69).
+        routes.add(new Example("GET", "/api/members/summary?by=group", null));
         routes.add(new Example("POST", "/api/members/{member}/status", "{\"toStatus\": \"Resigned\", "
                 + "\"expectedStatus\": \"Active\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 2, "
                 + "\"note\": \"Invented: moved away\"}"));
@@ -144,6 +150,14 @@ class MonthEndExamplesTest {
         // workplace not on record here.
         provoked.put(MonthEndRefusalCode.WORKPLACE_UNKNOWN, new Example("PUT", "/api/members/{member}",
                 "{\"workplaceId\": 999999}"));
+        // 02.2: the figures' refusals -- the last with both of the gate's places taken, as two slow queries would.
+        provoked.put(MonthEndRefusalCode.SUMMARY_GROUPING_UNKNOWN, new Example("GET", "/api/members/summary?by=bank", null));
+        provoked.put(MonthEndRefusalCode.SUMMARY_AREA_UNKNOWN, new Example("GET", "/api/members/summary?area=QQ", null));
+        provoked.put(MonthEndRefusalCode.SUMMARY_MONTH_INVALID, new Example("GET",
+                "/api/members/summary?month=last-month", null));
+        provoked.put(MonthEndRefusalCode.SUMMARY_MONTH_IN_FUTURE, new Example("GET",
+                "/api/members/summary?month=2027-01", null));
+        provoked.put(MonthEndRefusalCode.SUMMARY_UNAVAILABLE, new Example("GET", "/api/members/summary", null, true));
         return provoked;
     }
 
@@ -153,6 +167,9 @@ class MonthEndExamplesTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.services.SummaryGate gate;
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -233,7 +250,16 @@ class MonthEndExamplesTest {
             case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             default -> get(path);
         };
-        return mockMvc.perform(request).andReturn();
+        if (!example.gateHeld()) {
+            return mockMvc.perform(request).andReturn();
+        }
+        assertThat(gate.tryEnter() && gate.tryEnter()).as("both of the gate's places, taken for the example").isTrue();
+        try {
+            return mockMvc.perform(request).andReturn();
+        } finally {
+            gate.leave();
+            gate.leave();
+        }
     }
 
     private JsonNode body(MvcResult result) throws IOException {

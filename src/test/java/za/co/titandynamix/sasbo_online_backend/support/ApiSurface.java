@@ -26,6 +26,9 @@ import za.co.titandynamix.sasbo_online_backend.enums.ListEmptyReason;
 import za.co.titandynamix.sasbo_online_backend.enums.SeedFailure;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
+import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
+import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 import za.co.titandynamix.sasbo_online_backend.utils.ReferenceListSeeder;
@@ -271,6 +274,9 @@ public final class ApiSurface {
                     "seedFailures": [%s],
                     "workplacePageMaxSize": %d,
                     "searchMaxLength": %d,
+                    "summaryGroupings": [%s],
+                    "summaryTimeoutSeconds": %d,
+                    "summaryAtOnce": %d,
                     "memberStatuses": [
                 %s
                     ],
@@ -298,6 +304,8 @@ public final class ApiSurface {
                 acbRefusalCodes(),
                 names(WorkplaceSwitch.Mode.values()), names(ListEmptyReason.values()), names(SeedFailure.values()),
                 WorkplaceService.MAX_PAGE_SIZE, WorkplaceService.MAX_SEARCH_LENGTH,
+                Arrays.stream(SummaryGrouping.values()).map(g -> quote(g.wire())).collect(Collectors.joining(", ")),
+                MemberSummaryRepository.TIMEOUT_SECONDS, SummaryGate.AT_ONCE,
                 memberStatuses(), names(MemberStatusReason.values()), seededCodes("deletionCodes"),
                 seededCodes("suspensionCodes"),
                 monthEndRefusalCodes());

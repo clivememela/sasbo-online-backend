@@ -32,6 +32,20 @@ public enum MonthEndRefusalCode {
      * save running under {@code MemberController} (ME-12). The details carry the id asked for. Nothing was written.
      */
     WORKPLACE_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /** 02.2: a grouping the figures do not take. The details carry the six they do. */
+    SUMMARY_GROUPING_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /** 02.2: an area or a region that is not on record here. The details name which was asked for. */
+    SUMMARY_AREA_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /** 02.2: a month that cannot be read. The details name the field and give nothing of it back (ME-14). */
+    SUMMARY_MONTH_INVALID(HttpStatus.BAD_REQUEST),
+    /** 02.2: a month after the server's own. The details carry the month asked for and the server's. */
+    SUMMARY_MONTH_IN_FUTURE(HttpStatus.BAD_REQUEST),
+    /**
+     * 02.2: the figures could not be worked out in time -- the query outlived its timeout -- or two are being worked out
+     * already (MD47, MD63). Answered at once, with {@code Retry-After}: the read is open, and the hosted database is a
+     * tenth of a processor, so a figure never queues and never hangs a screen.
+     */
+    SUMMARY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE),
     /** 03.1: the member is no longer on record. The details carry the id asked for. */
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND),
     /** 03.1: not one of the statuses the record takes. The details carry the ones it does. */

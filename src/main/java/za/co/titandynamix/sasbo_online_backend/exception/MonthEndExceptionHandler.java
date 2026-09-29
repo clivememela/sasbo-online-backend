@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -63,8 +64,17 @@ public class MonthEndExceptionHandler {
         if (registry != null) {
             registry.counter("month_end.refusals", "code", refusal.code().name()).increment();
         }
-        return envelopes.handleMonthEndRefusal(refusal, request);
+        ResponseEntity<ApiErrorResponse> answer = envelopes.handleMonthEndRefusal(refusal, request);
+        if (refusal.code() == MonthEndRefusalCode.SUMMARY_UNAVAILABLE) {
+            // 02.2 (MD47, MD63): the figures are asked for again in a moment, never queued.
+            return ResponseEntity.status(answer.getStatusCode()).header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
+                    .body(answer.getBody());
+        }
+        return answer;
     }
+
+    /** How long a screen waits before asking for the figures again, when they were unavailable (02.2). */
+    public static final String RETRY_AFTER_SECONDS = "5";
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
             MissingServletRequestParameterException.class, MissingServletRequestPartException.class,
