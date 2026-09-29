@@ -175,6 +175,52 @@ class DemonstrationMemberGeneratorTest {
     }
 
     @Test
+    @DisplayName("03.7: the past -- invented members who joined before 2026, each change in one of the three months, with SASBO's code")
+    void thePast() throws IOException {
+        DemonstrationMember.SeedFile file = file();
+        Map<String, DemonstrationMember> invented = file.members().stream()
+                .collect(Collectors.toMap(DemonstrationMember::membershipNumber, Function.identity()));
+        List<Integer> deletionCodes = java.util.Arrays.stream(DemonstrationMemberGenerator.DELETION_WEIGHTS)
+                .map(weight -> weight[0]).toList();
+        List<Integer> suspensionCodes = java.util.Arrays.stream(DemonstrationMemberGenerator.SUSPENSION_WEIGHTS)
+                .map(weight -> weight[0]).toList();
+        Map<String, Integer> leftIn = new HashMap<>();
+
+        assertThat(file.past()).isNotEmpty();
+        for (DemonstrationMember.PastChange change : file.past()) {
+            DemonstrationMember member = invented.get(change.membershipNumber());
+            assertThat(member).as("%s is an invented member", change.membershipNumber()).isNotNull();
+            assertThat(member.joinDate()).isBefore(DemonstrationMemberGenerator.JOINED_BEFORE);
+            assertThat(change.monthsBack()).isBetween(1, 3);
+            assertThat(change.day()).isBetween(1, 28);
+            switch (change.reason()) {
+                case "DELETION_CODE" -> {
+                    assertThat(deletionCodes).contains(change.deletionCode());
+                    assertThat(change.toStatus()).isEqualTo(DemonstrationMemberGenerator.leavingStatus(change.deletionCode()));
+                    assertThat(change.suspensionCode()).isNull();
+                    assertThat(leftIn.put(change.membershipNumber(), change.monthsBack())).as("no member leaves twice").isNull();
+                }
+                case "SUSPENSION_CODE" -> {
+                    assertThat(suspensionCodes).contains(change.suspensionCode());
+                    assertThat(change.toStatus()).isEqualTo("Suspended");
+                    assertThat(change.deletionCode()).isNull();
+                }
+                case "REINSTATED" -> {
+                    assertThat(change.toStatus()).isEqualTo("Active");
+                    assertThat(leftIn.get(change.membershipNumber())).as("a reinstatement follows a leaving in an earlier month")
+                            .isNotNull().isGreaterThan(change.monthsBack());
+                }
+                default -> throw new AssertionError("a reason the past does not write: " + change.reason());
+            }
+        }
+        for (int monthsBack = 1; monthsBack <= 3; monthsBack++) {
+            int month = monthsBack;
+            assertThat(file.past()).as("month %d has its leavers", month)
+                    .anyMatch(c -> c.monthsBack() == month && c.reason().equals("DELETION_CODE"));
+        }
+    }
+
+    @Test
     @DisplayName("MD35: the file carries the nine proportions it was given and no count of SASBO's members")
     void itStandsOnProportionsOnly() throws IOException {
         Map<String, Object> from = file().generatedFrom();

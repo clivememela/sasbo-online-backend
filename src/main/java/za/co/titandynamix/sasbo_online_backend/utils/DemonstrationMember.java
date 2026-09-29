@@ -55,7 +55,17 @@ public record DemonstrationMember(
      * types it (MV-37) -- the members, and where each of the seed's other 310 members stands (MR-ROB-32).
      */
     public record SeedFile(String generator, long seed, int count, Map<String, Object> generatedFrom,
-                           List<DemonstrationMember> members, List<Placement> placements) {
+                           List<DemonstrationMember> members, List<Placement> placements, List<PastChange> past) {
+    }
+
+    /**
+     * One change of the demonstration's past (month end 03.7): a leaving with SASBO's deletion code, a suspension with
+     * its suspension code, or a reinstatement -- in the month {@code monthsBack} before the clock's month at the start
+     * that writes it, on {@code day}. Generated from the group-level figures and nothing finer; written by the seeder
+     * through the real status change, the actor {@code seed}.
+     */
+    public record PastChange(String membershipNumber, int monthsBack, int day, String toStatus, String reason,
+                             Integer deletionCode, Integer suspensionCode) {
     }
 
     /** Where one of the seed's other members -- {@code members.json}'s or the debit-order file's -- stands. */

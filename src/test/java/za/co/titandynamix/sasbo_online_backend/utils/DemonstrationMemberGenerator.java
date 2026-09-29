@@ -96,6 +96,39 @@ public final class DemonstrationMemberGenerator {
         return groups;
     }
 
+    /**
+     * 03.7 -- SASBO's August, per employer group, PER TEN THOUSAND members: who left in the month, and who stood
+     * suspended at its end ({@code grlist}, {@code legacy/referenceData.md} section 2). Proportions again, never a
+     * count; each month of the demonstration's past is drawn from them, group by group.
+     */
+    static final Map<String, int[]> MONTHLY_PER_TEN_THOUSAND = monthly();
+
+    private static Map<String, int[]> monthly() {
+        Map<String, int[]> groups = new LinkedHashMap<>();
+        groups.put("ABSA BANK GROUP", new int[]{13, 7});
+        groups.put("FIRST RAND GROUP", new int[]{68, 43});
+        groups.put("STANDARD BANK GROUP", new int[]{56, 1});
+        groups.put("NEDBANK GROUP", new int[]{45, 2});
+        groups.put("OLD MUTUAL GROUP", new int[]{315, 148});
+        groups.put("RECOGNITION AND EMERGING GROUP CORE B", new int[]{59, 2});
+        groups.put("RECOGNITION AND EMERGING GROUP CORE C", new int[]{79, 0});
+        groups.put("CAPITEC GROUP", new int[]{16, 14});
+        groups.put("NON RECOGNITION GROUP", new int[]{251, 42});
+        return groups;
+    }
+
+    /** SASBO's deletions of August, by code, across the union ({@code prt_del_summ}): the weights a leaver's code is drawn by. */
+    static final int[][] DELETION_WEIGHTS = {{1, 239}, {2, 106}, {4, 3}, {5, 18}, {8, 31}, {9, 3}};
+
+    /** SASBO's suspended at 31 August, by code: the weights a suspension's code is drawn by. */
+    static final int[][] SUSPENSION_WEIGHTS = {{11, 139}, {13, 2}, {19, 4}};
+
+    /** One leaver in eight of the earliest month comes back in the latest -- ours, a proposal until MM63. */
+    static final int BACK_ONE_IN = 8;
+
+    /** Only a member who joined before this has a past: none of it may fall before they joined. */
+    static final LocalDate JOINED_BEFORE = LocalDate.of(2026, 1, 1);
+
     private static final List<String> FEMALE = List.of("Ayanda", "Bontle", "Chantel", "Dineo", "Esther", "Faith",
             "Grace", "Hlengiwe", "Ilse", "Jabulile", "Kgomotso", "Lindiwe", "Mpho", "Nokuthula", "Ofentse", "Palesa",
             "Rethabile", "Sibongile", "Tebogo", "Tshepiso", "Vuyelwa", "Wendy", "Xoliswa", "Zodwa", "Anika", "Nadia");
@@ -133,7 +166,8 @@ public final class DemonstrationMemberGenerator {
     }
 
     /** Everything the file says. */
-    record Plan(List<Workplace> workplaces, List<Generated> members, List<Placed> placements) {
+    record Plan(List<Workplace> workplaces, List<Generated> members, List<Placed> placements,
+                List<Map<String, Object>> past) {
     }
 
     /** The file's bytes. */
@@ -172,6 +206,13 @@ public final class DemonstrationMemberGenerator {
             placed.add("    " + object(fields));
         }
         json.append(String.join(",\n", placed)).append("\n");
+        json.append("  ],\n");
+        json.append("  \"past\": [\n");
+        List<String> past = new ArrayList<>();
+        for (Map<String, Object> change : plan.past()) {
+            past.add("    " + object(change));
+        }
+        json.append(String.join(",\n", past)).append("\n");
         json.append("  ]\n");
         json.append("}\n");
         return json.toString();
@@ -201,7 +242,106 @@ public final class DemonstrationMemberGenerator {
                 members.add(member(number--, workplace, random, takenIdentityNumbers));
             }
         }
-        return new Plan(workplaces, members, placements);
+        // 03.7 draws AFTER every member, from the same random: the members above are the bytes they were.
+        return new Plan(workplaces, members, placements, past(workplaces, members, random));
+    }
+
+    /**
+     * 03.7 -- the demonstration's past: for each of the three months before the clock's, group by group, its leavers
+     * (each with a deletion code drawn by SASBO's August weights) and its suspended (a suspension code, likewise), from
+     * the group's own rates; and one leaver in {@value #BACK_ONE_IN} of the earliest month reinstated in the latest.
+     * Only invented members, and only those who joined before {@link #JOINED_BEFORE}; no member leaves twice.
+     */
+    private static List<Map<String, Object>> past(List<Workplace> workplaces, List<Generated> members, Random random) {
+        Map<Integer, String> groupOf = new HashMap<>();
+        for (Workplace workplace : workplaces) {
+            groupOf.put(workplace.raNumber(), workplace.group());
+        }
+        Map<String, List<Generated>> eligible = new LinkedHashMap<>();
+        MONTHLY_PER_TEN_THOUSAND.keySet().forEach(group -> eligible.put(group, new ArrayList<>()));
+        for (Generated member : members) {
+            String group = groupOf.get((Integer) member.fields().get("workplaceRaNumber"));
+            if (group != null && LocalDate.parse((String) member.fields().get("joinDate")).isBefore(JOINED_BEFORE)) {
+                eligible.get(group).add(member);
+            }
+        }
+        Map<String, Integer> population = new HashMap<>();
+        eligible.forEach((group, pool) -> population.put(group, pool.size()));
+
+        List<Map<String, Object>> changes = new ArrayList<>();
+        List<String> leftInTheEarliest = new ArrayList<>();
+        for (int monthsBack = 3; monthsBack >= 1; monthsBack--) {
+            for (Map.Entry<String, List<Generated>> group : eligible.entrySet()) {
+                int[] rates = MONTHLY_PER_TEN_THOUSAND.get(group.getKey());
+                List<Generated> pool = group.getValue();
+                int leavers = drawn((long) population.get(group.getKey()) * rates[0], random);
+                int suspended = drawn((long) population.get(group.getKey()) * rates[1], random);
+                for (int i = 0; i < leavers && !pool.isEmpty(); i++) {
+                    String who = (String) pool.remove(random.nextInt(pool.size())).fields().get("membershipNumber");
+                    int code = weighted(DELETION_WEIGHTS, random);
+                    changes.add(change(who, monthsBack, 1 + random.nextInt(28), leavingStatus(code), "DELETION_CODE",
+                            code, null));
+                    if (monthsBack == 3) {
+                        leftInTheEarliest.add(who);
+                    }
+                }
+                for (int i = 0; i < suspended && !pool.isEmpty(); i++) {
+                    String who = (String) pool.remove(random.nextInt(pool.size())).fields().get("membershipNumber");
+                    changes.add(change(who, monthsBack, 1 + random.nextInt(28), "Suspended", "SUSPENSION_CODE", null,
+                            weighted(SUSPENSION_WEIGHTS, random)));
+                }
+            }
+        }
+        for (int i = 0; i < leftInTheEarliest.size(); i += BACK_ONE_IN) {
+            changes.add(change(leftInTheEarliest.get(i), 1, 1 + random.nextInt(28), "Active", "REINSTATED", null, null));
+        }
+        changes.sort(Comparator.<Map<String, Object>>comparingInt(c -> -(Integer) c.get("monthsBack"))
+                .thenComparingInt(c -> (Integer) c.get("day"))
+                .thenComparing(c -> (String) c.get("membershipNumber")));
+        return changes;
+    }
+
+    private static Map<String, Object> change(String who, int monthsBack, int day, String toStatus, String reason,
+                                              Integer deletionCode, Integer suspensionCode) {
+        Map<String, Object> f = new LinkedHashMap<>();
+        f.put("membershipNumber", who);
+        f.put("monthsBack", monthsBack);
+        f.put("day", day);
+        f.put("toStatus", toStatus);
+        f.put("reason", reason);
+        f.put("deletionCode", deletionCode);
+        f.put("suspensionCode", suspensionCode);
+        return f;
+    }
+
+    /** The status a leaver with SASBO's code stands in: 1 left service is Retired, 2 Resigned, the rest Terminated (MM49). */
+    static String leavingStatus(int deletionCode) {
+        return switch (deletionCode) {
+            case 1 -> "Retired";
+            case 2 -> "Resigned";
+            default -> "Terminated";
+        };
+    }
+
+    /** An expected count given per ten thousand, drawn: its whole part, and one more with the chance of its fraction. */
+    static int drawn(long perTenThousand, Random random) {
+        return (int) (perTenThousand / 10_000) + (random.nextInt(10_000) < perTenThousand % 10_000 ? 1 : 0);
+    }
+
+    /** A code drawn by its weight. */
+    static int weighted(int[][] weights, Random random) {
+        int total = 0;
+        for (int[] weight : weights) {
+            total += weight[1];
+        }
+        int draw = random.nextInt(total);
+        for (int[] weight : weights) {
+            draw -= weight[1];
+            if (draw < 0) {
+                return weight[0];
+            }
+        }
+        throw new IllegalStateException("unreachable: the draw fell outside the weights it was drawn from");
     }
 
     /** A workplace, drawn in proportion to how many members it still holds room for. */

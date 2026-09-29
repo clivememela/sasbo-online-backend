@@ -316,6 +316,8 @@ public class DataSeeder implements ApplicationRunner {
         // same areas -- both only where the switch says all, never where the production marker is set (MD53).
         seedMonthEnd("the invented members", () -> seedQuietly(this.demonstrationMemberSeeder::seed));
         seedMonthEnd("the seed members' workplaces", () -> seedQuietly(this.demonstrationMemberSeeder::place));
+        // 03.7: their past -- the three months before the clock's, written through the real status change.
+        seedMonthEnd("the invented members' past", () -> seedQuietly(this.demonstrationMemberSeeder::past));
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).

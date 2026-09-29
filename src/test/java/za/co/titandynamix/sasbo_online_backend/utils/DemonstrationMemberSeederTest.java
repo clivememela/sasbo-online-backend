@@ -42,9 +42,16 @@ class DemonstrationMemberSeederTest {
     @Mock
     private PlatformTransactionManager transactions;
 
+    @Mock
+    private za.co.titandynamix.sasbo_online_backend.services.MemberService memberService;
+
+    @Mock
+    private za.co.titandynamix.sasbo_online_backend.repository.SasboReferenceRepository codes;
+
     private DemonstrationMemberSeeder at(String environment, String workplaceSwitch) {
         return new DemonstrationMemberSeeder(seedMembers, memberRepository, workplaces, jdbc, transactions,
-                new SasboEnvironment(environment), new WorkplaceSwitch(workplaceSwitch));
+                new SasboEnvironment(environment), new WorkplaceSwitch(workplaceSwitch), memberService, codes,
+                java.time.Clock.systemUTC());
     }
 
     @Test
@@ -54,7 +61,8 @@ class DemonstrationMemberSeederTest {
 
         assertThat(seeder.seed()).isZero();
         assertThat(seeder.place()).isZero();
-        verifyNoInteractions(seedMembers, memberRepository, workplaces, jdbc, transactions);
+        assertThat(seeder.past()).isZero();
+        verifyNoInteractions(seedMembers, memberRepository, workplaces, jdbc, transactions, memberService, codes);
     }
 
     @ParameterizedTest(name = "switch \"{0}\"")
@@ -65,6 +73,7 @@ class DemonstrationMemberSeederTest {
 
         assertThat(seeder.seed()).isZero();
         assertThat(seeder.place()).isZero();
-        verifyNoInteractions(seedMembers, memberRepository, workplaces, jdbc, transactions);
+        assertThat(seeder.past()).isZero();
+        verifyNoInteractions(seedMembers, memberRepository, workplaces, jdbc, transactions, memberService, codes);
     }
 }

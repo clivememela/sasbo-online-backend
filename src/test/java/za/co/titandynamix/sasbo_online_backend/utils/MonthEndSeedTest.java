@@ -208,12 +208,13 @@ class MonthEndSeedTest {
             try {
                 assertThat(invented.seed()).isZero();
                 assertThat(invented.place()).isZero();
+                assertThat(invented.past()).isZero();
             } catch (IOException unreadable) {
                 throw new java.io.UncheckedIOException(unreadable);
             }
         });
-        assertThat(statements).as("one read of the file's numbers on record, one of the seed's members without a workplace")
-                .isEqualTo(2);
+        assertThat(statements).as("one read of the file's numbers on record, one of the seed's members without a workplace, "
+                + "and the past's two: its members' ids, and which of them the seed has changed").isEqualTo(4);
         assertThat(standing()).isEqualTo(before);
     }
 
@@ -237,6 +238,47 @@ class MonthEndSeedTest {
             jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = ?) "
                     + "WHERE membership_number = ?", chosen.workplaceRaNumber(), chosen.membershipNumber());
         }
+    }
+
+    @Test
+    @DisplayName("03.7: the three months before the clock's have their leavers and suspended by SASBO's codes, each dated inside its month")
+    void theDemonstrationsPast() throws IOException {
+        List<DemonstrationMember.PastChange> past = DemonstrationMemberSeeder.readSeedFile().past();
+        java.time.YearMonth clocksMonth = java.time.YearMonth.from(SeedStartupTest.MigrationRowsAndAFrozenClock.FROZEN
+                .atZone(MonthRange.ZONE));
+        Map<String, java.time.YearMonth> expected = new HashMap<>();
+        past.forEach(c -> expected.merge(c.membershipNumber() + " " + c.toStatus(), clocksMonth.minusMonths(c.monthsBack()),
+                (a, b) -> a));
+
+        List<Map<String, Object>> written = jdbc.query("SELECT m.membership_number, c.to_status, c.reason, "
+                + "c.deletion_code_id, c.suspension_code_id, c.changed_at FROM member_status_changes c "
+                + "JOIN members m ON m.id = c.member_id WHERE c.changed_by = ?", (rs, n) -> {
+                    Map<String, Object> row = new HashMap<>();
+                    row.put("membership_number", rs.getString("membership_number"));
+                    row.put("to_status", rs.getString("to_status"));
+                    row.put("reason", rs.getString("reason"));
+                    row.put("deletion_code_id", rs.getObject("deletion_code_id"));
+                    row.put("suspension_code_id", rs.getObject("suspension_code_id"));
+                    row.put("changed_at", rs.getObject("changed_at", java.time.OffsetDateTime.class).toInstant());
+                    return row;
+                }, DemonstrationMemberSeeder.SEED_ACTOR);
+
+        assertThat(written).hasSize(past.size());
+        for (Map<String, Object> row : written) {
+            java.time.Instant at = (java.time.Instant) row.get("changed_at");
+            String key = row.get("membership_number") + " " + row.get("to_status");
+            assertThat(java.time.YearMonth.from(at.atZone(MonthRange.ZONE))).as("%s is dated inside its month", key)
+                    .isEqualTo(expected.get(key));
+            switch ((String) row.get("reason")) {
+                case "DELETION_CODE" -> assertThat(row.get("deletion_code_id")).as("a leaver carries SASBO's code").isNotNull();
+                case "SUSPENSION_CODE" -> assertThat(row.get("suspension_code_id")).isNotNull();
+                case "REINSTATED" -> assertThat(row.get("to_status")).isEqualTo("Active");
+                default -> throw new AssertionError("the past wrote " + row.get("reason"));
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes WHERE changed_by = ? "
+                        + "AND reason IN ('SUBS_IN_ARREARS', 'UNPAID_SUSPENDED')", Long.class, DemonstrationMemberSeeder.SEED_ACTOR))
+                .as("none of the past is ACB's, so ACB's count of terminations does not move").isZero();
     }
 
     @Test

@@ -16,9 +16,15 @@ import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.SeedMemberRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.WorkplaceEntityRepository;
+import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
+import za.co.titandynamix.sasbo_online_backend.repository.SasboReferenceRepository;
+import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -63,11 +69,18 @@ public class DemonstrationMemberSeeder {
     private final TransactionTemplate transactions;
     private final SasboEnvironment environment;
     private final WorkplaceSwitch workplaceSwitch;
+    private final MemberService members;
+    private final SasboReferenceRepository codes;
+    private final Clock clock;
+
+    /** 03.7: who wrote the demonstration's past. */
+    public static final String SEED_ACTOR = "seed";
 
     public DemonstrationMemberSeeder(SeedMemberRepository seedMembers, MemberRepository memberRepository,
                                      WorkplaceEntityRepository workplaces, NamedParameterJdbcTemplate jdbc,
                                      PlatformTransactionManager transactionManager, SasboEnvironment environment,
-                                     WorkplaceSwitch workplaceSwitch) {
+                                     WorkplaceSwitch workplaceSwitch, MemberService members,
+                                     SasboReferenceRepository codes, Clock clock) {
         this.seedMembers = seedMembers;
         this.memberRepository = memberRepository;
         this.workplaces = workplaces;
@@ -75,6 +88,70 @@ public class DemonstrationMemberSeeder {
         this.transactions = new TransactionTemplate(transactionManager);
         this.environment = environment;
         this.workplaceSwitch = workplaceSwitch;
+        this.members = members;
+        this.codes = codes;
+        this.clock = clock;
+    }
+
+    /**
+     * 03.7 -- the demonstration's past: the file's leavers, suspended and reinstated, each in the month
+     * {@code monthsBack} before the clock's, WRITTEN THROUGH THE REAL STATUS CHANGE with the actor {@value #SEED_ACTOR}
+     * and the change's own instant -- so every figure, the history and ACB read them as any change. A member's past is
+     * written once, at the first start that can: one who already has a change by the seed is left alone. None of these
+     * is ACB's SUBS_IN_ARREARS, so ACB's count of terminations does not move.
+     *
+     * @return how many changes this call wrote
+     */
+    public int past() throws IOException {
+        if (!allowed()) {
+            return 0;
+        }
+        List<DemonstrationMember.PastChange> past = readSeedFile().past();
+        if (past == null || past.isEmpty()) {
+            return 0;
+        }
+        Map<String, Integer> ids = new HashMap<>();
+        jdbc.query("SELECT id, membership_number FROM members WHERE membership_number IN (:numbers)",
+                new MapSqlParameterSource("numbers", past.stream().map(DemonstrationMember.PastChange::membershipNumber)
+                        .distinct().toList()),
+                rs -> {
+                    ids.put(rs.getString("membership_number"), rs.getInt("id"));
+                });
+        if (ids.isEmpty()) {
+            return 0;
+        }
+        Set<Integer> written = new HashSet<>(jdbc.queryForList("SELECT DISTINCT member_id FROM member_status_changes "
+                + "WHERE changed_by = :seed AND member_id IN (:ids)", new MapSqlParameterSource("seed", SEED_ACTOR)
+                .addValue("ids", ids.values()), Integer.class));
+        if (written.containsAll(ids.values())) {
+            return 0;
+        }
+        YearMonth now = MonthRange.current(clock);
+        Map<Integer, Long> deletionIds = new HashMap<>();
+        Map<Integer, Long> suspensionIds = new HashMap<>();
+        int changed = 0;
+        for (DemonstrationMember.PastChange change : past) {
+            Integer id = ids.get(change.membershipNumber());
+            if (id == null || written.contains(id)) {
+                continue;
+            }
+            Long deletion = change.deletionCode() == null ? null : deletionIds.computeIfAbsent(change.deletionCode(),
+                    number -> codes.deletionCode(number).map(SasboReferenceRepository.Code::id).orElse(null));
+            Long suspension = change.suspensionCode() == null ? null : suspensionIds.computeIfAbsent(
+                    change.suspensionCode(),
+                    number -> codes.suspensionCode(number).map(SasboReferenceRepository.Code::id).orElse(null));
+            if ((change.deletionCode() != null && deletion == null) || (change.suspensionCode() != null && suspension == null)) {
+                continue;
+            }
+            Instant at = now.minusMonths(change.monthsBack()).atDay(change.day()).atTime(10, 0)
+                    .atZone(MonthRange.ZONE).toInstant();
+            boolean wrote = members.changeStatus(id, new MemberService.StatusChange(change.toStatus(), null,
+                    MemberStatusReason.valueOf(change.reason()), deletion, suspension, null, SEED_ACTOR, at))
+                    .map(outcome -> outcome.written() != null).orElse(false);
+            changed += wrote ? 1 : 0;
+        }
+        log.info("Wrote {} change(s) of the invented members' past from {}", changed, SEED_FILE);
+        return changed;
     }
 
     /** Whether this deployment may hold them at all: not production, and the switch at {@code all}. */
