@@ -60,6 +60,9 @@ class ReferenceListControllerTest {
                 List.of(new ReferenceRows.Committee("Q01", "Q", "INVENTED COMMITTEE", 99))));
         when(lists.suspensionCodes()).thenReturn(answer("suspensionCodes",
                 List.of(new ReferenceRows.SuspensionCode(11, "NOT ON PAYROLL"))));
+        when(lists.deletionCodes()).thenReturn(answer("deletionCodes",
+                List.of(new ReferenceRows.DeletionCode(2, "Resigned Society", null),
+                        new ReferenceRows.DeletionCode(null, "Financial", 2))));
 
         mockMvc.perform(get("/api/reference/regions")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.list").value("regions"))
@@ -83,6 +86,10 @@ class ReferenceListControllerTest {
                 .andExpect(jsonPath("$.rows[0].recruitingNumber").value(99));
         mockMvc.perform(get("/api/reference/suspension-codes")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows[0].code").value(11));
+        mockMvc.perform(get("/api/reference/deletion-codes")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows[0].code").value(2))
+                .andExpect(jsonPath("$.rows[1].code").doesNotExist())
+                .andExpect(jsonPath("$.rows[1].under").value(2));
     }
 
     @Test

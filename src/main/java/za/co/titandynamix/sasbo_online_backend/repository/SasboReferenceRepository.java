@@ -95,6 +95,25 @@ public class SasboReferenceRepository {
                 });
     }
 
+    /**
+     * SASBO's deletion codes, numbered, in order -- each followed by the reasons SASBO keeps under it. A row of the
+     * table that is not SASBO's (no number of its own and none above it) is not answered.
+     */
+    public List<ReferenceRows.DeletionCode> deletionCodes() {
+        return jdbc.query("SELECT d.sasbo_code AS code, d.name, p.sasbo_code AS under_code FROM deletion_codes d "
+                        + "LEFT JOIN deletion_codes p ON p.id = d.parent_id "
+                        + "WHERE d.sasbo_code IS NOT NULL OR p.sasbo_code IS NOT NULL "
+                        + "ORDER BY COALESCE(d.sasbo_code, p.sasbo_code), CASE WHEN d.sasbo_code IS NULL THEN 1 ELSE 0 END, d.id",
+                (rs, n) -> {
+                    int code = rs.getInt("code");
+                    boolean noCode = rs.wasNull();
+                    int under = rs.getInt("under_code");
+                    boolean noParent = rs.wasNull();
+                    return new ReferenceRows.DeletionCode(noCode ? null : code, rs.getString("name"),
+                            noParent ? null : under);
+                });
+    }
+
     public List<ReferenceRows.SuspensionCode> suspensionCodes() {
         return jdbc.query("SELECT code, name FROM suspension_codes ORDER BY code",
                 (rs, n) -> new ReferenceRows.SuspensionCode(rs.getInt("code"), rs.getString("name")));

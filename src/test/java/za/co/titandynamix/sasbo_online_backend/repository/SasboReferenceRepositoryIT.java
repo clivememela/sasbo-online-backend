@@ -87,6 +87,23 @@ class SasboReferenceRepositoryIT extends AbstractWritingIT {
     }
 
     @Test
+    @DisplayName("03.3: the deletion codes by SASBO's numbers, in order, each followed by the reasons it keeps -- no id")
+    void theDeletionCodesBySasbosNumbers() {
+        seeder.seed();
+
+        List<ReferenceRows.DeletionCode> codes = repository.deletionCodes();
+        List<Integer> numbered = codes.stream().map(ReferenceRows.DeletionCode::code).filter(java.util.Objects::nonNull)
+                .toList();
+
+        assertThat(numbered).isSorted().doesNotHaveDuplicates().contains(1, 2, 5, 10);
+        int two = codes.indexOf(codes.stream().filter(c -> Integer.valueOf(2).equals(c.code())).findFirst().orElseThrow());
+        List<ReferenceRows.DeletionCode> underTwo = codes.stream().filter(c -> Integer.valueOf(2).equals(c.under())).toList();
+        assertThat(underTwo).isNotEmpty().allSatisfy(reason -> assertThat(reason.code()).isNull());
+        assertThat(codes.subList(two + 1, two + 1 + underTwo.size())).as("the reasons for resigning follow code 2")
+                .isEqualTo(underTwo);
+    }
+
+    @Test
     @DisplayName("🔒 BR64: the lane's reset still empties the lists and their record")
     void theResetEmptiesThem() {
         seeder.seed();

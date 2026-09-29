@@ -114,7 +114,7 @@ class MonthEndExamplesTest {
     private static List<Example> answers() {
         List<Example> routes = new ArrayList<>();
         for (String list : List.of("regions", "areas", "employer-groups", "employers", "table-codes",
-                "committee-provinces", "committees", "suspension-codes", "status")) {
+                "committee-provinces", "committees", "suspension-codes", "deletion-codes", "status")) {
             routes.add(new Example("GET", "/api/reference/" + list, null));
         }
         routes.add(new Example("GET", "/api/workplaces?page=0&size=2", null));

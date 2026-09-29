@@ -321,6 +321,7 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/committee-provinces", "a list of province letters"),
             Map.entry("GET /api/reference/committees", "a list of committees: organisations"),
             Map.entry("GET /api/reference/suspension-codes", "a list of SASBO's suspension codes"),
+            Map.entry("GET /api/reference/deletion-codes", "a list of SASBO's deletion codes, by their numbers"),
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
             Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
             Map.entry("POST /api/members/{id}/status", "as open as the PUT it replaces (MD13); named in B1's list, "

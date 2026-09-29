@@ -70,6 +70,12 @@ public class ReferenceListController {
         return lists.suspensionCodes();
     }
 
+    /** 03.3: by SASBO's numbers -- the one read of the deletion codes that says which number is SASBO's (RC7). */
+    @GetMapping("/deletion-codes")
+    public ReferenceListAnswer<ReferenceRows.DeletionCode> deletionCodes() {
+        return lists.deletionCodes();
+    }
+
     @GetMapping("/status")
     public ReferenceStatusDto status() {
         return lists.status();

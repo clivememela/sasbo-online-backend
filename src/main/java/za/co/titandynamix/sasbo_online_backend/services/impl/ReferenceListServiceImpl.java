@@ -77,6 +77,11 @@ public class ReferenceListServiceImpl implements ReferenceListService {
     }
 
     @Override
+    public ReferenceListAnswer<ReferenceRows.DeletionCode> deletionCodes() {
+        return answer("deletionCodes", repository::deletionCodes);
+    }
+
+    @Override
     public ReferenceStatusDto status() {
         Map<String, ListRecord> recorded = repository.recorded();
         Map<String, Long> counts = repository.counts();
