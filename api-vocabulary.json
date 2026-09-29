@@ -85,5 +85,16 @@
       {"code": "MEMBER_TERMINATED", "status": 409},
       {"code": "IDENTITY_REQUIRED", "status": 403}
     ]
+  },
+  "monthEnd": {
+    "workplaceSwitch": ["NONE", "NAMES", "ALL"],
+    "listEmptyReasons": ["NOT_CONFIRMED", "NOT_LOADED", "FAILED", "EMPTY"],
+    "seedFailures": ["UNREADABLE", "REFUSED", "INTERRUPTED", "UNKNOWN"],
+    "workplacePageMaxSize": 200,
+    "searchMaxLength": 100,
+    "refusalCodes": [
+      {"code": "REQUEST_MALFORMED", "status": 400},
+      {"code": "WORKPLACE_PAGE_INVALID", "status": 400}
+    ]
   }
 }

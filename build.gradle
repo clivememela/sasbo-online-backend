@@ -228,7 +228,7 @@ tasks.register('verify') {
 // ---------------------------------------------------------------------------
 tasks.register('generateApiSurface', Test) {
 	group = 'documentation'
-	description = 'Rewrites api-surface.txt, api-vocabulary.json, debit-window.json and the debit-order seed from the live application. Commit the diff.'
+	description = 'Rewrites api-surface.txt, api-vocabulary.json, debit-window.json, month-end-examples.json and the debit-order seed from the live application. Commit the diff.'
 
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
@@ -242,6 +242,9 @@ tasks.register('generateApiSurface', Test) {
 		// data/debit_order_members.json: the seed's debit-order population (D33), generated with a fixed
 		// random seed and checked byte for byte the same way.
 		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.DebitOrderSeedGeneratorTest'
+		// month-end-examples.json: month end's golden answers (MD48) -- a real answer for each route of the arc and an
+		// envelope for each refusal, made from invented rows by the running server and copied to the client (BR69).
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.guards.MonthEndExamplesTest'
 	}
 
 	systemProperty 'apiSurface.write', 'true'

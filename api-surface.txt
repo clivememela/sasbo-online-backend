@@ -61,6 +61,15 @@ GET /api/recruitment-channels
 POST /api/recruitment-channels
 DELETE /api/recruitment-channels/{id}
 PUT /api/recruitment-channels/{id}
+GET /api/reference/areas
+GET /api/reference/committee-provinces
+GET /api/reference/committees
+GET /api/reference/employer-groups
+GET /api/reference/employers
+GET /api/reference/regions
+GET /api/reference/status
+GET /api/reference/suspension-codes
+GET /api/reference/table-codes
 GET /api/representative-userRoles
 POST /api/representative-userRoles
 DELETE /api/representative-userRoles/{id}
@@ -76,4 +85,5 @@ POST /api/subscriptions
 DELETE /api/subscriptions/{id}
 GET /api/subscriptions/{id}
 PUT /api/subscriptions/{id}
+GET /api/workplaces
 ANY /error

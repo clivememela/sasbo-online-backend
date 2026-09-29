@@ -1,0 +1,292 @@
+package za.co.titandynamix.sasbo_online_backend.guards;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
+import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
+import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.MainClassSource;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static za.co.titandynamix.sasbo_online_backend.support.NonVacuousScan.assertNonVacuousScan;
+
+/**
+ * Month end's guards that need no database and no context (MV-33, MV-34, MV-37, MD16, MD68), each with its canary.
+ * The guards that need the running application are {@code MonthEndRoutesTest} and {@code MonthEndExamplesTest}.
+ */
+@DisplayName("Month end's guards")
+class MonthEndGuardsTest {
+
+    /** Month end's own main sources: its controllers, services, repositories, seeders, DTOs and entities. */
+    static List<MainClassSource> monthEndSources() {
+        return MainSourceInventory.all().stream()
+                .filter(c -> MONTH_END_CLASSES.contains(c.name())
+                        || c.path().toString().replace('\\', '/').contains("/dto/reference/")
+                        || c.path().toString().replace('\\', '/').contains("/dto/workplace/")
+                        || c.path().toString().replace('\\', '/').contains("/entity/reference/")
+                        || c.path().toString().replace('\\', '/').contains("/entity/workplace/"))
+                .toList();
+    }
+
+    /** The classes of the arc outside its own packages -- named, because they live beside other arcs' classes. */
+    static final Set<String> MONTH_END_CLASSES = Set.of(
+            "MonthEndApi", "WorkplaceSwitch", "ReferenceListController", "WorkplaceController",
+            "ListEmptyReason", "SeedFailure", "MonthEndExceptionHandler", "MonthEndRefusal", "MonthEndRefusalCode",
+            "SasboReferenceRepository", "WorkplaceRepository", "ReferenceListService", "WorkplaceService",
+            "ReferenceListServiceImpl", "WorkplaceServiceImpl", "ListSync", "ReferenceListSeeder", "WorkplaceSeeder");
+
+    // ------------------------------------------------------------------------------------------------ MV-33
+
+    @Test
+    @DisplayName("MV-33: every refusal code of the arc is published in the committed vocabulary, with its status")
+    void everyCodeIsPublished() throws IOException {
+        Set<String> published = publishedCodes(ApiSurface.readCommitted(ApiSurface.VOCABULARY_FILE));
+        List<String> missing = new ArrayList<>();
+        for (MonthEndRefusalCode code : MonthEndRefusalCode.values()) {
+            if (!published.contains(code.name() + "=" + code.status().value())) {
+                missing.add(code.name() + " (" + code.status().value() + ")");
+            }
+        }
+        assertThat(missing)
+                .as("codes the server can throw that the browser has never been told about. Regenerate: %s, and "
+                        + "copy the file to the client", ApiSurface.regenerateCommand())
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("canary: an unpublished code is caught")
+    void theVocabularyPredicateCanFail() throws IOException {
+        Set<String> published = publishedCodes(
+                "{\"monthEnd\": {\"refusalCodes\": [{\"code\": \"REQUEST_MALFORMED\", \"status\": 400}]}}");
+        assertThat(published).containsExactly("REQUEST_MALFORMED=400");
+        assertThat(published).doesNotContain("WORKPLACE_PAGE_INVALID=400");
+    }
+
+    static Set<String> publishedCodes(String vocabulary) throws IOException {
+        Set<String> codes = new TreeSet<>();
+        for (JsonNode entry : new ObjectMapper().readTree(vocabulary).path("monthEnd").path("refusalCodes")) {
+            codes.add(entry.path("code").asText() + "=" + entry.path("status").asInt());
+        }
+        return codes;
+    }
+
+    @Test
+    @DisplayName("MV-33: every refusal code of the arc is thrown somewhere -- the vocabulary promises nothing no route can give")
+    void everyCodeIsThrown() {
+        List<MainClassSource> sources = MainSourceInventory.all().stream()
+                .filter(c -> !c.name().equals(MonthEndRefusalCode.class.getSimpleName()))
+                .toList();
+        assertNonVacuousScan(sources, 100, "main sources");
+        List<String> unthrown = new ArrayList<>();
+        for (MonthEndRefusalCode code : MonthEndRefusalCode.values()) {
+            if (sources.stream().noneMatch(source -> names(source.code(), code))) {
+                unthrown.add(code.name());
+            }
+        }
+        assertThat(unthrown)
+                .as("codes declared ahead of the code that throws them. Add a code in the commit that first throws it")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("canary: a code named only in a comment, or not at all, is caught as unthrown")
+    void theThrownPredicateCanFail() {
+        String throwing = MainSourceInventory.blankComments("class X { void f() { throw new MonthEndRefusal("
+                + "MonthEndRefusalCode.WORKPLACE_PAGE_INVALID, \"no\"); } }");
+        assertThat(names(throwing, MonthEndRefusalCode.WORKPLACE_PAGE_INVALID)).isTrue();
+        assertThat(names(throwing, MonthEndRefusalCode.REQUEST_MALFORMED)).isFalse();
+        String commented = MainSourceInventory.blankComments(
+                "class X { // throws MonthEndRefusalCode.REQUEST_MALFORMED one day\n }");
+        assertThat(names(commented, MonthEndRefusalCode.REQUEST_MALFORMED)).isFalse();
+    }
+
+    static boolean names(String blankedSource, MonthEndRefusalCode code) {
+        return Pattern.compile("MonthEndRefusalCode\\." + code.name() + "\\b").matcher(blankedSource).find();
+    }
+
+    // ------------------------------------------------------------------------------------------------ MD16
+
+    @Test
+    @DisplayName("MD16: every DTO of the arc carries dates as ISO strings -- no java.time component anywhere")
+    void dtoDatesAreStrings() throws ClassNotFoundException {
+        List<Class<?>> dtos = new ArrayList<>();
+        for (MainClassSource source : monthEndSources()) {
+            String path = source.path().toString().replace('\\', '/');
+            if (path.contains("/dto/")) {
+                String pkg = path.substring(path.indexOf("za/co/"), path.lastIndexOf('/')).replace('/', '.');
+                Class<?> type = Class.forName(pkg + "." + source.name());
+                dtos.add(type);
+                for (Class<?> nested : type.getDeclaredClasses()) {
+                    dtos.add(nested);
+                }
+            }
+        }
+        assertNonVacuousScan(dtos, 8, "month end's DTOs");
+        List<String> offenders = new ArrayList<>();
+        for (Class<?> dto : dtos) {
+            offenders.addAll(AcbGuardsTest.javaTimeComponents(dto));
+        }
+        assertThat(offenders).as("a java.time field leaves as whatever Jackson makes of it; the arc's DTOs carry ISO text")
+                .isEmpty();
+    }
+
+    // ------------------------------------------------------------------------------------------------ MD68
+
+    /**
+     * What a log call of the arc may hand the logger: a code, a count, a class, a method and a path, a list's key, a
+     * reference, a time. Anything read off a row, a request or a resource is a VALUE, and none may be logged (MD68):
+     * this application's own package logs at DEBUG on every host.
+     */
+    static final Pattern LOG_CALL = Pattern.compile("\\blog\\.(trace|debug|info|warn|error)\\(([^;]*);");
+    static final List<String> VALUE_READERS = List.of(".get", "rs.", "row.", ".name()", "search", "term", "note",
+            "planted", ".text(", ".asText(");
+    static final Set<String> ALLOWED = Set.of("request.getMethod()", "request.getRequestURI()", "refusal.code()",
+            "resource.rows().size()", "AcbLogging.scrubbed(", "word", "list", "reference", "resourcePath", "rows",
+            "what", "done[0]", "done[1]", "done[2]", "millis", "RESOURCE");
+
+    @Test
+    @DisplayName("🔒 MD68: no log call of the arc hands the logger a value read off a row, a request or a resource")
+    void noLogCallCarriesAValue() {
+        List<String> offenders = new ArrayList<>();
+        int calls = 0;
+        for (MainClassSource source : monthEndSources()) {
+            Matcher call = LOG_CALL.matcher(source.code());
+            while (call.find()) {
+                calls++;
+                String arguments = withoutAllowed(argumentsOf(call.group(2)));
+                for (String reader : VALUE_READERS) {
+                    if (arguments.toLowerCase(Locale.ROOT).contains(reader.toLowerCase(Locale.ROOT))) {
+                        offenders.add(source.name() + ": log." + call.group(1) + "(... " + reader + " ...)");
+                    }
+                }
+            }
+        }
+        assertNonVacuousScan(java.util.Collections.nCopies(calls, "log call"), 5, "log calls in month end's sources");
+        assertThat(offenders).isEmpty();
+    }
+
+    @Test
+    @DisplayName("canary: the value predicate catches a search term and a row's field handed to the logger")
+    void theValuePredicateCanFail() {
+        Matcher call = LOG_CALL.matcher("log.debug(\"searching for {}\", search);");
+        assertThat(call.find()).isTrue();
+        String arguments = withoutAllowed(argumentsOf(call.group(2)));
+        assertThat(VALUE_READERS.stream().anyMatch(arguments.toLowerCase(Locale.ROOT)::contains)).isTrue();
+        Matcher row = LOG_CALL.matcher("log.info(\"workplace {}\", w.getName());");
+        assertThat(row.find()).isTrue();
+        assertThat(VALUE_READERS.stream().anyMatch(withoutAllowed(argumentsOf(row.group(2)))::contains)).isTrue();
+    }
+
+    /** The arguments after the message: the message itself is prose, written here, and names no value. */
+    private static String argumentsOf(String call) {
+        int close = call.indexOf("\",");
+        return close < 0 ? "" : call.substring(close + 2);
+    }
+
+    private static String withoutAllowed(String arguments) {
+        String left = arguments;
+        for (String allowed : ALLOWED) {
+            left = left.replace(allowed, "");
+        }
+        return left;
+    }
+
+    // ------------------------------------------------------------------------------------------------ MV-37
+
+    @Test
+    @DisplayName("MV-37, BR54: every file the arc generates is pinned to LF by name in .gitattributes")
+    void everyGeneratedFileIsPinned() throws IOException {
+        String attributes = Files.readString(Paths.get(".gitattributes"), StandardCharsets.UTF_8);
+        for (String file : List.of("src/main/resources/data/sasbo_reference_lists.json",
+                "src/main/resources/data/sasbo_workplaces.json", "month-end-examples.json")) {
+            assertThat(pinned(attributes, file)).as("%s in .gitattributes", file).isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("canary: a file left out of .gitattributes is caught")
+    void thePinPredicateCanFail() {
+        assertThat(pinned("api-surface.txt text eol=lf\n", "month-end-examples.json")).isFalse();
+        assertThat(pinned("month-end-examples.json text eol=lf\n", "month-end-examples.json")).isTrue();
+    }
+
+    static boolean pinned(String attributes, String file) {
+        return attributes.lines().anyMatch(line -> line.trim().equals(file + " text eol=lf"));
+    }
+
+    // ------------------------------------------------------------------------------------------------ migrations
+
+    /** Month end's migrations: from the first the arc added. */
+    static final int FIRST_MONTH_END_VERSION = 53;
+
+    @Test
+    @DisplayName("🔒 MR-ROB-21, MR-ROB-34: every migration of the arc begins with the lock timeout, and none gives a column the database's time")
+    void everyMigrationIsBounded() throws IOException {
+        List<String> offenders = new ArrayList<>();
+        int found = 0;
+        try (var files = Files.list(Paths.get("src", "main", "resources", "db", "migration"))) {
+            for (var file : files.toList()) {
+                String name = file.getFileName().toString();
+                if (!name.matches("V\\d+__.*\\.sql") || Integer.parseInt(name.substring(1, name.indexOf("__")))
+                        < FIRST_MONTH_END_VERSION) {
+                    continue;
+                }
+                found++;
+                offenders.addAll(unbounded(name, Files.readString(file, StandardCharsets.UTF_8)));
+            }
+        }
+        assertThat(found).as("month end's migrations").isPositive();
+        assertThat(offenders).isEmpty();
+    }
+
+    @Test
+    @DisplayName("canary: a migration with no lock timeout, or a column defaulting to now(), is caught")
+    void theMigrationPredicateCanFail() {
+        assertThat(unbounded("V99__x.sql", "CREATE TABLE x (id INT);")).hasSize(1);
+        assertThat(unbounded("V99__y.sql", "SET LOCAL lock_timeout = '5s';\nCREATE TABLE y (at TIMESTAMPTZ DEFAULT now());"))
+                .hasSize(1);
+        assertThat(unbounded("V99__z.sql", "-- a header\nSET LOCAL lock_timeout = '5s';\nCREATE TABLE z (id INT);"))
+                .isEmpty();
+    }
+
+    static List<String> unbounded(String name, String sql) {
+        List<String> found = new ArrayList<>();
+        String statements = sql.replaceAll("(?m)--.*$", "").trim();
+        if (!statements.startsWith("SET LOCAL lock_timeout")) {
+            found.add(name + " does not begin SET LOCAL lock_timeout");
+        }
+        if (Pattern.compile("(?i)default\\s+(now\\(\\)|current_timestamp|current_date|localtimestamp)")
+                .matcher(statements).find()) {
+            found.add(name + " gives a column the database's time; every instant is the application's");
+        }
+        return found;
+    }
+
+    /** The routes of the arc that are open, and the written reason each is (MV-34). */
+    static final Map<String, String> OPEN_BY_REASON = Map.ofEntries(
+            Map.entry("GET /api/reference/regions", "a list of SASBO's regions: codes, and nobody"),
+            Map.entry("GET /api/reference/areas", "a list of SASBO's area letters and their regions"),
+            Map.entry("GET /api/reference/employer-groups", "a list of employer groups: organisations"),
+            Map.entry("GET /api/reference/employers", "a list of employers: organisations, and no count of members"),
+            Map.entry("GET /api/reference/table-codes", "a list of table codes: organisations and their parts"),
+            Map.entry("GET /api/reference/committee-provinces", "a list of province letters"),
+            Map.entry("GET /api/reference/committees", "a list of committees: organisations"),
+            Map.entry("GET /api/reference/suspension-codes", "a list of SASBO's suspension codes"),
+            Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
+            Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"));
+}
