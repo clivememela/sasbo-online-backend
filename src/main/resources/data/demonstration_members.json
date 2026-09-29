@@ -1370,5 +1370,29 @@
     { "membershipNumber": "M-100158", "workplaceRaNumber": 86614 },
     { "membershipNumber": "M-100159", "workplaceRaNumber": 70882 },
     { "membershipNumber": "M-100160", "workplaceRaNumber": 83291 }
+  ],
+  "past": [
+    { "membershipNumber": "M-099282", "monthsBack": 3, "day": 8, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-099549", "monthsBack": 3, "day": 13, "toStatus": "Terminated", "reason": "DELETION_CODE", "deletionCode": 9, "suspensionCode": null },
+    { "membershipNumber": "M-099442", "monthsBack": 3, "day": 18, "toStatus": "Suspended", "reason": "SUSPENSION_CODE", "deletionCode": null, "suspensionCode": 11 },
+    { "membershipNumber": "M-098918", "monthsBack": 3, "day": 23, "toStatus": "Resigned", "reason": "DELETION_CODE", "deletionCode": 2, "suspensionCode": null },
+    { "membershipNumber": "M-099601", "monthsBack": 3, "day": 24, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-098898", "monthsBack": 3, "day": 27, "toStatus": "Resigned", "reason": "DELETION_CODE", "deletionCode": 2, "suspensionCode": null },
+    { "membershipNumber": "M-099495", "monthsBack": 2, "day": 3, "toStatus": "Suspended", "reason": "SUSPENSION_CODE", "deletionCode": null, "suspensionCode": 11 },
+    { "membershipNumber": "M-099406", "monthsBack": 2, "day": 6, "toStatus": "Terminated", "reason": "DELETION_CODE", "deletionCode": 8, "suspensionCode": null },
+    { "membershipNumber": "M-099790", "monthsBack": 2, "day": 8, "toStatus": "Suspended", "reason": "SUSPENSION_CODE", "deletionCode": null, "suspensionCode": 11 },
+    { "membershipNumber": "M-099551", "monthsBack": 2, "day": 16, "toStatus": "Terminated", "reason": "DELETION_CODE", "deletionCode": 5, "suspensionCode": null },
+    { "membershipNumber": "M-099494", "monthsBack": 2, "day": 21, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-099022", "monthsBack": 2, "day": 28, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-099242", "monthsBack": 2, "day": 28, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-099463", "monthsBack": 1, "day": 11, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-099175", "monthsBack": 1, "day": 13, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-099804", "monthsBack": 1, "day": 13, "toStatus": "Terminated", "reason": "DELETION_CODE", "deletionCode": 8, "suspensionCode": null },
+    { "membershipNumber": "M-099816", "monthsBack": 1, "day": 14, "toStatus": "Suspended", "reason": "SUSPENSION_CODE", "deletionCode": null, "suspensionCode": 11 },
+    { "membershipNumber": "M-098806", "monthsBack": 1, "day": 15, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-098821", "monthsBack": 1, "day": 16, "toStatus": "Suspended", "reason": "SUSPENSION_CODE", "deletionCode": null, "suspensionCode": 11 },
+    { "membershipNumber": "M-098938", "monthsBack": 1, "day": 17, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-099119", "monthsBack": 1, "day": 20, "toStatus": "Retired", "reason": "DELETION_CODE", "deletionCode": 1, "suspensionCode": null },
+    { "membershipNumber": "M-099601", "monthsBack": 1, "day": 23, "toStatus": "Active", "reason": "REINSTATED", "deletionCode": null, "suspensionCode": null }
   ]
 }
