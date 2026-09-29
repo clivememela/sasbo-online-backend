@@ -101,6 +101,22 @@ class PiiToStringTest {
 
 
 
+    /**
+
+     * Types that can hold ANY value of a member under a name this guard cannot know -- a history row's
+
+     * {@code oldValue} and {@code newValue} (month end 03.5, BR31). Named, and checked like any type whose field names
+
+     * say PII; {@link #everyValueCarrierIsNamed} holds the list to the fields, so a type added with an old and a new
+
+     * value, and not named here, reddens.
+
+     */
+
+    private static final Set<String> CARRIES_ANY_VALUE = Set.of("MemberChange");
+
+
+
     /** Lombok annotations that generate a {@code toString()} over every field. */
 
     private static final List<String> TOSTRING_GENERATORS = List.of("@Data", "@ToString");
@@ -239,11 +255,41 @@ class PiiToStringTest {
 
 
 
+    @Test
+
+    @DisplayName("every type that holds any value of a member -- an old and a new value -- is named to this guard (BR31)")
+
+    void everyValueCarrierIsNamed() {
+
+        List<String> unnamed = new ArrayList<>();
+
+        for (MainClassSource type : MainSourceInventory.dataTypes()) {
+
+            String lowered = type.code().toLowerCase(Locale.ROOT);
+
+            if (lowered.contains(" oldvalue;") && lowered.contains(" newvalue;") && !CARRIES_ANY_VALUE.contains(type.name())) {
+
+                unnamed.add(type.name());
+
+            }
+
+        }
+
+        assertThat(unnamed).as("types that carry a member's values under names PII_FIELD_MARKERS cannot know").isEmpty();
+
+        assertThat(MainSourceInventory.dataTypes()).extracting(MainClassSource::name).containsAll(CARRIES_ANY_VALUE);
+
+    }
+
+
+
     private static boolean carriesPii(MainClassSource type) {
 
         String lowered = type.code().toLowerCase(Locale.ROOT);
 
-        return PII_FIELD_MARKERS.stream().anyMatch(lowered::contains);
+        return PII_FIELD_MARKERS.stream().anyMatch(lowered::contains)
+
+                || CARRIES_ANY_VALUE.contains(type.name());
 
     }
 

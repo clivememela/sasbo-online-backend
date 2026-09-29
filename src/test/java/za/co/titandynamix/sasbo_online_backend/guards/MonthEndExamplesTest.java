@@ -120,6 +120,8 @@ class MonthEndExamplesTest {
         routes.add(new Example("GET", "/api/workplaces?page=0&size=2", null));
         // 02.2: the figures of the clock's month, by employer group -- the first screen's one request (MD69).
         routes.add(new Example("GET", "/api/members/summary?by=group", null));
+        // 03.6: the invented member's history -- a capture and a field changed, merged with its status changes.
+        routes.add(new Example("GET", "/api/members/{member}/history", null));
         routes.add(new Example("POST", "/api/members/{member}/status", "{\"toStatus\": \"Resigned\", "
                 + "\"expectedStatus\": \"Active\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 2, "
                 + "\"note\": \"Invented: moved away\"}"));
@@ -158,6 +160,8 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.SUMMARY_MONTH_IN_FUTURE, new Example("GET",
                 "/api/members/summary?month=2027-01", null));
         provoked.put(MonthEndRefusalCode.SUMMARY_UNAVAILABLE, new Example("GET", "/api/members/summary", null, true));
+        provoked.put(MonthEndRefusalCode.HISTORY_PAGE_INVALID, new Example("GET", "/api/members/{member}/history?page=99",
+                null));
         return provoked;
     }
 
@@ -231,6 +235,13 @@ class MonthEndExamplesTest {
                 + "payment_type, is_representative, created_at, updated_at) VALUES (?, 'Invented', 'Example', ?, "
                 + "'Active', 'Payroll', FALSE, TIMESTAMP '2026-09-29 08:00:00', TIMESTAMP '2026-09-29 08:00:00')",
                 MEMBER, MemberFixture.syntheticIdFor(900));
+        // 03.5: the invented member's history, at fixed instants -- a capture, and a telephone number changed.
+        jdbc.update("INSERT INTO member_changes (member_id, save_id, field, old_value, new_value, changed_by, changed_at) "
+                + "SELECT id, 'invented-save-1', 'captured', NULL, membership_number, 'system', "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-01 08:00:00+00:00' FROM members WHERE membership_number = ?", MEMBER);
+        jdbc.update("INSERT INTO member_changes (member_id, save_id, field, old_value, new_value, changed_by, changed_at) "
+                + "SELECT id, 'invented-save-2', 'cellTel', '+27 60 555 0001', '+27 60 555 0002', 'system', "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-10 08:00:00+00:00' FROM members WHERE membership_number = ?", MEMBER);
     }
 
     private void workplace(int ra, String name, String employer, Integer tableCode, String by, String area,

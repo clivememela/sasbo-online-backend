@@ -29,12 +29,14 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepo
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.services.MemberTrail;
 import za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces;
 import za.co.titandynamix.sasbo_online_backend.utils.SaIdParser;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -61,6 +63,8 @@ public class MemberServiceImpl implements MemberService {
     private final MemberStatusChangeRepository statusChanges;
     /** Month end 01.3: the workplace a save names, looked for before anything is written. */
     private final MemberWorkplaces workplaces;
+    /** Month end 03.5: the member's history, written inside each of the four saves. */
+    private final MemberTrail trail;
 
     @Override
     @Transactional
@@ -168,7 +172,10 @@ public class MemberServiceImpl implements MemberService {
         MemberValidator.validatePaymentType(member, null);
         MemberValidator.validateAccountType(member, true);
         MemberValidator.validateStructures(member, null);
-        return this.memberRepository.save(member);
+        Member saved = this.memberRepository.save(member);
+        // 03.5: one row, "captured" -- inside the capture's transaction.
+        this.trail.captured(saved);
+        return saved;
     }
 
     /**
@@ -200,6 +207,8 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
+            // 03.5, before ANYTHING changes the member: the history's picture of them as they were.
+            Map<String, String> before = this.trail.snapshot(existing);
             // Month end 01.3, FIRST: a workplace not on record is refused before anything is merged or written (ME-12);
             // onto `existing`, because the merge ignores `workplace`. None named leaves it as it was (MD58).
             this.workplaces.resolve(updated.getWorkplaceId(), existing);
@@ -232,7 +241,9 @@ public class MemberServiceImpl implements MemberService {
             // member was captured without (R-ROB-I). A null in the request keeps the stored one.
             MemberValidator.validateAccountType(existing, false);
             MemberValidator.validateStructures(existing, previousIsCosatu);
-            return this.memberRepository.save(existing);
+            Member saved = this.memberRepository.save(existing);
+            this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
+            return saved;
         });
     }
 
@@ -457,6 +468,8 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> updateBanking(Integer id, Member banking) {
         return this.memberRepository.findById(id).map(existing -> {
+            // 03.5, before anything changes the member.
+            Map<String, String> before = this.trail.snapshot(existing);
             // 🗣️ Decision ⑥, as in `update`: read the stored day before it is replaced.
             Integer previousDebitDay = existing.getDebitDay();
             existing.setBankName(banking.getBankName());
@@ -481,15 +494,24 @@ public class MemberServiceImpl implements MemberService {
             // Banking details saved as a debit order carry the account's type: this is the one screen
             // where the type is the thing being edited (00.5).
             MemberValidator.validateAccountType(existing, true);
-            return this.memberRepository.save(existing);
+            Member saved = this.memberRepository.save(existing);
+            this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
+            return saved;
         });
     }
 
+    /**
+     * 03.5: a TRANSACTION of its own now -- the amount and its history row are written together, or neither is.
+     */
     @Override
+    @Transactional
     public Optional<Member> updateMonthlySubscription(Integer id, BigDecimal monthlySubscription) {
         return this.memberRepository.findById(id).map(existing -> {
+            Map<String, String> before = this.trail.snapshot(existing);
             existing.setMonthlySubscription(monthlySubscription);
-            return this.memberRepository.save(existing);
+            Member saved = this.memberRepository.save(existing);
+            this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
+            return saved;
         });
     }
 

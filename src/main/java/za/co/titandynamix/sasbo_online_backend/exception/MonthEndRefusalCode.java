@@ -46,6 +46,8 @@ public enum MonthEndRefusalCode {
      * tenth of a processor, so a figure never queues and never hangs a screen.
      */
     SUMMARY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE),
+    /** 03.6: a page of a member's history that does not exist. The details carry the page, the size and the ceiling. */
+    HISTORY_PAGE_INVALID(HttpStatus.BAD_REQUEST),
     /** 03.1: the member is no longer on record. The details carry the id asked for. */
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND),
     /** 03.1: not one of the statuses the record takes. The details carry the ones it does. */
