@@ -15,13 +15,16 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusKind;
+import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberSummaryService;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractWritingIT;
 import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
+import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
 import java.time.Clock;
 import java.util.ArrayList;
@@ -63,6 +66,9 @@ class MemberSummaryIT extends AbstractWritingIT {
     @Autowired
     private PlatformTransactionManager transactions;
 
+    @Autowired
+    private MemberSummaryRepository repository;
+
     static final List<String> GROUPINGS = SummaryFixture.GROUPINGS;
 
     @BeforeEach
@@ -75,6 +81,24 @@ class MemberSummaryIT extends AbstractWritingIT {
     @DisplayName("🔒 MV-49: every figure of every row, for each grouping -- the answer H2 gives, from the same fixture")
     void everyGrouping(String by) {
         SummaryFixture.assertAnswer(summaries.summary("2026-09", by, null, null), by);
+    }
+
+    @Test
+    @DisplayName("MemberSummaryRepository's one statement on PostgreSQL: a line a row, the complement, the status nobody knows, one check")
+    void theStatementsOwnLines() {
+        List<MemberSummaryRepository.Line> lines = repository.figures(new MemberSummaryRepository.Ask(
+                MonthRange.of(SummaryFixture.MONTH), SummaryGrouping.AREA, true, true, null, null, List.of("M-800001")));
+
+        assertThat(lines).filteredOn(l -> l.part().equals(MemberSummaryRepository.CHECK)).hasSize(1)
+                .allSatisfy(check -> assertThat(check.known()).isEqualTo(1));
+        assertThat(lines).filteredOn(l -> l.part().equals(MemberSummaryRepository.UNKNOWN_STATUS))
+                .extracting(MemberSummaryRepository.Line::status).containsExactly("Inactive");
+        assertThat(lines).filteredOn(l -> l.part().equals(MemberSummaryRepository.COMPLEMENT))
+                .extracting(MemberSummaryRepository.Line::key, MemberSummaryRepository.Line::complement)
+                .containsExactlyInAnyOrder(org.assertj.core.groups.Tuple.tuple("A", 30L),
+                        org.assertj.core.groups.Tuple.tuple("B", 8L));
+        assertThat(lines).filteredOn(l -> l.part().equals(MemberSummaryRepository.ROW))
+                .extracting(MemberSummaryRepository.Line::seeded).as("the one number asked for, on record").contains(1L);
     }
 
     @Test

@@ -351,6 +351,132 @@
         "reason" : null
       }
     },
+    "GET /api/members/summary" : {
+      "request" : "GET /api/members/summary?by=group",
+      "status" : 200,
+      "body" : {
+        "month" : "2026-09",
+        "monthFromTheServer" : true,
+        "by" : "group",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "groupedAsAt" : "2026-09-29",
+        "totals" : {
+          "onRecord" : 1,
+          "suspended" : 0,
+          "paying" : 1,
+          "joined" : 0,
+          "left" : 0,
+          "reinstated" : 0,
+          "opening" : 1,
+          "unexplained" : 0,
+          "joinedYearToDate" : 0,
+          "leftYearToDate" : 0,
+          "complement" : 178,
+          "penetration" : 0.0056,
+          "complementOutOfDate" : false
+        },
+        "rows" : [
+          {
+            "key" : "INVENTED GROUP CORE",
+            "label" : "INVENTED GROUP CORE",
+            "core" : true,
+            "fewerThanFive" : false,
+            "withheld" : false,
+            "figures" : {
+              "onRecord" : 0,
+              "suspended" : 0,
+              "paying" : 0,
+              "joined" : 0,
+              "left" : 0,
+              "reinstated" : 0,
+              "opening" : 0,
+              "unexplained" : 0,
+              "joinedYearToDate" : 0,
+              "leftYearToDate" : 0,
+              "complement" : 160,
+              "penetration" : 0.0,
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "INVENTED GROUP OTHER",
+            "label" : "INVENTED GROUP OTHER",
+            "core" : false,
+            "fewerThanFive" : false,
+            "withheld" : false,
+            "figures" : {
+              "onRecord" : 0,
+              "suspended" : 0,
+              "paying" : 0,
+              "joined" : 0,
+              "left" : 0,
+              "reinstated" : 0,
+              "opening" : 0,
+              "unexplained" : 0,
+              "joinedYearToDate" : 0,
+              "leftYearToDate" : 0,
+              "complement" : 15,
+              "penetration" : 0.0,
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "~NO_TABLE_CODE",
+            "label" : "No table code on record",
+            "core" : null,
+            "fewerThanFive" : false,
+            "withheld" : false,
+            "figures" : {
+              "onRecord" : 0,
+              "suspended" : 0,
+              "paying" : 0,
+              "joined" : 0,
+              "left" : 0,
+              "reinstated" : 0,
+              "opening" : 0,
+              "unexplained" : 0,
+              "joinedYearToDate" : 0,
+              "leftYearToDate" : 0,
+              "complement" : 3,
+              "penetration" : 0.0,
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "~NO_WORKPLACE",
+            "label" : "No workplace on record",
+            "core" : null,
+            "fewerThanFive" : false,
+            "withheld" : false,
+            "figures" : {
+              "onRecord" : 1,
+              "suspended" : 0,
+              "paying" : 1,
+              "joined" : 0,
+              "left" : 0,
+              "reinstated" : 0,
+              "opening" : 1,
+              "unexplained" : 0,
+              "joinedYearToDate" : 0,
+              "leftYearToDate" : 0,
+              "complement" : 0,
+              "penetration" : null,
+              "complementOutOfDate" : false
+            }
+          }
+        ],
+        "unplaced" : {
+          "statuses" : [ ],
+          "noWorkplace" : 1,
+          "noTableCode" : 0
+        },
+        "seededMembers" : 0,
+        "membersFrom" : null,
+        "leaversFrom" : null
+      }
+    },
     "POST /api/members/{id}/status" : {
       "request" : "POST /api/members/{id}/status",
       "requestBody" : {
@@ -430,6 +556,79 @@
         "details" : {
           "workplaceId" : "999999"
         }
+      }
+    },
+    "SUMMARY_GROUPING_UNKNOWN" : {
+      "request" : "GET /api/members/summary?by=bank",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "The figures are grouped by group, employer, table code, area, region or committee.",
+        "path" : "/api/members/summary",
+        "code" : "SUMMARY_GROUPING_UNKNOWN",
+        "details" : {
+          "known" : "group,employer,tableCode,area,region,committee"
+        }
+      }
+    },
+    "SUMMARY_AREA_UNKNOWN" : {
+      "request" : "GET /api/members/summary?area=QQ",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That area is not on record here.",
+        "path" : "/api/members/summary",
+        "code" : "SUMMARY_AREA_UNKNOWN",
+        "details" : {
+          "field" : "area"
+        }
+      }
+    },
+    "SUMMARY_MONTH_INVALID" : {
+      "request" : "GET /api/members/summary?month=last-month",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That month could not be read. Name it as year and month -- 2026-09.",
+        "path" : "/api/members/summary",
+        "code" : "SUMMARY_MONTH_INVALID",
+        "details" : {
+          "field" : "month"
+        }
+      }
+    },
+    "SUMMARY_MONTH_IN_FUTURE" : {
+      "request" : "GET /api/members/summary?month=2027-01",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That month has not happened yet.",
+        "path" : "/api/members/summary",
+        "code" : "SUMMARY_MONTH_IN_FUTURE",
+        "details" : {
+          "month" : "2027-01",
+          "current" : "2026-09"
+        }
+      }
+    },
+    "SUMMARY_UNAVAILABLE" : {
+      "request" : "GET /api/members/summary",
+      "status" : 503,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 503,
+        "error" : "Service Unavailable",
+        "message" : "The figures are taking too long to work out just now. Nothing is wrong with the members' records. Try again in a moment.",
+        "path" : "/api/members/summary",
+        "code" : "SUMMARY_UNAVAILABLE"
       }
     },
     "MEMBER_NOT_FOUND" : {

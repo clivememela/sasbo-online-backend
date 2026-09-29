@@ -48,6 +48,7 @@ GET /api/members/metadata/payment-types
 GET /api/members/metadata/welcome-letter
 GET /api/members/structures
 GET /api/members/structures/tree
+GET /api/members/summary
 GET /api/members/userRoles
 GET /api/members/{id}
 PUT /api/members/{id}
