@@ -72,7 +72,13 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
                         .unmapped("jobGradeName", "JobGrade has no 'name' -- the field is "
                                 + "'grade', already mapped to MemberDto.jobGrade. jobGradeName "
                                 + "appears to be a duplicate nobody removed, and it is always "
-                                + "null"));
+                                + "null")
+                        // Not a gap, and held null ON PURPOSE: no member record says anything
+                        // about a letter. MemberController sets it on the one answer that asked
+                        // for one -- a capture with sendWelcome -- after the member is saved (A64).
+                        .unmapped("welcomeLetter", "set by MemberController on a capture's answer, "
+                                + "never read from the entity -- a member read back must not "
+                                + "claim a letter went"));
     }
 
     @Test
