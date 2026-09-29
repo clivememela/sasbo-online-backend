@@ -92,18 +92,19 @@ class WorkplaceRepositoryIT extends AbstractWritingIT {
     }
 
     @Test
-    @DisplayName("🔒 MR-PERF-12: a search for % finds a workplace with a % in its name and no other; a number finds its R/A")
+    @DisplayName("🔒 MR-PERF-12: a search for 0% finds a workplace with 0% in its name and no other; a number finds its R/A")
     void aSearchIsLiteral() {
         jdbc.update("INSERT INTO workplaces (ra_number, name, employer_printed, area_id, committee_code, "
                 + "staff_complement, cl_code) SELECT 999998, 'INVENTED 100% BRANCH', 'INVENTED BANK', id, 'Q99', 1, "
                 + "'00000000' FROM sasbo_areas WHERE letter = 'A'");
-        Long withAPercent = jdbc.queryForObject("SELECT count(*) FROM workplaces WHERE name LIKE '%!%%' ESCAPE '!'",
-                Long.class);
+        // Two characters: a term below two is ignored by design. Were % a wildcard, "0%" would find every name with a 0.
+        Long withZeroPercent = jdbc.queryForObject(
+                "SELECT count(*) FROM workplaces WHERE name LIKE '%0!%%' ESCAPE '!'", Long.class);
 
-        WorkplacePageDto found = service.page(0, 200, null, null, null, null, "%");
+        WorkplacePageDto found = service.page(0, 200, null, null, null, null, "0%");
 
         assertThat(found.content()).extracting(WorkplaceDto::name).contains("INVENTED 100% BRANCH");
-        assertThat((long) found.content().size()).isEqualTo(withAPercent);
+        assertThat((long) found.content().size()).isEqualTo(withZeroPercent);
         assertThat(service.page(0, 200, null, null, null, null, "999998").content())
                 .extracting(WorkplaceDto::raNumber).contains(999998);
     }

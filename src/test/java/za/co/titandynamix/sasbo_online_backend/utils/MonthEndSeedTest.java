@@ -89,10 +89,10 @@ class MonthEndSeedTest {
     }
 
     /** Each list's size, as the resource states it. */
-    private static Map<String, Integer> statedSizes() throws IOException {
-        Map<String, Integer> sizes = new LinkedHashMap<>();
+    private static Map<String, Long> statedSizes() throws IOException {
+        Map<String, Long> sizes = new LinkedHashMap<>();
         for (JsonNode list : resource(ReferenceListSeeder.RESOURCE).path("lists")) {
-            sizes.put(list.path("list").asText(), list.path("count").asInt());
+            sizes.put(list.path("list").asText(), list.path("count").asLong());
         }
         return sizes;
     }
@@ -105,7 +105,7 @@ class MonthEndSeedTest {
     @Test
     @DisplayName("every list is on a fresh demonstration database, as many rows as the resource states, each marked as printed and unconfirmed (MD28)")
     void everyListIsThere() throws IOException {
-        Map<String, Integer> stated = statedSizes();
+        Map<String, Long> stated = statedSizes();
         assertThat(stated.keySet()).containsExactlyElementsOf(ReferenceListSeeder.ORDER);
         assertThat(rows("SELECT count(*) FROM sasbo_regions")).isEqualTo(stated.get("regions"));
         assertThat(rows("SELECT count(*) FROM sasbo_areas")).isEqualTo(stated.get("areas"));
