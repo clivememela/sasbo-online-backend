@@ -51,4 +51,13 @@ public interface MemberRepository extends JpaRepository<Member, Integer> {
     // Alternate lookup utility to double check active status configurations
     @Query("SELECT m FROM Member m WHERE m.isRepresentative = true AND m.status = 'ACTIVE'")
     List<Member> findAllActiveRepresentatives();
+
+    /**
+     * Month end 03.1: the member, LOCKED for a status change until the transaction ends -- so that of two changes
+     * asked at once on the same view, the second waits, finds the status the first wrote, and is told its view is
+     * stale (MV-5), rather than both writing. {@code SELECT ... FOR UPDATE}, which both databases accept (BR65).
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM Member m WHERE m.id = :id")
+    Optional<Member> findByIdForStatusChange(@org.springframework.data.repository.query.Param("id") Integer id);
 }

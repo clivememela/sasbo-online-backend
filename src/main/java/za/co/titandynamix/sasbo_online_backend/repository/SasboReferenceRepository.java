@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Reads SASBO's lists for month end (01.1) -- one statement a list, ordered by the server and by nothing a request
@@ -154,6 +155,44 @@ public class SasboReferenceRepository {
     /** The list keys {@link #counts} answers, in the order the seeder writes them. */
     public static List<String> countedLists() {
         return COUNTED.stream().map(pair -> pair[0]).toList();
+    }
+
+    /** A code of SASBO's as a status change names it: its row, SASBO's number, and its words. */
+    public record Code(long id, Integer number, String name) {
+    }
+
+    /** The deletion code with SASBO's number {@code sasboCode} -- never the table's id (RC7). */
+    public Optional<Code> deletionCode(int sasboCode) {
+        return jdbc.query("SELECT id, sasbo_code, name FROM deletion_codes WHERE sasbo_code = ?",
+                (rs, n) -> new Code(rs.getLong("id"), rs.getInt("sasbo_code"), rs.getString("name")), sasboCode)
+                .stream().findFirst();
+    }
+
+    /** The suspension code SASBO numbers {@code code}. */
+    public Optional<Code> suspensionCode(int code) {
+        return jdbc.query("SELECT id, code, name FROM suspension_codes WHERE code = ?",
+                (rs, n) -> new Code(rs.getLong("id"), rs.getInt("code"), rs.getString("name")), code)
+                .stream().findFirst();
+    }
+
+    /** A deletion code by the id a status change row holds, for saying which it was. */
+    public Optional<Code> deletionCodeById(long id) {
+        return jdbc.query("SELECT id, sasbo_code, name FROM deletion_codes WHERE id = ?", (rs, n) -> {
+            int number = rs.getInt("sasbo_code");
+            return new Code(rs.getLong("id"), rs.wasNull() ? null : number, rs.getString("name"));
+        }, id).stream().findFirst();
+    }
+
+    /** A suspension code by the id a status change row holds. */
+    public Optional<Code> suspensionCodeById(long id) {
+        return jdbc.query("SELECT id, code, name FROM suspension_codes WHERE id = ?",
+                (rs, n) -> new Code(rs.getLong("id"), rs.getInt("code"), rs.getString("name")), id)
+                .stream().findFirst();
+    }
+
+    /** SASBO's suspension codes' numbers, in order -- what a refusal says is known. */
+    public List<Integer> suspensionCodeNumbers() {
+        return jdbc.queryForList("SELECT code FROM suspension_codes ORDER BY code", Integer.class);
     }
 
     /** One row of {@code reference_lists}. */

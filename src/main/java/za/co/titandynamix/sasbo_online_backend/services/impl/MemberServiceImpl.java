@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.member.StatusChange;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
@@ -79,6 +80,39 @@ public class MemberServiceImpl implements MemberService {
             // The status and nothing else: no validator runs here, by design (R-ROB-I).
             member.setStatus(change.toStatus());
             return this.memberRepository.save(member);
+        });
+    }
+
+    /**
+     * Month end 03.1: the same narrow change as ACB's -- the status and nothing else, no validator (R-ROB-I) -- with
+     * SASBO's code and a note, on the view the caller had. The member's row is locked for the change, so of two
+     * changes on one view the second finds the first's status: the same status is a no-op that writes nothing (a
+     * retry is safe, ME-3), any other is stale and writes nothing either (MV-5). The history row is written in the
+     * same transaction as the status it records.
+     */
+    @Override
+    @Transactional
+    public Optional<StatusChangeOutcome> changeStatus(Integer memberId, StatusChange change) {
+        return this.memberRepository.findByIdForStatusChange(memberId).map(member -> {
+            if (change.toStatus().equals(member.getStatus())) {
+                return new StatusChangeOutcome(member, null, false);
+            }
+            if (change.expectedStatus() != null && !change.expectedStatus().equals(member.getStatus())) {
+                return new StatusChangeOutcome(member, null, true);
+            }
+            MemberStatusChange row = new MemberStatusChange();
+            row.setMemberId(member.getId());
+            row.setFromStatus(member.getStatus());
+            row.setToStatus(change.toStatus());
+            row.setReason(change.reason());
+            row.setDeletionCodeId(change.deletionCodeId());
+            row.setSuspensionCodeId(change.suspensionCodeId());
+            row.setNote(change.note());
+            row.setChangedBy(change.actor());
+            row.setChangedAt(change.at());
+            MemberStatusChange written = this.statusChanges.save(row);
+            member.setStatus(change.toStatus());
+            return new StatusChangeOutcome(this.memberRepository.save(member), written, false);
         });
     }
 

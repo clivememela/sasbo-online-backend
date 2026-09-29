@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.services;
 
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.member.StatusChange;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 
 import java.math.BigDecimal;
@@ -24,4 +25,20 @@ public interface MemberService {
      * records nothing and answers the member as they are.
      */
     Optional<Member> changeStatus(Integer memberId, MemberStatusChangeRequest change);
+
+    /**
+     * Month end 03.1 -- the same narrow change, with SASBO's code and a note, ON THE VIEW THE CALLER HAD: the member's
+     * row is locked for the change, and a member no longer in {@code expectedStatus} is not changed -- the outcome says
+     * it is stale (MV-5). A change to the status the member already has writes nothing, which is what makes a retry
+     * after a timeout safe (ME-3). Empty when there is no such member.
+     */
+    Optional<StatusChangeOutcome> changeStatus(Integer memberId, StatusChange change);
+
+    /**
+     * What a month-end status change did: the member as they now are, the row written -- {@code null} where the member
+     * was already in the status -- and whether the caller's view was stale, in which case nothing was written.
+     */
+    record StatusChangeOutcome(Member member, za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange written,
+                               boolean stale) {
+    }
 }

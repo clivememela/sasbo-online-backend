@@ -25,7 +25,27 @@ public enum MonthEndRefusalCode {
      */
     REQUEST_MALFORMED(HttpStatus.BAD_REQUEST),
     /** 01.2: a page of the workplaces that does not exist. The details carry the page, the size and the ceiling. */
-    WORKPLACE_PAGE_INVALID(HttpStatus.BAD_REQUEST);
+    WORKPLACE_PAGE_INVALID(HttpStatus.BAD_REQUEST),
+    /** 03.1: the member is no longer on record. The details carry the id asked for. */
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** 03.1: not one of the statuses the record takes. The details carry the ones it does. */
+    STATUS_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /** 03.1: a change with no reason -- or a leaving or a suspension with no code of SASBO's for it. */
+    STATUS_REASON_REQUIRED(HttpStatus.BAD_REQUEST),
+    /**
+     * 03.1: the reason does not fit the status, JUDGED BY KIND AND NO FINER until the table (MM49): a deletion code
+     * fits a leaving status, a suspension code Suspended, a reinstatement neither. The details say what fits.
+     */
+    STATUS_REASON_MISMATCH(HttpStatus.BAD_REQUEST),
+    /** 03.1: no deletion code has that number of SASBO's (RC7: the number, never the table's id). */
+    DELETION_CODE_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /** 03.1: no suspension code has that number. The details carry the ones that do. */
+    SUSPENSION_CODE_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /**
+     * 03.1: the change was asked for on a stale view -- the member is not in the status the screen showed (MV-5). The
+     * details say what the status is now, when it changed and by whom. Nothing was changed.
+     */
+    STATUS_CHANGED_SINCE(HttpStatus.CONFLICT);
 
     private final HttpStatus status;
 
