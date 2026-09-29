@@ -314,6 +314,10 @@ class MonthEndGuardsTest {
         return found;
     }
 
+    /** Why a statistic of month end is open (04.3 to 04.8). */
+    static final String STATISTIC = "counts, under rule C -- a membership below five at a named employer, table code or "
+            + "group never leaves the server -- and cut by where members work only where the switch says all (MD62)";
+
     /** The routes of the arc that are open, and the written reason each is (MV-34). */
     static final Map<String, String> OPEN_BY_REASON = Map.ofEntries(
             Map.entry("GET /api/reference/regions", "a list of SASBO's regions: codes, and nobody"),
@@ -343,7 +347,4 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/month-end/{month}/recruitment", STATISTIC),
             Map.entry("GET /api/month-end/{month}/representatives", STATISTIC));
 
-    /** Why a statistic of month end is open (04.3 to 04.8). */
-    static final String STATISTIC = "counts, under rule C -- a membership below five at a named employer, table code or "
-            + "group never leaves the server -- and cut by where members work only where the switch says all (MD62)";
 }
