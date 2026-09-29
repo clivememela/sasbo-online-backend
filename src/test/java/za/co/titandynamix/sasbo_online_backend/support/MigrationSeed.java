@@ -194,7 +194,9 @@ public final class MigrationSeed {
             "V49__acb_member_account_type.sql",
             "V50__member_status_changes.sql",
             "V51__acb_letters_queued_by.sql",
-            "V52__members_money_contract.sql");
+            "V52__members_money_contract.sql",
+            "V53__sasbo_reference_lists.sql",
+            "V54__workplaces.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

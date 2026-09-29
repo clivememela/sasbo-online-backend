@@ -21,6 +21,11 @@ import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.enums.WelcomeLetterOutcome;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
+import za.co.titandynamix.sasbo_online_backend.enums.ListEmptyReason;
+import za.co.titandynamix.sasbo_online_backend.enums.SeedFailure;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -256,6 +261,16 @@ public final class ApiSurface {
                     "refusalCodes": [
                 %s
                     ]
+                  },
+                  "monthEnd": {
+                    "workplaceSwitch": [%s],
+                    "listEmptyReasons": [%s],
+                    "seedFailures": [%s],
+                    "workplacePageMaxSize": %d,
+                    "searchMaxLength": %d,
+                    "refusalCodes": [
+                %s
+                    ]
                   }
                 }
                 """.formatted(regenerateCommand(), types, accountTypeNames(), keys, jobGradeOutcomeNames(),
@@ -263,7 +278,20 @@ public final class ApiSurface {
                 names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
                 names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
                 names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),
-                acbRefusalCodes());
+                acbRefusalCodes(),
+                names(WorkplaceSwitch.Mode.values()), names(ListEmptyReason.values()), names(SeedFailure.values()),
+                WorkplaceService.MAX_PAGE_SIZE, WorkplaceService.MAX_SEARCH_LENGTH,
+                monthEndRefusalCodes());
+    }
+
+    /**
+     * Month end's refusal codes, each with the status it answers (MD40) -- read off the enum the arc throws, never
+     * typed out, so a code added on the server reaches the browser's parity test by regenerating this file.
+     */
+    private static String monthEndRefusalCodes() {
+        return Arrays.stream(MonthEndRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
     }
 
     /**

@@ -133,3 +133,8 @@ acb:
 # seeded member. Blank means a demo. Anything else stops the start-up and says what it accepts.
 sasbo:
   environment: ${SASBO_ENVIRONMENT:}
+  # THE SWITCH (month end, MD45, MD50, MD62): whether SASBO's own branch list -- 5,507 real workplaces with their
+  # staff complement -- and the invented members who stand at them are seeded AND served here. `none`, `names` or
+  # `all`; unset is `none`, and any other word stops the start. Off unless it is set: set it on a hosted stack only
+  # on SASBO's word (MM79). The suite's compose sets it for the local run.
+  workplaces: ${SASBO_WORKPLACES:}

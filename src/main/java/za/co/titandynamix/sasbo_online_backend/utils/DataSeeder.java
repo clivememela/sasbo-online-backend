@@ -49,6 +49,8 @@ public class DataSeeder implements ApplicationRunner {
     private final SeedMemberRepository seedMembers;
     private final SasboEnvironment environment;
     private final AcbHistorySeeder acbHistorySeeder;
+    private final ReferenceListSeeder referenceListSeeder;
+    private final WorkplaceSeeder workplaceSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -302,6 +304,14 @@ public class DataSeeder implements ApplicationRunner {
             }
         }
 
+        // MONTH END'S BLOCK (MD65): after everything seeded above and before ACB's history, EACH CALL CAUGHT -- a
+        // fault of this arc's must not stop the 160, the banks or the grades from being seeded, and must not hide
+        // either: each seeder records what happened beside its list, and the status read answers it (ME-18). Within
+        // the block the order is the order the rows refer to each other: SASBO's lists, then the workplaces that
+        // stand on them, which are seeded only where the deployment's switch is set (MD45, MD53).
+        seedMonthEnd("SASBO's lists", this.referenceListSeeder::seed);
+        seedMonthEnd("SASBO's workplaces", this.workplaceSeeder::seed);
+
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).
         // 🔒 Its failure is caught and logged with its cause, never fatal: a demo must start, and must not
@@ -311,6 +321,19 @@ public class DataSeeder implements ApplicationRunner {
             this.acbHistorySeeder.seed();
         } catch (RuntimeException seedingFailed) {
             log.error("The A.C.B. history could not be seeded; the application starts without it",
+                    AcbLogging.scrubbed(seedingFailed));
+        }
+    }
+
+    /**
+     * One call of month end's block, caught (MD65, MV-58): logged scrubbed -- the class and the stack, never the
+     * message, which may quote a row -- and the start goes on to the next.
+     */
+    private static void seedMonthEnd(String what, Runnable seeder) {
+        try {
+            seeder.run();
+        } catch (RuntimeException seedingFailed) {
+            log.error("{} could not be seeded; the application starts without them", what,
                     AcbLogging.scrubbed(seedingFailed));
         }
     }

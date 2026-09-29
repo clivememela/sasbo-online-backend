@@ -246,6 +246,32 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * A month-end refusal: its own status, its stable {@code code}, and the facts it is about -- the envelope
+     * ACB's refusals answer with, built from month end's own code (MD40).
+     *
+     * <p>Month end's controllers answer their refusals through {@code MonthEndExceptionHandler}, which calls this.
+     * It is registered here as well because one of month end's refusals is thrown under {@code MemberController},
+     * which no scoped advice answers: a save naming a workplace that is not on record is {@code WORKPLACE_UNKNOWN}
+     * (01.3, ME-12), and must carry its code rather than fall through to the catch-all above. The message and the
+     * details were written by month-end code for the person at the desk, every detail a string (ME-14).
+     */
+    @ExceptionHandler(MonthEndRefusal.class)
+    public ResponseEntity<ApiErrorResponse> handleMonthEndRefusal(MonthEndRefusal ex, HttpServletRequest request) {
+        HttpStatus status = ex.code().status();
+        ApiErrorResponse response = new ApiErrorResponse(
+                LocalDateTime.now(ZoneId.of("UTC")),
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null,
+                ex.code().name(),
+                ex.details().isEmpty() ? null : ex.details()
+        );
+        return ResponseEntity.status(status).body(response);
+    }
+
+    /**
      * Two writers raced for one versioned record and this one lost: a 409, never a 500.
      *
      * <p>ACB translates its own races into {@code RUN_VERSION_CONFLICT} with the run's current state
