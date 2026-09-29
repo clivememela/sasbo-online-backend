@@ -111,7 +111,7 @@ public class WorkplaceServiceImpl implements WorkplaceService {
 
     private static MonthEndRefusal pageInvalid(int page, int size) {
         return new MonthEndRefusal(MonthEndRefusalCode.WORKPLACE_PAGE_INVALID, "That page does not exist.",
-                Map.of("page", String.valueOf(page), "size", String.valueOf(size),
+                MonthEndRefusal.details("page", String.valueOf(page), "size", String.valueOf(size),
                         "maxSize", String.valueOf(MAX_PAGE_SIZE)));
     }
 }

@@ -3,6 +3,8 @@ package za.co.titandynamix.sasbo_online_backend.exception;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.SequencedMap;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 /**
@@ -28,17 +30,25 @@ public class MonthEndRefusal extends RuntimeException {
         this(code, message, Map.of());
     }
 
+    /**
+     * @param details kept in their order when the map has one ({@link #details(String...)} does); a map without one --
+     *                {@code Map.of} of two or more, whose order is salted afresh on every start -- is written by name,
+     *                so the same refusal reads the same on every start and its golden answer cannot flicker
+     */
     public MonthEndRefusal(MonthEndRefusalCode code, String message, Map<String, String> details) {
         super(message);
         this.code = code;
-        this.details = Collections.unmodifiableMap(new LinkedHashMap<>(details == null ? Map.of() : details));
+        Map<String, String> given = details == null ? Map.of() : details;
+        this.details = Collections.unmodifiableMap(given instanceof SequencedMap<?, ?>
+                ? new LinkedHashMap<>(given)
+                : new LinkedHashMap<>(new TreeMap<>(given)));
     }
 
     public MonthEndRefusalCode code() {
         return code;
     }
 
-    /** The facts behind the refusal, in the order they were given. Empty when there are none. */
+    /** The facts behind the refusal, in the order they were given (by name, if given without one). Empty when none. */
     public Map<String, String> details() {
         return details;
     }

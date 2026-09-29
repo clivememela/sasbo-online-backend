@@ -379,9 +379,9 @@
         "path" : "/api/workplaces",
         "code" : "WORKPLACE_PAGE_INVALID",
         "details" : {
+          "page" : "9",
           "size" : "2",
-          "maxSize" : "200",
-          "page" : "9"
+          "maxSize" : "200"
         }
       }
     }
