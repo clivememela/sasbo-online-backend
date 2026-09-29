@@ -17,7 +17,9 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepo
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.RepresentativeService;
+import za.co.titandynamix.sasbo_online_backend.services.impl.WelcomeLetterDispatcher;
 import za.co.titandynamix.sasbo_online_backend.support.KnownDefects;
+import za.co.titandynamix.sasbo_online_backend.support.NoTransactions;
 
 import java.util.List;
 
@@ -56,7 +58,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(MemberController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, JacksonConfig.class,
-        MemberMapperImpl.class})
+        MemberMapperImpl.class, WelcomeLetterDispatcher.class, NoTransactions.class})
 @DisplayName("MemberController, with the application's real security configuration")
 class MemberControllerSecurityTest {
 

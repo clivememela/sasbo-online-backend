@@ -23,6 +23,9 @@
       {"input": "", "comparisonKey": "", "storedForm": "", "blank": true}
     ]
   },
+  "welcomeLetter": {
+    "outcomes": ["SENT", "EMAIL_OFF", "NO_ADDRESS", "FAILED"]
+  },
   "acb": {
     "runStatuses": ["PREPARING", "PREPARED", "APPROVED", "SUBMITTED", "RETURNED", "CLOSED", "DECLINED", "FAILED", "CANCELLED"],
     "lineOutcomes": ["PENDING", "PAID", "UNPAID"],

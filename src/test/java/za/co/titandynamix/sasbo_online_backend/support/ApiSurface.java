@@ -19,6 +19,7 @@ import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
+import za.co.titandynamix.sasbo_online_backend.enums.WelcomeLetterOutcome;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 
 import java.io.IOException;
@@ -238,6 +239,9 @@ public final class ApiSurface {
                 %s
                     ]
                   },
+                  "welcomeLetter": {
+                    "outcomes": [%s]
+                  },
                   "acb": {
                     "runStatuses": [%s],
                     "lineOutcomes": [%s],
@@ -255,7 +259,7 @@ public final class ApiSurface {
                   }
                 }
                 """.formatted(regenerateCommand(), types, accountTypeNames(), keys, jobGradeOutcomeNames(),
-                jobGradeMatchingCases(),
+                jobGradeMatchingCases(), names(WelcomeLetterOutcome.values()),
                 names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
                 names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
                 names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),

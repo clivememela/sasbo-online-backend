@@ -1,9 +1,11 @@
 package za.co.titandynamix.sasbo_online_backend.dto.member;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StringSerializer;
 import lombok.Data;
+import za.co.titandynamix.sasbo_online_backend.enums.WelcomeLetterOutcome;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -71,6 +73,15 @@ public class MemberDto {
      * asserts the wire rather than the calculation.
      */
     private String jobGradeOutcome;
+
+    /**
+     * What happened to the welcome letter the capture asked for -- SENT, EMAIL_OFF, NO_ADDRESS or FAILED
+     * ({@code WelcomeLetterOutcome}, A64). Set only on the answer to {@code POST /api/members?sendWelcome=true},
+     * after the member is saved, and left out of every other answer: a member read back says nothing about
+     * a letter, because nothing records one.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private WelcomeLetterOutcome welcomeLetter;
 
     /**
      * The Recruitment Channel tab, as the stakeholder defined it on 2026-09-09:

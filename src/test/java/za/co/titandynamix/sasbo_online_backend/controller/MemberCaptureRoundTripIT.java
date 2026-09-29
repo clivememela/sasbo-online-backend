@@ -122,6 +122,26 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
     }
 
     @Test
+    @DisplayName("🔴 A64 — with NO mail configured, a capture that asks for the welcome letter is still saved")
+    void aCaptureIsSavedWhereMailIsNotConfigured() throws Exception {
+        // dev.sasbo.online, exactly: no MAIL_USERNAME, so no mail bean -- and this context has none.
+        // The capture screen asks for the letter on every save, and this answered 503 BEFORE saving,
+        // so nobody there could capture anyone. The member is saved; the answer says why no letter went.
+        MockHttpServletResponse response = this.mockMvc.perform(post("/api/members?sendWelcome=true")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(captureFormPayload()))
+                .andReturn()
+                .getResponse();
+
+        assertThat(response.getStatus())
+                .as("the capture was refused, and the server said: %s", response.getContentAsString())
+                .isEqualTo(200);
+        JsonNode created = this.objectMapper.readTree(response.getContentAsString());
+        assertThat(created.path("welcomeLetter").asText()).isEqualTo("EMAIL_OFF");
+        assertThat(readBack(created).get("identityNumber").asText()).isEqualTo("9001010000080");
+    }
+
+    @Test
     @DisplayName("a captured member reads back with the fields that have columns")
     void theCapturedMemberRoundTrips() throws Exception {
         JsonNode read = readBack(capture());

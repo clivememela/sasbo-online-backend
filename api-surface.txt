@@ -45,6 +45,7 @@ GET /api/job-grades
 GET /api/members
 POST /api/members
 GET /api/members/metadata/payment-types
+GET /api/members/metadata/welcome-letter
 GET /api/members/structures
 GET /api/members/structures/tree
 GET /api/members/userRoles

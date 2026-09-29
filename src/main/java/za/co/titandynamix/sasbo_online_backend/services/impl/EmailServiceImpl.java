@@ -42,7 +42,7 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendWelcomeLetter(Member member) {
-        List<String> recipients = resolveRecipients(member);
+        List<String> recipients = EmailService.recipientsOf(member);
         if (recipients.isEmpty()) {
             throw new IllegalArgumentException("No email address is available for this member.");
         }
@@ -178,25 +178,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private List<String> resolveRecipients(Member member) {
-        String pref = member.getPreferredEmail();
-        List<String> out = new ArrayList<>();
-        boolean wantPersonal = "personal".equalsIgnoreCase(pref) || "both".equalsIgnoreCase(pref);
-        boolean wantWork     = "work".equalsIgnoreCase(pref)     || "both".equalsIgnoreCase(pref);
-        if (wantPersonal && hasValue(member.getPersonalEmail())) out.add(member.getPersonalEmail().trim());
-        if (wantWork     && hasValue(member.getWorkEmail()))     out.add(member.getWorkEmail().trim());
-        // Fallback when no preference is set
-        if (out.isEmpty()) {
-            if (hasValue(member.getPersonalEmail())) out.add(member.getPersonalEmail().trim());
-            else if (hasValue(member.getWorkEmail())) out.add(member.getWorkEmail().trim());
-        }
-        return out;
-    }
-
-    private static boolean hasValue(String s) {
-        return s != null && !s.isBlank();
-    }
+    // Who the letter goes to is EmailService.recipientsOf -- one rule, shared with the capture (A64).
 
     private static String buildFullName(Member member) {
         return List.of(
