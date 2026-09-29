@@ -130,6 +130,7 @@
     "refusalCodes": [
       {"code": "REQUEST_MALFORMED", "status": 400},
       {"code": "WORKPLACE_PAGE_INVALID", "status": 400},
+      {"code": "WORKPLACE_UNKNOWN", "status": 400},
       {"code": "MEMBER_NOT_FOUND", "status": 404},
       {"code": "STATUS_UNKNOWN", "status": 400},
       {"code": "STATUS_REASON_REQUIRED", "status": 400},
