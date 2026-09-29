@@ -11,12 +11,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.WorkplaceSeeder;
@@ -25,8 +33,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,6 +45,7 @@ import java.util.TreeSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
  * THE GOLDEN ANSWERS (month end, MD48, MV-32): {@value #FILE_NAME} -- a real answer for each route of the arc and an
@@ -43,46 +54,91 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * on the day somebody typed a fixture.
  *
  * <h2>🔒 Invented, and nothing of SASBO's (MD57, MV-52)</h2>
- * The answers are made from invented lists and invented workplaces written here -- the start's own seeding is stood
- * down -- because the file leaves the server's repository: it is copied into the client, and from there onto slides.
- * A scan holds it to that: no R/A number and no workplace name of the resource appears in it, and its canary reddens.
+ * The answers are made from invented lists, invented workplaces and an invented member written here -- the start's
+ * own seeding is stood down -- because the file leaves the server's repository: it is copied into the client, and from
+ * there onto slides. A scan holds it to that: no R/A number and no workplace name of the resource appears in it, and
+ * its canary reddens.
  *
  * <p>Written by {@code ./gradlew generateApiSurface}, which runs this class with {@code -DapiSurface.write=true};
- * checked in the fast lane, like the other contract artefacts.
+ * checked in the fast lane, like the other contract artefacts. The clock is frozen, and the one value of the file
+ * that is the database's -- a written change's id -- is written as the first, so the file is the same on every run.
  */
 @SpringBootTest(properties = {
         "sasbo.workplaces=all",
         "spring.datasource.url=jdbc:h2:mem:month-end-examples;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"})
 @AutoConfigureMockMvc(addFilters = false)
+@Import(MonthEndExamplesTest.AFrozenClock.class)
 @DisplayName("Month end's golden answers")
 class MonthEndExamplesTest {
 
     static final String FILE_NAME = "month-end-examples.json";
     static final Path FILE = Paths.get(FILE_NAME);
 
-    /** What every envelope's {@code timestamp} is written as: the one value of the file that is the clock's. */
+    /** What every envelope's {@code timestamp} is written as: the one value of the file that is the wall clock's. */
     static final String TIMESTAMP = "2026-09-29T08:00:00";
 
+    /** The instant every change is dated with. */
+    static final Instant NOW = Instant.parse("2026-09-29T08:00:00Z");
+
+    /** The invented member the status route is shown on. */
+    static final String MEMBER = "M-900001";
+
+    @TestConfiguration
+    static class AFrozenClock {
+        @Bean
+        @Primary
+        Clock frozenClockForTheExamples() {
+            return Clock.fixed(NOW, AcbTime.ZONE);
+        }
+    }
+
+    /** A request of an example: a method, an address, and a body where it has one. {@code {member}} is the invented member. */
+    record Example(String method, String path, String body) {
+        String key() {
+            return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}")
+                    .replaceAll("/\\d+/", "/{id}/");
+        }
+    }
+
     /** Every route of the arc that answers, and the request that shows it. */
-    static final Map<String, String> ANSWERS = answers();
+    static final List<Example> ANSWERS = answers();
 
     /** Every refusal code, and a request that provokes it through its route (MV-33). */
-    static final Map<MonthEndRefusalCode, String> REFUSALS = refusals();
+    static final Map<MonthEndRefusalCode, Example> REFUSALS = refusals();
 
-    private static Map<String, String> answers() {
-        Map<String, String> routes = new LinkedHashMap<>();
+    private static List<Example> answers() {
+        List<Example> routes = new ArrayList<>();
         for (String list : List.of("regions", "areas", "employer-groups", "employers", "table-codes",
                 "committee-provinces", "committees", "suspension-codes", "status")) {
-            routes.put("GET /api/reference/" + list, "/api/reference/" + list);
+            routes.add(new Example("GET", "/api/reference/" + list, null));
         }
-        routes.put("GET /api/workplaces", "/api/workplaces?page=0&size=2");
+        routes.add(new Example("GET", "/api/workplaces?page=0&size=2", null));
+        routes.add(new Example("POST", "/api/members/{member}/status", "{\"toStatus\": \"Resigned\", "
+                + "\"expectedStatus\": \"Active\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 2, "
+                + "\"note\": \"Invented: moved away\"}"));
         return routes;
     }
 
-    private static Map<MonthEndRefusalCode, String> refusals() {
-        Map<MonthEndRefusalCode, String> provoked = new LinkedHashMap<>();
-        provoked.put(MonthEndRefusalCode.REQUEST_MALFORMED, "/api/workplaces?page=first");
-        provoked.put(MonthEndRefusalCode.WORKPLACE_PAGE_INVALID, "/api/workplaces?page=9&size=2");
+    private static Map<MonthEndRefusalCode, Example> refusals() {
+        Map<MonthEndRefusalCode, Example> provoked = new EnumMap<>(MonthEndRefusalCode.class);
+        String status = "/api/members/{member}/status";
+        provoked.put(MonthEndRefusalCode.REQUEST_MALFORMED, new Example("GET", "/api/workplaces?page=first", null));
+        provoked.put(MonthEndRefusalCode.WORKPLACE_PAGE_INVALID, new Example("GET", "/api/workplaces?page=9&size=2", null));
+        provoked.put(MonthEndRefusalCode.MEMBER_NOT_FOUND, new Example("POST", "/api/members/999999/status",
+                "{\"toStatus\": \"Resigned\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 2}"));
+        provoked.put(MonthEndRefusalCode.STATUS_UNKNOWN, new Example("POST", status,
+                "{\"toStatus\": \"Gone\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 2}"));
+        provoked.put(MonthEndRefusalCode.STATUS_REASON_REQUIRED, new Example("POST", status,
+                "{\"toStatus\": \"Resigned\"}"));
+        provoked.put(MonthEndRefusalCode.STATUS_REASON_MISMATCH, new Example("POST", status,
+                "{\"toStatus\": \"Resigned\", \"reason\": \"SUSPENSION_CODE\", \"suspensionCode\": 11}"));
+        provoked.put(MonthEndRefusalCode.DELETION_CODE_UNKNOWN, new Example("POST", status,
+                "{\"toStatus\": \"Resigned\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 77}"));
+        provoked.put(MonthEndRefusalCode.SUSPENSION_CODE_UNKNOWN, new Example("POST", status,
+                "{\"toStatus\": \"Suspended\", \"reason\": \"SUSPENSION_CODE\", \"suspensionCode\": 77}"));
+        provoked.put(MonthEndRefusalCode.STATUS_CHANGED_SINCE, new Example("POST", status,
+                "{\"toStatus\": \"Resigned\", \"expectedStatus\": \"Pending\", \"reason\": \"DELETION_CODE\", "
+                        + "\"deletionCode\": 2}"));
         return provoked;
     }
 
@@ -102,9 +158,17 @@ class MonthEndExamplesTest {
     @BeforeEach
     void invented() {
         Long present = jdbc.queryForObject("SELECT count(*) FROM sasbo_regions WHERE code = 'NORTH'", Long.class);
-        if (present != null && present > 0) {
-            return;
+        if (present == null || present == 0) {
+            lists();
         }
+        // The invented member is Active before every example, and has no change on record: an example that moves
+        // them is answered the same on every run.
+        jdbc.update("DELETE FROM member_status_changes WHERE member_id = (SELECT id FROM members WHERE "
+                + "membership_number = ?)", MEMBER);
+        jdbc.update("UPDATE members SET status = 'Active' WHERE membership_number = ?", MEMBER);
+    }
+
+    private void lists() {
         jdbc.update("INSERT INTO sasbo_regions (code, name) VALUES ('NORTH', 'NORTH'), ('SOUTH', 'SOUTH')");
         jdbc.update("INSERT INTO sasbo_areas (letter, region_id) SELECT 'A', id FROM sasbo_regions WHERE code = 'NORTH'");
         jdbc.update("INSERT INTO sasbo_areas (letter, region_id) SELECT 'B', id FROM sasbo_regions WHERE code = 'SOUTH'");
@@ -129,6 +193,8 @@ class MonthEndExamplesTest {
                 + "'INVENTED SOUTH COMMITTEE', NULL FROM committee_provinces WHERE letter = 'R'");
         jdbc.update("INSERT INTO suspension_codes (code, name) VALUES (11, 'NOT ON PAYROLL'), (13, 'DEBIT RETURNED'), "
                 + "(19, 'INVALID ACCOUNT')");
+        jdbc.update("INSERT INTO deletion_codes (sasbo_code, name) VALUES (2, 'Resigned Society'), "
+                + "(5, 'Subscription in Arrears')");
         workplace(900001, "INVENTED MAIN STREET", "INVENTED BANK", 901, "NAME", "A", "Q01", 40);
         workplace(900002, "INVENTED HEAD OFFICE", "INVENTED BANK DEPTS", 902, "SUMS", "A", "Q01", 120);
         workplace(900003, "INVENTED HARBOUR", "INVENTED INSURER", 903, "NAME", "B", "R01", 15);
@@ -139,6 +205,10 @@ class MonthEndExamplesTest {
                     + "row_count, recorded_at) VALUES (?, 'invented', DATE '2026-08-31', NULL, 'SEEDED', NULL, 1, "
                     + "TIMESTAMP WITH TIME ZONE '2026-09-29 08:00:00+00:00')", list);
         }
+        jdbc.update("INSERT INTO members (membership_number, first_names, surname, identity_number, status, "
+                + "payment_type, is_representative, created_at, updated_at) VALUES (?, 'Invented', 'Example', ?, "
+                + "'Active', 'Payroll', FALSE, TIMESTAMP '2026-09-29 08:00:00', TIMESTAMP '2026-09-29 08:00:00')",
+                MEMBER, MemberFixture.syntheticIdFor(900));
     }
 
     private void workplace(int ra, String name, String employer, Integer tableCode, String by, String area,
@@ -150,34 +220,57 @@ class MonthEndExamplesTest {
                 ra, name, employer, tableCode, by, area, committee, committee, complement);
     }
 
+    private MvcResult perform(Example example) throws Exception {
+        Integer member = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = ?", Integer.class, MEMBER);
+        String path = example.path().replace("{member}", String.valueOf(member));
+        MockHttpServletRequestBuilder request = example.method().equals("POST")
+                ? post(path).contentType(MediaType.APPLICATION_JSON).content(example.body())
+                : get(path);
+        return mockMvc.perform(request).andReturn();
+    }
+
     private JsonNode body(MvcResult result) throws IOException {
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         if (body instanceof ObjectNode object && object.has("timestamp")) {
             object.put("timestamp", TIMESTAMP);
         }
+        if (body instanceof ObjectNode object && object.has("path")) {
+            object.put("path", object.path("path").asText().replaceAll("/api/members/\\d+/", "/api/members/{id}/"));
+        }
+        if (body instanceof ObjectNode object && object.path("change") instanceof ObjectNode change) {
+            change.put("id", 1);
+        }
+        if (body instanceof ObjectNode object && object.has("memberId")) {
+            object.put("memberId", 1);
+        }
         return body;
+    }
+
+    private ObjectNode recorded(ObjectNode into, String key, Example example, MvcResult result) throws IOException {
+        ObjectNode entry = into.putObject(key);
+        entry.put("request", example.method() + " " + example.path().replace("{member}", "{id}"));
+        if (example.body() != null) {
+            entry.set("requestBody", objectMapper.readTree(example.body()));
+        }
+        entry.put("status", result.getResponse().getStatus());
+        entry.set("body", body(result));
+        return entry;
     }
 
     /** The file, as the running server answers today. */
     private String live() throws Exception {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("_generated", ApiSurface.regenerateCommand() + " -- do not edit by hand");
-        root.put("_holds", "invented lists and invented workplaces only -- nothing of SASBO's (MD57)");
+        root.put("_holds", "invented lists, invented workplaces and an invented member only -- nothing of SASBO's (MD57)");
         ObjectNode answers = root.putObject("answers");
-        for (Map.Entry<String, String> route : ANSWERS.entrySet()) {
-            MvcResult result = mockMvc.perform(get(route.getValue())).andReturn();
-            ObjectNode example = answers.putObject(route.getKey());
-            example.put("request", "GET " + route.getValue());
-            example.put("status", result.getResponse().getStatus());
-            example.set("body", body(result));
+        for (Example example : ANSWERS) {
+            invented();
+            recorded(answers, example.key(), example, perform(example));
         }
         ObjectNode refusals = root.putObject("refusals");
-        for (Map.Entry<MonthEndRefusalCode, String> refusal : REFUSALS.entrySet()) {
-            MvcResult result = mockMvc.perform(get(refusal.getValue())).andReturn();
-            ObjectNode example = refusals.putObject(refusal.getKey().name());
-            example.put("request", "GET " + refusal.getValue());
-            example.put("status", result.getResponse().getStatus());
-            example.set("body", body(result));
+        for (Map.Entry<MonthEndRefusalCode, Example> refusal : REFUSALS.entrySet()) {
+            invented();
+            recorded(refusals, refusal.getKey().name(), refusal.getValue(), perform(refusal.getValue()));
         }
         DefaultPrettyPrinter printer = new DefaultPrettyPrinter()
                 .withObjectIndenter(new DefaultIndenter("  ", "\n"))
@@ -205,8 +298,9 @@ class MonthEndExamplesTest {
         assertThat(REFUSALS.keySet())
                 .as("a refusal code with no request that provokes it through its route")
                 .containsExactlyInAnyOrder(MonthEndRefusalCode.values());
-        for (Map.Entry<MonthEndRefusalCode, String> refusal : REFUSALS.entrySet()) {
-            MvcResult result = mockMvc.perform(get(refusal.getValue())).andReturn();
+        for (Map.Entry<MonthEndRefusalCode, Example> refusal : REFUSALS.entrySet()) {
+            invented();
+            MvcResult result = perform(refusal.getValue());
             assertThat(result.getResponse().getStatus()).as(refusal.getKey().name())
                     .isEqualTo(refusal.getKey().status().value());
             assertThat(body(result).path("code").asText()).isEqualTo(refusal.getKey().name());

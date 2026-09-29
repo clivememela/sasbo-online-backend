@@ -48,7 +48,9 @@ class MonthEndGuardsTest {
             "MonthEndApi", "WorkplaceSwitch", "ReferenceListController", "WorkplaceController",
             "ListEmptyReason", "SeedFailure", "MonthEndExceptionHandler", "MonthEndRefusal", "MonthEndRefusalCode",
             "SasboReferenceRepository", "WorkplaceRepository", "ReferenceListService", "WorkplaceService",
-            "ReferenceListServiceImpl", "WorkplaceServiceImpl", "ListSync", "ReferenceListSeeder", "WorkplaceSeeder");
+            "ReferenceListServiceImpl", "WorkplaceServiceImpl", "ListSync", "ReferenceListSeeder", "WorkplaceSeeder",
+            "MemberStatusController", "MemberStatusService", "MemberStatusServiceImpl", "MemberStatusRequest",
+            "MemberStatusAnswer", "MemberStatusKind");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -288,5 +290,7 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/committees", "a list of committees: organisations"),
             Map.entry("GET /api/reference/suspension-codes", "a list of SASBO's suspension codes"),
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
-            Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"));
+            Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
+            Map.entry("POST /api/members/{id}/status", "as open as the PUT it replaces (MD13); named in B1's list, "
+                    + "and refusing from the day sign-in exists"));
 }

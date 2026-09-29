@@ -7,7 +7,6 @@ import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest;
-import za.co.titandynamix.sasbo_online_backend.dto.member.StatusChange;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;

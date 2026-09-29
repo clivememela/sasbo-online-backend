@@ -3,7 +3,6 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 import org.springframework.stereotype.Service;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusAnswer;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusRequest;
-import za.co.titandynamix.sasbo_online_backend.dto.member.StatusChange;
 import za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange;
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusKind;
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
@@ -12,6 +11,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberStatusChangeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.SasboReferenceRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.services.MemberService.StatusChange;
 import za.co.titandynamix.sasbo_online_backend.services.MemberStatusService;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 
