@@ -99,7 +99,12 @@ public class MonthEndFactsRepository {
                 FROM (""" + factsStatement() + ") f", arguments(month, seeded).addValue("monthId", monthId));
     }
 
-    /** The month's leavers, by SASBO's deletion code and the reason under it -- one statement. */
+    /**
+     * The month's leavers, by SASBO's deletion code and the reason under it -- one statement. A leaver with no code
+     * (ACB's {@code SUBS_IN_ARREARS}) is counted under the reason as stored. 🔴 The reason is CAST to text: H2 builds
+     * the column from the entity as an ENUM, and a {@code CASE} that mixes it with a code's name takes the ENUM's type
+     * and refuses the name ("Value not permitted", run 36627331294).
+     */
     public int insertLeftByCode(long monthId, MonthRange month) {
         String toKind = MemberSummaryRepository.kind("c.to_status");
         String fromKind = MemberSummaryRepository.kind("c.from_status");
@@ -109,7 +114,8 @@ public class MonthEndFactsRepository {
                 FROM (
                   SELECT COALESCE(m.workplace_id, 0) AS workplace_key,
                     COALESCE(p.sasbo_code, d.sasbo_code) AS code,
-                    CASE WHEN d.id IS NULL THEN c.reason ELSE COALESCE(p.name, d.name) END AS name,
+                    CASE WHEN d.id IS NULL THEN CAST(c.reason AS VARCHAR(255))
+                         ELSE CAST(COALESCE(p.name, d.name) AS VARCHAR(255)) END AS name,
                     CASE WHEN p.id IS NOT NULL THEN d.name END AS detail
                   FROM member_status_changes c
                   JOIN members m ON m.id = c.member_id
@@ -136,7 +142,8 @@ public class MonthEndFactsRepository {
                   COUNT(*)
                 FROM (
                   SELECT COALESCE(k.workplace_id, 0) AS workplace_key, sc.code AS code,
-                    CASE WHEN sc.id IS NOT NULL THEN sc.name ELSE last_in.reason END AS name
+                    CASE WHEN sc.id IS NOT NULL THEN CAST(sc.name AS VARCHAR(255))
+                         ELSE CAST(last_in.reason AS VARCHAR(255)) END AS name
                   FROM (%1$s) k
                   LEFT JOIN (
                     SELECT c.member_id, c.suspension_code_id, c.reason FROM member_status_changes c

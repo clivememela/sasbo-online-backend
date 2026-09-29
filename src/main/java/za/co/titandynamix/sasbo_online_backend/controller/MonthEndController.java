@@ -10,7 +10,6 @@ import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthDto;
 import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthsDto;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
-import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository.TakenMonth;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
 
 import java.time.YearMonth;
@@ -41,23 +40,13 @@ public class MonthEndController {
     /** The months taken, the newest first, and the open month. */
     @GetMapping("/months")
     public MonthEndMonthsDto months() {
-        return new MonthEndMonthsDto(takes.openMonth().toString(),
-                takes.takenMonths().stream().map(MonthEndController::taken).toList());
+        return takes.months();
     }
 
     /** One month: taken, or the open month; a past month not taken is {@code MONTH_NOT_TAKEN}. */
     @GetMapping("/{month}")
     public MonthEndMonthDto month(@PathVariable("month") String month) {
-        YearMonth asked = takes.month(month);
-        return takes.taken(asked).map(MonthEndController::taken).orElseGet(() -> {
-            YearMonth open = takes.openMonth();
-            if (!asked.equals(open)) {
-                throw new MonthEndRefusal(MonthEndRefusalCode.MONTH_NOT_TAKEN,
-                        "That month was not taken, and a past month is read only from what was taken.",
-                        MonthEndRefusal.details("month", asked.toString(), "open", open.toString()));
-            }
-            return new MonthEndMonthDto(asked.toString(), MonthEndMonthDto.OPEN, null, null);
-        });
+        return takes.record(month);
     }
 
     /** 🔒 Refused to every caller until sign-in exists -- after saying what is known of the month. */
@@ -69,10 +58,5 @@ public class MonthEndController {
         throw new MonthEndRefusal(MonthEndRefusalCode.IDENTITY_REQUIRED, "Taking a month freezes its figures for "
                 + "good, so it waits until administrators sign in to this system. Nothing has been taken.",
                 Map.of("month", asked.toString()));
-    }
-
-    private static MonthEndMonthDto taken(TakenMonth taken) {
-        return new MonthEndMonthDto(YearMonth.from(taken.monthStart()).toString(), MonthEndMonthDto.TAKEN,
-                taken.takenAt().toString(), taken.takenBy());
     }
 }

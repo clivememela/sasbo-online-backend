@@ -565,6 +565,31 @@
           "changedAt" : "2026-09-29T08:00:00Z"
         }
       }
+    },
+    "GET /api/month-end/months" : {
+      "request" : "GET /api/month-end/months",
+      "status" : 200,
+      "body" : {
+        "openMonth" : "2026-09",
+        "taken" : [
+          {
+            "month" : "2026-08",
+            "state" : "TAKEN",
+            "takenAt" : "2026-09-29T08:00:00Z",
+            "takenBy" : "seed"
+          }
+        ]
+      }
+    },
+    "GET /api/month-end/{month}" : {
+      "request" : "GET /api/month-end/2026-08",
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed"
+      }
     }
   },
   "refusals" : {
@@ -848,6 +873,85 @@
         "code" : "STATUS_CHANGED_SINCE",
         "details" : {
           "currentStatus" : "Active"
+        }
+      }
+    },
+    "MONTH_NOT_BEGUN" : {
+      "request" : "POST /api/month-end/2026-10/take",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That month has not begun yet.",
+        "path" : "/api/month-end/2026-10/take",
+        "code" : "MONTH_NOT_BEGUN",
+        "details" : {
+          "month" : "2026-10",
+          "current" : "2026-09"
+        }
+      }
+    },
+    "MONTH_ALREADY_TAKEN" : {
+      "request" : "POST /api/month-end/2026-08/take",
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "That month has been taken already, and a month is taken once. Its figures are read from what was frozen then.",
+        "path" : "/api/month-end/2026-08/take",
+        "code" : "MONTH_ALREADY_TAKEN",
+        "details" : {
+          "month" : "2026-08",
+          "takenBy" : "seed",
+          "takenAt" : "2026-09-29T08:00:00Z"
+        }
+      }
+    },
+    "MONTH_NOT_READY" : {
+      "request" : "POST /api/month-end/2026-07/take",
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "A month can be taken only where SASBO's workplaces are on record, and none is here. Nothing has been taken.",
+        "path" : "/api/month-end/2026-07/take",
+        "code" : "MONTH_NOT_READY",
+        "details" : {
+          "missing" : "workplaces"
+        }
+      }
+    },
+    "MONTH_NOT_TAKEN" : {
+      "request" : "GET /api/month-end/2026-07",
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "That month was not taken, and a past month is read only from what was taken.",
+        "path" : "/api/month-end/2026-07",
+        "code" : "MONTH_NOT_TAKEN",
+        "details" : {
+          "month" : "2026-07",
+          "open" : "2026-09"
+        }
+      }
+    },
+    "IDENTITY_REQUIRED" : {
+      "request" : "POST /api/month-end/2026-07/take",
+      "status" : 403,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 403,
+        "error" : "Forbidden",
+        "message" : "Taking a month freezes its figures for good, so it waits until administrators sign in to this system. Nothing has been taken.",
+        "path" : "/api/month-end/2026-07/take",
+        "code" : "IDENTITY_REQUIRED",
+        "details" : {
+          "month" : "2026-07"
         }
       }
     }

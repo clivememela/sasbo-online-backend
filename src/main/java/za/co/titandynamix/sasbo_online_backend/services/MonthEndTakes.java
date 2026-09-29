@@ -7,6 +7,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
+import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthDto;
+import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthsDto;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
@@ -115,6 +117,35 @@ public class MonthEndTakes {
     /** Every month taken, the newest first. */
     public List<TakenMonth> takenMonths() {
         return facts.takenMonths();
+    }
+
+    /** The months taken, the newest first, beside the open month -- the Month end page's read. */
+    public MonthEndMonthsDto months() {
+        return new MonthEndMonthsDto(openMonth().toString(), takenMonths().stream().map(MonthEndTakes::dto).toList());
+    }
+
+    /**
+     * One month's record, as a request names it: taken, or the open month; a past month not taken is
+     * {@code MONTH_NOT_TAKEN} -- its statistics are read only from what was frozen (MD19).
+     */
+    public MonthEndMonthDto record(String month) {
+        YearMonth asked = month(month);
+        Optional<TakenMonth> taken = taken(asked);
+        if (taken.isPresent()) {
+            return dto(taken.get());
+        }
+        YearMonth open = openMonth();
+        if (!asked.equals(open)) {
+            throw new MonthEndRefusal(MonthEndRefusalCode.MONTH_NOT_TAKEN,
+                    "That month was not taken, and a past month is read only from what was taken.",
+                    MonthEndRefusal.details("month", asked.toString(), "open", open.toString()));
+        }
+        return new MonthEndMonthDto(asked.toString(), MonthEndMonthDto.OPEN, null, null);
+    }
+
+    private static MonthEndMonthDto dto(TakenMonth taken) {
+        return new MonthEndMonthDto(YearMonth.from(taken.monthStart()).toString(), MonthEndMonthDto.TAKEN,
+                taken.takenAt().toString(), taken.takenBy());
     }
 
     /** What the route says before it refuses: a month taken already is said so, naming who took it and when. */

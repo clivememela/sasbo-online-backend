@@ -58,6 +58,9 @@ POST /api/members/{id}/send-welcome
 POST /api/members/{id}/status
 PATCH /api/members/{id}/subscription
 GET /api/members/{id}/welcome-letter-preview
+GET /api/month-end/months
+GET /api/month-end/{month}
+POST /api/month-end/{month}/take
 GET /api/provinces
 GET /api/recruiters
 GET /api/recruitment-channels

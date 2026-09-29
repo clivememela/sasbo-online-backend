@@ -38,8 +38,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * {@code /api/month-end} (month end 04.2) -- the controller over the real {@link MonthEndTakes}, the database's
- * answers stood in for: which months are taken, one month's record, and the take that refuses every caller -- after
- * saying what it knows of the month, and without ever writing.
+ * answers stood in for: which months are taken, one month's record, and what the take says of a month before it
+ * refuses -- without ever writing. That it then refuses every caller is a claim about who may call, and is
+ * {@code MonthEndControllerSecurityTest}'s, under the application's real security configuration.
  */
 @WebMvcTest(MonthEndController.class)
 @Import({MonthEndTakes.class, MonthEndControllerTest.MidSeptember.class, GlobalExceptionHandler.class,
@@ -124,19 +125,6 @@ class MonthEndControllerTest {
         mockMvc.perform(post("/api/month-end/2026-13/take"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"));
-    }
-
-    @Test
-    @DisplayName("🔒 MD4: the take refuses every caller, IDENTITY_REQUIRED -- and writes nothing")
-    void theTakeRefusesEveryCaller() throws Exception {
-        when(facts.taken(any())).thenReturn(Optional.empty());
-        when(facts.workplacesOnRecord()).thenReturn(4L);
-
-        mockMvc.perform(post("/api/month-end/2026-08/take"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
-                .andExpect(jsonPath("$.details.month").value("2026-08"));
-        verify(facts, never()).insertMonth(any(), any(), any());
     }
 
     @Test
