@@ -173,7 +173,7 @@ class MonthEndGuardsTest {
                 calls++;
                 String arguments = withoutAllowed(argumentsOf(call.group(2)));
                 for (String reader : VALUE_READERS) {
-                    if (arguments.toLowerCase(Locale.ROOT).contains(reader.toLowerCase(Locale.ROOT))) {
+                    if (readsAValue(arguments, reader)) {
                         offenders.add(source.name() + ": log." + call.group(1) + "(... " + reader + " ...)");
                     }
                 }
@@ -189,10 +189,38 @@ class MonthEndGuardsTest {
         Matcher call = LOG_CALL.matcher("log.debug(\"searching for {}\", search);");
         assertThat(call.find()).isTrue();
         String arguments = withoutAllowed(argumentsOf(call.group(2)));
-        assertThat(VALUE_READERS.stream().anyMatch(arguments.toLowerCase(Locale.ROOT)::contains)).isTrue();
+        assertThat(VALUE_READERS.stream().anyMatch(reader -> readsAValue(arguments, reader))).isTrue();
         Matcher row = LOG_CALL.matcher("log.info(\"workplace {}\", w.getName());");
         assertThat(row.find()).isTrue();
-        assertThat(VALUE_READERS.stream().anyMatch(withoutAllowed(argumentsOf(row.group(2)))::contains)).isTrue();
+        assertThat(VALUE_READERS.stream().anyMatch(reader -> readsAValue(withoutAllowed(argumentsOf(row.group(2))), reader)))
+                .isTrue();
+        Matcher resultSet = LOG_CALL.matcher("log.info(\"read {}\", rs.getString(1));");
+        assertThat(resultSet.find()).isTrue();
+        assertThat(readsAValue(argumentsOf(resultSet.group(2)), "rs.")).as("a ResultSet read, by its name").isTrue();
+    }
+
+    @Test
+    @DisplayName("must-pass: a count whose name only ENDS in a reader's letters is not a value -- members.size() is not rs.")
+    void aNameThatOnlyEndsInAReaderIsNotOne() {
+        Matcher count = LOG_CALL.matcher("log.info(\"Seeded {} member(s) from {}\", members.size(), SEED_FILE);");
+        assertThat(count.find()).isTrue();
+        String arguments = withoutAllowed(argumentsOf(count.group(2)));
+        assertThat(VALUE_READERS.stream().filter(reader -> readsAValue(arguments, reader)).toList()).isEmpty();
+    }
+
+    /**
+     * Whether the arguments hand the logger a value, by one reader: a reader that is a NAME -- {@code rs.},
+     * {@code row.}, {@code search}, {@code note} -- matches only where it is a name of its own, never the tail of
+     * another ({@code members.size()} is a count, not a ResultSet); a reader that is a call -- {@code .get},
+     * {@code .asText(} -- matches wherever it is. Aimed at the fact, not at the spelling.
+     */
+    static boolean readsAValue(String arguments, String reader) {
+        String lower = arguments.toLowerCase(Locale.ROOT);
+        String wanted = reader.toLowerCase(Locale.ROOT);
+        if (!Character.isLetter(wanted.charAt(0))) {
+            return lower.contains(wanted);
+        }
+        return Pattern.compile("(?<![a-z0-9_])" + Pattern.quote(wanted)).matcher(lower).find();
     }
 
     /** The arguments after the message: the message itself is prose, written here, and names no value. */
