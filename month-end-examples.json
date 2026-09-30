@@ -560,6 +560,7 @@
           "reason" : "DELETION_CODE",
           "deletionCode" : 2,
           "deletionReason" : "Resigned Society",
+          "reasonUnderCode" : null,
           "suspensionCode" : null,
           "suspensionReason" : null,
           "note" : "Invented: moved away",
