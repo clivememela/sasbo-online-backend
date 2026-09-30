@@ -13,7 +13,7 @@
 --   * `members_join_date` -- rule N counts a member who joined in the month whether or not they are
 --     still on record, so it cannot be the partial index.
 --
--- Rule L reads the month's status changes: `member_status_changes_changed_at` is 03.2's (V55).
+-- Rule L reads the month's status changes: `member_status_changes_changed_at` is 03.2's (V56).
 -- ---------------------------------------------------------------------------------------------
 
 SET LOCAL lock_timeout = '5s';
