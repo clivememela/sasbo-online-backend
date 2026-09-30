@@ -247,6 +247,21 @@ class MonthEndSeedTest {
     }
 
     @Test
+    @DisplayName("MD53, MV-46: the switch set late -- the 310, seeded while it was off and standing nowhere, are placed at the next start as the file says, and the start after places none")
+    void theSwitchSetLate() throws IOException {
+        List<DemonstrationMember.Placement> placements = DemonstrationMemberSeeder.readSeedFile().placements();
+        Map<String, Integer> before = standing();
+        // As a start with the switch off left them: on record, and standing nowhere.
+        jdbc.batchUpdate("UPDATE members SET workplace_id = NULL WHERE membership_number = ?",
+                placements.stream().map(p -> new Object[] {p.membershipNumber()}).toList());
+
+        assertThat(invented.place()).as("the next start, with the switch at all, places every one").isEqualTo(
+                placements.size());
+        assertThat(standing()).as("each where the file says").isEqualTo(before);
+        assertThat(invented.place()).as("and the start after places none").isZero();
+    }
+
+    @Test
     @DisplayName("03.7: the three months before the clock's have their leavers and suspended by SASBO's codes, each dated inside its month")
     void theDemonstrationsPast() throws IOException {
         List<DemonstrationMember.PastChange> past = DemonstrationMemberSeeder.readSeedFile().past();
