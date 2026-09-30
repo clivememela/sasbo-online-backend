@@ -129,6 +129,58 @@ class MemberSummaryIT extends AbstractSwitchedOnIT {
     }
 
     @Test
+    @DisplayName("🔒 MV-26, MD19: members no figure counts still answer the rows they stand in and the first Date Joined -- live and taken")
+    void membersNoFigureCountsStillAnswerTheirRowsAndTheFirstDateJoined() {
+        // The statement reads only the members a figure can count (MV-26); a leaver who left before the year began and
+        // joined before it counts in none. Two of them: one at a closed workplace, in a committee nobody else is in; one
+        // with no workplace -- and the others with none are placed, so theirs is the only row of it. Their rows are
+        // noughts and still rows, as the month's facts have them once taken (MD19), and the first Date Joined is theirs.
+        jdbc.update("INSERT INTO committees (code, province_id, name, recruiting_number) SELECT 'Z99', id, "
+                + "'INVENTED CLOSED COMMITTEE', NULL FROM committee_provinces WHERE letter = 'Q'");
+        jdbc.update("INSERT INTO workplaces (ra_number, name, employer_printed, table_code_id, table_code_by, area_id, "
+                + "committee_code, committee_id, staff_complement, cl_code, closed_on) VALUES (900099, "
+                + "'INVENTED CLOSED BRANCH', 'INVENTED EMPLOYER', NULL, NULL, (SELECT id FROM sasbo_areas WHERE letter = 'A'), "
+                + "'Z99', (SELECT id FROM committees WHERE code = 'Z99'), 0, '00000000', DATE '2015-01-31')");
+        Integer atAClosedWorkplace = leaverLongAgo("M-899001", "Resigned", "1990-01-01", 900099, 2, "2010-06-01T08:00:00Z");
+        Integer withNoWorkplace = leaverLongAgo("M-899002", "Retired", "1995-01-01", null, 1, "2012-01-01T08:00:00Z");
+        jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = 900001) "
+                + "WHERE workplace_id IS NULL AND id NOT IN (?, ?)", atAClosedWorkplace, withNoWorkplace);
+
+        for (String how : List.of("worked out now", "taken")) {
+            if (how.equals("taken")) {
+                takes.take(java.time.YearMonth.of(2026, 6), "seed");
+                takes.take(java.time.YearMonth.of(2026, 8), "seed");
+                takes.take(SummaryFixture.MONTH, "seed");
+            }
+            MemberSummaryDto answer = summaries.summary("2026-09", "committee", null, null);
+            for (String key : List.of("Z99", MemberSummaryRepository.NO_WORKPLACE)) {
+                assertThat(answer.rows()).filteredOn(r -> r.key().equals(key)).as("%s: the row %s", how, key)
+                        .singleElement().satisfies(r -> assertThat(List.of(r.figures().onRecord(), r.figures().opening(),
+                                r.figures().joined(), r.figures().left(), r.figures().leftYearToDate()))
+                                .as("%s: %s is noughts", how, key).containsOnly(0L));
+            }
+            assertThat(answer.membersFrom()).as("%s: the first member joined in 1990, and left in 2010", how)
+                    .isEqualTo("1990-01-01");
+            assertThat(answer.totals().onRecord()).as("%s: nobody counted twice or lost", how)
+                    .isEqualTo(SummaryFixture.WHOLE.onRecord());
+        }
+    }
+
+    /** A member who left before the year began and joined before it -- invented, as the fixture's are. */
+    private Integer leaverLongAgo(String number, String status, String joined, Integer ra, int deletionCode,
+                                  String leftAt) {
+        Integer id = jdbc.queryForObject("INSERT INTO members (membership_number, surname, status, join_date, workplace_id,"
+                        + " created_at, updated_at) VALUES (?, 'INVENTED LEAVER', ?, CAST(? AS DATE),"
+                        + " (SELECT id FROM workplaces WHERE ra_number = ?), TIMESTAMP '2026-01-01 00:00:00',"
+                        + " TIMESTAMP '2026-01-01 00:00:00') RETURNING id", Integer.class, number, status, joined, ra);
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at, "
+                        + "deletion_code_id) VALUES (?, 'Active', ?, 'DELETION_CODE', 'system', ?, "
+                        + "(SELECT id FROM deletion_codes WHERE sasbo_code = ?))", id, status,
+                java.time.OffsetDateTime.parse(leftAt), deletionCode);
+        return id;
+    }
+
+    @Test
     @DisplayName("🔒 MD66: the partial index's predicate is the vocabulary's leaving statuses, and members_join_date is there")
     void theIndexIsHeldToTheVocabulary() {
         String definition = jdbc.queryForObject("SELECT indexdef FROM pg_indexes WHERE indexname = 'members_on_record'",
