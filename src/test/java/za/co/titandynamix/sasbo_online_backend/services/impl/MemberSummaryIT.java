@@ -105,6 +105,30 @@ class MemberSummaryIT extends AbstractSwitchedOnIT {
     }
 
     @Test
+    @DisplayName("🔒 MD62 on PostgreSQL: below the switch's all the statement is accepted, and its one row is the whole -- live and taken")
+    void belowAllTheStatementIsOneRowOnPostgres() {
+        // Below "all" every member is the one row of those with no workplace (MD62), and the taken half groups its facts
+        // by that one key. PostgreSQL refuses a bare literal in GROUP BY -- "non-integer constant in GROUP BY" -- where
+        // H2 takes it, and every other test here runs with the switch at all: found by MV-26's probe. Blank is none
+        // (MD50), so this is the statement every hosted stack whose switch is not set asks.
+        MemberSummaryRepository.Ask belowAll = new MemberSummaryRepository.Ask(MonthRange.of(SummaryFixture.MONTH),
+                SummaryGrouping.GROUP, false, false, null, null, List.of());
+
+        assertThat(repository.figures(belowAll)).filteredOn(l -> l.part().equals(MemberSummaryRepository.ROW))
+                .extracting(MemberSummaryRepository.Line::key, MemberSummaryRepository.Line::onRecord)
+                .as("worked out now").containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        MemberSummaryRepository.NO_WORKPLACE, SummaryFixture.WHOLE.onRecord()));
+
+        takes.take(java.time.YearMonth.of(2026, 6), "seed");
+        takes.take(java.time.YearMonth.of(2026, 8), "seed");
+        takes.take(SummaryFixture.MONTH, "seed");
+        assertThat(repository.figures(belowAll)).filteredOn(l -> l.part().equals(MemberSummaryRepository.ROW))
+                .extracting(MemberSummaryRepository.Line::key, MemberSummaryRepository.Line::onRecord)
+                .as("read from the month's facts (rule F)").containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        MemberSummaryRepository.NO_WORKPLACE, SummaryFixture.WHOLE.onRecord()));
+    }
+
+    @Test
     @DisplayName("🔒 MD66: the partial index's predicate is the vocabulary's leaving statuses, and members_join_date is there")
     void theIndexIsHeldToTheVocabulary() {
         String definition = jdbc.queryForObject("SELECT indexdef FROM pg_indexes WHERE indexname = 'members_on_record'",
