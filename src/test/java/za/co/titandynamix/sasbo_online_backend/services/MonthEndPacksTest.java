@@ -21,7 +21,12 @@ import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.YearMonth;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -149,6 +154,46 @@ class MonthEndPacksTest {
         assertThat(swept.status()).isEqualTo("FAILED");
         assertThat(swept.failure()).isEqualTo(MonthEndPacks.INTERRUPTED);
         assertThat(swept.workbooks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("🔒 ME-21: the job beats between its two workbooks -- a slow first one does not make it look dead")
+    void aHeartbeatBetweenTheWorkbooks() {
+        AtomicReference<Instant> now = new AtomicReference<>(SummaryFixture.NOW);
+        Clock moving = new Clock() {
+            @Override
+            public ZoneId getZone() {
+                return AcbTime.ZONE;
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public Instant instant() {
+                return now.get();
+            }
+        };
+        Instant later = SummaryFixture.NOW.plus(MonthEndPacks.HEARTBEAT_LIMIT).plusSeconds(60);
+        List<Instant> beatSeen = new ArrayList<>();
+        MonthEndWorkbooks slow = mock(MonthEndWorkbooks.class);
+        when(slow.statistics(any())).thenAnswer(asked -> {
+            now.set(later);
+            return new byte[] {'P', 'K'};
+        });
+        when(slow.monthly(any())).thenAnswer(asked -> {
+            beatSeen.add(repository.preparing().orElseThrow().heartbeatAt());
+            return new byte[] {'P', 'K'};
+        });
+        MonthEndPacks job = new MonthEndPacks(repository, takes, slow, MonthEndPackLauncher.inline(), moving);
+
+        MonthEndPackDto pack = job.ask("2026-09").pack();
+
+        assertThat(beatSeen).as("the second workbook is begun after a beat, at the clock's own time -- a sweep then "
+                + "finds the job alive").containsExactly(later);
+        assertThat(pack.status()).isEqualTo("READY");
     }
 
     @Test
