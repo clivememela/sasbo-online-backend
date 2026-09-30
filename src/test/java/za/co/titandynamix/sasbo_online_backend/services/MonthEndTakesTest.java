@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
@@ -107,6 +108,13 @@ class MonthEndTakesTest {
         members.save(late);
 
         SummaryFixture.assertTakenSeptember(facts.facts(taken.id()), facts.counts(taken.id()));
+    }
+
+    @Test
+    @DisplayName("🔒 MD64: the take the application wires is one snapshot -- REPEATABLE READ, never the database's default")
+    void theWiredTakeIsOneSnapshot() {
+        // MV-27's own test hands its isolation in; this is the one the route and the seed are given.
+        assertThat(takes.isolation()).isEqualTo(TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
 
     @Test

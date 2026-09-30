@@ -85,6 +85,11 @@ public class MonthEndTakes {
         this.pause = pause;
     }
 
+    /** The isolation a take runs at: REPEATABLE READ where the application wires it (MD64) -- read by its own test. */
+    int isolation() {
+        return tx.getIsolationLevel();
+    }
+
     /** The month the clock is in, in SASBO's zone: the open month. */
     public YearMonth openMonth() {
         return MonthRange.current(clock);
