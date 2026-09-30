@@ -12,12 +12,12 @@ public enum MemberStatusReason {
      * terminated as yet".
      */
     UNPAID_SUSPENDED,
-    /** Month end 03.2 (V55): a change into a leaving status, carrying SASBO's deletion code (rule L). */
+    /** Month end 03.2 (V56): a change into a leaving status, carrying SASBO's deletion code (rule L). */
     DELETION_CODE,
-    /** Month end 03.2 (V55): a change into Suspended, carrying SASBO's suspension code (rule U). */
+    /** Month end 03.2 (V56): a change into Suspended, carrying SASBO's suspension code (rule U). */
     SUSPENSION_CODE,
-    /** Month end 03.2 (V55): a change out of a leaving or a suspended status -- a member who came back (MM63). */
+    /** Month end 03.2 (V56): a change out of a leaving or a suspended status -- a member who came back (MM63). */
     REINSTATED,
-    /** Month end 03.2 (V55): a status given when the member was captured, or set by hand with no code of SASBO's. */
+    /** Month end 03.2 (V56): a status given when the member was captured, or set by hand with no code of SASBO's. */
     CAPTURED
 }
