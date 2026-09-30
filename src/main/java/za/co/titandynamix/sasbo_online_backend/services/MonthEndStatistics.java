@@ -199,7 +199,7 @@ public class MonthEndStatistics {
         return answer("membership", List.of("grlist", "mem_count"), read, List.of(byGroup, byTableCode, byCode), notes);
     }
 
-    /** 04.5: why members left -- by SASBO's reasons, by area and by table code; joined and deleted; the resigned. */
+    /** 04.5: why members left -- by SASBO's reasons, by area, by employer and by table code; joined and deleted; the resigned. */
     public MonthEndStatisticDto leavers(String month, String area, String region) {
         return leavers(read(month, area, region, false));
     }
@@ -218,6 +218,11 @@ public class MonthEndStatistics {
         Sheet byArea = reasonSheet(read, "by-area", "Why members left, by area",
                 "ANALYSIS OF MEMBERS DELETED FOR " + read.month().getMonthValue() + "/" + (read.month().getYear() % 100),
                 MonthEndStatistics::areaKey, reasonColumns, order, false);
+        // By employer, as the plan asks (04.5: "by area and by employer") -- the totals of SASBO's per-employer files,
+        // nedbank_deletions, stb_deletions and insurance_deletions, whose table codes the next sheet lists.
+        Sheet byEmployer = reasonSheet(read, "by-employer", "Why members left, by employer",
+                "SUMMARY OF MEMBERS DELETED DURING THE PERIOD", MonthEndStatistics::employerKey, reasonColumns, order,
+                true);
         Sheet byTableCode = reasonSheet(read, "by-table-code", "Why members left, by table code",
                 "SUMMARY OF MEMBERS DELETED DURING THE PERIOD", MonthEndStatistics::tableCodeKey, reasonColumns, order,
                 true);
@@ -235,7 +240,7 @@ public class MonthEndStatistics {
                 + "by their numbers; a leaver with no code on record is counted apart.");
         return answer("leavers", List.of("prt_del_summ", "nedbank_deletions", "stb_deletions", "insurance_deletions",
                 "nedbank_joined_deleted", "stb_joined_deleted", "insurance_joined_deleted", "resigned"), read,
-                List.of(byArea, byTableCode, joinedDeleted, resigned), notes);
+                List.of(byArea, byEmployer, byTableCode, joinedDeleted, resigned), notes);
     }
 
     /** 04.6: the branches and their penetration -- by area, and by employer within an area (bank_master_summ). */

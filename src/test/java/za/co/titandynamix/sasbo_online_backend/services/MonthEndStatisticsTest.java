@@ -137,6 +137,41 @@ class MonthEndStatisticsTest {
     }
 
     @Test
+    @DisplayName("04.4, 04.7: a suspension by SASBO's code and a recruit by their recruiter are rows of their own, not only the none-on-record row")
+    void aCodeAndARecruiterAreRowsOfTheirOwn() {
+        // The fixture's suspended member has no change on record and its recruits no recruiter, so the grouping by code
+        // and by recruiter was only ever seen through its "none on record" row. Here m7 was suspended in September with
+        // code 11, and m8, who joined on the 10th, was recruited by an invented recruiter -- undone after.
+        boolean codeAdded = jdbc.queryForObject("SELECT count(*) FROM suspension_codes WHERE code = 11", Long.class) == 0;
+        if (codeAdded) {
+            jdbc.update("INSERT INTO suspension_codes (code, name) VALUES (11, 'INVENTED NOT ON PAYROLL')");
+        }
+        Integer m7 = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = 'M-800007'", Integer.class);
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at, "
+                + "suspension_code_id) SELECT ?, 'Active', 'Suspended', 'SUSPENSION_CODE', 'system', "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-05 08:00:00+00:00', id FROM suspension_codes WHERE code = 11", m7);
+        jdbc.update("INSERT INTO recruiters (name) VALUES ('INVENTED RECRUITER')");
+        Integer recruiter = jdbc.queryForObject("SELECT id FROM recruiters WHERE name = 'INVENTED RECRUITER'",
+                Integer.class);
+        jdbc.update("UPDATE members SET recruiter_id = ? WHERE membership_number = 'M-800008'", recruiter);
+        try {
+            assertThat(rows(sheet(statistics.membership("2026-09", null, null), "suspended-by-code")))
+                    .as("m7 by the code of their last suspension, 11").containsExactly("11: 1");
+            assertThat(rows(sheet(statistics.recruitment("2026-09", null, null), "by-recruiter")))
+                    .as("m8 by their recruiter, the month and the year; the other recruit still has none")
+                    .anyMatch(row -> row.startsWith(recruiter + ": ") && row.endsWith(" 1 1"))
+                    .anyMatch(row -> row.startsWith("~NO_RECRUITER: "));
+        } finally {
+            jdbc.update("UPDATE members SET recruiter_id = NULL WHERE membership_number = 'M-800008'");
+            jdbc.update("DELETE FROM recruiters WHERE id = ?", recruiter);
+            jdbc.update("DELETE FROM member_status_changes WHERE member_id = ? AND reason = 'SUSPENSION_CODE'", m7);
+            if (codeAdded) {
+                jdbc.update("DELETE FROM suspension_codes WHERE code = 11");
+            }
+        }
+    }
+
+    @Test
     @DisplayName("🔒 MR-ROB-4, DL-65: a member captured after September is taken, dated inside it, moves none of its statistics")
     void aLateCaptureMovesNothing() {
         takes.take(SummaryFixture.MONTH, "seed");

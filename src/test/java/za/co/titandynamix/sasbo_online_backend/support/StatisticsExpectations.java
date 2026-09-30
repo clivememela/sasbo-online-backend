@@ -89,6 +89,9 @@ public final class StatisticsExpectations {
         assertThat(byArea.columns().get(1).label()).isEqualTo("Resigned Society (2)");
         assertThat(rows(byArea)).containsExactly("A: 0 0 0 0 0", "B: 0 1 1 0 2");
         assertThat(total(byArea)).isEqualTo("0 1 1 0 2");
+        // 04.5 "by area and by employer": the employers' rows are settled by their membership, as the branches' are.
+        assertThat(rows(sheet(answer, "by-employer"))).containsExactly("E1: withheld", "E2: fewer than five");
+        assertThat(total(sheet(answer, "by-employer"))).as("MV-16: the same leavers as by area").isEqualTo("0 1 1 0 2");
         assertThat(rows(sheet(answer, "by-table-code"))).containsExactly("901: withheld", "902: fewer than five");
         assertThat(total(sheet(answer, "by-table-code"))).isEqualTo("0 1 1 0 2");
         assertThat(total(sheet(answer, "joined-deleted"))).isEqualTo("2 2 0");
@@ -120,6 +123,10 @@ public final class StatisticsExpectations {
         assertThat(rows(reps)).containsExactly("901: withheld", "902: fewer than five",
                 "~NO_TABLE_CODE: 0 1 0 1 0.0000", "~NO_WORKPLACE: 0 0 0 0 -");
         assertThat(total(reps)).as("four workplaces, none with a representative").isEqualTo("0 4 0 4 0.0000");
+        Sheet committees = sheet(answer, "committee-members");
+        assertThat(rows(committees)).containsExactly("901: withheld", "902: fewer than five",
+                "~NO_TABLE_CODE: 0 1 0 1 0.0000", "~NO_WORKPLACE: 0 0 0 0 -");
+        assertThat(total(committees)).as("four workplaces, none with a committee member").isEqualTo("0 4 0 4 0.0000");
         assertThat(answer.notes()).anyMatch(n -> n.contains("Memnet"));
     }
 }
