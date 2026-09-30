@@ -57,17 +57,17 @@ public class MemberStatusChange {
     private Instant changedAt;
 
     /**
-     * Month end 03.2 (V55): the deletion code a leaving carries -- the row of {@code deletion_codes} whose SASBO
+     * Month end 03.2 (V56): the deletion code a leaving carries -- the row of {@code deletion_codes} whose SASBO
      * number was named; set exactly when {@code reason} is {@code DELETION_CODE}, which the database checks.
      */
     @Column(name = "deletion_code_id")
     private Long deletionCodeId;
 
-    /** Month end 03.2 (V55): the suspension code a suspension carries; set exactly when the reason is SUSPENSION_CODE. */
+    /** Month end 03.2 (V56): the suspension code a suspension carries; set exactly when the reason is SUSPENSION_CODE. */
     @Column(name = "suspension_code_id")
     private Long suspensionCodeId;
 
-    /** Month end 03.2 (V55): the administrator's words, at most 500 characters -- never logged (MR-SEC-6). */
+    /** Month end 03.2 (V56): the administrator's words, at most 500 characters -- never logged (MR-SEC-6). */
     @Column(name = "note", length = 500)
     private String note;
 }

@@ -76,7 +76,7 @@ class MigrationChainContentTest {
         // runs in neither lane; counted from the migrations on 2026-09-29 by month end, which moves the pin next.
         // 48 from month end 01.1 and 01.2: V53 adds reference_lists, sasbo_regions, sasbo_areas, employer_groups,
         // employers, table_codes, committee_provinces, committees and suspension_codes; V54 adds workplaces.
-        // 49 from month end 03.5: V58 adds member_changes.
+        // 49 from month end 03.5: V59 adds member_changes.
         //
         // 🔑 This class is gated behind P0_DB_URL and so runs in neither ordinary
         // lane, which makes "25" an edit nobody would catch being wrong. The delta
