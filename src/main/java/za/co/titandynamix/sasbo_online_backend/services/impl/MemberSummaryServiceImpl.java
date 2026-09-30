@@ -182,6 +182,12 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
                 }
             }
         }
+        // The rows read only the members a figure can count (MV-26), so the earliest Date Joined of all -- a leaver's, as
+        // often as not -- comes on the check line for a month worked out now; a month taken answers its facts' own.
+        if (check != null && check.membersFrom() != null
+                && (membersFrom == null || check.membersFrom().isBefore(membersFrom))) {
+            membersFrom = check.membersFrom();
+        }
         MemberSummaryDto.Figures totals = figures(sums[0], sums[1], sums[2], sums[3], sums[4], sums[5], sums[6],
                 sums[7], grouped ? complementTotal : null);
 
