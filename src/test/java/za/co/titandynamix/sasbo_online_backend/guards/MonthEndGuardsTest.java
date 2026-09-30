@@ -57,7 +57,9 @@ class MonthEndGuardsTest {
             "MemberSummaryServiceImpl", "MemberSummaryRepository", "MemberSummaryDto", "SummaryGate", "SummaryGrouping",
             "MonthRange", "SmallCounts", "MemberHistoryController", "MemberHistoryService", "MemberHistoryRepository",
             "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
-            "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController");
+            "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController", "MonthEndPacks",
+            "MonthEndPackController", "MonthEndPackRepository", "MonthEndWorkbooks", "MonthEndPackLauncher",
+            "MonthEndPackConfig", "SpreadsheetText");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -345,6 +347,11 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/month-end/{month}/leavers", STATISTIC),
             Map.entry("GET /api/month-end/{month}/branches", STATISTIC),
             Map.entry("GET /api/month-end/{month}/recruitment", STATISTIC),
-            Map.entry("GET /api/month-end/{month}/representatives", STATISTIC));
+            Map.entry("GET /api/month-end/{month}/representatives", STATISTIC),
+            Map.entry("POST /api/month-end/{month}/pack", "the statistics as two workbooks: counts only, the sheets the "
+                    + "statistics answer, rule C and the switch applied as they apply them (04.10)"),
+            Map.entry("GET /api/month-end/packs/{id}", "a pack's progress: its month, its state and when"),
+            Map.entry("GET /api/month-end/packs/{id}/{workbook}", "a READY pack's workbook: the statistics' counts, as "
+                    + "open as the statistics are"));
 
 }

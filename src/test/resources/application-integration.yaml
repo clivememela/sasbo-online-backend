@@ -41,3 +41,9 @@ logging:
 acb:
   jobs:
     synchronous: true
+
+# Month end's statistics pack (04.10) runs on the caller's thread under every test lane, for the same reason -- on a
+# launcher of its own, never ACB's (MR-ROB-33).
+month-end:
+  packs:
+    synchronous: true

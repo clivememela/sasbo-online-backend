@@ -201,7 +201,8 @@ public final class MigrationSeed {
             "V56__member_workplace.sql",
             "V57__member_summary_indexes.sql",
             "V58__member_changes.sql",
-            "V59__month_end_taken.sql");
+            "V59__month_end_taken.sql",
+            "V60__month_end_packs.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

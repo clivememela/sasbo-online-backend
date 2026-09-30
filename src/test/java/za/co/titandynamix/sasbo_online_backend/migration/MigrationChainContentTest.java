@@ -78,6 +78,7 @@ class MigrationChainContentTest {
         // employers, table_codes, committee_provinces, committees and suspension_codes; V54 adds workplaces.
         // 49 from month end 03.5: V58 adds member_changes.
         // 52 from month end 04.2: V59 adds month_end_months, month_end_workplaces and month_end_counts.
+        // 53 from month end 04.10: V60 adds month_end_packs.
         //
         // 🔑 This class is gated behind P0_DB_URL and so runs in neither ordinary
         // lane, which makes "25" an edit nobody would catch being wrong. The delta
@@ -87,7 +88,7 @@ class MigrationChainContentTest {
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
                 Integer.class))
                 .as("tables in public, including flyway_schema_history")
-                .isEqualTo(52);
+                .isEqualTo(53);
     }
 
     @Test

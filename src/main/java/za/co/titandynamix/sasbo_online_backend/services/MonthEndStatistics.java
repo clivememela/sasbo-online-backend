@@ -125,7 +125,10 @@ public class MonthEndStatistics {
 
     /** 04.3: the month's new and deleted members by area, core and other -- and the year to date (prtmemsum). */
     public MonthEndStatisticDto newAndDeleted(String month, String area, String region) {
-        Read read = read(month, area, region);
+        return newAndDeleted(read(month, area, region, false));
+    }
+
+    MonthEndStatisticDto newAndDeleted(Read read) {
         List<Movement> monthly = read.facts().stream().map(Movement::of).toList();
         List<Movement> yearly = yearMovement(read);
         List<Column> columns = List.of(count("core", "Core"), count("other", "Other"), count("total", "Total"));
@@ -156,7 +159,10 @@ public class MonthEndStatistics {
 
     /** 04.4: membership by group and by table code, how it is collected, and the suspended by code (grlist, mem_count). */
     public MonthEndStatisticDto membership(String month, String area, String region) {
-        Read read = read(month, area, region);
+        return membership(read(month, area, region, false));
+    }
+
+    MonthEndStatisticDto membership(Read read) {
         boolean staff = read.grouped();
         List<Column> groupColumns = List.of(count("complement", "Complement"), count("members", "Members"),
                 count("joined", "Enrolments"), count("left", "Cancellations"), count("suspended", "Suspensions"));
@@ -195,7 +201,10 @@ public class MonthEndStatistics {
 
     /** 04.5: why members left -- by SASBO's reasons, by area and by table code; joined and deleted; the resigned. */
     public MonthEndStatisticDto leavers(String month, String area, String region) {
-        Read read = read(month, area, region);
+        return leavers(read(month, area, region, false));
+    }
+
+    MonthEndStatisticDto leavers(Read read) {
         List<ReferenceRows.DeletionCode> deletionCodes = codes.deletionCodes();
         List<ReferenceRows.DeletionCode> numbered = deletionCodes.stream().filter(d -> d.code() != null).toList();
         List<Column> reasonColumns = new ArrayList<>();
@@ -231,7 +240,10 @@ public class MonthEndStatistics {
 
     /** 04.6: the branches and their penetration -- by area, and by employer within an area (bank_master_summ). */
     public MonthEndStatisticDto branches(String month, String area, String region) {
-        Read read = read(month, area, region);
+        return branches(read(month, area, region, false));
+    }
+
+    MonthEndStatisticDto branches(Read read) {
         boolean staff = read.grouped();
         List<Column> columns = List.of(count("complement", "Complement"), count("members", "Members"),
                 share("penetration", "Penetration"), rand("subscriptions", "Subscriptions"),
@@ -251,7 +263,10 @@ public class MonthEndStatistics {
 
     /** 04.7: who recruited the month's new members -- by recruiter, by table code, by channel; the month and the year. */
     public MonthEndStatisticDto recruitment(String month, String area, String region) {
-        Read read = read(month, area, region);
+        return recruitment(read(month, area, region, false));
+    }
+
+    MonthEndStatisticDto recruitment(Read read) {
         Map<Long, Fact> byKey = read.factsByKey();
         List<Recruit> monthly = new ArrayList<>();
         for (Count c : read.counts(Measure.RECRUITED_BY)) {
@@ -311,7 +326,10 @@ public class MonthEndStatistics {
 
     /** 04.8: representatives and committee members, by table code -- how many, and in how many workplaces. */
     public MonthEndStatisticDto representatives(String month, String area, String region) {
-        Read read = read(month, area, region);
+        return representatives(read(month, area, region, false));
+    }
+
+    MonthEndStatisticDto representatives(Read read) {
         List<Column> repColumns = List.of(count("representatives", "Representatives"), count("workplaces", "Workplaces"),
                 count("with", "With a representative"), count("without", "Without one"),
                 share("share", "Share with one"));
@@ -333,6 +351,19 @@ public class MonthEndStatistics {
         return answer("representatives", List.of("reps_no", "comm_mem", "memnet_area"), read,
                 List.of(reps, committees), notes);
     }
+
+    /**
+     * 04.10: every statistic of a month from ONE read -- the statistics pack's. A job waits up to {@link #JOB_WAIT} for
+     * a place at the gate instead of being refused as a screen is.
+     */
+    public List<MonthEndStatisticDto> all(String month) {
+        Read read = read(month, null, null, true);
+        return List.of(newAndDeleted(read), membership(read), leavers(read), branches(read), recruitment(read),
+                representatives(read));
+    }
+
+    /** How long a job waits for a place at the gate. */
+    static final java.time.Duration JOB_WAIT = java.time.Duration.ofMinutes(2);
 
     /** 04.3, 04.7, 04.8: a listing names members, and refuses every caller until sign-in exists -- before anything is read. */
     public static MonthEndRefusal listingRefused(String listing) {
@@ -362,7 +393,7 @@ public class MonthEndStatistics {
         }
     }
 
-    Read read(String month, String area, String region) {
+    Read read(String month, String area, String region, boolean waitForAPlace) {
         String areaCode = code("area", area, AREA_CEILING);
         String regionCode = code("region", region, REGION_CEILING);
         if (areaCode != null && regionCode != null) {
@@ -387,7 +418,7 @@ public class MonthEndStatistics {
         }
         boolean grouped = workplaceSwitch.staffNumbersServed();
         MonthRange range = MonthRange.of(asked);
-        if (!gate.tryEnter()) {
+        if (!(waitForAPlace ? gate.enter(JOB_WAIT) : gate.tryEnter())) {
             throw unavailable();
         }
         List<Fact> rows;

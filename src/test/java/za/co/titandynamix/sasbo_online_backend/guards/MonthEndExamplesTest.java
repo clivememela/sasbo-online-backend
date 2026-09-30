@@ -102,19 +102,25 @@ class MonthEndExamplesTest {
      * A request of an example: a method, an address, and a body where it has one. {@code {member}} is the invented
      * member. {@code gateHeld}: asked with both of the figures' places taken. {@code withoutWorkplaces}: asked in a
      * transaction that has emptied the workplaces and is rolled back after -- what a deployment with none on record
-     * answers (04.2, MD54).
+     * answers (04.2, MD54). {@code packInHand}: asked in a rolled-back transaction holding another month's pack in
+     * preparation (04.10). {@code {pack}} is a pack prepared for the example.
      */
-    record Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces) {
+    record Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces,
+                   boolean packInHand) {
         Example(String method, String path, String body) {
-            this(method, path, body, false, false);
+            this(method, path, body, false, false, false);
         }
 
         Example(String method, String path, String body, boolean gateHeld) {
-            this(method, path, body, gateHeld, false);
+            this(method, path, body, gateHeld, false, false);
+        }
+
+        Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces) {
+            this(method, path, body, gateHeld, withoutWorkplaces, false);
         }
 
         String key() {
-            return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}")
+            return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}").replace("{pack}", "{id}")
                     .replaceAll("/\\d{4}-\\d{2}(/|$)", "/{month}$1")
                     .replaceAll("/\\d+/", "/{id}/");
         }
@@ -149,6 +155,10 @@ class MonthEndExamplesTest {
                 "representatives")) {
             routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/" + statistic, null));
         }
+        // 04.10: the invented August's statistics pack -- asked for, prepared on the caller's thread under test, READY --
+        // and a pack as the screen polls it.
+        routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/pack", null));
+        routes.add(new Example("GET", "/api/month-end/packs/{pack}", null));
         return routes;
     }
 
@@ -197,6 +207,10 @@ class MonthEndExamplesTest {
                 true));
         provoked.put(MonthEndRefusalCode.IDENTITY_REQUIRED, new Example("POST", take.formatted("2026-07"), null));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_TAKEN, new Example("GET", "/api/month-end/2026-07", null));
+        // 04.10: a pack asked for while another month's is in hand -- there is no queue -- and a pack that is not there.
+        provoked.put(MonthEndRefusalCode.PACK_BUSY, new Example("POST", "/api/month-end/" + TAKEN + "/pack", null, false,
+                false, true));
+        provoked.put(MonthEndRefusalCode.PACK_NOT_FOUND, new Example("GET", "/api/month-end/packs/999999", null));
         return provoked;
     }
 
@@ -212,6 +226,9 @@ class MonthEndExamplesTest {
 
     @Autowired
     private MonthEndTakes takes;
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.services.MonthEndPacks packs;
 
     @Autowired
     private PlatformTransactionManager transactions;
@@ -233,6 +250,8 @@ class MonthEndExamplesTest {
         jdbc.update("DELETE FROM member_status_changes WHERE member_id = (SELECT id FROM members WHERE "
                 + "membership_number = ?)", MEMBER);
         jdbc.update("UPDATE members SET status = 'Active' WHERE membership_number = ?", MEMBER);
+        // No pack before any example: each asks from nothing, and is answered the same on every run.
+        jdbc.update("DELETE FROM month_end_packs");
     }
 
     private void lists() {
@@ -299,12 +318,29 @@ class MonthEndExamplesTest {
     private MvcResult perform(Example example) throws Exception {
         Integer member = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = ?", Integer.class, MEMBER);
         String path = example.path().replace("{member}", String.valueOf(member));
+        if (path.contains("{pack}")) {
+            path = path.replace("{pack}", String.valueOf(packs.ask(TAKEN).pack().id()));
+        }
         MockHttpServletRequestBuilder request = switch (example.method()) {
             case "POST" -> example.body() == null ? post(path)
                     : post(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             default -> get(path);
         };
+        if (example.packInHand()) {
+            // Asked in a transaction holding July's pack in preparation, and rolled back.
+            return new TransactionTemplate(transactions).execute(status -> {
+                status.setRollbackOnly();
+                jdbc.update("INSERT INTO month_end_packs (month_start, status, asked_by, started_at, heartbeat_at) "
+                        + "VALUES (DATE '2026-07-01', 'PREPARING', 'system', TIMESTAMP WITH TIME ZONE "
+                        + "'2026-09-29 08:00:00+00:00', TIMESTAMP WITH TIME ZONE '2026-09-29 08:00:00+00:00')");
+                try {
+                    return mockMvc.perform(request).andReturn();
+                } catch (Exception failed) {
+                    throw new IllegalStateException(failed);
+                }
+            });
+        }
         if (example.withoutWorkplaces()) {
             // Asked in a transaction that has emptied the workplaces, and rolled back: the request runs on this
             // thread, so the route reads what this transaction sees.
@@ -345,12 +381,21 @@ class MonthEndExamplesTest {
         if (body instanceof ObjectNode object && object.has("memberId")) {
             object.put("memberId", 1);
         }
+        // A pack's number is the database's, and differs by how many packs the class asked for before.
+        if (body instanceof ObjectNode object && object.has("workbooks") && object.has("id")) {
+            object.put("id", 1);
+        }
+        if (body instanceof ObjectNode object && "PACK_BUSY".equals(object.path("code").asText())
+                && object.path("details") instanceof ObjectNode details && details.has("pack")) {
+            details.put("pack", "1");
+        }
         return body;
     }
 
     private ObjectNode recorded(ObjectNode into, String key, Example example, MvcResult result) throws IOException {
         ObjectNode entry = into.putObject(key);
-        entry.put("request", example.method() + " " + example.path().replace("{member}", "{id}"));
+        entry.put("request", example.method() + " " + example.path().replace("{member}", "{id}")
+                .replace("{pack}", "{id}"));
         if (example.body() != null) {
             entry.set("requestBody", objectMapper.readTree(example.body()));
         }

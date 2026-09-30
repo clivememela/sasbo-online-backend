@@ -90,7 +90,14 @@ public enum MonthEndRefusalCode {
      * 04.2: refused to every caller until this system knows who is calling -- as ACB's writes are (MD4): taking a
      * month freezes its figures for good, and a listing names members. Nothing was done.
      */
-    IDENTITY_REQUIRED(HttpStatus.FORBIDDEN);
+    IDENTITY_REQUIRED(HttpStatus.FORBIDDEN),
+    /**
+     * 04.10: a statistics pack is being prepared for another month, and there is no queue (MR-PERF-11). The details
+     * carry the month asked for, the month in hand and its pack. A pack asked for the same month is the one in hand.
+     */
+    PACK_BUSY(HttpStatus.CONFLICT),
+    /** 04.10: no such pack -- or no such workbook of it, or none yet: a pack's files are there once it is READY. */
+    PACK_NOT_FOUND(HttpStatus.NOT_FOUND);
 
     private final HttpStatus status;
 

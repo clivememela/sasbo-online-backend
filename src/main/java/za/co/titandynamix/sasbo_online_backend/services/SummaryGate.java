@@ -22,6 +22,20 @@ public class SummaryGate {
         return permits.tryAcquire();
     }
 
+    /**
+     * Whether a JOB's figure queries may start, waiting up to {@code within} for a place (04.10): a statistics pack is
+     * off the request thread, so it waits its turn behind two screens instead of failing -- and still never makes a
+     * third run at once.
+     */
+    public boolean enter(java.time.Duration within) {
+        try {
+            return permits.tryAcquire(within.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
     /** A figure query has finished -- answered, refused or failed. */
     public void leave() {
         permits.release();
