@@ -137,6 +137,28 @@ class MonthEndStatisticsTest {
     }
 
     @Test
+    @DisplayName("🔒 MR-ROB-4, DL-65: a member captured after September is taken, dated inside it, moves none of its statistics")
+    void aLateCaptureMovesNothing() {
+        takes.take(SummaryFixture.MONTH, "seed");
+        MonthEndStatisticDto before = statistics.membership("2026-09", null, null);
+        za.co.titandynamix.sasbo_online_backend.entity.member.Member late =
+                za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture.withSurname("InventedLate");
+        late.setMembershipNumber("M-899998");
+        late.setStatus("Active");
+        late.setJoinDate(java.time.LocalDate.of(2026, 9, 14));
+        Integer id = members.save(late).getId();
+        try {
+            jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = 900001) "
+                    + "WHERE id = ?", id);
+
+            assertThat(statistics.membership("2026-09", null, null).sheets())
+                    .as("read from what was frozen, never counted again").isEqualTo(before.sheets());
+        } finally {
+            jdbc.update("DELETE FROM members WHERE id = ?", id);
+        }
+    }
+
+    @Test
     @DisplayName("🔒 rule Y: the year to date is the sum of the months taken -- June, August and September's leavers")
     void theYearToDate() {
         takes.take(YearMonth.of(2026, 6), "seed");

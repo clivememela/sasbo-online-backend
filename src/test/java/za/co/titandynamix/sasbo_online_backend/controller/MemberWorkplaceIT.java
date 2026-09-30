@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
 import jakarta.persistence.EntityManagerFactory;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +47,9 @@ class MemberWorkplaceIT extends AbstractSwitchedOnIT {
 
     @Autowired
     private EntityManagerFactory entityManagerFactory;
+
+    @Autowired
+    private PlatformTransactionManager transactions;
 
     /** Invented workplaces in one invented area and committee -- never SASBO's (MD57). Their ids, by R/A number. */
     private List<Long> invented(int count) {
@@ -174,13 +178,16 @@ class MemberWorkplaceIT extends AbstractSwitchedOnIT {
         QueryCount.assertConstantAcrossSizes(
                 entityManagerFactory,
                 this::seedTo,
-                () -> memberRepository.findAll().forEach(m -> {
-                    m.getSurname();
-                    if (m.getWorkplace() != null) {
-                        m.getWorkplace().getName();
-                        m.getWorkplace().getRaNumber();
-                    }
-                }),
+                // Inside one transaction, as the list's own route reads it: a workplace the graph did not fetch is
+                // then read one statement a member, and the count says so -- outside, it would throw instead (DL-41).
+                () -> new org.springframework.transaction.support.TransactionTemplate(transactions)
+                        .executeWithoutResult(status -> memberRepository.findAll().forEach(m -> {
+                            m.getSurname();
+                            if (m.getWorkplace() != null) {
+                                m.getWorkplace().getName();
+                                m.getWorkplace().getRaNumber();
+                            }
+                        })),
                 5, 50);
     }
 
