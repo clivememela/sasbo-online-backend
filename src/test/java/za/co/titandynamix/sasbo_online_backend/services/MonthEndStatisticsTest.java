@@ -201,6 +201,36 @@ class MonthEndStatisticsTest {
     }
 
     @Test
+    @DisplayName("04.5: the resigned by the reason they gave -- a reason kept under code 2 is its own column, and still code 2 in every other sheet")
+    void theResignedByTheirReason() {
+        jdbc.update("INSERT INTO deletion_codes (sasbo_code, name, parent_id) SELECT NULL, 'Financial', id "
+                + "FROM deletion_codes WHERE sasbo_code = 2");
+        String m15 = "(SELECT id FROM members WHERE membership_number = 'M-800015')";
+        jdbc.update("UPDATE member_status_changes SET deletion_code_id = (SELECT id FROM deletion_codes WHERE name = "
+                + "'Financial') WHERE member_id = " + m15);
+        try {
+            MemberStatisticSheets leavers = new MemberStatisticSheets(statistics.leavers("2026-09", null, null));
+
+            assertThat(leavers.sheet("resigned").columns()).extracting(MonthEndStatisticDto.Column::label)
+                    .containsExactly("Financial", "No reason given", "Total");
+            assertThat(rows(leavers.sheet("resigned"))).containsExactly("E1: 1 0 1");
+            assertThat(rows(leavers.sheet("by-area"))).as("counted under SASBO's code 2, as ever")
+                    .containsExactly("A: 0 0 0 0 0", "B: 0 1 1 0 2");
+        } finally {
+            jdbc.update("UPDATE member_status_changes SET deletion_code_id = (SELECT id FROM deletion_codes WHERE "
+                    + "sasbo_code = 2) WHERE member_id = " + m15);
+            jdbc.update("DELETE FROM deletion_codes WHERE name = 'Financial' AND parent_id IS NOT NULL");
+        }
+    }
+
+    /** One statistic's sheets, by key. */
+    private record MemberStatisticSheets(MonthEndStatisticDto answer) {
+        MonthEndStatisticDto.Sheet sheet(String key) {
+            return StatisticsExpectations.sheet(answer, key);
+        }
+    }
+
+    @Test
     @DisplayName("🔒 MD62, MV-55: below 'all' a sheet cut by where members work is the totals and one row, with no staff number")
     void belowAll() {
         MonthEndStatistics atNames = new MonthEndStatistics(takes, facts, codes, new WorkplaceSwitch("names"),

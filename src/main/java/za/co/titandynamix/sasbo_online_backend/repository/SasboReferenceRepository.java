@@ -196,10 +196,31 @@ public class SasboReferenceRepository {
 
     /** A deletion code by the id a status change row holds, for saying which it was. */
     public Optional<Code> deletionCodeById(long id) {
-        return jdbc.query("SELECT id, sasbo_code, name FROM deletion_codes WHERE id = ?", (rs, n) -> {
-            int number = rs.getInt("sasbo_code");
-            return new Code(rs.getLong("id"), rs.wasNull() ? null : number, rs.getString("name"));
-        }, id).stream().findFirst();
+        // A reason kept under a code (04.5) is answered as the code it is under: SASBO's number and words (RC7).
+        return jdbc.query("SELECT d.id, COALESCE(d.sasbo_code, p.sasbo_code) AS sasbo_code, COALESCE(p.name, d.name) "
+                + "AS name FROM deletion_codes d LEFT JOIN deletion_codes p ON p.id = d.parent_id WHERE d.id = ?",
+                (rs, n) -> {
+                    int number = rs.getInt("sasbo_code");
+                    return new Code(rs.getLong("id"), rs.wasNull() ? null : number, rs.getString("name"));
+                }, id).stream().findFirst();
+    }
+
+    /** The reason a row names where it is kept under a code -- the reason given for resigning -- or none. */
+    public Optional<String> reasonUnderCode(long id) {
+        return jdbc.queryForList("SELECT name FROM deletion_codes WHERE id = ? AND parent_id IS NOT NULL",
+                String.class, id).stream().findFirst();
+    }
+
+    /** The row of the reason {@code name} kept under the code {@code codeId}, matched trimmed and in any case. */
+    public Optional<Long> reasonUnder(long codeId, String name) {
+        return jdbc.queryForList("SELECT id FROM deletion_codes WHERE parent_id = ? AND LOWER(TRIM(name)) = "
+                + "LOWER(TRIM(?)) ORDER BY id", Long.class, codeId, name).stream().findFirst();
+    }
+
+    /** The reasons SASBO keeps under a code, in the list's order. */
+    public List<String> reasonsUnder(long codeId) {
+        return jdbc.queryForList("SELECT name FROM deletion_codes WHERE parent_id = ? ORDER BY id", String.class,
+                codeId);
     }
 
     /** A suspension code by the id a status change row holds. */

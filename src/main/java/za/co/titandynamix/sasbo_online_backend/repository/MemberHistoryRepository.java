@@ -28,9 +28,10 @@ public class MemberHistoryRepository {
               WHERE c.member_id = :member
               UNION ALL
               SELECT 'STATUS', s.id, s.changed_at, s.changed_by, 'status', s.from_status, s.to_status, s.reason,
-                     COALESCE(d.sasbo_code, sc.code), CAST(NULL AS VARCHAR(36)), s.note
+                     COALESCE(d.sasbo_code, dp.sasbo_code, sc.code), CAST(NULL AS VARCHAR(36)), s.note
               FROM member_status_changes s
               LEFT JOIN deletion_codes d ON d.id = s.deletion_code_id
+              LEFT JOIN deletion_codes dp ON dp.id = d.parent_id
               LEFT JOIN suspension_codes sc ON sc.id = s.suspension_code_id
               WHERE s.member_id = :member
             ) h

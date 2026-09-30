@@ -55,7 +55,7 @@ class MemberStatusServiceImplTest {
 
     private static MemberStatusRequest request(String to, String expected, String reason, Integer deletion,
                                                Integer suspension, String note) {
-        return new MemberStatusRequest(to, expected, reason, deletion, suspension, note);
+        return new MemberStatusRequest(to, expected, reason, deletion, suspension, note, null);
     }
 
     private static MonthEndRefusalCode codeOf(Runnable call) {
@@ -92,6 +92,57 @@ class MemberStatusServiceImplTest {
         assertThat(answer.status()).isEqualTo("Resigned");
         assertThat(answer.change().deletionCode()).as("SASBO's number, never the table's id (RC7)").isEqualTo(2);
         assertThat(answer.change().deletionReason()).isEqualTo("Resigned Society");
+    }
+
+    @Test
+    @DisplayName("04.5: a resignation with the reason given under code 2 is written as that reason's row, and answered with SASBO's number and the reason")
+    void aReasonUnderTheCode() {
+        when(codes.deletionCode(2)).thenReturn(Optional.of(new SasboReferenceRepository.Code(12L, 2, "Resigned Society")));
+        when(codes.reasonUnder(12L, "financial")).thenReturn(Optional.of(21L));
+        when(codes.deletionCodeById(21L)).thenReturn(Optional.of(new SasboReferenceRepository.Code(21L, 2, "Resigned Society")));
+        when(codes.reasonUnderCode(21L)).thenReturn(Optional.of("Financial"));
+        MemberStatusChange written = new MemberStatusChange();
+        written.setId(1L);
+        written.setFromStatus("Active");
+        written.setToStatus("Resigned");
+        written.setReason(MemberStatusReason.DELETION_CODE);
+        written.setDeletionCodeId(21L);
+        written.setChangedBy("system");
+        written.setChangedAt(NOW);
+        when(members.changeStatus(eq(7), any(MemberService.StatusChange.class)))
+                .thenReturn(Optional.of(new MemberService.StatusChangeOutcome(member("Resigned"), written, false)));
+        ArgumentCaptor<MemberService.StatusChange> change = ArgumentCaptor.forClass(MemberService.StatusChange.class);
+
+        MemberStatusAnswer answer = service.change(7, new MemberStatusRequest("Resigned", "Active", "DELETION_CODE", 2,
+                null, null, " financial "));
+
+        verify(members).changeStatus(eq(7), change.capture());
+        assertThat(change.getValue().deletionCodeId()).as("the reason's own row").isEqualTo(21L);
+        assertThat(answer.change().deletionCode()).as("SASBO's number, the code it is under").isEqualTo(2);
+        assertThat(answer.change().deletionReason()).isEqualTo("Resigned Society");
+        assertThat(answer.change().reasonUnderCode()).isEqualTo("Financial");
+    }
+
+    @Test
+    @DisplayName("04.5: a reason SASBO does not keep under the code is DELETION_CODE_UNKNOWN, naming the ones it does")
+    void aReasonNotUnderTheCode() {
+        when(codes.deletionCode(2)).thenReturn(Optional.of(new SasboReferenceRepository.Code(12L, 2, "Resigned Society")));
+        when(codes.reasonUnder(12L, "Lottery")).thenReturn(Optional.empty());
+        when(codes.reasonsUnder(12L)).thenReturn(List.of("Financial", "Personal"));
+
+        assertThatThrownBy(() -> service.change(7, new MemberStatusRequest("Resigned", "Active", "DELETION_CODE", 2,
+                null, null, "Lottery"))).isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
+                    assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.DELETION_CODE_UNKNOWN);
+                    assertThat(refusal.details()).containsEntry("deletionCode", "2")
+                            .containsEntry("known", "Financial,Personal");
+                });
+    }
+
+    @Test
+    @DisplayName("04.5: a reason under a deletion code does not fit a suspension")
+    void aReasonUnderACodeWithASuspension() {
+        assertThat(codeOf(() -> service.change(7, new MemberStatusRequest("Suspended", "Active", "SUSPENSION_CODE",
+                null, 11, null, "Financial")))).isEqualTo(MonthEndRefusalCode.STATUS_REASON_MISMATCH);
     }
 
     @Test

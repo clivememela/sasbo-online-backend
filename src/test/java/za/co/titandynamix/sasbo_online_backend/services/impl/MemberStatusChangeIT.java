@@ -54,9 +54,9 @@ class MemberStatusChangeIT extends AbstractWritingIT {
         CountDownLatch go = new CountDownLatch(1);
         List<String> outcomes = Collections.synchronizedList(new ArrayList<>());
         Thread resign = new Thread(() -> change(go, outcomes, new MemberStatusRequest("Resigned", "Active",
-                "DELETION_CODE", 2, null, null)), "month-end-resign");
+                "DELETION_CODE", 2, null, null, null)), "month-end-resign");
         Thread suspend = new Thread(() -> change(go, outcomes, new MemberStatusRequest("Suspended", "Active",
-                "SUSPENSION_CODE", null, 11, null)), "month-end-suspend");
+                "SUSPENSION_CODE", null, 11, null, null)), "month-end-suspend");
         resign.start();
         suspend.start();
         go.countDown();
@@ -71,12 +71,34 @@ class MemberStatusChangeIT extends AbstractWritingIT {
     @Test
     @DisplayName("ME-3: the same change asked twice is written once")
     void theSameChangeTwice() {
-        MemberStatusRequest resign = new MemberStatusRequest("Resigned", "Active", "DELETION_CODE", 2, null, null);
+        MemberStatusRequest resign = new MemberStatusRequest("Resigned", "Active", "DELETION_CODE", 2, null, null, null);
 
         assertThat(statuses.change(memberId, resign).change()).isNotNull();
         assertThat(statuses.change(memberId, resign).change()).as("a retry after a timeout").isNull();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes WHERE member_id = ?", Long.class,
                 memberId)).isEqualTo(1L);
+    }
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.repository.MemberHistoryRepository history;
+
+    @Test
+    @DisplayName("04.5: a resignation with the reason given under code 2 -- that reason's row written, SASBO's number answered and in the history")
+    void aReasonUnderTheCode() {
+        String reason = jdbc.queryForObject("SELECT d.name FROM deletion_codes d JOIN deletion_codes p ON p.id = "
+                + "d.parent_id WHERE p.sasbo_code = 2 ORDER BY d.id LIMIT 1", String.class);
+
+        var answer = statuses.change(memberId, new MemberStatusRequest("Resigned", "Active", "DELETION_CODE", 2, null,
+                null, reason.toUpperCase(java.util.Locale.ROOT)));
+
+        assertThat(answer.change().deletionCode()).isEqualTo(2);
+        assertThat(answer.change().reasonUnderCode()).isEqualTo(reason);
+        Long row = jdbc.queryForObject("SELECT deletion_code_id FROM member_status_changes WHERE member_id = ?",
+                Long.class, memberId);
+        assertThat(jdbc.queryForObject("SELECT name FROM deletion_codes WHERE id = ?", String.class, row))
+                .as("the reason's own row").isEqualTo(reason);
+        assertThat(history.page(memberId, 0, 10).entries()).filteredOn(e -> "STATUS".equals(e.kind()))
+                .extracting(e -> e.code()).as("SASBO's number, the code it is under (RC7)").containsExactly(2);
     }
 
     private void change(CountDownLatch go, List<String> outcomes, MemberStatusRequest request) {

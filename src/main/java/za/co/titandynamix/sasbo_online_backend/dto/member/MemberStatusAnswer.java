@@ -9,10 +9,11 @@ public record MemberStatusAnswer(int memberId, String membershipNumber, String s
 
     /**
      * One change as it was written: the reason, and SASBO's number and words for the code it carries -- never the
-     * table's id (RC7).
+     * table's id (RC7) -- and, where one was given, the reason SASBO keeps under that code ({@code reasonUnderCode}:
+     * the reason a member gave for resigning, under 2).
      */
     public record Change(long id, String fromStatus, String toStatus, String reason, Integer deletionCode,
-                         String deletionReason, Integer suspensionCode, String suspensionReason, String note,
-                         String changedBy, String changedAt) {
+                         String deletionReason, String reasonUnderCode, Integer suspensionCode,
+                         String suspensionReason, String note, String changedBy, String changedAt) {
     }
 }

@@ -79,15 +79,17 @@ public class MemberStatusServiceImpl implements MemberStatusService {
             case LEAVING -> {
                 fits(reason == MemberStatusReason.DELETION_CODE && request.suspensionCode() == null, toStatus, reason,
                         MemberStatusReason.DELETION_CODE.name());
-                deletionCodeId = deletionCode(request.deletionCode(), toStatus);
+                deletionCodeId = deletionCode(request.deletionCode(), blankToNull(request.reasonUnderCode()), toStatus);
             }
             case SUSPENDED -> {
-                fits(reason == MemberStatusReason.SUSPENSION_CODE && request.deletionCode() == null, toStatus, reason,
+                fits(reason == MemberStatusReason.SUSPENSION_CODE && request.deletionCode() == null
+                        && blankToNull(request.reasonUnderCode()) == null, toStatus, reason,
                         MemberStatusReason.SUSPENSION_CODE.name());
                 suspensionCodeId = suspensionCode(request.suspensionCode(), toStatus);
             }
             default -> fits((reason == MemberStatusReason.REINSTATED || reason == MemberStatusReason.CAPTURED)
-                            && request.deletionCode() == null && request.suspensionCode() == null, toStatus, reason,
+                            && request.deletionCode() == null && request.suspensionCode() == null
+                            && blankToNull(request.reasonUnderCode()) == null, toStatus, reason,
                     MemberStatusReason.REINSTATED.name() + "," + MemberStatusReason.CAPTURED.name());
         }
         StatusChange change = new StatusChange(toStatus, blankToNull(request.expectedStatus()), reason, deletionCodeId,
@@ -139,15 +141,28 @@ public class MemberStatusServiceImpl implements MemberStatusService {
         }
     }
 
-    private Long deletionCode(Integer number, String toStatus) {
+    /**
+     * The row a leaving is written with: SASBO's numbered code -- or, where the reason given is one SASBO keeps under
+     * it (the reasons for resigning, under 2), that reason's own row, which every figure reads as the code it is under
+     * and SASBO's {@code resigned} report counts by (04.5).
+     */
+    private Long deletionCode(Integer number, String reasonUnder, String toStatus) {
         if (number == null) {
             throw new MonthEndRefusal(MonthEndRefusalCode.STATUS_REASON_REQUIRED,
                     "Say why this member is moving to " + toStatus + ".", Map.of("toStatus", toStatus));
         }
-        return codes.deletionCode(number).map(SasboReferenceRepository.Code::id)
+        long code = codes.deletionCode(number).map(SasboReferenceRepository.Code::id)
                 .orElseThrow(() -> new MonthEndRefusal(MonthEndRefusalCode.DELETION_CODE_UNKNOWN,
                         "That reason is no longer on the list. Choose another.",
                         Map.of("deletionCode", String.valueOf(number))));
+        if (reasonUnder == null) {
+            return code;
+        }
+        return codes.reasonUnder(code, reasonUnder).orElseThrow(() -> new MonthEndRefusal(
+                MonthEndRefusalCode.DELETION_CODE_UNKNOWN,
+                "That reason is not one SASBO keeps under code " + number + ". Choose one of its own, or none.",
+                MonthEndRefusal.details("deletionCode", String.valueOf(number), "known",
+                        String.join(",", codes.reasonsUnder(code)))));
     }
 
     private Long suspensionCode(Integer number, String toStatus) {
@@ -178,9 +193,11 @@ public class MemberStatusServiceImpl implements MemberStatusService {
                 : codes.deletionCodeById(written.getDeletionCodeId()).orElse(null);
         SasboReferenceRepository.Code suspension = written.getSuspensionCodeId() == null ? null
                 : codes.suspensionCodeById(written.getSuspensionCodeId()).orElse(null);
+        String under = written.getDeletionCodeId() == null ? null
+                : codes.reasonUnderCode(written.getDeletionCodeId()).orElse(null);
         return new MemberStatusAnswer.Change(written.getId(), written.getFromStatus(), written.getToStatus(),
                 written.getReason().name(),
-                deletion == null ? null : deletion.number(), deletion == null ? null : deletion.name(),
+                deletion == null ? null : deletion.number(), deletion == null ? null : deletion.name(), under,
                 suspension == null ? null : suspension.number(), suspension == null ? null : suspension.name(),
                 written.getNote(), written.getChangedBy(), written.getChangedAt().toString());
     }

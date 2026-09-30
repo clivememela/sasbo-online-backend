@@ -54,7 +54,7 @@ class MemberStatusControllerTest {
     void theBodyBinds() throws Exception {
         when(statuses.change(eq(7), any())).thenReturn(new MemberStatusAnswer(7, "M-900001", "Resigned",
                 new MemberStatusAnswer.Change(1, "Active", "Resigned", "DELETION_CODE", 2, "Resigned Society", null,
-                        null, null, "system", "2026-09-29T08:00:00Z")));
+                        null, null, null, "system", "2026-09-29T08:00:00Z")));
         ArgumentCaptor<MemberStatusRequest> request = ArgumentCaptor.forClass(MemberStatusRequest.class);
 
         mockMvc.perform(post("/api/members/7/status").contentType(MediaType.APPLICATION_JSON)
@@ -67,7 +67,22 @@ class MemberStatusControllerTest {
 
         verify(statuses).change(eq(7), request.capture());
         assertThat(request.getValue()).isEqualTo(new MemberStatusRequest("Resigned", "Active", "DELETION_CODE", 2,
-                null, null));
+                null, null, null));
+    }
+
+    @Test
+    @DisplayName("04.5: the reason a member gave, under SASBO's code, binds as it is sent")
+    void theReasonUnderTheCodeBinds() throws Exception {
+        when(statuses.change(eq(7), any())).thenReturn(new MemberStatusAnswer(7, "M-900001", "Resigned", null));
+        ArgumentCaptor<MemberStatusRequest> request = ArgumentCaptor.forClass(MemberStatusRequest.class);
+
+        mockMvc.perform(post("/api/members/7/status").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"toStatus\":\"Resigned\",\"expectedStatus\":\"Active\",\"reason\":\"DELETION_CODE\","
+                                + "\"deletionCode\":2,\"reasonUnderCode\":\"Financial\"}"))
+                .andExpect(status().isOk());
+
+        verify(statuses).change(eq(7), request.capture());
+        assertThat(request.getValue().reasonUnderCode()).isEqualTo("Financial");
     }
 
     @Test
