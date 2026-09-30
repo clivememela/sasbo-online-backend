@@ -521,6 +521,8 @@
             "to" : "+27 60 555 0002",
             "reason" : null,
             "code" : null,
+            "codeName" : null,
+            "reasonUnderCode" : null,
             "saveId" : "invented-save-2",
             "note" : null
           },
@@ -534,6 +536,8 @@
             "to" : "M-900001",
             "reason" : null,
             "code" : null,
+            "codeName" : null,
+            "reasonUnderCode" : null,
             "saveId" : "invented-save-1",
             "note" : null
           }
@@ -541,7 +545,8 @@
         "page" : 0,
         "size" : 50,
         "totalElements" : 2,
-        "totalPages" : 1
+        "totalPages" : 1,
+        "historyFrom" : "2026-09-01"
       }
     },
     "POST /api/members/{id}/status" : {
