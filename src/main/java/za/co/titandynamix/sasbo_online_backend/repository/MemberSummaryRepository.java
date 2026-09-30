@@ -94,7 +94,15 @@ public class MemberSummaryRepository {
 
     /** The one statement. */
     public List<Line> figures(Ask ask) {
-        MapSqlParameterSource args = new MapSqlParameterSource()
+        return jdbc.query(statement(ask), parameters(ask), MemberSummaryRepository::line);
+    }
+
+    /**
+     * The values {@link #statement} is bound with for this request. Public, with the statement, so that the proof of
+     * the plan's shape (MV-26) explains exactly what a request issues -- never a copy of it typed out again.
+     */
+    public static MapSqlParameterSource parameters(Ask ask) {
+        return new MapSqlParameterSource()
                 .addValue("start", utc(ask.month().start()))
                 .addValue("next", utc(ask.month().next()))
                 .addValue("yearStart", utc(ask.month().firstDayOfYear().atStartOfDay(MonthRange.ZONE).toInstant()))
@@ -104,7 +112,6 @@ public class MemberSummaryRepository {
                 .addValue("seeded", ask.seeded().isEmpty() ? List.of("~none") : ask.seeded())
                 .addValue("area", ask.area())
                 .addValue("region", ask.region());
-        return jdbc.query(statement(ask), args, MemberSummaryRepository::line);
     }
 
     private static OffsetDateTime utc(Instant instant) {
@@ -118,8 +125,10 @@ public class MemberSummaryRepository {
      * asked only where the month has NOT been taken; the half that reads them is the month's facts -- one row a
      * workplace, with its lineage as it stood -- and the year's taken months for the year to date (rule Y). Where the
      * month is taken, the first half's one-time condition is false and PostgreSQL never runs it.
+     *
+     * <p>Public, with {@link #parameters}, for MV-26 alone: the plan's shape is proved on the text a request sends.
      */
-    static String statement(Ask ask) {
+    public static String statement(Ask ask) {
         String taken = "EXISTS (SELECT 1 FROM month_end_months tk WHERE tk.month_start = :firstDay "
                 + "AND tk.replaces_id IS NULL)";
         String workplaceJoins = """
