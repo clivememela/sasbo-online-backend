@@ -87,7 +87,8 @@ class MonthEndSeedFailureTest {
     @Test
     @DisplayName("MV-58: the status read says the lists are not loaded here -- never an empty list said as SASBO's")
     void theStatusSaysNotLoaded() {
-        assertThat(rows("SELECT count(*) FROM reference_lists"))
+        // The workplaces' seeder, which runs after it, records its own outcome beside the lists'.
+        assertThat(rows("SELECT count(*) FROM reference_lists WHERE list_key <> 'workplaces'"))
                 .as("the lists' seeder threw before it recorded anything").isZero();
         assertThat(lists.status().lists()).filteredOn(list -> list.rows() == 0).isNotEmpty()
                 .allSatisfy(list -> assertThat(list.reason()).as(list.list()).isEqualTo("NOT_LOADED"));
