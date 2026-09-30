@@ -92,6 +92,51 @@ class MemberTrailTest {
     }
 
     @Test
+    @DisplayName("V55: a seat taken is in the history -- made a shop steward on a day, the committee by its code")
+    void aSeatTakenIsARow() {
+        Member member = member();
+        Map<String, String> before = trail.snapshot(member);
+        member.setIsShopSteward(true);
+        member.setShopStewardElectionDate(java.time.LocalDate.of(2026, 9, 1));
+        member.setIsBec(true);
+        za.co.titandynamix.sasbo_online_backend.entity.reference.Committee committee =
+                new za.co.titandynamix.sasbo_online_backend.entity.reference.Committee();
+        committee.setCode("Q01");
+        member.setBecCommittee(committee);
+
+        trail.changed(7, before, trail.snapshot(member));
+
+        assertThat(saved()).extracting(MemberChange::getField, MemberChange::getOldValue, MemberChange::getNewValue)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("isShopSteward", null, "true"),
+                        org.assertj.core.groups.Tuple.tuple("shopStewardElectionDate", null, "2026-09-01"),
+                        org.assertj.core.groups.Tuple.tuple("isBec", null, "true"),
+                        org.assertj.core.groups.Tuple.tuple("becCommitteeCode", null, "Q01"));
+    }
+
+    @Test
+    @DisplayName("V55: a No that clears its follow-ups writes each field it cleared -- the entity is compared, not the request")
+    void aNoThatClearsItsFollowUps() {
+        Member member = member();
+        za.co.titandynamix.sasbo_online_backend.entity.reference.Committee committee =
+                new za.co.titandynamix.sasbo_online_backend.entity.reference.Committee();
+        committee.setCode("Q01");
+        member.setIsBec(true);
+        member.setBecCommittee(committee);
+        member.setIsBecRecruiter(true);
+        Map<String, String> before = trail.snapshot(member);
+        member.setIsBec(false);
+        member.setBecCommittee(null);
+        member.setIsBecRecruiter(null);
+
+        trail.changed(7, before, trail.snapshot(member));
+
+        assertThat(saved()).extracting(MemberChange::getField, MemberChange::getOldValue, MemberChange::getNewValue)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("isBec", "true", "false"),
+                        org.assertj.core.groups.Tuple.tuple("becCommitteeCode", "Q01", null),
+                        org.assertj.core.groups.Tuple.tuple("isBecRecruiter", "true", null));
+    }
+
+    @Test
     @DisplayName("rule T: a change of workplace is a row like any other")
     void aChangeOfWorkplaceIsARow() {
         Member member = member();

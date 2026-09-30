@@ -95,6 +95,23 @@ public class MemberTrail {
         f.put("workplace", m -> m.getWorkplace() == null ? null
                 : m.getWorkplace().getRaNumber() + " " + m.getWorkplace().getName());
         f.put("isRepresentative", Member::getIsRepresentative);
+        // The structures (V55; asked for by sasbo-online-4c, 2026-09-30): a seat taken or left is what a member's
+        // history is asked about. The committee by its code, which is stable. A No that clears its follow-ups -- BEC
+        // clearing the committee and the three roles -- is written here too: the trail compares the member before and
+        // after the save, never the request.
+        f.put("isShopSteward", Member::getIsShopSteward);
+        f.put("shopStewardElectionDate", Member::getShopStewardElectionDate);
+        f.put("isBec", Member::getIsBec);
+        f.put("becCommitteeCode", m -> m.getBecCommittee() == null ? null : m.getBecCommittee().getCode());
+        f.put("isBecRecruiter", Member::getIsBecRecruiter);
+        f.put("isBecStructureRep", Member::getIsBecStructureRep);
+        f.put("becStructures", Member::getBecStructures);
+        f.put("isBecExecutive", Member::getIsBecExecutive);
+        f.put("becExecutivePosition", Member::getBecExecutivePosition);
+        f.put("isCosatu", Member::getIsCosatu);
+        f.put("isCosatuLocal", Member::getIsCosatuLocal);
+        f.put("isCosatuRegional", Member::getIsCosatuRegional);
+        f.put("cosatuPositions", Member::getCosatuPositions);
         f.put("remarks", Member::getRemarks);
         return f;
     }
