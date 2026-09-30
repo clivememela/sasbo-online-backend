@@ -43,16 +43,17 @@ class MemberHistoryControllerTest {
     private MemberHistoryService history;
 
     @Test
-    @DisplayName("the page and its size reach the service; the answer is its entries")
+    @DisplayName("the page and its size reach the service; the answer is its entries, and since when the history is kept")
     void thePageReachesTheService() throws Exception {
         when(history.page(7, 1, 20)).thenReturn(new MemberHistoryPageDto(List.of(new MemberHistoryPageDto.Entry(
                 "FIELD", 3, "2026-09-10T08:00:00Z", "system", "cellTel", "+27 60 555 0001", "+27 60 555 0002", null,
-                null, "invented-save-2", null)), 1, 20, 21, 2));
+                null, null, null, "invented-save-2", null)), 1, 20, 21, 2, "2026-09-01"));
 
         mockMvc.perform(get("/api/members/7/history").param("page", "1").param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].what").value("cellTel"))
-                .andExpect(jsonPath("$.totalPages").value(2));
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.historyFrom").value("2026-09-01"));
         verify(history).page(7, 1, 20);
     }
 

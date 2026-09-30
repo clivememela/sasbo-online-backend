@@ -8,7 +8,9 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberHistoryRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -53,16 +55,18 @@ class MemberHistoryServiceTest {
     }
 
     @Test
-    @DisplayName("a member with no history is an empty first page; a page past the last is HISTORY_PAGE_INVALID")
+    @DisplayName("ME-7: no history is an empty first page that says since when; past the last is HISTORY_PAGE_INVALID")
     void noHistoryAndPastTheLast() {
         when(members.existsById(7)).thenReturn(true);
         when(history.page(7, 0, 50)).thenReturn(new MemberHistoryRepository.Slice(List.of(), 0));
         when(history.page(7, 3, 50)).thenReturn(new MemberHistoryRepository.Slice(List.of(), 0));
+        when(history.historyFrom()).thenReturn(Optional.of(LocalDate.of(2026, 9, 1)));
 
         MemberHistoryPageDto first = service.page(7, null, null);
 
         assertThat(first.content()).isEmpty();
         assertThat(first.totalPages()).isZero();
+        assertThat(first.historyFrom()).as("an empty history says since when it is empty (ME-7)").isEqualTo("2026-09-01");
         assertThatThrownBy(() -> service.page(7, 3, 50))
                 .satisfies(refusal -> assertThat(codeOf(refusal)).isEqualTo(MonthEndRefusalCode.HISTORY_PAGE_INVALID));
     }
@@ -72,7 +76,7 @@ class MemberHistoryServiceTest {
     void aPage() {
         when(members.existsById(7)).thenReturn(true);
         MemberHistoryPageDto.Entry entry = new MemberHistoryPageDto.Entry("FIELD", 1, "2026-09-10T08:00:00Z", "system",
-                "cellTel", "+27 60 555 0001", "+27 60 555 0002", null, null, "save-1", null);
+                "cellTel", "+27 60 555 0001", "+27 60 555 0002", null, null, null, null, "save-1", null);
         when(history.page(7, 1, 20)).thenReturn(new MemberHistoryRepository.Slice(List.of(entry), 41));
 
         MemberHistoryPageDto page = service.page(7, 1, 20);
@@ -80,5 +84,6 @@ class MemberHistoryServiceTest {
         assertThat(page.content()).containsExactly(entry);
         assertThat(page.totalPages()).isEqualTo(3);
         assertThat(page.totalElements()).isEqualTo(41);
+        assertThat(page.historyFrom()).as("nothing was ever recorded: no day is invented").isNull();
     }
 }

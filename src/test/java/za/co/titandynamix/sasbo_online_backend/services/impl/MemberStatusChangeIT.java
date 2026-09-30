@@ -98,7 +98,11 @@ class MemberStatusChangeIT extends AbstractWritingIT {
         assertThat(jdbc.queryForObject("SELECT name FROM deletion_codes WHERE id = ?", String.class, row))
                 .as("the reason's own row").isEqualTo(reason);
         assertThat(history.page(memberId, 0, 10).entries()).filteredOn(e -> "STATUS".equals(e.kind()))
-                .extracting(e -> e.code()).as("SASBO's number, the code it is under (RC7)").containsExactly(2);
+                .singleElement().satisfies(e -> {
+                    assertThat(e.code()).as("SASBO's number, the code it is under (RC7)").isEqualTo(2);
+                    assertThat(e.reasonUnderCode()).as("the history shows the reason given (screens.md §3)")
+                            .isEqualTo(reason);
+                });
     }
 
     private void change(CountDownLatch go, List<String> outcomes, MemberStatusRequest request) {

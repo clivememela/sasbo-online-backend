@@ -130,22 +130,59 @@ class MemberHistoryIT extends AbstractWritingIT {
     }
 
     @Test
-    @DisplayName("MemberHistoryRepository's one statement on PostgreSQL: SASBO's code by its number, and the total beside the page")
+    @DisplayName("MemberHistoryRepository's one statement on PostgreSQL: SASBO's code by its number and name, the reason under it, and the total beside the page")
     void theStatementOnPostgres() {
         Member captured = members.create(MemberFixture.aMember());
-        jdbc.update("INSERT INTO deletion_codes (sasbo_code, name) VALUES (2, 'Resigned Society')");
+        jdbc.update("INSERT INTO deletion_codes (sasbo_code, name) VALUES (2, 'Resigned Society'), (5, 'Subscription in Arrears')");
+        jdbc.update("INSERT INTO deletion_codes (sasbo_code, name, parent_id) SELECT NULL, 'INVENTED: MOVED AWAY', id "
+                + "FROM deletion_codes WHERE sasbo_code = 2");
         jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at, "
                 + "deletion_code_id) SELECT ?, 'Active', 'Resigned', 'DELETION_CODE', 'system', now() + interval '1 hour', "
-                + "id FROM deletion_codes WHERE sasbo_code = 2", captured.getId());
+                + "id FROM deletion_codes WHERE name = 'INVENTED: MOVED AWAY'", captured.getId());
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at, "
+                + "deletion_code_id) SELECT ?, 'Active', 'Resigned', 'DELETION_CODE', 'system', now() + interval '2 hours', "
+                + "id FROM deletion_codes WHERE sasbo_code = 5", captured.getId());
 
-        MemberHistoryRepository.Slice slice = historyStatement.page(captured.getId(), 0, 1);
+        MemberHistoryRepository.Slice slice = historyStatement.page(captured.getId(), 0, 2);
 
-        assertThat(slice.total()).as("the total counts every entry, not the page").isEqualTo(2);
-        assertThat(slice.entries()).singleElement().satisfies(entry -> {
+        assertThat(slice.total()).as("the total counts every entry, not the page").isEqualTo(3);
+        assertThat(slice.entries()).hasSize(2);
+        assertThat(slice.entries().get(0)).satisfies(entry -> {
             assertThat(entry.kind()).isEqualTo("STATUS");
-            assertThat(entry.code()).as("SASBO's number, never the table's id (RC7)").isEqualTo(2);
+            assertThat(entry.code()).as("SASBO's number, never the table's id (RC7)").isEqualTo(5);
+            assertThat(entry.codeName()).isEqualTo("Subscription in Arrears");
+            assertThat(entry.reasonUnderCode()).as("a numbered code has no reason under it").isNull();
+        });
+        assertThat(slice.entries().get(1)).satisfies(entry -> {
+            assertThat(entry.code()).as("a reason under 2 answers 2 -- the code it is under (RC7)").isEqualTo(2);
+            assertThat(entry.codeName()).as("the code's own name, not the reason's").isEqualTo("Resigned Society");
+            assertThat(entry.reasonUnderCode()).as("04.5: the reason the member gave").isEqualTo("INVENTED: MOVED AWAY");
             assertThat(entry.reason()).isEqualTo("DELETION_CODE");
         });
+    }
+
+    @Test
+    @DisplayName("ME-7: every page says since when the history is kept -- the day of the first change this database recorded")
+    void historyFrom() {
+        Member captured = members.create(MemberFixture.aMember());
+        jdbc.update("INSERT INTO member_changes (member_id, save_id, field, old_value, new_value, changed_by, changed_at) "
+                + "VALUES (?, 'invented-early', 'cellTel', NULL, 'x', 'system', TIMESTAMP WITH TIME ZONE "
+                + "'2026-08-31 23:30:00+00:00')", captured.getId());
+        Integer untouched = memberRepository.save(MemberFixture.aMember()).getId();
+
+        MemberHistoryPageDto empty = history.page(untouched, 0, 50);
+
+        assertThat(empty.content()).as("saved around the history, never through it").isEmpty();
+        assertThat(empty.historyFrom()).as("23:30 UTC on 31 August is 1 September in South Africa").isEqualTo("2026-09-01");
+        assertThat(history.page(captured.getId(), 0, 50).historyFrom()).isEqualTo("2026-09-01");
+    }
+
+    @Test
+    @DisplayName("ME-7: where no change was ever recorded, no day is invented")
+    void noHistoryFromWhereNothingWasRecorded() {
+        Integer untouched = memberRepository.save(MemberFixture.aMember()).getId();
+
+        assertThat(history.page(untouched, 0, 50).historyFrom()).isNull();
     }
 
     @Test

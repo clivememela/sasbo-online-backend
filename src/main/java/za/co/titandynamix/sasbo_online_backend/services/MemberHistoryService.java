@@ -13,7 +13,7 @@ import java.util.Map;
  * One member's history, a page at a time (month end 03.6) -- as open as every member read is today, and named in B1's
  * list (MR-SEC-1). A member who is not on record is {@code MEMBER_NOT_FOUND}; a page that does not exist -- a
  * negative one, a size outside one to two hundred, or one past the last -- is {@code HISTORY_PAGE_INVALID}, never an
- * empty page that looks like the end of the history.
+ * empty page that looks like the end of the history. Every page says since when the history is kept (ME-7).
  */
 @Service
 public class MemberHistoryService {
@@ -46,7 +46,8 @@ public class MemberHistoryService {
             throw pageInvalid(number, rows);
         }
         int pages = (int) ((slice.total() + rows - 1) / rows);
-        return new MemberHistoryPageDto(slice.entries(), number, rows, slice.total(), pages);
+        return new MemberHistoryPageDto(slice.entries(), number, rows, slice.total(), pages,
+                history.historyFrom().map(Object::toString).orElse(null));
     }
 
     private static MonthEndRefusal pageInvalid(int page, int size) {
