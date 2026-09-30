@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * A member's workplace on PostgreSQL, with the switch at {@code all} (month end 01.3): saved with one, with none, and
  * with one not on record; answered as three scalars in the list and with its lineage for one member -- read through
  * the controller, where the session has closed by the time the answer is written (MR-ROB-36, MV-64); the list's cost
- * held at 5 members and at 50, each at a workplace of its own (MR-PERF-9); V56's key and index by name (MR-ROB-21).
+ * held at 5 members and at 50, each at a workplace of its own (MR-PERF-9); V57's key and index by name (MR-ROB-21).
  * Every workplace here is invented (MD57).
  */
 @AutoConfigureMockMvc
@@ -199,7 +199,7 @@ class MemberWorkplaceIT extends AbstractWritingIT {
     }
 
     @Test
-    @DisplayName("🔒 MR-ROB-21: V56's key and index, by name, in the catalogue")
+    @DisplayName("🔒 MR-ROB-21: V57's key and index, by name, in the catalogue")
     void theKeyAndTheIndexByName() {
         assertThat(jdbc.queryForList("SELECT conname FROM pg_constraint WHERE conrelid = 'members'::regclass",
                 String.class)).contains("members_workplace_fk");
