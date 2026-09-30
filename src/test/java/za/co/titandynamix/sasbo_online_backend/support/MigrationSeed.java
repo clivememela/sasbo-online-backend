@@ -197,8 +197,8 @@ public final class MigrationSeed {
             "V52__members_money_contract.sql",
             "V53__sasbo_reference_lists.sql",
             "V54__workplaces.sql",
-            "V55__member_status_codes.sql",
-            "V56__member_workplace.sql");
+            "V56__member_status_codes.sql",
+            "V57__member_workplace.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

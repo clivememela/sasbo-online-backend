@@ -17,11 +17,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * V55 on the real chain (month end 03.2): the reasons widened in one statement, a code carried exactly when its
+ * V56 on the real chain (month end 03.2): the reasons widened in one statement, a code carried exactly when its
  * reason says so -- ACB's two reasons carrying none -- and the index on the month's changes, each BY NAME in the
  * catalogue (MR-ROB-21). ACB's count of terminations reads SUBS_IN_ARREARS and nothing else (BR39).
  */
-@DisplayName("A status change's codes on PostgreSQL (V55)")
+@DisplayName("A status change's codes on PostgreSQL (V56)")
 class MemberStatusCodesIT extends AbstractWritingIT {
 
     @Autowired
