@@ -367,7 +367,10 @@ public class MonthEndWorkbooks {
         return month.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + month.getYear();
     }
 
-    /** A workbook written through the streaming writer, and its temporary files gone after. */
+    /**
+     * A workbook written through the streaming writer, and its temporary files gone after: POI 5.3's {@code close()}
+     * disposes of them itself (read from its bytecode), which is why the deprecated {@code dispose()} is not called.
+     */
     static byte[] write(Consumer<SXSSFWorkbook> body) {
         SXSSFWorkbook book = new SXSSFWorkbook(WINDOW);
         try {
@@ -378,7 +381,6 @@ public class MonthEndWorkbooks {
         } catch (IOException unwritable) {
             throw new UncheckedIOException(unwritable);
         } finally {
-            book.dispose();
             try {
                 book.close();
             } catch (IOException ignored) {
