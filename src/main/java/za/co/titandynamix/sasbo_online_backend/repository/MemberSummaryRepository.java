@@ -41,6 +41,15 @@ import java.util.stream.Collectors;
  *       with none is a row of their own, as is one at a workplace with no table code in a grouping that needs one.</li>
  * </ul>
  *
+ * <h2>Which members it reads (MR-PERF-10, MV-26)</h2>
+ * After a migration nine members in ten are leavers, and a leaver who left before the year began and joined before it
+ * counts in no figure of any month of the year. So the statement reads only the members a figure can count -- those on
+ * record now, through the partial index {@code members_on_record}; those whose status changed since the year began;
+ * those who joined in it -- and never the rest in sequence. What the rest still give the answer is given without
+ * reading them: the rows of the groups they stand in (each a row of noughts, as the month's facts have it once taken),
+ * and the earliest Date Joined of all, which the check line carries. Proved by the plan's shape on 550,000 generated
+ * members ({@code MemberSummaryPlanIT}), never by a time.
+ *
  * <h2>Bounded</h2>
  * Every figure query carries a query timeout of {@value #TIMEOUT_SECONDS} seconds (MD47, MR-SEC-12): the read is open,
  * and the hosted database is a tenth of a processor. The statement is one both databases accept (BR65); every fragment
@@ -194,13 +203,14 @@ public class MemberSummaryRepository {
                     CASE WHEN m.membership_number IN (:seeded) THEN 1 ELSE 0 END AS seeded,
                     CASE WHEN w.id IS NOT NULL AND w.table_code_id IS NULL THEN 1 ELSE 0 END AS no_table_code,
                     m.join_date AS join_date
-                  FROM members m
+                  FROM %17$s m
                   %7$s
                   %8$s
                   LEFT JOIN after_end ae ON ae.member_id = m.id
                   LEFT JOIN after_start ast ON ast.member_id = m.id
                   LEFT JOIN moved mv ON mv.member_id = m.id
                   %9$s
+                  %18$s
                 )
                 SELECT 'ROW' AS part, gkey AS row_key, MAX(glabel) AS label, MAX(gcore) AS core, MAX(gorder) AS row_order,
                   SUM(CASE WHEN %10$s IN ('N', 'S') THEN 1 ELSE 0 END) AS on_record,
@@ -225,7 +235,7 @@ public class MemberSummaryRepository {
                 GROUP BY end_status
                 %16$s
                 UNION ALL
-                SELECT 'CHECK', CAST(NULL AS VARCHAR(100)), CAST(NULL AS VARCHAR(100)), 0, CAST(NULL AS INTEGER), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, CAST(NULL AS DATE), 0,
+                SELECT 'CHECK', CAST(NULL AS VARCHAR(100)), CAST(NULL AS VARCHAR(100)), 0, CAST(NULL AS INTEGER), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, %19$s, 0,
                        CAST(NULL AS VARCHAR(100)),
                        %13$s,
                        CASE WHEN %14$s
@@ -236,7 +246,99 @@ public class MemberSummaryRepository {
                        (SELECT tk.taken_by FROM month_end_months tk WHERE tk.month_start = :firstDay AND tk.replaces_id IS NULL)
                 FROM (SELECT 1 AS one) single_row
                 """.formatted(toKind, fromKind, key, label, core, order, memberWorkplace, workplaceJoins, where,
-                endKind, startKind, complement, known(ask), taken, noTaking, takenHalf(ask, taken));
+                endKind, startKind, complement, known(ask), taken, noTaking, takenHalf(ask, taken), counted(ask),
+                present(ask, key, label, core, order, workplaceJoins), membersFrom(ask, taken));
+    }
+
+    /**
+     * The members a figure can count (MR-PERF-10, MV-26), in three parts that never share a member: those on record now
+     * -- the partial index {@code members_on_record}, whose predicate is word for word this leaving kind, so the planner
+     * proves it -- those whose status changed since the year began ({@code member_status_changes (changed_at)}), and those
+     * who joined in the year ({@code members (join_date)}). A member in none of them left before the year began and
+     * joined before it, and counts nought in every figure of every month of the year; the diagnosis of 2026-09-30 held
+     * the lines of the two statements equal on 550,000 members. Within an area or a region the members on record are
+     * asked for through the area's workplaces, so the index is read from its leading column.
+     */
+    private static String counted(Ask ask) {
+        String leaving = MemberStatuses.ofKind(MemberStatusKind.LEAVING).stream()
+                .map(status -> "'" + status.replace("'", "''") + "'").collect(Collectors.joining(", "));
+        String within = !ask.grouped() ? ""
+                : ask.area() != null ? " AND m1.workplace_id IN (SELECT ws.id FROM workplaces ws"
+                        + " JOIN sasbo_areas sa ON sa.id = ws.area_id WHERE sa.letter = :area)"
+                : ask.region() != null ? " AND m1.workplace_id IN (SELECT ws.id FROM workplaces ws"
+                        + " JOIN sasbo_areas sa ON sa.id = ws.area_id JOIN sasbo_regions sr ON sr.id = sa.region_id"
+                        + " WHERE sr.code = :region)"
+                : "";
+        return """
+                (SELECT m1.id, m1.status, m1.join_date, m1.workplace_id, m1.membership_number FROM members m1
+                   WHERE m1.status NOT IN (%1$s)%2$s
+                 UNION ALL
+                 SELECT m2.id, m2.status, m2.join_date, m2.workplace_id, m2.membership_number FROM members m2
+                   WHERE (m2.status IS NULL OR m2.status IN (%1$s))
+                     AND m2.id IN (SELECT c0.member_id FROM member_status_changes c0 WHERE c0.changed_at >= :yearStart)
+                 UNION ALL
+                 SELECT m3.id, m3.status, m3.join_date, m3.workplace_id, m3.membership_number FROM members m3
+                   WHERE (m3.status IS NULL OR m3.status IN (%1$s))
+                     AND m3.join_date >= :firstDayOfYear AND m3.join_date < :firstDayOfNext
+                     AND NOT EXISTS (SELECT 1 FROM member_status_changes c1
+                                     WHERE c1.member_id = m3.id AND c1.changed_at >= :yearStart))""".formatted(leaving,
+                within);
+    }
+
+    /**
+     * The groups somebody stands in who counts in no figure are rows still -- of noughts, as they are once the month is
+     * taken, whose facts are a row for every workplace anybody stands at (MD19). An open workplace's group is a row
+     * through its complement, so these are the groups of the CLOSED workplaces anybody stands at, and the row of those
+     * with no workplace -- each asked of an index, never by reading the leavers: the workplace's own, and the first
+     * member by number with none. Below "all" the one row is there while anybody is; within an area, nobody is.
+     */
+    private static String present(Ask ask, String key, String label, String core, String order, String workplaceJoins) {
+        String noughts = "CAST(NULL AS VARCHAR(255)), CAST(NULL AS VARCHAR(255)), 0, 0, 0, 0, 0, 0, 0, CAST(NULL AS DATE)";
+        boolean within = ask.area() != null || ask.region() != null;
+        if (!ask.grouped()) {
+            return within ? "" : """
+                    UNION ALL
+                    SELECT %s, CAST(NULL AS VARCHAR(100)), 0, CAST(NULL AS INTEGER), %s
+                    FROM (SELECT 1 AS one) anybody WHERE (SELECT MIN(z.id) FROM members z) IS NOT NULL"""
+                    .formatted(key, noughts);
+        }
+        String closed = """
+                UNION ALL
+                SELECT %1$s, %2$s, %3$s, %4$s, %5$s
+                FROM workplaces w
+                %6$s
+                WHERE %7$sEXISTS (SELECT 1 FROM members z WHERE z.workplace_id = w.id)%8$s"""
+                .formatted(key, label, core, order, noughts, workplaceJoins,
+                        ask.complementServed() ? "w.closed_on IS NOT NULL AND " : "",
+                        ask.area() != null ? " AND a.letter = :area" : ask.region() != null ? " AND r.code = :region" : "");
+        return within ? closed : closed + """
+
+                UNION ALL
+                SELECT '%s', CAST(NULL AS VARCHAR(100)), 0, CAST(NULL AS INTEGER), %s
+                FROM (SELECT 1 AS one) nobody
+                WHERE (SELECT MIN(z.id) FROM members z WHERE z.workplace_id IS NULL) IS NOT NULL"""
+                .formatted(NO_WORKPLACE, noughts);
+    }
+
+    /**
+     * The earliest Date Joined of every member in the request's reach, whoever they are now -- how far back the figures
+     * can see ({@code membersFrom}) -- read from {@code members (join_date)}, or through the area's workplaces. The rows
+     * no longer read the members who count in no figure, so this is not the rows' earliest; on the check line, for a
+     * month worked out now. A month taken answers its facts' own.
+     */
+    private static String membersFrom(Ask ask, String taken) {
+        String earliest;
+        if (ask.area() == null && ask.region() == null) {
+            earliest = "(SELECT MIN(mf.join_date) FROM members mf)";
+        } else if (!ask.grouped()) {
+            earliest = "CAST(NULL AS DATE)";
+        } else {
+            earliest = "(SELECT MIN(mf.join_date) FROM members mf JOIN workplaces wf ON wf.id = mf.workplace_id"
+                    + " JOIN sasbo_areas af ON af.id = wf.area_id"
+                    + (ask.area() != null ? " WHERE af.letter = :area)"
+                            : " JOIN sasbo_regions rf ON rf.id = af.region_id WHERE rf.code = :region)");
+        }
+        return "CASE WHEN " + taken + " THEN CAST(NULL AS DATE) ELSE " + earliest + " END";
     }
 
     /**
