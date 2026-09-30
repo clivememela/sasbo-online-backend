@@ -145,7 +145,7 @@ class MonthEndExamplesTest {
         routes.add(new Example("GET", "/api/members/{member}/history", null));
         routes.add(new Example("POST", "/api/members/{member}/status", "{\"toStatus\": \"Resigned\", "
                 + "\"expectedStatus\": \"Active\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 2, "
-                + "\"note\": \"Invented: moved away\"}"));
+                + "\"reasonUnderCode\": \"INVENTED: MOVED AWAY\", \"note\": \"Invented: moved away\"}"));
         // 04.2: the months taken -- the invented August, taken as the seed takes a month, at the frozen clock -- and
         // that month's record.
         routes.add(new Example("GET", "/api/month-end/months", null));
@@ -281,6 +281,9 @@ class MonthEndExamplesTest {
                 + "(19, 'INVALID ACCOUNT')");
         jdbc.update("INSERT INTO deletion_codes (sasbo_code, name) VALUES (2, 'Resigned Society'), "
                 + "(5, 'Subscription in Arrears')");
+        // 04.5: a reason SASBO keeps under code 2 -- the row a resignation names by `reasonUnderCode`.
+        jdbc.update("INSERT INTO deletion_codes (sasbo_code, name, parent_id) SELECT NULL, 'INVENTED: MOVED AWAY', id "
+                + "FROM deletion_codes WHERE sasbo_code = 2");
         workplace(900001, "INVENTED MAIN STREET", "INVENTED BANK", 901, "NAME", "A", "Q01", 40);
         workplace(900002, "INVENTED HEAD OFFICE", "INVENTED BANK DEPTS", 902, "SUMS", "A", "Q01", 120);
         workplace(900003, "INVENTED HARBOUR", "INVENTED INSURER", 903, "NAME", "B", "R01", 15);
