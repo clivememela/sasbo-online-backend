@@ -2320,6 +2320,40 @@
           "Memnet membership is not captured by this system, so it is not counted here."
         ]
       }
+    },
+    "POST /api/month-end/{month}/pack" : {
+      "request" : "POST /api/month-end/2026-08/pack",
+      "status" : 202,
+      "body" : {
+        "id" : 1,
+        "month" : "2026-08",
+        "status" : "READY",
+        "askedBy" : "system",
+        "startedAt" : "2026-09-29T08:00:00Z",
+        "finishedAt" : "2026-09-29T08:00:00Z",
+        "failure" : null,
+        "workbooks" : [
+          "statistics",
+          "monthly"
+        ]
+      }
+    },
+    "GET /api/month-end/packs/{id}" : {
+      "request" : "GET /api/month-end/packs/{id}",
+      "status" : 200,
+      "body" : {
+        "id" : 1,
+        "month" : "2026-08",
+        "status" : "READY",
+        "askedBy" : "system",
+        "startedAt" : "2026-09-29T08:00:00Z",
+        "finishedAt" : "2026-09-29T08:00:00Z",
+        "failure" : null,
+        "workbooks" : [
+          "statistics",
+          "monthly"
+        ]
+      }
     }
   },
   "refusals" : {
@@ -2682,6 +2716,38 @@
         "code" : "IDENTITY_REQUIRED",
         "details" : {
           "month" : "2026-07"
+        }
+      }
+    },
+    "PACK_BUSY" : {
+      "request" : "POST /api/month-end/2026-08/pack",
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "A statistics pack is being prepared for another month. Ask again once it is ready.",
+        "path" : "/api/month-end/2026-08/pack",
+        "code" : "PACK_BUSY",
+        "details" : {
+          "month" : "2026-08",
+          "inHand" : "2026-07",
+          "pack" : "1"
+        }
+      }
+    },
+    "PACK_NOT_FOUND" : {
+      "request" : "GET /api/month-end/packs/999999",
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "There is no such statistics pack here, or it is not ready yet.",
+        "path" : "/api/month-end/packs/999999",
+        "code" : "PACK_NOT_FOUND",
+        "details" : {
+          "pack" : "999999"
         }
       }
     }
