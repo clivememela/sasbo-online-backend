@@ -23,8 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * MV-58, MD65: a seeder of month end's block that throws, through a whole start with the switch at {@code all} -- the
  * lists' seeder, the first of the block, made to throw. The start goes on: what is seeded before the block (the
  * seed's own members and the 150 on debit order) and after it (ACB's history) is there, and the status read says the
- * lists are not loaded here rather than answering an empty list as if SASBO had none. A context of its own, on a
- * database of its own.
+ * lists could not be loaded -- FAILED, in the word for what was thrown -- rather than that they are not loaded yet,
+ * or an empty list as if SASBO had none. A context of its own, on a database of its own.
  *
  * <p>The block's catch is proved by deletion in {@link DataSeederBlockTest} (DL-70): deleted, this context would not
  * start at all.
@@ -85,12 +85,15 @@ class MonthEndSeedFailureTest {
     }
 
     @Test
-    @DisplayName("MV-58: the status read says the lists are not loaded here -- never an empty list said as SASBO's")
-    void theStatusSaysNotLoaded() {
-        // The workplaces' seeder, which runs after it, records its own outcome beside the lists'.
-        assertThat(rows("SELECT count(*) FROM reference_lists WHERE list_key <> 'workplaces'"))
-                .as("the lists' seeder threw before it recorded anything").isZero();
-        assertThat(lists.status().lists()).filteredOn(list -> list.rows() == 0).isNotEmpty()
-                .allSatisfy(list -> assertThat(list.reason()).as(list.list()).isEqualTo("NOT_LOADED"));
+    @DisplayName("🔒 MV-58: the status read says the lists could not be loaded -- FAILED, in the word for what was thrown -- never that they are not loaded yet")
+    void theStatusSaysFailed() {
+        // The seeder threw before it recorded anything; the block's call recorded each list. The workplaces' seeder,
+        // which runs after it, records its own outcome beside the lists'.
+        assertThat(rows("SELECT count(*) FROM reference_lists WHERE list_key <> 'workplaces' AND outcome = 'FAILED'"))
+                .as("every list, recorded as failed").isEqualTo(ReferenceListSeeder.ORDER.size());
+        assertThat(lists.status().lists()).filteredOn(list -> list.rows() == 0).isNotEmpty().allSatisfy(list -> {
+            assertThat(list.reason()).as(list.list()).isEqualTo("FAILED");
+            assertThat(list.failure()).as("%s: the word for an IllegalStateException", list.list()).isEqualTo("UNKNOWN");
+        });
     }
 }

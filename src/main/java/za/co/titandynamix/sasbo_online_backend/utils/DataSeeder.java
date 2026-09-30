@@ -311,7 +311,7 @@ public class DataSeeder implements ApplicationRunner {
         // either: each seeder records what happened beside its list, and the status read answers it (ME-18). Within
         // the block the order is the order the rows refer to each other: SASBO's lists, then the workplaces that
         // stand on them, which are seeded only where the deployment's switch is set (MD45, MD53).
-        seedMonthEnd("SASBO's lists", this.referenceListSeeder::seed);
+        seedMonthEnd("SASBO's lists", this.referenceListSeeder::seedOrRecord);
         seedMonthEnd("SASBO's workplaces", this.workplaceSeeder::seed);
         // Then the members who stand at them (01.4): the invented, and the seed's own 310 given a workplace in the
         // same areas -- both only where the switch says all, never where the production marker is set (MD53).
