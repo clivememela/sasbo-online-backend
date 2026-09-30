@@ -234,6 +234,14 @@ class MonthEndStatisticsTest {
         assertThat(total(sheet(b, "month-left"))).isEqualTo("2 0 2");
         assertThat(rows(sheet(statistics.branches("2026-09", null, "SOUTH"), "by-area")))
                 .containsExactly("B: 8 3 0.3750 0.00 5 2");
+        // 04.8 "by area and table code", as reps_no and comm_mem print them: an area's table codes, and its total.
+        MonthEndStatisticDto representativesOfB = statistics.representatives("2026-09", "B", null);
+        for (String key : List.of("representatives", "committee-members")) {
+            assertThat(sheet(representativesOfB, key).rows()).as("%s: area B's table codes alone", key)
+                    .extracting(MonthEndStatisticDto.Row::key).containsExactly("901", "~NO_TABLE_CODE");
+            assertThat(total(sheet(representativesOfB, key))).as("%s: area B's two workplaces, none with one", key)
+                    .isEqualTo("0 2 0 2 0.0000");
+        }
     }
 
     @Test
