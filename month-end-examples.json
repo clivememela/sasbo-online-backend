@@ -1,0 +1,389 @@
+{
+  "_generated" : "./gradlew generateApiSurface -- do not edit by hand",
+  "_holds" : "invented lists and invented workplaces only -- nothing of SASBO's (MD57)",
+  "answers" : {
+    "GET /api/reference/regions" : {
+      "request" : "GET /api/reference/regions",
+      "status" : 200,
+      "body" : {
+        "list" : "regions",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "code" : "NORTH",
+            "name" : "NORTH"
+          },
+          {
+            "code" : "SOUTH",
+            "name" : "SOUTH"
+          }
+        ]
+      }
+    },
+    "GET /api/reference/areas" : {
+      "request" : "GET /api/reference/areas",
+      "status" : 200,
+      "body" : {
+        "list" : "areas",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "letter" : "A",
+            "region" : "NORTH"
+          },
+          {
+            "letter" : "B",
+            "region" : "SOUTH"
+          },
+          {
+            "letter" : "Y",
+            "region" : null
+          }
+        ]
+      }
+    },
+    "GET /api/reference/employer-groups" : {
+      "request" : "GET /api/reference/employer-groups",
+      "status" : 200,
+      "body" : {
+        "list" : "employerGroups",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "name" : "INVENTED GROUP CORE",
+            "core" : true
+          },
+          {
+            "name" : "INVENTED GROUP OTHER",
+            "core" : false
+          }
+        ]
+      }
+    },
+    "GET /api/reference/employers" : {
+      "request" : "GET /api/reference/employers",
+      "status" : 200,
+      "body" : {
+        "list" : "employers",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "id" : 1,
+            "name" : "INVENTED BANK",
+            "group" : "INVENTED GROUP CORE",
+            "core" : true,
+            "tableCodes" : [
+              901,
+              902
+            ]
+          },
+          {
+            "id" : 2,
+            "name" : "INVENTED INSURER",
+            "group" : "INVENTED GROUP OTHER",
+            "core" : false,
+            "tableCodes" : [
+              903
+            ]
+          }
+        ]
+      }
+    },
+    "GET /api/reference/table-codes" : {
+      "request" : "GET /api/reference/table-codes",
+      "status" : 200,
+      "body" : {
+        "list" : "tableCodes",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "code" : 901,
+            "name" : "INVENTED BANK",
+            "employerId" : 1,
+            "employer" : "INVENTED BANK",
+            "part" : null
+          },
+          {
+            "code" : 902,
+            "name" : "INVENTED BANK DEPARTMENTS",
+            "employerId" : 1,
+            "employer" : "INVENTED BANK",
+            "part" : "DEPARTMENTS"
+          },
+          {
+            "code" : 903,
+            "name" : "INVENTED INSURER CASH",
+            "employerId" : 2,
+            "employer" : "INVENTED INSURER",
+            "part" : "CASH"
+          },
+          {
+            "code" : 904,
+            "name" : "INVENTED LENDER",
+            "employerId" : 0,
+            "employer" : null,
+            "part" : null
+          }
+        ]
+      }
+    },
+    "GET /api/reference/committee-provinces" : {
+      "request" : "GET /api/reference/committee-provinces",
+      "status" : 200,
+      "body" : {
+        "list" : "committeeProvinces",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "letter" : "Q",
+            "name" : null
+          },
+          {
+            "letter" : "R",
+            "name" : null
+          }
+        ]
+      }
+    },
+    "GET /api/reference/committees" : {
+      "request" : "GET /api/reference/committees",
+      "status" : 200,
+      "body" : {
+        "list" : "committees",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "code" : "Q01",
+            "province" : "Q",
+            "name" : "INVENTED NORTH COMMITTEE",
+            "recruitingNumber" : 91
+          },
+          {
+            "code" : "R01",
+            "province" : "R",
+            "name" : "INVENTED SOUTH COMMITTEE",
+            "recruitingNumber" : 0
+          }
+        ]
+      }
+    },
+    "GET /api/reference/suspension-codes" : {
+      "request" : "GET /api/reference/suspension-codes",
+      "status" : 200,
+      "body" : {
+        "list" : "suspensionCodes",
+        "printedOn" : "2026-08-31",
+        "confirmedOn" : null,
+        "reason" : null,
+        "rows" : [
+          {
+            "code" : 11,
+            "name" : "NOT ON PAYROLL"
+          },
+          {
+            "code" : 13,
+            "name" : "DEBIT RETURNED"
+          },
+          {
+            "code" : 19,
+            "name" : "INVALID ACCOUNT"
+          }
+        ]
+      }
+    },
+    "GET /api/reference/status" : {
+      "request" : "GET /api/reference/status",
+      "status" : 200,
+      "body" : {
+        "lists" : [
+          {
+            "list" : "regions",
+            "rows" : 2,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : null,
+            "failure" : null
+          },
+          {
+            "list" : "areas",
+            "rows" : 3,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : null,
+            "failure" : null
+          },
+          {
+            "list" : "employerGroups",
+            "rows" : 2,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : null,
+            "failure" : null
+          },
+          {
+            "list" : "employers",
+            "rows" : 2,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : null,
+            "failure" : null
+          },
+          {
+            "list" : "tableCodes",
+            "rows" : 4,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : null,
+            "failure" : null
+          },
+          {
+            "list" : "committeeProvinces",
+            "rows" : 2,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : null,
+            "failure" : null
+          },
+          {
+            "list" : "committees",
+            "rows" : 2,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : null,
+            "failure" : null
+          },
+          {
+            "list" : "suspensionCodes",
+            "rows" : 3,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : null,
+            "failure" : null
+          },
+          {
+            "list" : "deletionCodes",
+            "rows" : 0,
+            "printedOn" : "2026-08-31",
+            "confirmedOn" : null,
+            "seededAt" : "2026-09-29T08:00:00Z",
+            "reason" : "EMPTY",
+            "failure" : null
+          }
+        ],
+        "workplaces" : {
+          "list" : "workplaces",
+          "rows" : 4,
+          "printedOn" : "2026-08-31",
+          "confirmedOn" : null,
+          "seededAt" : "2026-09-29T08:00:00Z",
+          "reason" : null,
+          "failure" : null
+        },
+        "workplacesServed" : "ALL"
+      }
+    },
+    "GET /api/workplaces" : {
+      "request" : "GET /api/workplaces?page=0&size=2",
+      "status" : 200,
+      "body" : {
+        "content" : [
+          {
+            "id" : 3,
+            "raNumber" : 900003,
+            "name" : "INVENTED HARBOUR",
+            "employerPrinted" : "INVENTED INSURER",
+            "employerId" : 2,
+            "employer" : "INVENTED INSURER",
+            "group" : "INVENTED GROUP OTHER",
+            "tableCode" : 903,
+            "tableCodeBy" : "NAME",
+            "area" : "B",
+            "region" : "SOUTH",
+            "committee" : "R01",
+            "committeeName" : "INVENTED SOUTH COMMITTEE",
+            "staffComplement" : 15,
+            "closedOn" : null
+          },
+          {
+            "id" : 2,
+            "raNumber" : 900002,
+            "name" : "INVENTED HEAD OFFICE",
+            "employerPrinted" : "INVENTED BANK DEPTS",
+            "employerId" : 1,
+            "employer" : "INVENTED BANK",
+            "group" : "INVENTED GROUP CORE",
+            "tableCode" : 902,
+            "tableCodeBy" : "SUMS",
+            "area" : "A",
+            "region" : "NORTH",
+            "committee" : "Q01",
+            "committeeName" : "INVENTED NORTH COMMITTEE",
+            "staffComplement" : 120,
+            "closedOn" : null
+          }
+        ],
+        "page" : 0,
+        "size" : 2,
+        "totalElements" : 4,
+        "totalPages" : 2,
+        "reason" : null
+      }
+    }
+  },
+  "refusals" : {
+    "REQUEST_MALFORMED" : {
+      "request" : "GET /api/workplaces?page=first",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "This request could not be read. Send each field in the form it is expected in.",
+        "path" : "/api/workplaces",
+        "code" : "REQUEST_MALFORMED",
+        "details" : {
+          "field" : "page"
+        }
+      }
+    },
+    "WORKPLACE_PAGE_INVALID" : {
+      "request" : "GET /api/workplaces?page=9&size=2",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That page does not exist.",
+        "path" : "/api/workplaces",
+        "code" : "WORKPLACE_PAGE_INVALID",
+        "details" : {
+          "page" : "9",
+          "size" : "2",
+          "maxSize" : "200"
+        }
+      }
+    }
+  }
+}
