@@ -72,6 +72,22 @@ class MonthEndWorkbooksTest {
     @Autowired
     private MonthEndStatistics statistics;
 
+    /** What a statistics service and a workbook writer at another switch are built from (MD62). */
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository facts;
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.repository.SasboReferenceRepository codes;
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment environment;
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers seedNumbers;
+
+    @Autowired
+    private SummaryGate gate;
+
     @BeforeEach
     void thePopulationAndNothingTaken() {
         Long present = jdbc.queryForObject("SELECT count(*) FROM workplaces WHERE ra_number = 900001", Long.class);
@@ -111,6 +127,39 @@ class MonthEndWorkbooksTest {
             assertThat(textBeside(byTableCode, "902 INVENTED INSURER")).as("a hidden row says so in words")
                     .isEqualTo("fewer than 5");
             assertThat(textBeside(byTableCode, "901 INVENTED BANK")).isEqualTo("withheld");
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 MD62, MV-55: below 'all' the pack's workbook is the statistics as they answer below it -- the totals and one row")
+    void belowAll() throws IOException {
+        MonthEndStatistics atNames = new MonthEndStatistics(takes, facts, codes,
+                new za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch("names"), environment, seedNumbers,
+                gate);
+        MonthEndWorkbooks below = new MonthEndWorkbooks(atNames, takes, facts, environment, seedNumbers, gate);
+        takes.take(SummaryFixture.MONTH, "seed");
+        List<MonthEndStatisticDto> all = atNames.all("2026-09");
+
+        try (XSSFWorkbook book = read(below.statistics("2026-09"))) {
+            for (MonthEndStatisticDto answer : all) {
+                for (MonthEndStatisticDto.Sheet sheet : answer.sheets()) {
+                    Sheet written = sheetOf(book, answer.statistic() + " " + sheet.key());
+                    assertThat(cellsOf(written, sheet.total().label()))
+                            .as("%s %s: the total, cell for cell", answer.statistic(), sheet.key())
+                            .isEqualTo(expected(sheet.total()));
+                    for (MonthEndStatisticDto.Row row : sheet.rows()) {
+                        if (row.cells() != null) {
+                            assertThat(cellsOf(written, row.label()))
+                                    .as("%s %s: row %s", answer.statistic(), sheet.key(), row.key())
+                                    .isEqualTo(expected(row));
+                        }
+                    }
+                }
+            }
+            MonthEndStatisticDto branches = all.stream().filter(a -> a.statistic().equals("branches")).findFirst()
+                    .orElseThrow();
+            assertThat(branches.sheets().getFirst().rows()).as("cut by where members work, below 'all': one row")
+                    .extracting(MonthEndStatisticDto.Row::key).containsExactly("~ALL");
         }
     }
 
