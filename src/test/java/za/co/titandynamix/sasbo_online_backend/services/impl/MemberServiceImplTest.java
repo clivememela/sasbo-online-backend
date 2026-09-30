@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.reference.Committee;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
@@ -91,6 +92,7 @@ class MemberServiceImplTest {
             Map.entry("dateOfBirth", "derived from the identity number"),
             Map.entry("gender", "derived from the identity number"),
             Map.entry("structure", "resolved from structureId"),
+            Map.entry("becCommittee", "resolved from becCommitteeCode against SASBO's committees (V55)"),
             Map.entry("role", "resolved from roleId"),
             Map.entry("jobGrade", "resolved against the bank's grades"),
             Map.entry("jobGradeOutcome",
@@ -135,6 +137,7 @@ class MemberServiceImplTest {
     @Mock private RecruitmentChannelRepository recruitmentChannelRepository;
     @Mock private RecruiterRepository recruiterRepository;
     @Mock private za.co.titandynamix.sasbo_online_backend.repository.MemberStatusChangeRepository statusChanges;
+    @Mock private za.co.titandynamix.sasbo_online_backend.repository.CommitteeRepository committeeRepository;
 
     @Captor
     private ArgumentCaptor<Member> saved;
@@ -148,7 +151,8 @@ class MemberServiceImplTest {
                 this.subscriptionsRepository, this.bankBranchRepository, this.bankRepository,
                 this.representativeRoleRepository, this.unionStructureRepository,
                 this.jobGradeRepository, this.jobGradeService, this.areaRepository,
-                this.recruitmentChannelRepository, this.recruiterRepository, this.statusChanges);
+                this.recruitmentChannelRepository, this.recruiterRepository, this.statusChanges,
+                this.committeeRepository);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -174,6 +178,10 @@ class MemberServiceImplTest {
         // validateStructures correctly refuses (COSATU requires BEC; Local requires COSATU).
         captured.setIsBec(Boolean.TRUE);
         captured.setIsCosatu("Y");
+        // And V55's two follow-ups: Synthetic's date need not be in the past, which validateSeats
+        // refuses, and its committee code names no committee unless the repository knows one.
+        captured.setShopStewardElectionDate(java.time.LocalDate.of(2024, 3, 1));
+        when(this.committeeRepository.findByCode(any())).thenReturn(Optional.of(committee("G01", "JOHANNESBURG")));
 
         List<Field> fields = Synthetic.fieldsOf(Member.class);
         assertNonVacuousScan(fields, 40, "Member fields");
@@ -917,6 +925,89 @@ class MemberServiceImplTest {
         member.setAccountType("Cheque");
         member.setBankName("Absa Bank Limited");
         return member;
+    }
+
+    // ============================================================
+    // V55 -- what a Yes to a seat needs beside it, and what a No leaves behind.
+    // 🗣️ SASBO, through the owner, 2026-09-30: "Shop Steward (Yes) > Select Election Date.
+    // BEC Member (Yes) > Select Branch Committee."
+    // ============================================================
+
+    @Test
+    @DisplayName("V55 a new member can sit on both seats: the committee resolves from SASBO's code, the date is kept")
+    void createResolvesTheCommitteeAndKeepsTheDate() {
+        Committee johannesburg = committee("G01", "JOHANNESBURG");
+        when(this.committeeRepository.findByCode("G01")).thenReturn(Optional.of(johannesburg));
+        Member incoming = MemberFixture.aMember();
+        incoming.setIsShopSteward(Boolean.TRUE);
+        incoming.setShopStewardElectionDate(java.time.LocalDate.of(2025, 3, 14));
+        incoming.setIsBec(Boolean.TRUE);
+        incoming.setBecCommitteeCode(" G01 ");
+
+        this.service.create(incoming);
+
+        verify(this.memberRepository).save(this.saved.capture());
+        assertThat(this.saved.getValue().getBecCommittee()).isSameAs(johannesburg);
+        assertThat(this.saved.getValue().getShopStewardElectionDate()).isEqualTo(java.time.LocalDate.of(2025, 3, 14));
+    }
+
+    @Test
+    @DisplayName("🔴 V55 a code that names no committee is refused -- not dropped -- and nothing is saved")
+    void anUnknownCommitteeIsRefused() {
+        when(this.committeeRepository.findByCode("ZZZ")).thenReturn(Optional.empty());
+        Member incoming = MemberFixture.aMember();
+        incoming.setIsBec(Boolean.TRUE);
+        incoming.setBecCommitteeCode("ZZZ");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.create(incoming))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No Branch Executive Committee has that code");
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+        verify(this.memberRepository, org.mockito.Mockito.never()).nextMembershipNumber();
+    }
+
+    @Test
+    @DisplayName("V55 an edit that does not mention the committee keeps it; a blank one clears it (decision ⑨(b))")
+    void anAbsentCodeKeepsTheSeatAndABlankOneClearsIt() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setIsBec(Boolean.TRUE);
+        existing.setBecCommittee(committee("G01", "JOHANNESBURG"));
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member absent = MemberFixture.aMember();
+        assertThat(this.service.update(4, absent).orElseThrow().getBecCommittee())
+                .as("a request that never mentions the committee must not blank it")
+                .isNotNull();
+
+        Member blank = MemberFixture.aMember();
+        blank.setBecCommitteeCode("");
+        assertThat(this.service.update(4, blank).orElseThrow().getBecCommittee()).isNull();
+    }
+
+    @Test
+    @DisplayName("V55 a No clears what its Yes needed: a steward's date, a BEC member's committee")
+    void aNoClearsTheFollowUps() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setIsShopSteward(Boolean.FALSE);
+        existing.setShopStewardElectionDate(java.time.LocalDate.of(2025, 3, 14));
+        existing.setIsBec(Boolean.FALSE);
+        existing.setBecCommittee(committee("G01", "JOHANNESBURG"));
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member saved = this.service.update(4, MemberFixture.aMember()).orElseThrow();
+
+        assertThat(saved.getShopStewardElectionDate()).isNull();
+        assertThat(saved.getBecCommittee()).isNull();
+    }
+
+    /** One of SASBO's committees, as V53's table holds it. */
+    private static Committee committee(String code, String name) {
+        Committee committee = new Committee();
+        committee.setCode(code);
+        committee.setName(name);
+        return committee;
     }
 
     /** What the banking screen submits: the flat banking fields and a chosen day. */

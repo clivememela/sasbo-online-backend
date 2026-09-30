@@ -5,6 +5,9 @@ import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+
 /**
  * Validator for Member entity business rules.
  * Enforces conditional field requirements based on payment type.
@@ -151,6 +154,42 @@ public class MemberValidator {
                 || Boolean.TRUE.equals(member.getIsCosatuRegional()))) {
             throw new IllegalArgumentException(
                     "A COSATU Local or Regional structure can only be recorded for a COSATU member");
+        }
+    }
+
+    /** The union's day, for "not in the future": SASBO works in South African time, as ACB does. */
+    private static final ZoneId SASBO_ZONE = ZoneId.of("Africa/Johannesburg");
+
+    /**
+     * What a "Yes" to a seat needs beside it (V55). 🗣️ SASBO, through the owner, 2026-09-30:
+     * <i>"Shop Steward (Yes) > Select Election Date. BEC Member (Yes) > Select Branch Committee."</i>
+     *
+     * <p>🔑 REQUIRED WHEN THE ANSWER BECOMES YES, and only then. Every member stored before V55 who
+     * is already a shop steward or a BEC member has no date and no committee, because there was no
+     * column to hold them. Refusing those would make each such member unsaveable over a question
+     * nobody could answer -- {@link #validateStructures}' lesson, applied to its two new neighbours.
+     * An election date given is never in the future, wherever it came from.
+     *
+     * <p>Clearing a follow-up when its answer is No is the service's, not this method's: this one
+     * only refuses.
+     *
+     * @param previousIsShopSteward the stored answer before this request, or {@code null} on create
+     * @param previousIsBec         likewise
+     * @throws IllegalArgumentException naming what is missing, for the screen to show
+     */
+    public static void validateSeats(Member member, Boolean previousIsShopSteward, Boolean previousIsBec) {
+        if (Boolean.TRUE.equals(member.getIsShopSteward())) {
+            LocalDate elected = member.getShopStewardElectionDate();
+            if (elected == null && !Boolean.TRUE.equals(previousIsShopSteward)) {
+                throw new IllegalArgumentException("A shop steward needs the date they were elected");
+            }
+            if (elected != null && elected.isAfter(LocalDate.now(SASBO_ZONE))) {
+                throw new IllegalArgumentException("The shop steward election date cannot be in the future");
+            }
+        }
+        if (Boolean.TRUE.equals(member.getIsBec()) && member.getBecCommittee() == null
+                && !Boolean.TRUE.equals(previousIsBec)) {
+            throw new IllegalArgumentException("A BEC member needs the Branch Executive Committee they sit on");
         }
     }
 

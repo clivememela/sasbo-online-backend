@@ -54,6 +54,11 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
                         .sourcePath("areaRecruited", "recruitedArea.name")
                         .sourcePath("recruitedHow", "recruitmentChannel.name")
                         .sourcePath("userId", "user.id")
+                        // V55 -- the committee a BEC member sits on, by SASBO's code and name. The
+                        // entity's transient `becCommitteeCode` shares the code's name; this is the
+                        // declaration that says the STORED committee wins.
+                        .sourcePath("becCommitteeCode", "becCommittee.code")
+                        .sourcePath("becCommitteeName", "becCommittee.name")
                         .sourcePath("recruitmentRepresentativeId",
                                 "recruitmentRepresentative.id")
                         .computed("recruitmentRepresentativeName",

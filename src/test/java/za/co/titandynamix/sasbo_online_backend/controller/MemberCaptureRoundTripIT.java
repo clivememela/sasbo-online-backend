@@ -344,10 +344,14 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
     @DisplayName("🔴 CM-05 — Shop Steward, BEC, and COSATU Local / Regional persist through an edit")
     void theStructureAnswersPersist() throws Exception {
         JsonNode created = capture();
+        String committee = aCommittee();
 
         ObjectNode edit = formPayload();
         edit.put("isShopSteward", true);
+        // Since V55 each Yes carries what SASBO asked for beside it; the two are the next test's subject.
+        edit.put("shopStewardElectionDate", "2025-03-14");
         edit.put("isBec", true);
+        edit.put("becCommitteeCode", committee);
         edit.put("isCosatu", "Y");
         edit.put("isCosatuLocal", true);
         edit.put("isCosatuRegional", false);
@@ -386,6 +390,122 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         assertThat(response.getContentAsString()).containsIgnoringCase("BEC");
         assertThat(readBack(created).path("isCosatu").asText())
                 .as("and nothing was written").isNotEqualTo("Y");
+    }
+
+    // ─── V55: what a Yes needs beside it -- SASBO, through the owner, 2026-09-30 ───
+    //
+    // "Shop Steward (Yes) > Select Election Date. BEC Member (Yes) > Select Branch Committee."
+    // Capture asked both until 2026-09-10 and stored neither (CM-05). And "a new member cannot sit
+    // on a structure": capture had no way to answer at all, so the first test captures onto both.
+
+    @Test
+    @DisplayName("🔴 V55 — a NEW member sits on structures: captured with the election date and the committee")
+    void aNewMemberSitsOnStructures() throws Exception {
+        String committee = aCommittee();
+        ObjectNode payload = formPayload();
+        payload.put("isShopSteward", true);
+        payload.put("shopStewardElectionDate", "2025-03-14");
+        payload.put("isBec", true);
+        payload.put("becCommitteeCode", committee);
+
+        JsonNode read = readBack(capture(payload.toString()));
+
+        assertThat(read.path("isShopSteward").asText()).isEqualTo("true");
+        // BR-B: a LocalDate reads back as [year, month, day].
+        assertThat(read.path("shopStewardElectionDate").toString()).isEqualTo("[2025,3,14]");
+        assertThat(read.path("isBec").asText()).isEqualTo("true");
+        assertThat(read.path("becCommitteeCode").asText()).isEqualTo(committee);
+        assertThat(read.path("becCommitteeName").asText()).isEqualTo("JOHANNESBURG");
+    }
+
+    @Test
+    @DisplayName("V55 — answering No clears what the Yes needed: no election date, no committee")
+    void answeringNoClearsTheFollowUps() throws Exception {
+        String committee = aCommittee();
+        ObjectNode payload = formPayload();
+        payload.put("isShopSteward", true);
+        payload.put("shopStewardElectionDate", "2025-03-14");
+        payload.put("isBec", true);
+        payload.put("becCommitteeCode", committee);
+        JsonNode created = capture(payload.toString());
+
+        ObjectNode edit = formPayload();
+        edit.put("isShopSteward", false);
+        edit.put("isBec", false);
+        int status = this.mockMvc.perform(put("/api/members/{id}", created.get("id").asInt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edit.toString()))
+                .andReturn().getResponse().getStatus();
+        assertThat(status).isEqualTo(200);
+
+        JsonNode read = readBack(created);
+        assertThat(read.path("isShopSteward").asText()).isEqualTo("false");
+        assertThat(absent(read.path("shopStewardElectionDate"))).as("a former steward keeps no steward date").isTrue();
+        assertThat(absent(read.path("becCommitteeCode"))).as("a member off the BEC sits on no committee").isTrue();
+    }
+
+    @Test
+    @DisplayName("🔴 V55 — a BEC seat with no committee, or with one SASBO does not have, is refused and nothing is stored")
+    void aBecSeatNeedsARealCommittee() throws Exception {
+        aCommittee();
+        String sameMember = "SELECT count(*) FROM members WHERE identity_number = '9001010000080'";
+
+        ObjectNode none = formPayload();
+        none.put("isBec", true);
+        MockHttpServletResponse noCommittee = postCapture(none);
+        assertThat(noCommittee.getStatus()).isEqualTo(400);
+        assertThat(noCommittee.getContentAsString()).contains("Branch Executive Committee");
+
+        ObjectNode unknown = formPayload();
+        unknown.put("isBec", true);
+        unknown.put("becCommitteeCode", "ZZZ");
+        MockHttpServletResponse unknownCommittee = postCapture(unknown);
+        assertThat(unknownCommittee.getStatus()).isEqualTo(400);
+        assertThat(unknownCommittee.getContentAsString()).contains("No Branch Executive Committee has that code");
+
+        assertThat(this.jdbc.queryForObject(sameMember, Integer.class)).as("neither refusal stored the member").isZero();
+    }
+
+    @Test
+    @DisplayName("🔴 V55 — a shop steward with no election date, or one in the future, is refused")
+    void aShopStewardNeedsAPastElectionDate() throws Exception {
+        ObjectNode none = formPayload();
+        none.put("isShopSteward", true);
+        MockHttpServletResponse noDate = postCapture(none);
+        assertThat(noDate.getStatus()).isEqualTo(400);
+        assertThat(noDate.getContentAsString()).contains("the date they were elected");
+
+        ObjectNode future = formPayload();
+        future.put("isShopSteward", true);
+        future.put("shopStewardElectionDate", java.time.LocalDate.now(java.time.ZoneId.of("Africa/Johannesburg"))
+                .plusMonths(1).toString());
+        assertThat(postCapture(future).getStatus()).isEqualTo(400);
+    }
+
+    /**
+     * One of SASBO's committees, as the reference-list seeder writes it (V53). The integration lane
+     * mocks the seeder and {@code DatabaseReset} clears the table, so each test that needs one adds it.
+     */
+    private String aCommittee() {
+        Long province = this.jdbc.queryForObject(
+                "INSERT INTO committee_provinces (letter, name) VALUES ('G', NULL) RETURNING id", Long.class);
+        this.jdbc.update("INSERT INTO committees (code, province_id, name, recruiting_number) "
+                + "VALUES ('G01', ?, 'JOHANNESBURG', 1)", province);
+        return "G01";
+    }
+
+    /** A capture as the browser posts it, answered however the server answers. */
+    private MockHttpServletResponse postCapture(ObjectNode payload) throws Exception {
+        return this.mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/members")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload.toString()))
+                .andReturn().getResponse();
+    }
+
+    /** A value the DTO carries as null, or not at all. */
+    private static boolean absent(JsonNode value) {
+        return value.isMissingNode() || value.isNull();
     }
 
     // ─── 03.3: the two Recruitment Channel fields that STAY ───

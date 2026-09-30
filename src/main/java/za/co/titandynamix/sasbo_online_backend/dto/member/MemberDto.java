@@ -147,6 +147,11 @@ public class MemberDto {
     // ─── SASBO structures (V29, CM-05) ───
     private Boolean isShopSteward;
     private Boolean isBec;
+    // ─── and what a Yes needs beside it (V55) ───
+    private LocalDate shopStewardElectionDate;
+    /** The committee the member sits on, by SASBO's code -- what the record sends back to change it. */
+    private String becCommitteeCode;
+    private String becCommitteeName;
 
     // ─── COSATU Structure ───
     private String isCosatu;

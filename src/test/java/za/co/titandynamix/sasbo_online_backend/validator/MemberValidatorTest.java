@@ -299,4 +299,72 @@ class MemberValidatorTest {
         // An explicit "no" is not a structure.
         assertDoesNotThrow(() -> MemberValidator.validateStructures(structures(true, "N", false, false), null));
     }
+
+    // ─── V55: what a Yes to a seat needs beside it (SASBO, 2026-09-30) ───
+
+    private static Member seats(Boolean steward, java.time.LocalDate elected, Boolean bec, boolean onACommittee) {
+        Member member = new Member();
+        member.setIsShopSteward(steward);
+        member.setShopStewardElectionDate(elected);
+        member.setIsBec(bec);
+        if (onACommittee) {
+            za.co.titandynamix.sasbo_online_backend.entity.reference.Committee committee =
+                    new za.co.titandynamix.sasbo_online_backend.entity.reference.Committee();
+            committee.setCode("G01");
+            member.setBecCommittee(committee);
+        }
+        return member;
+    }
+
+    private static final java.time.LocalDate LAST_YEAR = java.time.LocalDate.of(2025, 3, 14);
+
+    @Test
+    @DisplayName("🔴 a member made a shop steward needs the date they were elected, on create and on update")
+    void aNewShopStewardNeedsTheElectionDate() {
+        IllegalArgumentException onCreate = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateSeats(seats(true, null, null, false), null, null));
+        org.assertj.core.api.Assertions.assertThat(onCreate.getMessage()).contains("elected");
+        assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateSeats(seats(true, null, null, false), false, null),
+                "No -> Yes is a new answer, and it needs the date");
+        // The must-pass half: given the date, the same answer is accepted.
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(true, LAST_YEAR, null, false), null, null));
+    }
+
+    @Test
+    @DisplayName("🔴 a member made a BEC member needs the committee they sit on, on create and on update")
+    void aNewBecMemberNeedsTheCommittee() {
+        IllegalArgumentException onCreate = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateSeats(seats(null, null, true, false), null, null));
+        org.assertj.core.api.Assertions.assertThat(onCreate.getMessage()).contains("Branch Executive Committee");
+        assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateSeats(seats(null, null, true, false), null, false));
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(null, null, true, true), null, null));
+    }
+
+    @Test
+    @DisplayName("🔑 a Yes stored before V55, with nothing beside it, can still be saved unchanged")
+    void aLegacyYesStaysSaveable() {
+        // Every steward and BEC member on record before V55 has no date and no committee -- there was
+        // no column. Refusing them would make each unsaveable over a question nobody could answer.
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(true, null, true, false), true, true));
+    }
+
+    @Test
+    @DisplayName("an election date in the future is refused, whatever the member's previous answer")
+    void aFutureElectionDateIsRefused() {
+        // A month ahead, not a day: "tomorrow" computed here and "today" computed in the validator could
+        // straddle midnight and pass for the wrong reason -- or fail for none.
+        java.time.LocalDate nextMonth = java.time.LocalDate.now(java.time.ZoneId.of("Africa/Johannesburg")).plusMonths(1);
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateSeats(seats(true, nextMonth, null, false), true, null));
+        org.assertj.core.api.Assertions.assertThat(refused.getMessage()).contains("future");
+    }
+
+    @Test
+    @DisplayName("must-pass: No to both, or never answered, asks for nothing")
+    void noSeatAsksForNothing() {
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(false, null, false, false), null, null));
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(null, null, null, false), null, null));
+    }
 }
