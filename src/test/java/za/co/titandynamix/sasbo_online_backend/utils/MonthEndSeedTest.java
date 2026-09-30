@@ -262,6 +262,17 @@ class MonthEndSeedTest {
     }
 
     @Test
+    @DisplayName("🔒 03.7: A.C.B.'s count of terminations is unmoved by the demonstration's past -- the past terminates by SASBO's deletion code, never A.C.B.'s SUBS_IN_ARREARS")
+    void acbsTerminationsAreUnmoved() {
+        Long terminated = jdbc.queryForObject("SELECT count(*) FROM member_status_changes WHERE changed_by = ? "
+                + "AND to_status = 'Terminated' AND reason = 'DELETION_CODE'", Long.class, DemonstrationMemberSeeder.SEED_ACTOR);
+        assertThat(terminated).as("the past does terminate members, by SASBO's deletion code").isPositive();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes WHERE changed_by = ? "
+                + "AND reason = 'SUBS_IN_ARREARS'", Long.class, DemonstrationMemberSeeder.SEED_ACTOR))
+                .as("A.C.B. counts its terminations by SUBS_IN_ARREARS, and the past writes none").isZero();
+    }
+
+    @Test
     @DisplayName("03.7: the three months before the clock's have their leavers and suspended by SASBO's codes, each dated inside its month")
     void theDemonstrationsPast() throws IOException {
         List<DemonstrationMember.PastChange> past = DemonstrationMemberSeeder.readSeedFile().past();
