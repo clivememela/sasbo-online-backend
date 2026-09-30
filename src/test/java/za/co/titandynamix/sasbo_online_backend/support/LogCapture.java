@@ -57,6 +57,15 @@ public final class LogCapture implements AutoCloseable {
     }
 
     /**
+     * Starts collecting everything logged under {@code name} -- a package's loggers, every class below it -- for a test
+     * whose claim is the package's (MV-57). Siblings running at the same time may be collected too, so such a test
+     * looks for values planted that occur nowhere else, never for an absence of lines.
+     */
+    public static LogCapture under(String name) {
+        return new LogCapture(context().getLogger(name));
+    }
+
+    /**
      * Everything captured so far, one event per line, with any attached
      * throwable's message on its own line -- because that is where a driver
      * puts the SQL, and the SQL is what a PII assertion is looking for.
