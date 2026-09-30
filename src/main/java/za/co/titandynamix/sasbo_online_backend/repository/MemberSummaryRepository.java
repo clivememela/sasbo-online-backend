@@ -296,7 +296,9 @@ public class MemberSummaryRepository {
     /** {@link #key}, over a taken month's facts: the lineage as it stood. */
     static String factKey(SummaryGrouping by, boolean grouped) {
         if (!grouped) {
-            return "'" + NO_WORKPLACE + "'";
+            // A CAST, never the bare literal: the taken half GROUPS BY this, and PostgreSQL refuses a literal there --
+            // "non-integer constant in GROUP BY" -- where H2 takes it. Found by MV-26's probe, below "all" (MD62).
+            return "CAST('" + NO_WORKPLACE + "' AS VARCHAR(20))";
         }
         String named = switch (by) {
             case GROUP -> "f.group_name";
