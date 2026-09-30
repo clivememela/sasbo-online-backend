@@ -31,11 +31,11 @@ public interface MemberRepository extends JpaRepository<Member, Integer> {
     long nextMembershipNumber();
 
     @Override
-    @EntityGraph(attributePaths = {"recruitmentRepresentative", "recruiter", "structure", "role", "area", "recruitedArea", "user", "recruitmentChannel", "jobGrade", "workplace"})
+    @EntityGraph(attributePaths = {"recruitmentRepresentative", "recruiter", "structure", "role", "area", "recruitedArea", "user", "recruitmentChannel", "jobGrade", "workplace", "becCommittee"})
     List<Member> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"recruitmentRepresentative", "recruiter", "structure", "role", "area", "recruitedArea", "user", "recruitmentChannel", "jobGrade", "workplace"})
+    @EntityGraph(attributePaths = {"recruitmentRepresentative", "recruiter", "structure", "role", "area", "recruitedArea", "user", "recruitmentChannel", "jobGrade", "workplace", "becCommittee"})
     Optional<Member> findById(Integer id);
     
     // Filtering methods
@@ -45,7 +45,7 @@ public interface MemberRepository extends JpaRepository<Member, Integer> {
     List<Member> findByRecruitmentRepresentativeId(Integer representativeId);
     // Business Rule: Fetch only members who are designated as representatives
     // Pull down only members marked as active Representatives to populate recruiters list
-    @EntityGraph(attributePaths = {"recruitmentRepresentative", "recruiter", "structure", "role", "area", "recruitedArea", "user", "recruitmentChannel", "jobGrade", "workplace"})
+    @EntityGraph(attributePaths = {"recruitmentRepresentative", "recruiter", "structure", "role", "area", "recruitedArea", "user", "recruitmentChannel", "jobGrade", "workplace", "becCommittee"})
     List<Member> findByIsRepresentativeTrue();
 
     // Alternate lookup utility to double check active status configurations

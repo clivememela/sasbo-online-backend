@@ -299,4 +299,160 @@ class MemberValidatorTest {
         // An explicit "no" is not a structure.
         assertDoesNotThrow(() -> MemberValidator.validateStructures(structures(true, "N", false, false), null));
     }
+
+    // ─── V55: what a Yes to a seat needs beside it (SASBO, 2026-09-30) ───
+
+    private static Member seats(Boolean steward, java.time.LocalDate elected, Boolean bec, boolean onACommittee) {
+        Member member = new Member();
+        member.setIsShopSteward(steward);
+        member.setShopStewardElectionDate(elected);
+        member.setIsBec(bec);
+        if (onACommittee) {
+            za.co.titandynamix.sasbo_online_backend.entity.reference.Committee committee =
+                    new za.co.titandynamix.sasbo_online_backend.entity.reference.Committee();
+            committee.setCode("G01");
+            member.setBecCommittee(committee);
+        }
+        return member;
+    }
+
+    private static final java.time.LocalDate LAST_YEAR = java.time.LocalDate.of(2025, 3, 14);
+
+    @Test
+    @DisplayName("🔴 a shop steward needs the date they were elected -- on create, and on any edit but a legacy one")
+    void aShopStewardNeedsTheElectionDate() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateSeats(seats(true, null, null, false), false, false));
+        org.assertj.core.api.Assertions.assertThat(refused.getMessage()).contains("elected");
+        // The must-pass half: given the date, the same answer is accepted.
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(true, LAST_YEAR, null, false), false, false));
+    }
+
+    @Test
+    @DisplayName("🔴 a BEC member needs the committee they sit on -- on create, and on any edit but a legacy one")
+    void aBecMemberNeedsTheCommittee() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateSeats(seats(null, null, true, false), false, false));
+        org.assertj.core.api.Assertions.assertThat(refused.getMessage()).contains("Branch Executive Committee");
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(null, null, true, true), false, false));
+    }
+
+    @Test
+    @DisplayName("🔑 a Yes stored before V55, with nothing beside it, can still be saved unchanged")
+    void aLegacyYesStaysSaveable() {
+        // Every steward and BEC member on record before V55 has no date and no committee -- there was
+        // no column. Refusing them would make each unsaveable over a question nobody could answer.
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(true, null, true, false), true, true));
+    }
+
+    @Test
+    @DisplayName("an election date in the future is refused, even for a legacy steward")
+    void aFutureElectionDateIsRefused() {
+        // A month ahead, not a day: "tomorrow" computed here and "today" computed in the validator could
+        // straddle midnight and pass for the wrong reason -- or fail for none.
+        java.time.LocalDate nextMonth = java.time.LocalDate.now(java.time.ZoneId.of("Africa/Johannesburg")).plusMonths(1);
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateSeats(seats(true, nextMonth, null, false), true, false));
+        org.assertj.core.api.Assertions.assertThat(refused.getMessage()).contains("future");
+    }
+
+    @Test
+    @DisplayName("must-pass: No to both, or never answered, asks for nothing")
+    void noSeatAsksForNothing() {
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(false, null, false, false), false, false));
+        assertDoesNotThrow(() -> MemberValidator.validateSeats(seats(null, null, null, false), false, false));
+    }
+
+    // ─── V55: a BEC member's roles, and COSATU's positions (SASBO's structures tree, 2026-09-30) ───
+
+    private static Member roles(Boolean structureRep, String structures, Boolean executive, String position) {
+        Member member = new Member();
+        member.setIsBec(Boolean.TRUE);
+        member.setIsBecStructureRep(structureRep);
+        member.setBecStructures(structures);
+        member.setIsBecExecutive(executive);
+        member.setBecExecutivePosition(position);
+        return member;
+    }
+
+    @Test
+    @DisplayName("🔴 a structure representative represents at least one structure, and an executive holds a position")
+    void aRoleNeedsWhatItHolds() {
+        IllegalArgumentException noStructure = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateBecRoles(roles(true, null, null, null)));
+        org.assertj.core.api.Assertions.assertThat(noStructure.getMessage()).contains("structures they represent");
+        assertThrows(IllegalArgumentException.class, () -> MemberValidator.validateBecRoles(roles(true, "", null, null)),
+                "an unticked list is empty, and empty is not a structure");
+        IllegalArgumentException noPosition = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateBecRoles(roles(null, null, true, " ")));
+        org.assertj.core.api.Assertions.assertThat(noPosition.getMessage()).contains("position they hold");
+        // The must-pass half: the same answers, given what they need.
+        assertDoesNotThrow(() -> MemberValidator.validateBecRoles(roles(true, "VP", true, "Secretary")));
+    }
+
+    @Test
+    @DisplayName("a role's values are written back in SASBO's spelling, the structures once each and in their tree's order")
+    void theRolesTakeSasbosSpelling() {
+        Member member = roles(true, " resolutions committee,NCF / SJC,president,NCF_SJC", true, "DEPUTY_SECRETARY");
+        MemberValidator.validateBecRoles(member);
+        org.assertj.core.api.Assertions.assertThat(member.getBecStructures())
+                .isEqualTo("NCF / SJC,President,Resolutions Committee");
+        org.assertj.core.api.Assertions.assertThat(member.getBecExecutivePosition()).isEqualTo("Deputy Secretary");
+    }
+
+    @Test
+    @DisplayName("🔴 a structure or position SASBO does not have is refused, naming it")
+    void anUnknownRoleValueIsRefused() {
+        IllegalArgumentException structure = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateBecRoles(roles(true, "VP,Shop Stewart", null, null)));
+        org.assertj.core.api.Assertions.assertThat(structure.getMessage()).isEqualTo("'Shop Stewart' is not one of SASBO's BEC structures");
+        IllegalArgumentException position = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateBecRoles(roles(null, null, true, "Chief")));
+        org.assertj.core.api.Assertions.assertThat(position.getMessage()).isEqualTo("'Chief' is not a BEC executive position");
+    }
+
+    @Test
+    @DisplayName("must-pass: a role answered No, or never, asks for nothing -- whatever its list holds")
+    void noRoleAsksForNothing() {
+        // The service clears a No's list; this method only refuses, and a No is not refusable.
+        assertDoesNotThrow(() -> MemberValidator.validateBecRoles(roles(false, "anything", false, "anything")));
+        assertDoesNotThrow(() -> MemberValidator.validateBecRoles(roles(null, null, null, null)));
+    }
+
+    private static Member cosatu(String positions) {
+        Member member = new Member();
+        member.setCosatuPositions(positions);
+        return member;
+    }
+
+    @Test
+    @DisplayName("COSATU positions are written back in SASBO's spelling and order")
+    void cosatuPositionsTakeSasbosSpelling() {
+        Member member = cosatu("treasurer,pec");
+        MemberValidator.validateCosatuPositions(member, null);
+        org.assertj.core.api.Assertions.assertThat(member.getCosatuPositions()).isEqualTo("PEC,Treasurer");
+    }
+
+    @Test
+    @DisplayName("🔑 a COSATU position already on record stays, even one SASBO's list lacks -- a NEW unknown one is refused")
+    void aLegacyCosatuPositionStays() {
+        // The old record wrote free text into this column (BR-14). Decision ⑥'s rule: enforce on a value
+        // the caller ADDED, never on one it merely sent back.
+        Member unchanged = cosatu("PEC,COSATU Local");
+        assertDoesNotThrow(() -> MemberValidator.validateCosatuPositions(unchanged, "COSATU Local"));
+        org.assertj.core.api.Assertions.assertThat(unchanged.getCosatuPositions()).isEqualTo("PEC,COSATU Local");
+
+        IllegalArgumentException added = assertThrows(IllegalArgumentException.class,
+                () -> MemberValidator.validateCosatuPositions(cosatu("PEC,COSATU Local"), null));
+        org.assertj.core.api.Assertions.assertThat(added.getMessage()).isEqualTo("'COSATU Local' is not a COSATU position");
+    }
+
+    @Test
+    @DisplayName("must-pass: no COSATU positions, or an emptied list, asks for nothing")
+    void noCosatuPositionsAskForNothing() {
+        assertDoesNotThrow(() -> MemberValidator.validateCosatuPositions(cosatu(null), null));
+        Member emptied = cosatu("");
+        assertDoesNotThrow(() -> MemberValidator.validateCosatuPositions(emptied, "PEC"));
+        org.assertj.core.api.Assertions.assertThat(emptied.getCosatuPositions()).as("an emptied list stays empty -- it clears").isEmpty();
+    }
 }

@@ -13,6 +13,11 @@ import java.util.List;
 /**
  * Deserializes either a JSON array (["PEC","CEC"]) or a plain string ("PEC,CEC")
  * into a comma-separated String for storage.
+ *
+ * <p>🔴 AN EMPTY ARRAY IS {@code ""}, NOT {@code null} (V55). The member merge ignores a null
+ * ({@code MemberMapper.updateFromMember}, decision ⑨(b): absent keeps, blank clears), so a null here
+ * meant that unticking every box KEPT the stored list -- an edit that answered 200 and changed
+ * nothing. An empty list is an answer, and a blank one clears.
  */
 public class StringArrayToCommaSeparatedDeserializer extends StdDeserializer<String> {
 
@@ -30,7 +35,7 @@ public class StringArrayToCommaSeparatedDeserializer extends StdDeserializer<Str
             while (p.nextToken() != JsonToken.END_ARRAY) {
                 items.add(p.getText());
             }
-            return items.isEmpty() ? null : String.join(",", items);
+            return String.join(",", items);
         }
         // Plain string passthrough
         return p.getText();

@@ -197,6 +197,7 @@ public final class MigrationSeed {
             "V52__members_money_contract.sql",
             "V53__sasbo_reference_lists.sql",
             "V54__workplaces.sql",
+            "V55__member_structure_seats.sql",
             "V56__member_status_codes.sql",
             "V57__member_workplace.sql",
             "V58__member_summary_indexes.sql",

@@ -74,6 +74,7 @@ class JobGradeResolutionTest {
     @Mock private za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces workplaces;
     // Month end 03.5: the member's history -- its snapshot is empty here, so it writes nothing.
     @Mock private za.co.titandynamix.sasbo_online_backend.services.MemberTrail trail;
+    @Mock private za.co.titandynamix.sasbo_online_backend.repository.CommitteeRepository committeeRepository;
 
     private MemberServiceImpl service;
 
@@ -107,7 +108,7 @@ class JobGradeResolutionTest {
                 this.representativeRoleRepository, this.unionStructureRepository,
                 this.jobGradeRepository, this.jobGradeService, this.areaRepository,
                 this.recruitmentChannelRepository, this.recruiterRepository, this.statusChanges,
-                this.workplaces, this.trail);
+                this.workplaces, this.trail, this.committeeRepository);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

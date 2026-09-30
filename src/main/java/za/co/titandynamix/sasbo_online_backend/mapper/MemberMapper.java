@@ -61,6 +61,11 @@ public abstract class MemberMapper {
     @Mapping(target = "workplaceName", source = "workplace.name")
     @Mapping(target = "workplaceRaNumber", source = "workplace.raNumber")
     @Mapping(target = "workplace", ignore = true)
+    // V55 -- the committee a BEC member sits on. Named explicitly: the entity's transient
+    // `becCommitteeCode` shares the DTO's field name, so by name MapStruct would copy the
+    // REQUEST's code back out rather than the stored committee's.
+    @Mapping(target = "becCommitteeCode", source = "becCommittee.code")
+    @Mapping(target = "becCommitteeName", source = "becCommittee.name")
     public abstract MemberDto toDto(Member member);
 
     // ============================================================
@@ -96,6 +101,8 @@ public abstract class MemberMapper {
     @Mapping(target = "recruiter", ignore = true)
     // Month end 01.3: resolved from the transient `workplaceId` by the service, as `structure` and `role` are.
     @Mapping(target = "workplace", ignore = true)
+    // V55: resolved onto the target from `becCommitteeCode` by the service, like `structure`.
+    @Mapping(target = "becCommittee", ignore = true)
     // ── H8: MONEY IS NOT THE CALLER'S TO SET, even when it sends it ────────────
     //
     // 🔴 These four were copied straight off the request body. `monthlySubscription`

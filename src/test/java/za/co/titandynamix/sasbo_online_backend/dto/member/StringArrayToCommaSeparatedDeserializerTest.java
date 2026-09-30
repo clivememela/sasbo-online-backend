@@ -26,13 +26,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code MemberDto} field carrying the annotation is read.
  *
  * <h2>🔴 The branch that matters, and why it is asserted separately</h2>
- * {@code items.isEmpty() ? null : join} means <b>an empty array becomes
- * {@code null}, not {@code ""}</b>. That distinction reaches the browser: the
- * detail view renders {@code cosatuPositions?.length > 0 ? … : "None"}, and an
- * empty string and a {@code null} take the same branch there today <i>by
- * luck</i> -- both are falsy on {@code .length > 0}. Pinning {@code null}
- * records which of the two the server actually promises, so a change to
- * {@code ""} is a deliberate act rather than a discovery.
+ * <b>An empty array becomes {@code ""}, not {@code null}</b> -- since V55. It was
+ * {@code null}, pinned here so that a change would be "a deliberate act rather than
+ * a discovery", and V55 is that act: the member merge ignores a null (decision
+ * ⑨(b): absent keeps, blank clears), so unticking every box on Edit Member kept
+ * the stored list. The browser cannot tell the two apart ({@code normalizeMember}
+ * unfolds both to {@code []}); the merge can, which is why the pin moved.
  *
  * <p>No Spring context and no {@code @JsonTest}: {@code JacksonConfig}'s mapper
  * is one constructor call away, and a context boot is the most expensive thing
@@ -87,9 +86,20 @@ class StringArrayToCommaSeparatedDeserializerTest {
     }
 
     @Test
-    @DisplayName("an EMPTY array becomes null, not an empty string")
-    void anEmptyArrayBecomesNull() throws Exception {
-        assertThat(positionsFrom("{\"cosatuPositions\":[]}")).isNull();
+    @DisplayName("🔴 V55 an EMPTY array becomes an empty string, which clears -- not null, which the merge keeps")
+    void anEmptyArrayBecomesBlank() throws Exception {
+        // The deliberate change the header asked for. It pinned null, and null is what
+        // MemberMapper.updateFromMember IGNORES (decision ⑨(b): absent keeps, blank clears) -- so
+        // unticking every position on Edit Member kept the stored positions and still answered
+        // 200. Harmless while no screen offered the boxes; the record offers them again with V55.
+        assertThat(positionsFrom("{\"cosatuPositions\":[]}")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("V55 the BEC structures ride the same converter -- the annotation is half the behaviour")
+    void theBecStructuresAreJoinedToo() throws Exception {
+        MemberDto read = OBJECT_MAPPER.readValue("{\"becStructures\":[\"INC / IC\",\"VP\"]}", MemberDto.class);
+        assertThat(read.getBecStructures()).isEqualTo("INC / IC,VP");
     }
 
     @Test

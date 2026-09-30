@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
+import za.co.titandynamix.sasbo_online_backend.entity.reference.Committee;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
@@ -91,6 +92,7 @@ class MemberServiceImplTest {
             Map.entry("dateOfBirth", "derived from the identity number"),
             Map.entry("gender", "derived from the identity number"),
             Map.entry("structure", "resolved from structureId"),
+            Map.entry("becCommittee", "resolved from becCommitteeCode against SASBO's committees (V55)"),
             Map.entry("role", "resolved from roleId"),
             Map.entry("jobGrade", "resolved against the bank's grades"),
             Map.entry("jobGradeOutcome",
@@ -139,6 +141,7 @@ class MemberServiceImplTest {
     @Mock private za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces workplaces;
     // Month end 03.5: the member's history -- its snapshot is empty here, so it writes nothing.
     @Mock private za.co.titandynamix.sasbo_online_backend.services.MemberTrail trail;
+    @Mock private za.co.titandynamix.sasbo_online_backend.repository.CommitteeRepository committeeRepository;
 
     @Captor
     private ArgumentCaptor<Member> saved;
@@ -153,7 +156,7 @@ class MemberServiceImplTest {
                 this.representativeRoleRepository, this.unionStructureRepository,
                 this.jobGradeRepository, this.jobGradeService, this.areaRepository,
                 this.recruitmentChannelRepository, this.recruiterRepository, this.statusChanges,
-                this.workplaces, this.trail);
+                this.workplaces, this.trail, this.committeeRepository);
 
         when(this.memberRepository.save(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -179,6 +182,16 @@ class MemberServiceImplTest {
         // validateStructures correctly refuses (COSATU requires BEC; Local requires COSATU).
         captured.setIsBec(Boolean.TRUE);
         captured.setIsCosatu("Y");
+        // And V55's two follow-ups: Synthetic's date need not be in the past, which validateSeats
+        // refuses, and its committee code names no committee unless the repository knows one.
+        captured.setShopStewardElectionDate(java.time.LocalDate.of(2024, 3, 1));
+        when(this.committeeRepository.findByCode(any())).thenReturn(Optional.of(committee("G01", "JOHANNESBURG")));
+        // And the lists V55 holds to SASBO's vocabularies: every role's Yes is set, so each needs a
+        // value validateBecRoles / validateCosatuPositions recognise -- in SASBO's spelling and order,
+        // which is what they write back.
+        captured.setBecStructures("INC / IC,MANCOM");
+        captured.setBecExecutivePosition("Treasurer");
+        captured.setCosatuPositions("PEC,CEC");
 
         List<Field> fields = Synthetic.fieldsOf(Member.class);
         assertNonVacuousScan(fields, 40, "Member fields");
@@ -922,6 +935,177 @@ class MemberServiceImplTest {
         member.setAccountType("Cheque");
         member.setBankName("Absa Bank Limited");
         return member;
+    }
+
+    // ============================================================
+    // V55 -- what a Yes to a seat needs beside it, and what a No leaves behind.
+    // 🗣️ SASBO, through the owner, 2026-09-30: "Shop Steward (Yes) > Select Election Date.
+    // BEC Member (Yes) > Select Branch Committee."
+    // The service stores a seat on create as on update. WHEN a member may sit is not policed here:
+    // SASBO's spec asks these questions on Edit Member only (2.4), and that is the screen's to keep.
+    // ============================================================
+
+    @Test
+    @DisplayName("V55 create resolves the committee from SASBO's code, trimmed, and keeps the date -- as update does")
+    void createResolvesTheCommitteeAndKeepsTheDate() {
+        Committee johannesburg = committee("G01", "JOHANNESBURG");
+        when(this.committeeRepository.findByCode("G01")).thenReturn(Optional.of(johannesburg));
+        Member incoming = MemberFixture.aMember();
+        incoming.setIsShopSteward(Boolean.TRUE);
+        incoming.setShopStewardElectionDate(java.time.LocalDate.of(2025, 3, 14));
+        incoming.setIsBec(Boolean.TRUE);
+        incoming.setBecCommitteeCode(" G01 ");
+
+        this.service.create(incoming);
+
+        verify(this.memberRepository).save(this.saved.capture());
+        assertThat(this.saved.getValue().getBecCommittee()).isSameAs(johannesburg);
+        assertThat(this.saved.getValue().getShopStewardElectionDate()).isEqualTo(java.time.LocalDate.of(2025, 3, 14));
+    }
+
+    @Test
+    @DisplayName("🔴 V55 a code that names no committee is refused -- not dropped -- and nothing is saved")
+    void anUnknownCommitteeIsRefused() {
+        when(this.committeeRepository.findByCode("ZZZ")).thenReturn(Optional.empty());
+        Member incoming = MemberFixture.aMember();
+        incoming.setIsBec(Boolean.TRUE);
+        incoming.setBecCommitteeCode("ZZZ");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.create(incoming))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No Branch Executive Committee has that code");
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+        verify(this.memberRepository, org.mockito.Mockito.never()).nextMembershipNumber();
+    }
+
+    @Test
+    @DisplayName("V55 an edit that does not mention the committee keeps it; blanking it while still on the BEC is refused")
+    void anAbsentCodeKeepsTheSeatAndABlankOneIsRefused() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setIsBec(Boolean.TRUE);
+        existing.setBecCommittee(committee("G01", "JOHANNESBURG"));
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member absent = MemberFixture.aMember();
+        assertThat(this.service.update(4, absent).orElseThrow().getBecCommittee())
+                .as("a request that never mentions the committee must not blank it")
+                .isNotNull();
+
+        // A seat on record is changed, never removed while the answer stays Yes: blank still clears
+        // (decision ⑨(b)), and the validator then refuses a BEC member left on no committee.
+        Member blank = MemberFixture.aMember();
+        blank.setBecCommitteeCode("");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.update(4, blank))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Branch Executive Committee");
+    }
+
+    @Test
+    @DisplayName("🔑 V55 a seat stored before V55, with nothing beside it, stays saveable through an edit of anything else")
+    void aLegacySeatStaysSaveable() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setIsShopSteward(Boolean.TRUE);
+        existing.setIsBec(Boolean.TRUE);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member saved = this.service.update(4, MemberFixture.aMember()).orElseThrow();
+
+        assertThat(saved.getIsShopSteward()).isTrue();
+        assertThat(saved.getIsBec()).isTrue();
+    }
+
+    @Test
+    @DisplayName("V55 a No clears what its Yes needed: a steward's date; a BEC member's committee and roles")
+    void aNoClearsTheFollowUps() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setIsShopSteward(Boolean.FALSE);
+        existing.setShopStewardElectionDate(java.time.LocalDate.of(2025, 3, 14));
+        existing.setIsBec(Boolean.FALSE);
+        existing.setBecCommittee(committee("G01", "JOHANNESBURG"));
+        existing.setIsBecRecruiter(Boolean.TRUE);
+        existing.setIsBecStructureRep(Boolean.TRUE);
+        existing.setBecStructures("VP");
+        existing.setIsBecExecutive(Boolean.TRUE);
+        existing.setBecExecutivePosition("Treasurer");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member saved = this.service.update(4, MemberFixture.aMember()).orElseThrow();
+
+        assertThat(saved.getShopStewardElectionDate()).isNull();
+        assertThat(saved.getBecCommittee()).isNull();
+        assertThat(saved.getIsBecRecruiter()).as("no BEC, no BEC role").isNull();
+        assertThat(saved.getIsBecStructureRep()).isNull();
+        assertThat(saved.getBecStructures()).isNull();
+        assertThat(saved.getIsBecExecutive()).isNull();
+        assertThat(saved.getBecExecutivePosition()).isNull();
+    }
+
+    @Test
+    @DisplayName("V55 a BEC role answered No keeps no structures or position -- and the committee stays")
+    void aRoleAnsweredNoKeepsNothing() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setIsBec(Boolean.TRUE);
+        existing.setBecCommittee(committee("G01", "JOHANNESBURG"));
+        existing.setIsBecStructureRep(Boolean.FALSE);
+        existing.setBecStructures("VP");
+        existing.setIsBecExecutive(Boolean.FALSE);
+        existing.setBecExecutivePosition("Treasurer");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member saved = this.service.update(4, MemberFixture.aMember()).orElseThrow();
+
+        assertThat(saved.getBecStructures()).isNull();
+        assertThat(saved.getBecExecutivePosition()).isNull();
+        assertThat(saved.getBecCommittee()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("V55 the roles are stored in SASBO's spelling, the structures in their tree's order")
+    void theRolesAreStoredInSasbosSpelling() {
+        when(this.committeeRepository.findByCode("G01")).thenReturn(Optional.of(committee("G01", "JOHANNESBURG")));
+        Member incoming = MemberFixture.aMember();
+        incoming.setIsBec(Boolean.TRUE);
+        incoming.setBecCommitteeCode("G01");
+        incoming.setIsBecRecruiter(Boolean.TRUE);
+        incoming.setIsBecStructureRep(Boolean.TRUE);
+        incoming.setBecStructures("mancom, inc / ic,MANCOM");
+        incoming.setIsBecExecutive(Boolean.TRUE);
+        incoming.setBecExecutivePosition(" deputy chairperson ");
+
+        this.service.create(incoming);
+
+        verify(this.memberRepository).save(this.saved.capture());
+        assertThat(this.saved.getValue().getIsBecRecruiter()).isTrue();
+        assertThat(this.saved.getValue().getBecStructures()).isEqualTo("INC / IC,MANCOM");
+        assertThat(this.saved.getValue().getBecExecutivePosition()).isEqualTo("Deputy Chairperson");
+    }
+
+    @Test
+    @DisplayName("🔴 V55 a structure or position SASBO does not have is refused, and nothing is saved")
+    void anUnknownRoleValueIsRefused() {
+        when(this.committeeRepository.findByCode("G01")).thenReturn(Optional.of(committee("G01", "JOHANNESBURG")));
+        Member incoming = MemberFixture.aMember();
+        incoming.setIsBec(Boolean.TRUE);
+        incoming.setBecCommitteeCode("G01");
+        incoming.setIsBecExecutive(Boolean.TRUE);
+        incoming.setBecExecutivePosition("Chief");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.create(incoming))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("'Chief' is not a BEC executive position");
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+    }
+
+    /** One of SASBO's committees, as V53's table holds it. */
+    private static Committee committee(String code, String name) {
+        Committee committee = new Committee();
+        committee.setCode(code);
+        committee.setName(name);
+        return committee;
     }
 
     /** What the banking screen submits: the flat banking fields and a chosen day. */

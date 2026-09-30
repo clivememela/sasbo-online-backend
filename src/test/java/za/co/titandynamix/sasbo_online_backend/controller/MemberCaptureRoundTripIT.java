@@ -344,10 +344,14 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
     @DisplayName("🔴 CM-05 — Shop Steward, BEC, and COSATU Local / Regional persist through an edit")
     void theStructureAnswersPersist() throws Exception {
         JsonNode created = capture();
+        String committee = aCommittee();
 
         ObjectNode edit = formPayload();
         edit.put("isShopSteward", true);
+        // Since V55 each Yes carries what SASBO asked for beside it; the two are the next test's subject.
+        edit.put("shopStewardElectionDate", "2025-03-14");
         edit.put("isBec", true);
+        edit.put("becCommitteeCode", committee);
         edit.put("isCosatu", "Y");
         edit.put("isCosatuLocal", true);
         edit.put("isCosatuRegional", false);
@@ -386,6 +390,199 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         assertThat(response.getContentAsString()).containsIgnoringCase("BEC");
         assertThat(readBack(created).path("isCosatu").asText())
                 .as("and nothing was written").isNotEqualTo("Y");
+    }
+
+    // ─── V55: what a Yes needs beside it -- SASBO, through the owner, 2026-09-30 ───
+    //
+    // "Shop Steward (Yes) > Select Election Date. BEC Member (Yes) > Select Branch Committee."
+    // Capture asked both until 2026-09-10 and stored neither (CM-05); SASBO's spec then moved the
+    // structures to Edit Member, "because a newly captured member cannot sit on a structure" (2.4).
+    // So these tests seat a member the way the product does: captured first, seated through an edit.
+    // The server stores a seat from either write -- WHEN a member may sit is the screen's to keep.
+
+    @Test
+    @DisplayName("🔴 V55 — seated through an edit, a member reads back with the election date and the committee")
+    void aSeatReadsBackWithItsFollowUps() throws Exception {
+        JsonNode created = capture();
+        String committee = aCommittee();
+        ObjectNode edit = formPayload();
+        edit.put("isShopSteward", true);
+        edit.put("shopStewardElectionDate", "2025-03-14");
+        edit.put("isBec", true);
+        edit.put("becCommitteeCode", committee);
+
+        assertThat(putEdit(created, edit).getStatus()).isEqualTo(200);
+
+        JsonNode read = readBack(created);
+        assertThat(read.path("isShopSteward").asText()).isEqualTo("true");
+        // BR-B: a LocalDate reads back as [year, month, day].
+        assertThat(read.path("shopStewardElectionDate").toString()).isEqualTo("[2025,3,14]");
+        assertThat(read.path("isBec").asText()).isEqualTo("true");
+        assertThat(read.path("becCommitteeCode").asText()).isEqualTo(committee);
+        assertThat(read.path("becCommitteeName").asText()).isEqualTo("JOHANNESBURG");
+    }
+
+    @Test
+    @DisplayName("V55 — answering No clears what the Yes needed: no election date, no committee")
+    void answeringNoClearsTheFollowUps() throws Exception {
+        JsonNode created = capture();
+        String committee = aCommittee();
+        ObjectNode seated = formPayload();
+        seated.put("isShopSteward", true);
+        seated.put("shopStewardElectionDate", "2025-03-14");
+        seated.put("isBec", true);
+        seated.put("becCommitteeCode", committee);
+        assertThat(putEdit(created, seated).getStatus()).isEqualTo(200);
+
+        ObjectNode edit = formPayload();
+        edit.put("isShopSteward", false);
+        edit.put("isBec", false);
+        assertThat(putEdit(created, edit).getStatus()).isEqualTo(200);
+
+        JsonNode read = readBack(created);
+        assertThat(read.path("isShopSteward").asText()).isEqualTo("false");
+        assertThat(absent(read.path("shopStewardElectionDate"))).as("a former steward keeps no steward date").isTrue();
+        assertThat(absent(read.path("becCommitteeCode"))).as("a member off the BEC sits on no committee").isTrue();
+    }
+
+    @Test
+    @DisplayName("🔴 V55 — a BEC seat with no committee, or with one SASBO does not have, is refused and nothing is stored")
+    void aBecSeatNeedsARealCommittee() throws Exception {
+        JsonNode created = capture();
+        aCommittee();
+
+        ObjectNode none = formPayload();
+        none.put("isBec", true);
+        MockHttpServletResponse noCommittee = putEdit(created, none);
+        assertThat(noCommittee.getStatus()).isEqualTo(400);
+        assertThat(noCommittee.getContentAsString()).contains("Branch Executive Committee");
+
+        ObjectNode unknown = formPayload();
+        unknown.put("isBec", true);
+        unknown.put("becCommitteeCode", "ZZZ");
+        MockHttpServletResponse unknownCommittee = putEdit(created, unknown);
+        assertThat(unknownCommittee.getStatus()).isEqualTo(400);
+        assertThat(unknownCommittee.getContentAsString()).contains("No Branch Executive Committee has that code");
+
+        assertThat(readBack(created).path("isBec").asText()).as("neither refusal wrote the seat").isNotEqualTo("true");
+    }
+
+    @Test
+    @DisplayName("🔴 V55 — a shop steward with no election date, or one in the future, is refused")
+    void aShopStewardNeedsAPastElectionDate() throws Exception {
+        JsonNode created = capture();
+
+        ObjectNode none = formPayload();
+        none.put("isShopSteward", true);
+        MockHttpServletResponse noDate = putEdit(created, none);
+        assertThat(noDate.getStatus()).isEqualTo(400);
+        assertThat(noDate.getContentAsString()).contains("the date they were elected");
+
+        ObjectNode future = formPayload();
+        future.put("isShopSteward", true);
+        future.put("shopStewardElectionDate", java.time.LocalDate.now(java.time.ZoneId.of("Africa/Johannesburg"))
+                .plusMonths(1).toString());
+        assertThat(putEdit(created, future).getStatus()).isEqualTo(400);
+
+        assertThat(readBack(created).path("isShopSteward").asText()).as("neither refusal wrote the seat").isNotEqualTo("true");
+    }
+
+    // ─── V55: the rest of SASBO's tree -- a BEC member's roles, and COSATU's positions ───
+
+    @Test
+    @DisplayName("🔴 V55 — the whole tree persists through an edit: recruiter, structures represented, executive position, COSATU positions")
+    void theWholeTreePersists() throws Exception {
+        JsonNode created = capture();
+        String committee = aCommittee();
+        ObjectNode edit = seatedOnTheBec(committee);
+        edit.put("isBecRecruiter", true);
+        edit.put("isBecStructureRep", true);
+        // Arrays, as the record's checkboxes send them -- ticked out of SASBO's order on purpose.
+        edit.putArray("becStructures").add("MANCOM").add("INC / IC");
+        edit.put("isBecExecutive", true);
+        edit.put("becExecutivePosition", "Deputy Chairperson");
+        edit.put("isCosatu", "Y");
+        edit.putArray("cosatuPositions").add("Treasurer").add("PEC");
+
+        assertThat(putEdit(created, edit).getStatus()).isEqualTo(200);
+
+        JsonNode read = readBack(created);
+        assertThat(read.path("isBecRecruiter").asText()).isEqualTo("true");
+        assertThat(read.path("isBecStructureRep").asText()).isEqualTo("true");
+        assertThat(read.path("becStructures").asText()).as("SASBO's order, whatever order was ticked").isEqualTo("INC / IC,MANCOM");
+        assertThat(read.path("isBecExecutive").asText()).isEqualTo("true");
+        assertThat(read.path("becExecutivePosition").asText()).isEqualTo("Deputy Chairperson");
+        assertThat(read.path("cosatuPositions").asText()).isEqualTo("PEC,Treasurer");
+    }
+
+    @Test
+    @DisplayName("🔴 V55 — unticking every box clears the list: an empty array is an answer, not an absence")
+    void untickingEveryBoxClearsTheList() throws Exception {
+        JsonNode created = capture();
+        String committee = aCommittee();
+        ObjectNode ticked = seatedOnTheBec(committee);
+        ticked.put("isCosatu", "Y");
+        ticked.putArray("cosatuPositions").add("PEC");
+        assertThat(putEdit(created, ticked).getStatus()).isEqualTo(200);
+
+        // What the record sends once every COSATU position is unticked. Until V55 the converter made
+        // this null, which the merge ignores -- so the save answered 200 and PEC stayed.
+        ObjectNode unticked = seatedOnTheBec(committee);
+        unticked.put("isCosatu", "Y");
+        unticked.putArray("cosatuPositions");
+        assertThat(putEdit(created, unticked).getStatus()).isEqualTo(200);
+
+        JsonNode positions = readBack(created).path("cosatuPositions");
+        assertThat(absent(positions) || positions.asText().isEmpty()).as("PEC was unticked; it must not be stored").isTrue();
+    }
+
+    @Test
+    @DisplayName("🔴 V55 — a structure SASBO does not have is refused with a 400 that names it, and nothing is written")
+    void anUnknownStructureIsRefused() throws Exception {
+        JsonNode created = capture();
+        String committee = aCommittee();
+        ObjectNode edit = seatedOnTheBec(committee);
+        edit.put("isBecStructureRep", true);
+        edit.putArray("becStructures").add("VP").add("Shop Stewart");
+
+        MockHttpServletResponse response = putEdit(created, edit);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("Shop Stewart");
+        assertThat(readBack(created).path("isBecStructureRep").asText()).as("nothing was written").isNotEqualTo("true");
+    }
+
+    /** An edit that seats the member on one of SASBO's committees, which every role above needs beneath it. */
+    private ObjectNode seatedOnTheBec(String committee) throws Exception {
+        ObjectNode edit = formPayload();
+        edit.put("isBec", true);
+        edit.put("becCommitteeCode", committee);
+        return edit;
+    }
+
+    /**
+     * One of SASBO's committees, as the reference-list seeder writes it (V53). The integration lane
+     * mocks the seeder and {@code DatabaseReset} clears the table, so each test that needs one adds it.
+     */
+    private String aCommittee() {
+        Long province = this.jdbc.queryForObject(
+                "INSERT INTO committee_provinces (letter, name) VALUES ('G', NULL) RETURNING id", Long.class);
+        this.jdbc.update("INSERT INTO committees (code, province_id, name, recruiting_number) "
+                + "VALUES ('G01', ?, 'JOHANNESBURG', 1)", province);
+        return "G01";
+    }
+
+    /** An Edit Member save of a captured member, answered however the server answers. */
+    private MockHttpServletResponse putEdit(JsonNode created, ObjectNode edit) throws Exception {
+        return this.mockMvc.perform(put("/api/members/{id}", created.get("id").asInt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edit.toString()))
+                .andReturn().getResponse();
+    }
+
+    /** A value the DTO carries as null, or not at all. */
+    private static boolean absent(JsonNode value) {
+        return value.isMissingNode() || value.isNull();
     }
 
     // ─── 03.3: the two Recruitment Channel fields that STAY ───
