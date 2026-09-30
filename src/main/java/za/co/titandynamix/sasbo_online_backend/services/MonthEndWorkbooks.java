@@ -44,7 +44,9 @@ import java.util.function.Consumer;
  *       never checked against the workbooks typed from them (MD23);</li>
  *   <li>{@value #MONTHLY}: the month-on-month tables -- SASBO's <em>Table 1</em> and <em>Table2</em>: membership
  *       excluding the suspended, core and all, by region, with its growth in the month and to date -- over the
- *       year's taken months, each as it was taken, and the open month as it stands.</li>
+ *       year's taken months, each as it was taken, and the open month as it stands. Core and its regions are grouped
+ *       finer than the whole, so below {@code all} Table 1 says it is not answered here and Table2 is the whole's
+ *       columns alone -- the switch applied as the statistics apply it (MD62, MR-SEC-19).</li>
  * </ul>
  * Every text written passes {@link SpreadsheetText#safe}: a label is data, and a spreadsheet must show it, never run it
  * (MV-13).
@@ -60,6 +62,14 @@ public class MonthEndWorkbooks {
 
     /** Excel's longest sheet name. */
     static final int SHEET_NAME_CEILING = 31;
+
+    /** What Table 1 says below {@code all}, in place of its figures. */
+    static final String NOT_GROUPED = "Not answered on this deployment: core membership and its regions are grouped "
+            + "finer than the whole, which is answered only where SASBO's workplaces are served in full (MD62).";
+
+    /** What Table2 says below {@code all}, beneath the whole's columns. */
+    static final String CORE_BLANK = "The core columns are blank on this deployment: core is grouped finer than the "
+            + "whole (MD62).";
 
     private final MonthEndStatistics statistics;
     private final MonthEndTakes takes;
@@ -153,14 +163,15 @@ public class MonthEndWorkbooks {
     /** Table 1 and Table2, over the year's months up to {@code month}. */
     public byte[] monthly(YearMonth month) {
         List<MonthFigures> months = monthsOfTheYear(month);
+        boolean grouped = statistics.grouped();
         Map<String, String> regions = new TreeMap<>();
         return write(book -> {
             Styles styles = new Styles(book);
             for (MonthFigures m : months) {
                 m.coreByRegion().keySet().forEach(code -> regions.putIfAbsent(code, code));
             }
-            tableOne(book, styles, months, regions);
-            tableTwo(book, styles, months);
+            tableOne(book, styles, months, regions, grouped);
+            tableTwo(book, styles, months, grouped);
         });
     }
 
@@ -210,12 +221,16 @@ public class MonthEndWorkbooks {
     }
 
     private static void tableOne(SXSSFWorkbook book, Styles styles, List<MonthFigures> months,
-                                 Map<String, String> regions) {
+                                 Map<String, String> regions, boolean grouped) {
         Sheet out = book.createSheet("Table 1");
         int r = 0;
         text(out.createRow(r++), 0, "Core membership, by month and by region", styles.title);
         text(out.createRow(r++), 0, "Table 1 -- members on record less the suspended, core groups only", styles.quiet);
         r++;
+        if (!grouped) {
+            text(out.createRow(r), 0, NOT_GROUPED, styles.quiet);
+            return;
+        }
         Row header = out.createRow(r++);
         text(header, 0, "Month", styles.header);
         text(header, 1, "Core", styles.header);
@@ -246,7 +261,7 @@ public class MonthEndWorkbooks {
                 styles.quiet);
     }
 
-    private static void tableTwo(SXSSFWorkbook book, Styles styles, List<MonthFigures> months) {
+    private static void tableTwo(SXSSFWorkbook book, Styles styles, List<MonthFigures> months, boolean grouped) {
         Sheet out = book.createSheet("Table2");
         int r = 0;
         text(out.createRow(r++), 0, "Membership excluding suspensions, month on month", styles.title);
@@ -264,17 +279,24 @@ public class MonthEndWorkbooks {
         for (MonthFigures m : months) {
             Row line = out.createRow(r++);
             text(line, 0, monthName(m.month()) + (m.open() ? " (open)" : ""), null);
-            number(line, 1, BigDecimal.valueOf(m.core()), styles.count);
+            if (grouped) {
+                number(line, 1, BigDecimal.valueOf(m.core()), styles.count);
+            }
             number(line, 5, BigDecimal.valueOf(m.all()), styles.count);
             if (previous != null) {
-                number(line, 2, BigDecimal.valueOf(previous.core()), styles.count);
-                number(line, 3, BigDecimal.valueOf(m.core() - previous.core()), styles.count);
-                number(line, 4, BigDecimal.valueOf(m.core() - first.core()), styles.count);
+                if (grouped) {
+                    number(line, 2, BigDecimal.valueOf(previous.core()), styles.count);
+                    number(line, 3, BigDecimal.valueOf(m.core() - previous.core()), styles.count);
+                    number(line, 4, BigDecimal.valueOf(m.core() - first.core()), styles.count);
+                }
                 number(line, 6, BigDecimal.valueOf(previous.all()), styles.count);
                 number(line, 7, BigDecimal.valueOf(m.all() - previous.all()), styles.count);
                 number(line, 8, BigDecimal.valueOf(m.all() - first.all()), styles.count);
             }
             previous = m;
+        }
+        if (!grouped) {
+            text(out.createRow(r + 1), 0, CORE_BLANK, styles.quiet);
         }
     }
 

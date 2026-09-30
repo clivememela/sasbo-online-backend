@@ -34,8 +34,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * The statistics pack's two workbooks (month end 04.10), on H2 from {@link SummaryFixture}: the statistics workbook is
  * every sheet of every statistic, cell for cell as the statistics answer -- checked against them, never against a
- * typed workbook (MD23) -- a hidden row saying so in words; the month-on-month tables add up from the months taken; and
- * a label planted to run as a formula is written as the text it is (MV-13).
+ * typed workbook (MD23) -- a hidden row saying so in words; the month-on-month tables add up from the months taken;
+ * below {@code all} both follow the switch as the statistics do (MD62); and a label planted to run as a formula is
+ * written as the text it is (MV-13).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
         "sasbo.workplaces=all",
@@ -164,6 +165,28 @@ class MonthEndWorkbooksTest {
     }
 
     @Test
+    @DisplayName("🔒 MD62, MR-SEC-19: below 'all' the month-on-month tables are the whole alone -- no core, no region")
+    void belowAllTheMonthlyTables() throws IOException {
+        MonthEndStatistics atNames = new MonthEndStatistics(takes, facts, codes,
+                new za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch("names"), environment, seedNumbers,
+                gate);
+        MonthEndWorkbooks below = new MonthEndWorkbooks(atNames, takes, facts, environment, seedNumbers, gate);
+        takes.take(YearMonth.of(2026, 8), "seed");
+        takes.take(SummaryFixture.MONTH, "seed");
+
+        try (XSSFWorkbook book = read(below.monthly(SummaryFixture.MONTH))) {
+            Sheet one = book.getSheet("Table 1");
+            assertThat(numbersIn(one)).as("Table 1 is core by region: below 'all' it holds no figure").isEmpty();
+            assertThat(labelCell(one, MonthEndWorkbooks.NOT_GROUPED)).as("and says why").isNotNull();
+            Sheet two = book.getSheet("Table2");
+            // All 16 after August's 15, the growth to date from August, the first month taken here.
+            assertThat(cellsOf(two, "September 2026")).as("the whole's columns alone").containsExactly(16.0, 15.0, 1.0,
+                    1.0);
+            assertThat(labelCell(two, MonthEndWorkbooks.CORE_BLANK)).isNotNull();
+        }
+    }
+
+    @Test
     @DisplayName("🔒 MV-13: a label planted to run as a formula is written as the text it is -- a string, behind an apostrophe")
     void aPlantedFormulaIsText() throws IOException {
         String planted = "=HYPERLINK(\"http://example.invalid\",\"open\")";
@@ -236,6 +259,19 @@ class MonthEndWorkbooksTest {
             Cell cell = row.getCell(c);
             if (cell != null && cell.getCellType() == CellType.NUMERIC) {
                 numbers.add(cell.getNumericCellValue());
+            }
+        }
+        return numbers;
+    }
+
+    /** Every number on the sheet, wherever it stands. */
+    private static List<Double> numbersIn(Sheet sheet) {
+        List<Double> numbers = new ArrayList<>();
+        for (Row row : sheet) {
+            for (Cell cell : row) {
+                if (cell.getCellType() == CellType.NUMERIC) {
+                    numbers.add(cell.getNumericCellValue());
+                }
             }
         }
         return numbers;

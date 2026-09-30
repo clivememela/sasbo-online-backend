@@ -121,6 +121,14 @@ public class MonthEndStatistics {
         this.gate = gate;
     }
 
+    /**
+     * May a figure grouped finer than the whole be answered here? Only where the switch says {@code all}
+     * (MR-SEC-19). The pack's month-on-month tables ask it as every statistic does (MD62).
+     */
+    public boolean grouped() {
+        return workplaceSwitch.staffNumbersServed();
+    }
+
     // ================================================================================================ the statistics
 
     /** 04.3: the month's new and deleted members by area, core and other -- and the year to date (prtmemsum). */

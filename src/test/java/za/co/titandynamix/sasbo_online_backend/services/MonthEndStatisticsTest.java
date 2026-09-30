@@ -307,4 +307,49 @@ class MonthEndStatisticsTest {
         List<String> notes = branches.notes();
         assertThat(notes).anyMatch(n -> n.contains("not served in full"));
     }
+
+    /** The sheets cut by a code, not by where members work: the same at every switch. */
+    private static final List<String> CUT_BY_A_CODE = List.of("membership suspended-by-code",
+            "recruitment by-recruiter", "recruitment by-channel");
+
+    @Test
+    @DisplayName("🔒 MD62, MV-55: below 'all' EVERY sheet cut by where members work is one row -- the whole, equal to its total and to the whole at 'all'")
+    void belowAllEverySheet() {
+        MonthEndStatistics atNames = new MonthEndStatistics(takes, facts, codes, new WorkplaceSwitch("names"),
+                environment, seedNumbers, gate);
+        List<MonthEndStatisticDto> below = atNames.all("2026-09");
+        List<MonthEndStatisticDto> atAll = statistics.all("2026-09");
+        assertThat(below).extracting(MonthEndStatisticDto::statistic)
+                .containsExactlyElementsOf(atAll.stream().map(MonthEndStatisticDto::statistic).toList());
+
+        List<String> cut = new java.util.ArrayList<>();
+        for (int i = 0; i < below.size(); i++) {
+            for (MonthEndStatisticDto.Sheet sheet : below.get(i).sheets()) {
+                String name = below.get(i).statistic() + " " + sheet.key();
+                if (CUT_BY_A_CODE.contains(name)) {
+                    continue;
+                }
+                cut.add(name);
+                assertThat(sheet.rows()).as("%s: one row, the whole", name)
+                        .extracting(MonthEndStatisticDto.Row::key).containsExactly("~ALL");
+                assertThat(sheet.rows().getFirst().cells()).as("%s: the one row is the total", name)
+                        .isEqualTo(sheet.total().cells());
+                MonthEndStatisticDto.Sheet whole = sheet(atAll.get(i), sheet.key());
+                for (int c = 0; c < sheet.columns().size(); c++) {
+                    java.math.BigDecimal cell = sheet.total().cells().get(c);
+                    if (cell != null) {
+                        assertThat(cell).as("%s %s: the whole is the same at every switch", name,
+                                sheet.columns().get(c).key()).isEqualByComparingTo(whole.total().cells().get(c));
+                    }
+                }
+            }
+        }
+        assertThat(cut).as("every sheet cut by where members work -- a new sheet is placed here, or among the cut by a code")
+                .containsExactlyInAnyOrder("new-and-deleted month-joined", "new-and-deleted month-left",
+                        "new-and-deleted year-joined", "new-and-deleted year-left", "membership by-group",
+                        "membership by-table-code", "leavers by-area", "leavers by-employer", "leavers by-table-code",
+                        "leavers joined-deleted", "leavers resigned", "branches by-area", "branches by-employer",
+                        "recruitment by-table-code", "representatives representatives",
+                        "representatives committee-members");
+    }
 }
