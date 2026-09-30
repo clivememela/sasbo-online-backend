@@ -3,26 +3,17 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.dto.summary.MemberSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusKind;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberSummaryService;
+import za.co.titandynamix.sasbo_online_backend.support.AbstractSwitchedOnIT;
 import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
-import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -47,15 +38,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * thinks of are in it on purpose: a member who joins and leaves in one month, who leaves and returns in one, who leaves
  * twice, who leaves, returns and leaves again in one, and changes at the last second of a month and the first of the next.
  *
- * <p>A fixed seed, so a run is repeatable; {@code -Dmv1.seed=} tries another. On H2, from the fixture's lists and
- * workplaces with its own members taken out, on a database of its own.
+ * <p>A fixed seed, so a run is repeatable; {@code -Dmv1.seed=} tries another. On PostgreSQL, the database every host
+ * runs, from the fixture's lists and workplaces with its own members taken out. On H2, at this population, the first
+ * figure outlived its four-second bound (run 36772004942), so the property is held where the figures are served.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
-        "sasbo.workplaces=all",
-        "spring.datasource.url=jdbc:h2:mem:member-summary-property;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"})
-@Import(MemberSummaryPropertyTest.AtTheFixturesClock.class)
-@DisplayName("MV-1: the summary's arithmetic, over a generated population")
-class MemberSummaryPropertyTest {
+@DisplayName("MV-1: the summary's arithmetic, over a generated population, on PostgreSQL")
+class MemberSummaryPropertyIT extends AbstractSwitchedOnIT {
 
     static final long SEED = Long.getLong("mv1.seed", 20260930L);
 
@@ -73,22 +61,6 @@ class MemberSummaryPropertyTest {
 
     /** The workplaces the fixture puts on record, and none. */
     static final Integer[] PLACES = {900001, 900002, 900003, 900004, null};
-
-    @TestConfiguration
-    static class AtTheFixturesClock {
-        @Bean
-        @Primary
-        Clock theFixturesClock() {
-            return Clock.fixed(SummaryFixture.NOW, AcbTime.ZONE);
-        }
-    }
-
-    /** Nothing of the seed's: only what this class writes is on this database. */
-    @MockitoBean
-    private DataSeeder noSeed;
-
-    @Autowired
-    private JdbcTemplate jdbc;
 
     @Autowired
     private MemberRepository members;
@@ -282,12 +254,9 @@ class MemberSummaryPropertyTest {
 
     /** The fixture's lists and workplaces, its own members taken out, and the generated ones in. */
     private void write(List<Generated> population) {
-        Long present = jdbc.queryForObject("SELECT count(*) FROM workplaces WHERE ra_number = 900001", Long.class);
-        if (present == null || present == 0) {
-            SummaryFixture.insert(jdbc, members);
-        }
-        jdbc.update("DELETE FROM member_status_changes");
-        jdbc.update("DELETE FROM members");
+        SummaryFixture.insert(jdbc, members);
+        // Emptied as the lane's own reset empties them, by TRUNCATE.
+        jdbc.execute("TRUNCATE member_status_changes, members CASCADE");
         for (Generated generated : population) {
             Member member = MemberFixture.withSurname("GENERATED");
             member.setMembershipNumber(generated.number());
@@ -299,10 +268,14 @@ class MemberSummaryPropertyTest {
                         + "WHERE id = ?", generated.ra(), id);
             }
             for (Change change : generated.changes()) {
+                // A leaving carries a deletion code, as the table's check requires; a suspension is set by hand, with
+                // none (the fixture has no suspension code); a return is REINSTATED.
+                boolean leaves = leaving(change.to());
                 jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, "
-                                + "changed_at) VALUES (?, ?, ?, ?, 'system', ?)", id, change.from(), change.to(),
-                        leaving(change.to()) ? "DELETION_CODE" : "Suspended".equals(change.to()) ? "SUSPENSION_CODE"
-                                : "REINSTATED", OffsetDateTime.ofInstant(change.at(), ZoneOffset.UTC));
+                                + "changed_at, deletion_code_id) VALUES (?, ?, ?, ?, 'system', ?, "
+                                + "(SELECT id FROM deletion_codes WHERE sasbo_code = 2 AND ?))", id, change.from(),
+                        change.to(), leaves ? "DELETION_CODE" : "Suspended".equals(change.to()) ? "CAPTURED" : "REINSTATED",
+                        OffsetDateTime.ofInstant(change.at(), ZoneOffset.UTC), leaves);
             }
         }
     }
