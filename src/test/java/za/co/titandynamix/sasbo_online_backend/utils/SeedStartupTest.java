@@ -163,6 +163,20 @@ class SeedStartupTest {
         }
 
         @Test
+        @DisplayName("🔒 MD53, MV-45: the switch unset is off -- no workplace, nobody placed at one, none of the invented members' past, no taken month")
+        void theSwitchUnsetLeavesNothingOfSasbosShape() {
+            // The invented members are the count above: the 160 and the debit-order population, and nobody else.
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM workplaces", Long.class)).as("no workplace").isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM members WHERE workplace_id IS NOT NULL", Long.class))
+                    .as("nobody placed at one").isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes "
+                    + "WHERE reason IN ('DELETION_CODE', 'SUSPENSION_CODE')", Long.class))
+                    .as("none of the invented members' past, which is written by SASBO's codes").isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM month_end_months", Long.class))
+                    .as("no taken month").isZero();
+        }
+
+        @Test
         @DisplayName("every bank has at most one subscription row, and SASBO's own collecting bank has its row (F54)")
         void oneRowPerBankAndStandardBanksIsThere() {
             Long doubled = jdbc.queryForObject("SELECT count(*) FROM (SELECT bank_id FROM subscriptions "
