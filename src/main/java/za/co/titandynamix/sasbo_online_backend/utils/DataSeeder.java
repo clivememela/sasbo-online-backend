@@ -336,10 +336,6 @@ public class DataSeeder implements ApplicationRunner {
         }
     }
 
-    /**
-     * One call of month end's block, caught (MD65, MV-58): logged scrubbed -- the class and the stack, never the
-     * message, which may quote a row -- and the start goes on to the next.
-     */
     /** A seeder that reads its file: an unreadable file is a failure of the seeder, caught like any other. */
     private static void seedQuietly(IoSeeder seeder) {
         try {
@@ -354,7 +350,11 @@ public class DataSeeder implements ApplicationRunner {
         int seed() throws java.io.IOException;
     }
 
-    private static void seedMonthEnd(String what, Runnable seeder) {
+    /**
+     * One call of month end's block, caught (MD65, MV-58): logged scrubbed -- the class and the stack, never the
+     * message, which may quote a row -- and the start goes on to the next. Package-private for its own test (DL-70).
+     */
+    static void seedMonthEnd(String what, Runnable seeder) {
         try {
             seeder.run();
         } catch (RuntimeException seedingFailed) {
