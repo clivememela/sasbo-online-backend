@@ -96,6 +96,8 @@ class MonthEndLogValuesTest {
         try (LogCapture log = LogCapture.under(PACKAGE)) {
             // The capture's save, as MemberWorkplaceIT makes one: a whole member, naming a workplace.
             Member member = MemberFixture.withSurname(PLANTED + "SURNAME");
+            // A number supplied is kept; H2 builds from the entities and has no membership_number_seq to draw one.
+            member.setMembershipNumber("M-990001");
             member.setStatus("Active");
             member.setEmployeeNumber(PLANTED + "STAFF");
             member.setWorkplaceId(workplace);
