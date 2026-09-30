@@ -60,6 +60,13 @@ PATCH /api/members/{id}/subscription
 GET /api/members/{id}/welcome-letter-preview
 GET /api/month-end/months
 GET /api/month-end/{month}
+GET /api/month-end/{month}/branches
+GET /api/month-end/{month}/leavers
+GET /api/month-end/{month}/listings/{listing}
+GET /api/month-end/{month}/membership
+GET /api/month-end/{month}/new-and-deleted
+GET /api/month-end/{month}/recruitment
+GET /api/month-end/{month}/representatives
 POST /api/month-end/{month}/take
 GET /api/provinces
 GET /api/recruiters

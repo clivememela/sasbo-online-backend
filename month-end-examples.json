@@ -496,7 +496,9 @@
         },
         "seededMembers" : 0,
         "membersFrom" : null,
-        "leaversFrom" : null
+        "leaversFrom" : null,
+        "takenAt" : null,
+        "takenBy" : null
       }
     },
     "GET /api/members/{id}/history" : {
@@ -589,6 +591,1734 @@
         "state" : "TAKEN",
         "takenAt" : "2026-09-29T08:00:00Z",
         "takenBy" : "seed"
+      }
+    },
+    "GET /api/month-end/{month}/new-and-deleted" : {
+      "request" : "GET /api/month-end/2026-08/new-and-deleted",
+      "status" : 200,
+      "body" : {
+        "statistic" : "new-and-deleted",
+        "legacy" : [
+          "prtmemsum",
+          "prtmemroll",
+          "prtmemroll2"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "month-joined",
+            "title" : "Joined in August 2026",
+            "legacyTitle" : "SUMMARY OF NEW AND DELETED MEMBERS FOR AUGUST 2026",
+            "columns" : [
+              {
+                "key" : "core",
+                "label" : "Core",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "other",
+                "label" : "Other",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "A - NORTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "B",
+                "label" : "B - SOUTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "Y",
+                "label" : "Y",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  null,
+                  null,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "month-left",
+            "title" : "Left in August 2026",
+            "legacyTitle" : "SUMMARY OF NEW AND DELETED MEMBERS FOR AUGUST 2026",
+            "columns" : [
+              {
+                "key" : "core",
+                "label" : "Core",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "other",
+                "label" : "Other",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "A - NORTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "B",
+                "label" : "B - SOUTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "Y",
+                "label" : "Y",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  null,
+                  null,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "year-joined",
+            "title" : "Joined, 2026 to date",
+            "legacyTitle" : "COMPOSITE SUMMARY OF NEW AND DELETED MEMBERS Y.T.D",
+            "columns" : [
+              {
+                "key" : "core",
+                "label" : "Core",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "other",
+                "label" : "Other",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "A - NORTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "B",
+                "label" : "B - SOUTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "Y",
+                "label" : "Y",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  null,
+                  null,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "year-left",
+            "title" : "Left, 2026 to date",
+            "legacyTitle" : "COMPOSITE SUMMARY OF NEW AND DELETED MEMBERS Y.T.D",
+            "columns" : [
+              {
+                "key" : "core",
+                "label" : "Core",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "other",
+                "label" : "Other",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "A - NORTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "B",
+                "label" : "B - SOUTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "Y",
+                "label" : "Y",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  null,
+                  null,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0
+              ]
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "The year to date is the sum of the months taken, each as it was taken -- the months of 2026 taken: August 2026.",
+          "Core is the core groups' employers; other is every other employer. A member with no workplace on record is in the total only."
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/membership" : {
+      "request" : "GET /api/month-end/2026-08/membership",
+      "status" : 200,
+      "body" : {
+        "statistic" : "membership",
+        "legacy" : [
+          "grlist",
+          "mem_count"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "by-group",
+            "title" : "Membership by group",
+            "legacyTitle" : "MEMBER SUMMARY BY GROUP",
+            "columns" : [
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "members",
+                "label" : "Members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "joined",
+                "label" : "Enrolments",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "left",
+                "label" : "Cancellations",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "suspended",
+                "label" : "Suspensions",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "G1",
+                "label" : "INVENTED GROUP CORE",
+                "level" : "GROUP",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  160,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "E1",
+                "label" : "INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  160,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "G2",
+                "label" : "INVENTED GROUP OTHER",
+                "level" : "GROUP",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  15,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "E2",
+                "label" : "INVENTED INSURER",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  15,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  3,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~CORE",
+                "label" : "Core groups",
+                "level" : "TOTAL",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  160,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "All groups",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                178,
+                1,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "by-table-code",
+            "title" : "Membership by table code",
+            "legacyTitle" : "BANK / BRANCH MEMBER COUNT",
+            "columns" : [
+              {
+                "key" : "onRecord",
+                "label" : "On record",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "members",
+                "label" : "Excluding suspensions",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "suspended",
+                "label" : "Suspensions",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "subscriptions",
+                "label" : "Subscriptions",
+                "kind" : "RAND"
+              },
+              {
+                "key" : "debitOrder",
+                "label" : "By debit order",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "debitOrderRand",
+                "label" : "By debit order (R)",
+                "kind" : "RAND"
+              },
+              {
+                "key" : "deduction",
+                "label" : "By payroll deduction",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "deductionRand",
+                "label" : "By payroll deduction (R)",
+                "kind" : "RAND"
+              },
+              {
+                "key" : "other",
+                "label" : "Other",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "otherRand",
+                "label" : "Other (R)",
+                "kind" : "RAND"
+              },
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "901",
+                "label" : "901 INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  40
+                ]
+              },
+              {
+                "key" : "902",
+                "label" : "902 INVENTED BANK DEPARTMENTS",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  120
+                ]
+              },
+              {
+                "key" : "903",
+                "label" : "903 INVENTED INSURER CASH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  15
+                ]
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  3
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  1,
+                  1,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  0,
+                  0.0,
+                  1,
+                  0.0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                1,
+                1,
+                0,
+                0.0,
+                0,
+                0.0,
+                0,
+                0.0,
+                1,
+                0.0,
+                178
+              ]
+            }
+          },
+          {
+            "key" : "suspended-by-code",
+            "title" : "The suspended, by suspension code",
+            "legacyTitle" : "SUMMARY OF SUSPENDED MEMBERS",
+            "columns" : [
+              {
+                "key" : "members",
+                "label" : "Suspended",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0
+              ]
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "Members are the members on record less the suspended -- the figure SASBO's reports print (MD24).",
+          "How a member pays is read as it is stored: by debit order, by payroll deduction, and every other way as other. The amounts are the monthly subscriptions on record of the paying members."
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/leavers" : {
+      "request" : "GET /api/month-end/2026-08/leavers",
+      "status" : 200,
+      "body" : {
+        "statistic" : "leavers",
+        "legacy" : [
+          "prt_del_summ",
+          "nedbank_deletions",
+          "stb_deletions",
+          "insurance_deletions",
+          "nedbank_joined_deleted",
+          "stb_joined_deleted",
+          "insurance_joined_deleted",
+          "resigned"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "by-area",
+            "title" : "Why members left, by area",
+            "legacyTitle" : "ANALYSIS OF MEMBERS DELETED FOR 8/26",
+            "columns" : [
+              {
+                "key" : "code2",
+                "label" : "Resigned Society (2)",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "code5",
+                "label" : "Subscription in Arrears (5)",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "noCode",
+                "label" : "No code on record",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "A - NORTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "B",
+                "label" : "B - SOUTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "Y",
+                "label" : "Y",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "by-table-code",
+            "title" : "Why members left, by table code",
+            "legacyTitle" : "SUMMARY OF MEMBERS DELETED DURING THE PERIOD",
+            "columns" : [
+              {
+                "key" : "code2",
+                "label" : "Resigned Society (2)",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "code5",
+                "label" : "Subscription in Arrears (5)",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "noCode",
+                "label" : "No code on record",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "901",
+                "label" : "901 INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "902",
+                "label" : "902 INVENTED BANK DEPARTMENTS",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "903",
+                "label" : "903 INVENTED INSURER CASH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "joined-deleted",
+            "title" : "Joined and left, by table code",
+            "legacyTitle" : "LISTING OF MEMBERS JOINED/DELETED DURING THE PERIOD",
+            "columns" : [
+              {
+                "key" : "joined",
+                "label" : "Joined",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "left",
+                "label" : "Left",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "movement",
+                "label" : "Movement",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "901",
+                "label" : "901 INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "902",
+                "label" : "902 INVENTED BANK DEPARTMENTS",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "903",
+                "label" : "903 INVENTED INSURER CASH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "resigned",
+            "title" : "Who resigned, by the reason they gave",
+            "legacyTitle" : "SUMMARY BY BANK OF MEMBERS HAVING RESIGNED SOCIETY",
+            "columns" : [
+              {
+                "key" : "noReason",
+                "label" : "No reason given",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0
+              ]
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "A member is counted once each time they left in the month. SASBO's reasons are its deletion codes, by their numbers; a leaver with no code on record is counted apart."
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/branches" : {
+      "request" : "GET /api/month-end/2026-08/branches",
+      "status" : 200,
+      "body" : {
+        "statistic" : "branches",
+        "legacy" : [
+          "bank_master_summ"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "by-area",
+            "title" : "The branches, by area",
+            "legacyTitle" : "SUMMARY OF ALL AREAS",
+            "columns" : [
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "members",
+                "label" : "Members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "penetration",
+                "label" : "Penetration",
+                "kind" : "SHARE"
+              },
+              {
+                "key" : "subscriptions",
+                "label" : "Subscriptions",
+                "kind" : "RAND"
+              },
+              {
+                "key" : "coreComplement",
+                "label" : "Core complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "coreMembers",
+                "label" : "Core members",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "A - NORTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  160,
+                  0,
+                  0.0,
+                  0.0,
+                  160,
+                  0
+                ]
+              },
+              {
+                "key" : "B",
+                "label" : "B - SOUTH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  15,
+                  0,
+                  0.0,
+                  0.0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "Y",
+                "label" : "Y",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  3,
+                  0,
+                  0.0,
+                  0.0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  null,
+                  0.0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                178,
+                1,
+                0.0056,
+                0.0,
+                160,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "by-employer",
+            "title" : "The branches, by employer",
+            "legacyTitle" : "S.A.S.B.O. LIST OF BANK BRANCHES",
+            "columns" : [
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "members",
+                "label" : "Members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "penetration",
+                "label" : "Penetration",
+                "kind" : "SHARE"
+              },
+              {
+                "key" : "subscriptions",
+                "label" : "Subscriptions",
+                "kind" : "RAND"
+              },
+              {
+                "key" : "coreComplement",
+                "label" : "Core complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "coreMembers",
+                "label" : "Core members",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "E1",
+                "label" : "INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  160,
+                  0,
+                  0.0,
+                  0.0,
+                  160,
+                  0
+                ]
+              },
+              {
+                "key" : "E2",
+                "label" : "INVENTED INSURER",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  15,
+                  0,
+                  0.0,
+                  0.0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  3,
+                  0,
+                  0.0,
+                  0.0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  null,
+                  0.0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                178,
+                1,
+                0.0056,
+                0.0,
+                160,
+                0
+              ]
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "Members are the members on record less the suspended; penetration is members over complement.",
+          "The branches themselves, with their visits, are the workplaces' own screen."
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/recruitment" : {
+      "request" : "GET /api/month-end/2026-08/recruitment",
+      "status" : 200,
+      "body" : {
+        "statistic" : "recruitment",
+        "legacy" : [
+          "rec_analyst",
+          "prt_ra_by_tc",
+          "prt_rec_core",
+          "prt_rec_group",
+          "prt_rec_web"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "by-recruiter",
+            "title" : "Recruitment, by recruiter",
+            "legacyTitle" : "ANALYSIS OF CORE MEMBERS RECRUITED BY REPRESENTATIVE",
+            "columns" : [
+              {
+                "key" : "coreMonth",
+                "label" : "Core, the month",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "coreYear",
+                "label" : "Core, the year",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "otherMonth",
+                "label" : "Other, the month",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "otherYear",
+                "label" : "Other, the year",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "month",
+                "label" : "Total, the month",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "year",
+                "label" : "Total, the year",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "key" : "by-table-code",
+            "title" : "Recruitment, by table code",
+            "legacyTitle" : "ANALYSIS OF MEMBERS RECRUITED BY BANK AND REPRESENTATIVE",
+            "columns" : [
+              {
+                "key" : "month",
+                "label" : "The month",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "monthShare",
+                "label" : "Share of the month",
+                "kind" : "SHARE"
+              },
+              {
+                "key" : "year",
+                "label" : "The year",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "yearShare",
+                "label" : "Share of the year",
+                "kind" : "SHARE"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                null,
+                0,
+                null
+              ]
+            }
+          },
+          {
+            "key" : "by-channel",
+            "title" : "Recruitment, by channel",
+            "legacyTitle" : "WEBSITE RECRUITING ANALYSIS BY AREA",
+            "columns" : [
+              {
+                "key" : "month",
+                "label" : "The month",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "year",
+                "label" : "The year",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0
+              ]
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "The year to date is the sum of the months taken, each as it was taken -- the months of 2026 taken: August 2026.",
+          "A recruiter is who signed the member up, as captured. Which year to date SASBO reads, and the competition's rule, are SASBO's to say (MM69, MM71)."
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/representatives" : {
+      "request" : "GET /api/month-end/2026-08/representatives",
+      "status" : 200,
+      "body" : {
+        "statistic" : "representatives",
+        "legacy" : [
+          "reps_no",
+          "comm_mem",
+          "memnet_area"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "representatives",
+            "title" : "Representatives, by table code",
+            "legacyTitle" : "SASBO AREA SUMMARY OF SASBO REPRESENTATIVES",
+            "columns" : [
+              {
+                "key" : "representatives",
+                "label" : "Representatives",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "workplaces",
+                "label" : "Workplaces",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "with",
+                "label" : "With a representative",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "without",
+                "label" : "Without one",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "share",
+                "label" : "Share with one",
+                "kind" : "SHARE"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "901",
+                "label" : "901 INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "902",
+                "label" : "902 INVENTED BANK DEPARTMENTS",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "903",
+                "label" : "903 INVENTED INSURER CASH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                4,
+                0,
+                4,
+                0.0
+              ]
+            }
+          },
+          {
+            "key" : "committee-members",
+            "title" : "Committee members, by table code",
+            "legacyTitle" : "SASBO AREA SUMMARY OF COMMITTEE MEMBERS",
+            "columns" : [
+              {
+                "key" : "committeeMembers",
+                "label" : "Committee members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "workplaces",
+                "label" : "Workplaces",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "with",
+                "label" : "With a committee member",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "without",
+                "label" : "Without one",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "share",
+                "label" : "Share with one",
+                "kind" : "SHARE"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "901",
+                "label" : "901 INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "902",
+                "label" : "902 INVENTED BANK DEPARTMENTS",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "903",
+                "label" : "903 INVENTED INSURER CASH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                4,
+                0,
+                4,
+                0.0
+              ]
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "A representative is a member on record marked as a shop steward, and a committee member one marked as a BEC member -- a reading SASBO is asked to confirm.",
+          "Memnet membership is not captured by this system, so it is not counted here."
+        ]
       }
     }
   },
