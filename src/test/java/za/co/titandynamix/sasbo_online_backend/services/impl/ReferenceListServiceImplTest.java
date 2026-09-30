@@ -102,10 +102,10 @@ class ReferenceListServiceImplTest {
     void theWorkplacesFollowTheSwitch() {
         Map<String, Long> counts = new LinkedHashMap<>();
         for (String key : SasboReferenceRepository.countedLists()) {
-            counts.put(key, 5507L);
+            counts.put(key, 4242L);
         }
         when(repository.counts()).thenReturn(counts);
-        when(repository.recorded()).thenReturn(Map.of("workplaces", seeded(5507)));
+        when(repository.recorded()).thenReturn(Map.of("workplaces", seeded(4242)));
 
         ReferenceStatusDto status = service(null, null).status();
 

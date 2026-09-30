@@ -252,9 +252,59 @@ class MonthEndGuardsTest {
     void everyGeneratedFileIsPinned() throws IOException {
         String attributes = Files.readString(Paths.get(".gitattributes"), StandardCharsets.UTF_8);
         for (String file : List.of("src/main/resources/data/sasbo_reference_lists.json",
-                "src/main/resources/data/sasbo_workplaces.json", "month-end-examples.json")) {
+                "src/main/resources/data/sasbo_workplaces.json", "src/main/resources/data/demonstration_members.json",
+                "month-end-examples.json")) {
             assertThat(pinned(attributes, file)).as("%s in .gitattributes", file).isTrue();
         }
+    }
+
+    /**
+     * The resources whose stated sizes no other number of the arc shares: the workplaces' and the invented members'.
+     * A list's size -- 137 at the most -- is too small to look for without catching a weight or a width, and the lists'
+     * tests read theirs from the file (MonthEndSeedTest.everyListIsThere).
+     */
+    static final List<String> SIZED = List.of("src/main/resources/data/sasbo_workplaces.json",
+            "src/main/resources/data/demonstration_members.json");
+
+    @Test
+    @DisplayName("MV-37, BR54: no test types the size a resource states -- each reads it from the file")
+    void noTestTypesAStatedSize() throws IOException {
+        List<String> offenders = new ArrayList<>();
+        int scanned = 0;
+        for (String resource : SIZED) {
+            int size = new ObjectMapper().readTree(Files.readString(Paths.get(resource), StandardCharsets.UTF_8))
+                    .path("count").asInt();
+            assertThat(size).as("%s states its size", resource).isGreaterThan(999);
+            Pattern typed = typedSize(size);
+            try (var files = Files.walk(Paths.get("src", "test", "java"))) {
+                for (var file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
+                    scanned++;
+                    if (typed.matcher(Files.readString(file, StandardCharsets.UTF_8)).find()) {
+                        offenders.add(file.getFileName() + " types " + size);
+                    }
+                }
+            }
+        }
+        assertThat(scanned).as("the test sources, scanned").isPositive();
+        assertThat(offenders).as("a size typed goes stale the day SASBO's list changes").isEmpty();
+    }
+
+    @Test
+    @DisplayName("canary: a size typed in any spelling is caught, and a longer number is not")
+    void theTypedSizePredicateCanFail() {
+        Pattern typed = typedSize(4321);
+        assertThat(typed.matcher("isEqualTo(4_321)").find()).isTrue();
+        assertThat(typed.matcher("generate_series(1, 4321)").find()).isTrue();
+        assertThat(typed.matcher("// 4,321 workplaces").find()).isTrue();
+        assertThat(typed.matcher("14321 and 43210 and 0.4321").find()).isFalse();
+    }
+
+    /** A size in the spellings a hand types it -- 4321, 4_321, 4,321 or 4 321 -- and never inside a longer number. */
+    static Pattern typedSize(int size) {
+        String digits = String.valueOf(size);
+        String thousands = digits.substring(0, digits.length() - 3);
+        return Pattern.compile("(?<![0-9_.,])" + thousands + "[_, ]?" + digits.substring(digits.length() - 3)
+                + "(?![0-9_])");
     }
 
     @Test

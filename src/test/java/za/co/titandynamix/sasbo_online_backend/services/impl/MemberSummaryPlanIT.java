@@ -69,9 +69,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * handful whose status nobody knows; the rest Resigned, Retired or Terminated, each with the change that made them a
  * leaver. Membership numbers are in the order members joined, from 1975, so the old numbers are mostly leavers, as a
  * key file read in order gives them; about eighty join a month in the last three years, and about ninety leave (SASBO's
- * own reports: 591 joined on seven). 5,507 workplaces for the members on record to stand at, some closed, a few
- * without a table code; table codes, employers, groups, areas, regions and committees, a handful each; suspended
- * members with the change that suspended them; a few reinstated. Every value is invented -- no row of anyone's.
+ * own reports: 591 joined on seven). As many workplaces as SASBO's list states, for the members on record to stand
+ * at, some closed, a few without a table code; table codes, employers, groups, areas, regions and committees, a
+ * handful each; suspended members with the change that suspended them; a few reinstated. Every value is invented --
+ * no row of anyone's.
  */
 @DisplayName("MV-26: the figures' plan on 550,000 generated members, in a probe database of its own")
 class MemberSummaryPlanIT extends AbstractPostgresIT {
@@ -91,6 +92,9 @@ class MemberSummaryPlanIT extends AbstractPostgresIT {
     private static final List<YearMonth> PAST = List.of(YearMonth.of(2026, 8), YearMonth.of(2025, 9));
 
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    /** As many workplaces as SASBO's list states -- read from the resource, never typed (MV-37, BR54). */
+    private static final int WORKPLACES = statedWorkplaces();
 
     private static SingleConnectionDataSource source;
     private static JdbcTemplate probe;
@@ -248,7 +252,7 @@ class MemberSummaryPlanIT extends AbstractPostgresIT {
         assertThat(leaving).as("leavers: nine in ten").isGreaterThan(480_000);
         assertThat(unknown).as("a status nobody knows (rule X), a handful").isBetween(1L, 100L);
         assertThat(onRecord + leaving + unknown).isEqualTo(all);
-        assertThat(probe.queryForObject("SELECT count(*) FROM workplaces", Long.class)).isEqualTo(5_507);
+        assertThat(probe.queryForObject("SELECT count(*) FROM workplaces", Long.class)).isEqualTo((long) WORKPLACES);
         assertThat(probe.queryForObject("SELECT count(*) FROM member_status_changes", Long.class))
                 .as("a change for every leaver, at least").isGreaterThanOrEqualTo(leaving);
         // Each month under test has movement in it: a plan over a month nobody joined or left in proves less.
@@ -355,7 +359,7 @@ class MemberSummaryPlanIT extends AbstractPostgresIT {
      * The generated population, in SQL and never row by row. {@code h} is a fixed hash of the member's number, so every
      * run generates the same members. (ANALYZE still samples them, as it does in production.)
      */
-    private static final List<String> POPULATION = List.of(
+    private static final List<String> POPULATION = Stream.of(
             """
             INSERT INTO sasbo_regions (code, name)
             SELECT 'IR' || r, 'INVENTED REGION ' || r FROM generate_series(1, 6) r
@@ -393,14 +397,14 @@ class MemberSummaryPlanIT extends AbstractPostgresIT {
                    'INVENTED COMMITTEE ' || c, NULL
             FROM generate_series(1, 90) c
             """,
-            // 5,507 workplaces, as SASBO's list has: every fortieth with no table code, every hundredth closed.
+            // As many workplaces as SASBO's list states: every fortieth with no table code, every hundredth closed.
             """
             INSERT INTO workplaces (ra_number, name, employer_printed, table_code_id, table_code_by, area_id,
                                     committee_code, committee_id, staff_complement, cl_code, closed_on)
             SELECT 700000 + w, 'INVENTED WORKPLACE ' || w, 'INVENTED EMPLOYER', t.id,
                    CASE WHEN t.id IS NULL THEN NULL ELSE 'NAME' END, a.id, c.code, c.id, 5 + w % 33, '00000000',
                    CASE WHEN w % 100 = 0 THEN DATE '2024-06-30' END
-            FROM generate_series(1, 5507) w
+            FROM generate_series(1, {WORKPLACES}) w
             LEFT JOIN table_codes t ON t.code = 90000 + 1 + (w - 1) % 150 AND w % 40 <> 0
             JOIN sasbo_areas a ON a.letter = 'X' || (1 + (w - 1) % 30)
             JOIN committees c ON c.name = 'INVENTED COMMITTEE ' || (1 + (w - 1) % 90)
@@ -436,9 +440,9 @@ class MemberSummaryPlanIT extends AbstractPostgresIT {
             FROM (
               SELECT q.n, q.h, q.joined, q.status,
                      CASE WHEN q.status IN ('Active', 'Suspended', 'Pending') AND q.h % 50 <> 5
-                               THEN 700001 + q.h % 5507
+                               THEN 700001 + q.h % {WORKPLACES}
                           WHEN q.status IN ('Resigned', 'Retired', 'Terminated') AND (q.n % 120 = 0 OR q.n > 546400)
-                               THEN 700001 + q.h % 5507 END AS ra
+                               THEN 700001 + q.h % {WORKPLACES} END AS ra
               FROM (
                 SELECT r.n, r.h, r.joined,
                        CASE WHEN r.on_record THEN CASE WHEN r.h % 30 = 0 THEN 'Suspended'
@@ -519,7 +523,16 @@ class MemberSummaryPlanIT extends AbstractPostgresIT {
               WHERE m.status = 'Active' AND x.h % 400 = 17 AND m.join_date < DATE '2024-01-01'
             ) r
             ORDER BY r.id, r.on_day
-            """);
+            """).map(step -> step.replace("{WORKPLACES}", String.valueOf(WORKPLACES))).toList();
+
+    private static int statedWorkplaces() {
+        try (java.io.InputStream in = new org.springframework.core.io.ClassPathResource("data/sasbo_workplaces.json")
+                .getInputStream()) {
+            return JSON.readTree(in).path("count").asInt();
+        } catch (java.io.IOException unreadable) {
+            throw new java.io.UncheckedIOException(unreadable);
+        }
+    }
 
     // ── the machinery ─────────────────────────────────────────────────────────────────────────────────────────
 

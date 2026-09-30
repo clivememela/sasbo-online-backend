@@ -157,7 +157,7 @@ class WorkplaceServiceImplTest {
 
         assertThat(service("all").page(0, 50, null, null, null, null, null).reason()).isEqualTo("FAILED");
 
-        when(workplaces.count()).thenReturn(5507L);
+        when(workplaces.count()).thenReturn(4242L);
         assertThat(service("all").page(0, 50, null, null, "ZZ", null, null).reason())
                 .as("a filter that found nothing is not a list that is empty")
                 .isNull();
