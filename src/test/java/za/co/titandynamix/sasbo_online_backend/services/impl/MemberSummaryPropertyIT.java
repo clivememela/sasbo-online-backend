@@ -144,6 +144,17 @@ class MemberSummaryPropertyIT extends AbstractSwitchedOnIT {
                 .isGreaterThanOrEqualTo(60);
     }
 
+    @Test
+    @DisplayName("must-pass: the generated population is on record as generated -- every member and every change")
+    void thePopulationIsTheOneGenerated() {
+        List<Generated> population = generate(new Random(SEED));
+        write(population);
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM members", Long.class)).isEqualTo((long) population.size());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes", Long.class))
+                .isEqualTo(population.stream().mapToLong(member -> member.changes().size()).sum());
+    }
+
     // ------------------------------------------------------------------------------------------------ the model
 
     /** On record, suspended, opening, joined, left, reinstated, joined and left in the year -- the SQL's rules, in Java. */
