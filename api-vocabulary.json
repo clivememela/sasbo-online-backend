@@ -5,6 +5,11 @@
     {"name":"PAYROLL","displayName":"Payroll Deduction","requiresBankAccount":false}
   ],
   "accountTypes": ["Cheque", "Savings", "Transmission"],
+  "memberStructures": {
+    "becStructures": ["INC / IC", "NCF / SJC", "VP", "President", "MANCOM", "Resolutions Committee"],
+    "becExecutivePositions": ["Chairperson", "Deputy Chairperson", "Secretary", "Deputy Secretary", "Treasurer"],
+    "cosatuPositions": ["PEC", "CEC", "Chairperson", "Secretary", "Treasurer"]
+  },
   "errorEnvelopeKeys": ["timestamp", "status", "error", "message", "path", "validationErrors", "code", "details"],
   "jobGradeMatching": {
     "outcomes": ["MATCHED", "CAPTURED", "CLEARED"],

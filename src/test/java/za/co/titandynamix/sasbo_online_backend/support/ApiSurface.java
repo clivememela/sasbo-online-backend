@@ -10,6 +10,9 @@ import za.co.titandynamix.sasbo_online_backend.dto.member.PaymentTypeMetadataDto
 import za.co.titandynamix.sasbo_online_backend.exception.ApiErrorResponse;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
+import za.co.titandynamix.sasbo_online_backend.enums.BecExecutivePosition;
+import za.co.titandynamix.sasbo_online_backend.enums.BecStructure;
+import za.co.titandynamix.sasbo_online_backend.enums.CosatuPosition;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbDeclineReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
@@ -39,6 +42,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -237,6 +241,11 @@ public final class ApiSurface {
                 %s
                   ],
                   "accountTypes": [%s],
+                  "memberStructures": {
+                    "becStructures": [%s],
+                    "becExecutivePositions": [%s],
+                    "cosatuPositions": [%s]
+                  },
                   "errorEnvelopeKeys": [%s],
                   "jobGradeMatching": {
                     "outcomes": [%s],
@@ -273,7 +282,11 @@ public final class ApiSurface {
                     ]
                   }
                 }
-                """.formatted(regenerateCommand(), types, accountTypeNames(), keys, jobGradeOutcomeNames(),
+                """.formatted(regenerateCommand(), types, accountTypeNames(),
+                displayNames(BecStructure.values(), BecStructure::getDisplayName),
+                displayNames(BecExecutivePosition.values(), BecExecutivePosition::getDisplayName),
+                displayNames(CosatuPosition.values(), CosatuPosition::getDisplayName),
+                keys, jobGradeOutcomeNames(),
                 jobGradeMatchingCases(), names(WelcomeLetterOutcome.values()),
                 names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
                 names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
@@ -362,6 +375,18 @@ public final class ApiSurface {
     private static String accountTypeNames() {
         return Arrays.stream(AccountType.values())
                 .map(AccountType::getDisplayName)
+                .map(ApiSurface::quote)
+                .collect(Collectors.joining(", "));
+    }
+
+    /**
+     * A SASBO-structures vocabulary (V55) as the member record stores it: SASBO's spelling, in the
+     * order of their structures tree. Read off the enum, so the record's checkboxes and options are
+     * the server's lists and never a second copy of them.
+     */
+    private static <E extends Enum<E>> String displayNames(E[] values, Function<E, String> displayName) {
+        return Arrays.stream(values)
+                .map(displayName)
                 .map(ApiSurface::quote)
                 .collect(Collectors.joining(", "));
     }

@@ -403,6 +403,33 @@ public class Member {
     @Transient
     private String becCommitteeCode;
 
+    /**
+     * A BEC member's roles (V55), from SASBO's structures tree, 2026-09-30: BEC Recruiter?, BEC
+     * Structure Representative? with the structures represented, and BEC Executive? with the one
+     * position held. Asked only under BEC Member = Yes, and cleared when it is not
+     * ({@code MemberServiceImpl.applySeats}); the lists are held to {@code BecStructure} and
+     * {@code BecExecutivePosition} by {@code MemberValidator.validateBecRoles}.
+     */
+    @Column(name = "is_bec_recruiter")
+    private Boolean isBecRecruiter;
+
+    @Column(name = "is_bec_structure_rep")
+    private Boolean isBecStructureRep;
+
+    /**
+     * Comma-separated, in SASBO's spelling -- {@code cosatuPositions}' shape, and its deserializer
+     * for the same reason: the client sends a JSON array to a request body bound to this entity.
+     */
+    @JsonDeserialize(using = StringArrayToCommaSeparatedDeserializer.class)
+    @Column(name = "bec_structures")
+    private String becStructures;
+
+    @Column(name = "is_bec_executive")
+    private Boolean isBecExecutive;
+
+    @Column(name = "bec_executive_position")
+    private String becExecutivePosition;
+
     // ─── COSATU Structure ───
     private String isCosatu;
     private String cosatuLocal;

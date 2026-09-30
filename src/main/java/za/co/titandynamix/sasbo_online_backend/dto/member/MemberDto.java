@@ -152,6 +152,14 @@ public class MemberDto {
     /** The committee the member sits on, by SASBO's code -- what the record sends back to change it. */
     private String becCommitteeCode;
     private String becCommitteeName;
+    // ─── a BEC member's roles (V55) ───
+    private Boolean isBecRecruiter;
+    private Boolean isBecStructureRep;
+    /** Comma-separated, as {@link #cosatuPositions}: an array from the browser, "INC / IC,VP" back. */
+    @JsonDeserialize(using = StringArrayToCommaSeparatedDeserializer.class)
+    private String becStructures;
+    private Boolean isBecExecutive;
+    private String becExecutivePosition;
 
     // ─── COSATU Structure ───
     private String isCosatu;
