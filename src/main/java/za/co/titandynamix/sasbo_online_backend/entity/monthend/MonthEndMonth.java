@@ -19,7 +19,7 @@ import java.time.LocalDate;
  * this entity, which exists so that H2's schema, built from the entities, has the table the statement writes.
  *
  * <p>🔒 Taken once. On PostgreSQL by a PARTIAL unique index, {@code month_end_months_taken_once}, over the months no
- * later take replaces (V59); on H2 the constraint below stands in for it, whole, because nothing replaces a take yet
+ * later take replaces (V60); on H2 the constraint below stands in for it, whole, because nothing replaces a take yet
  * (MM51). Append-only on PostgreSQL by trigger (MD46).
  */
 @Entity
