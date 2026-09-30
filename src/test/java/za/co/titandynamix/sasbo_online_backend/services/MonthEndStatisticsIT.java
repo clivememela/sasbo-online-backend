@@ -43,6 +43,7 @@ class MonthEndStatisticsIT extends AbstractSwitchedOnIT {
         StatisticsExpectations.assertBranches(statistics.branches("2026-09", null, null));
         StatisticsExpectations.assertRecruitment(statistics.recruitment("2026-09", null, null), 2);
         StatisticsExpectations.assertRepresentatives(statistics.representatives("2026-09", null, null));
+        StatisticsExpectations.assertOneFigure(statistics.all("2026-09"));
     }
 
     @Test
@@ -59,5 +60,6 @@ class MonthEndStatisticsIT extends AbstractSwitchedOnIT {
         StatisticsExpectations.assertBranches(statistics.branches("2026-09", null, null));
         StatisticsExpectations.assertRecruitment(statistics.recruitment("2026-09", null, null), 2);
         StatisticsExpectations.assertRepresentatives(statistics.representatives("2026-09", null, null));
+        StatisticsExpectations.assertOneFigure(statistics.all("2026-09"));
     }
 }

@@ -6,7 +6,11 @@ import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndStatisticDto
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -115,6 +119,60 @@ public final class StatisticsExpectations {
                 .containsExactly("~NO_RECRUITER: 2 " + yearToDate + " 0 0 2 " + yearToDate);
         assertThat(rows(sheet(answer, "by-channel"))).containsExactly("~NO_CHANNEL: 2 " + yearToDate);
         assertThat(rows(sheet(answer, "by-table-code"))).containsExactly("901: 2 1.0000 " + yearToDate + " 1.0000");
+    }
+
+    /**
+     * The figures printed in two statistics or more, each where it stands -- the statistic, its sheet, the column of
+     * its total. A figure added to a second statistic is added here, or it is a second figure by a name it shares.
+     */
+    public static final Map<String, List<String>> ONE_FIGURE = new LinkedHashMap<>();
+
+    static {
+        ONE_FIGURE.put("joined in the month", List.of("new-and-deleted month-joined total", "membership by-group joined",
+                "leavers joined-deleted joined", "recruitment by-recruiter month", "recruitment by-channel month",
+                "recruitment by-table-code month"));
+        ONE_FIGURE.put("left in the month", List.of("new-and-deleted month-left total", "membership by-group left",
+                "leavers by-area total", "leavers by-employer total", "leavers by-table-code total",
+                "leavers joined-deleted left"));
+        ONE_FIGURE.put("resigned in the month", List.of("leavers by-area code2", "leavers resigned total"));
+        ONE_FIGURE.put("joined in the year", List.of("new-and-deleted year-joined total", "recruitment by-recruiter year",
+                "recruitment by-channel year", "recruitment by-table-code year"));
+        ONE_FIGURE.put("members, the suspended not among them", List.of("membership by-group members",
+                "membership by-table-code members", "branches by-area members", "branches by-employer members"));
+        ONE_FIGURE.put("the suspended", List.of("membership by-group suspended", "membership by-table-code suspended",
+                "membership suspended-by-code members"));
+        ONE_FIGURE.put("the complement", List.of("membership by-group complement", "membership by-table-code complement",
+                "branches by-area complement", "branches by-employer complement"));
+        ONE_FIGURE.put("the subscriptions", List.of("membership by-table-code subscriptions",
+                "branches by-area subscriptions", "branches by-employer subscriptions"));
+        ONE_FIGURE.put("the workplaces", List.of("representatives representatives workplaces",
+                "representatives committee-members workplaces"));
+    }
+
+    /** P4: a figure printed in two statistics is one figure -- the same wherever it stands. */
+    public static void assertOneFigure(List<MonthEndStatisticDto> all) {
+        for (Map.Entry<String, List<String>> figure : ONE_FIGURE.entrySet()) {
+            List<String> read = new ArrayList<>();
+            Set<String> values = new LinkedHashSet<>();
+            for (String place : figure.getValue()) {
+                String[] at = place.split(" ");
+                MonthEndStatisticDto answer = all.stream().filter(a -> a.statistic().equals(at[0])).findFirst()
+                        .orElseThrow(() -> new AssertionError("no statistic " + at[0]));
+                Sheet sheet = sheet(answer, at[1]);
+                int column = -1;
+                for (int c = 0; c < sheet.columns().size(); c++) {
+                    if (sheet.columns().get(c).key().equals(at[2])) {
+                        column = c;
+                    }
+                }
+                assertThat(column).as("%s: the column %s", place, at[2]).isNotNegative();
+                BigDecimal cell = sheet.total().cells().get(column);
+                String value = cell == null ? "-" : cell.stripTrailingZeros().toPlainString();
+                read.add(place + " = " + value);
+                values.add(value);
+            }
+            assertThat(values).as("%s is one figure wherever it is printed: %s", figure.getKey(), read).hasSize(1);
+        }
     }
 
     /** 04.8: representatives and committee members -- none on record in the fixture. */

@@ -206,6 +206,15 @@ class MonthEndStatisticsTest {
         assertThat(total(sheet(answer, "year-left"))).as("the summary's left in 2026").isEqualTo("4 0 4");
         assertThat(total(sheet(answer, "year-joined"))).isEqualTo("2 0 2");
         assertThat(answer.notes()).anyMatch(n -> n.contains("June 2026, August 2026, September 2026"));
+        StatisticsExpectations.assertOneFigure(statistics.all("2026-09"));
+    }
+
+    @Test
+    @DisplayName("🔒 P4: a figure printed in two statistics is one figure wherever it stands -- the month open, and taken")
+    void aFigureInTwoStatisticsIsOneFigure() {
+        StatisticsExpectations.assertOneFigure(statistics.all("2026-09"));
+        takes.take(SummaryFixture.MONTH, "seed");
+        StatisticsExpectations.assertOneFigure(statistics.all("2026-09"));
     }
 
     @Test
