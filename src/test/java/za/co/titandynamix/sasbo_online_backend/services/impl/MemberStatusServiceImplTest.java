@@ -58,11 +58,18 @@ class MemberStatusServiceImplTest {
         return new MemberStatusRequest(to, expected, reason, deletion, suspension, note, null);
     }
 
+    /**
+     * The refusal a call is answered with, by its code; none is {@code null}. Anything else thrown fails here, as an
+     * assertion, naming it -- a refusal by code is what is asserted, and an exception in its place is not one (DL-64).
+     */
     private static MonthEndRefusalCode codeOf(Runnable call) {
         try {
             call.run();
         } catch (MonthEndRefusal refusal) {
             return refusal.code();
+        } catch (RuntimeException other) {
+            throw new AssertionError("expected a refusal by code, and " + other.getClass().getSimpleName()
+                    + " was thrown instead", other);
         }
         return null;
     }
