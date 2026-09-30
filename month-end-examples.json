@@ -1452,6 +1452,74 @@
             }
           },
           {
+            "key" : "by-employer",
+            "title" : "Why members left, by employer",
+            "legacyTitle" : "SUMMARY OF MEMBERS DELETED DURING THE PERIOD",
+            "columns" : [
+              {
+                "key" : "code2",
+                "label" : "Resigned Society (2)",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "code5",
+                "label" : "Subscription in Arrears (5)",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "noCode",
+                "label" : "No code on record",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "E1",
+                "label" : "INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "key" : "E2",
+                "label" : "INVENTED INSURER",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
             "key" : "by-table-code",
             "title" : "Why members left, by table code",
             "legacyTitle" : "SUMMARY OF MEMBERS DELETED DURING THE PERIOD",
