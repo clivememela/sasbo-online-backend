@@ -3,7 +3,18 @@ package za.co.titandynamix.sasbo_online_backend.validator;
 import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.enums.AccountType;
+import za.co.titandynamix.sasbo_online_backend.enums.BecExecutivePosition;
+import za.co.titandynamix.sasbo_online_backend.enums.BecStructure;
+import za.co.titandynamix.sasbo_online_backend.enums.CosatuPosition;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Validator for Member entity business rules.
@@ -152,6 +163,148 @@ public class MemberValidator {
             throw new IllegalArgumentException(
                     "A COSATU Local or Regional structure can only be recorded for a COSATU member");
         }
+    }
+
+    /** The union's day, for "not in the future": SASBO works in South African time, as ACB does. */
+    private static final ZoneId SASBO_ZONE = ZoneId.of("Africa/Johannesburg");
+
+    /**
+     * What a "Yes" to a seat needs beside it (V55). 🗣️ SASBO, through the owner, 2026-09-30:
+     * <i>"Shop Steward (Yes) > Select Election Date. BEC Member (Yes) > Select Branch Committee."</i>
+     *
+     * <p>🔑 REQUIRED WHILE THE ANSWER IS YES -- except for a Yes already on record with nothing beside
+     * it. Every member stored before V55 who is a shop steward or a BEC member has no date and no
+     * committee, because there was no column to hold them. Refusing those would make each such member
+     * unsaveable over a question nobody could answer -- {@link #validateStructures}' lesson, applied to
+     * its two new neighbours. Once a follow-up is on record it can be changed, but not removed while the
+     * answer stays Yes. An election date given is never in the future, wherever it came from.
+     *
+     * <p>The client's {@code structureErrors} ({@code utils/structures.js}) holds the same rule.
+     * Clearing a follow-up when its answer is No is the service's, not this method's: this one only
+     * refuses.
+     *
+     * @param legacyShopSteward a shop steward before this request, with no election date on record --
+     *                          {@code false} on create
+     * @param legacyBec         a BEC member before this request, with no committee on record -- likewise
+     * @throws IllegalArgumentException naming what is missing, for the screen to show
+     */
+    public static void validateSeats(Member member, boolean legacyShopSteward, boolean legacyBec) {
+        if (Boolean.TRUE.equals(member.getIsShopSteward())) {
+            LocalDate elected = member.getShopStewardElectionDate();
+            if (elected == null && !legacyShopSteward) {
+                throw new IllegalArgumentException("A shop steward needs the date they were elected");
+            }
+            if (elected != null && elected.isAfter(LocalDate.now(SASBO_ZONE))) {
+                throw new IllegalArgumentException("The shop steward election date cannot be in the future");
+            }
+        }
+        if (Boolean.TRUE.equals(member.getIsBec()) && member.getBecCommittee() == null && !legacyBec) {
+            throw new IllegalArgumentException("A BEC member needs the Branch Executive Committee they sit on");
+        }
+    }
+
+    /**
+     * A BEC member's roles (V55), from SASBO's structures tree, 2026-09-30: a Structure
+     * Representative represents at least one {@link BecStructure}, and an Executive holds one
+     * {@link BecExecutivePosition}. A value is matched by its name or SASBO's spelling, case and
+     * surrounding spaces ignored, and written back in SASBO's spelling -- the structures in the
+     * tree's order -- so the record holds one form of each.
+     *
+     * <p>No legacy exception: the columns are V55's own, so no member on record holds either Yes
+     * without what it needs. Clearing a role when its answer is No is the service's.
+     *
+     * @throws IllegalArgumentException naming what is missing or not recognised, for the screen to show
+     */
+    public static void validateBecRoles(Member member) {
+        if (Boolean.TRUE.equals(member.getIsBecStructureRep())) {
+            List<String> named = inVocabulary(member.getBecStructures(), BecStructure.values(),
+                    BecStructure::getDisplayName, List.of(), "one of SASBO's BEC structures");
+            if (named.isEmpty()) {
+                throw new IllegalArgumentException("A BEC structure representative needs the structures they represent");
+            }
+            member.setBecStructures(String.join(",", named));
+        }
+        if (Boolean.TRUE.equals(member.getIsBecExecutive())) {
+            String position = member.getBecExecutivePosition();
+            if (position == null || position.isBlank()) {
+                throw new IllegalArgumentException("A BEC executive needs the position they hold");
+            }
+            member.setBecExecutivePosition(entryOf(position, BecExecutivePosition.values(),
+                    BecExecutivePosition::getDisplayName)
+                    .map(BecExecutivePosition::getDisplayName)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "'" + position.trim() + "' is not a BEC executive position")));
+        }
+    }
+
+    /**
+     * COSATU positions -- V19's column, offered on Edit Member again with V55 and held to
+     * {@link CosatuPosition}. A position given is stored in SASBO's spelling, in the tree's order.
+     * One the vocabulary does not hold is refused only when THIS request adds it: the old record
+     * wrote free text into this column (BR-14), and a member stored with it must stay saveable
+     * unchanged -- decision ⑥'s rule, as for the debit day.
+     *
+     * @param previousPositions the stored positions before this request, or {@code null} on create
+     * @throws IllegalArgumentException naming the value not recognised
+     */
+    public static void validateCosatuPositions(Member member, String previousPositions) {
+        String submitted = member.getCosatuPositions();
+        if (submitted == null || submitted.isBlank()) {
+            return;
+        }
+        member.setCosatuPositions(String.join(",", inVocabulary(submitted, CosatuPosition.values(),
+                CosatuPosition::getDisplayName, split(previousPositions), "a COSATU position")));
+    }
+
+    /** A comma-separated list's values, trimmed, blanks dropped. */
+    private static List<String> split(String joined) {
+        if (joined == null) {
+            return List.of();
+        }
+        return Arrays.stream(joined.split(",")).map(String::trim).filter(value -> !value.isEmpty()).toList();
+    }
+
+    /**
+     * A comma-separated list in the vocabulary's spelling and order, each value once, followed by
+     * any value {@code kept} that the vocabulary does not hold, as it was.
+     *
+     * @throws IllegalArgumentException for a value neither the vocabulary nor {@code kept} holds
+     */
+    private static <E extends Enum<E>> List<String> inVocabulary(String joined, E[] vocabulary,
+            Function<E, String> displayName, List<String> kept, String what) {
+        List<E> named = new ArrayList<>();
+        List<String> leftover = new ArrayList<>();
+        for (String value : split(joined)) {
+            Optional<E> entry = entryOf(value, vocabulary, displayName);
+            if (entry.isPresent()) {
+                named.add(entry.get());
+            } else if (kept.contains(value)) {
+                if (!leftover.contains(value)) {
+                    leftover.add(value);
+                }
+            } else {
+                throw new IllegalArgumentException("'" + value + "' is not " + what);
+            }
+        }
+        List<String> ordered = new ArrayList<>();
+        for (E entry : vocabulary) {
+            if (named.contains(entry)) {
+                ordered.add(displayName.apply(entry));
+            }
+        }
+        ordered.addAll(leftover);
+        return ordered;
+    }
+
+    /** The entry a value names -- its constant's name or its display name, case and surrounding spaces ignored. */
+    private static <E extends Enum<E>> Optional<E> entryOf(String value, E[] vocabulary, Function<E, String> displayName) {
+        String trimmed = value.trim();
+        for (E entry : vocabulary) {
+            if (entry.name().equalsIgnoreCase(trimmed) || displayName.apply(entry).equalsIgnoreCase(trimmed)) {
+                return Optional.of(entry);
+            }
+        }
+        return Optional.empty();
     }
 
     /** {@code isCosatu} is stored as Y/N (V19); older clients sent "true". */

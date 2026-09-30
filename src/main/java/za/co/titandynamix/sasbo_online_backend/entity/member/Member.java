@@ -9,6 +9,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.RecruitmentChannel;
+import za.co.titandynamix.sasbo_online_backend.entity.reference.Committee;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.PaymentType;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
@@ -374,6 +375,60 @@ public class Member {
 
     @Column(name = "is_bec")
     private Boolean isBec;
+
+    /**
+     * When the member was elected shop steward (V55): asked once "Shop Steward?" is Yes, and
+     * required then -- SASBO, 2026-09-30. Its own column rather than {@link #electionDate}, which
+     * is the representative model's and which {@code resolveStructureAndRole} clears for every
+     * member not flagged a representative.
+     */
+    @Column(name = "shop_steward_election_date")
+    private LocalDate shopStewardElectionDate;
+
+    /**
+     * The Branch Executive Committee the member sits on (V55), one of SASBO's committees.
+     * Resolved from the transient {@link #becCommitteeCode}, never bound directly -- the same
+     * shape as {@link #structure} and {@code structureId}.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bec_committee_id")
+    private Committee becCommittee;
+
+    /**
+     * The committee's code, as the client sends it: SASBO's own identifier, the one
+     * {@code GET /api/reference/committees} answers with. Absent keeps the seat, blank clears it,
+     * a code sets it (decision ⑨(b)).
+     */
+    @Transient
+    private String becCommitteeCode;
+
+    /**
+     * A BEC member's roles (V55), from SASBO's structures tree, 2026-09-30: BEC Recruiter?, BEC
+     * Structure Representative? with the structures represented, and BEC Executive? with the one
+     * position held. Asked only under BEC Member = Yes, and cleared when it is not
+     * ({@code MemberServiceImpl.applySeats}); the lists are held to {@code BecStructure} and
+     * {@code BecExecutivePosition} by {@code MemberValidator.validateBecRoles}.
+     */
+    @Column(name = "is_bec_recruiter")
+    private Boolean isBecRecruiter;
+
+    @Column(name = "is_bec_structure_rep")
+    private Boolean isBecStructureRep;
+
+    /**
+     * Comma-separated, in SASBO's spelling -- {@code cosatuPositions}' shape, and its deserializer
+     * for the same reason: the client sends a JSON array to a request body bound to this entity.
+     */
+    @JsonDeserialize(using = StringArrayToCommaSeparatedDeserializer.class)
+    @Column(name = "bec_structures")
+    private String becStructures;
+
+    @Column(name = "is_bec_executive")
+    private Boolean isBecExecutive;
+
+    @Column(name = "bec_executive_position")
+    private String becExecutivePosition;
 
     // ─── COSATU Structure ───
     private String isCosatu;

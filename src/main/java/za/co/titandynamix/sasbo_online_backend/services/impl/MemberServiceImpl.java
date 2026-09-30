@@ -16,6 +16,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.AreaRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.CommitteeRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RecruiterRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.RecruitmentChannelRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
@@ -58,6 +59,7 @@ public class MemberServiceImpl implements MemberService {
     private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final RecruiterRepository recruiterRepository;
     private final MemberStatusChangeRepository statusChanges;
+    private final CommitteeRepository committeeRepository;
 
     @Override
     @Transactional
@@ -125,11 +127,16 @@ public class MemberServiceImpl implements MemberService {
         autoPopulateIdDerivedFields(member);
         autoPopulateBankDerivedFields(member);
         resolveJobGrade(member);
+        // Before the number: a code naming no committee is refused without spending one.
+        applySeats(member.getBecCommitteeCode(), member);
         assignMembershipNumber(member);
         // No previous day: on create, every out-of-range day is a new choice.
         MemberValidator.validatePaymentType(member, null);
         MemberValidator.validateAccountType(member, true);
         MemberValidator.validateStructures(member, null);
+        MemberValidator.validateSeats(member, false, false);
+        MemberValidator.validateBecRoles(member);
+        MemberValidator.validateCosatuPositions(member, null);
         return this.memberRepository.save(member);
     }
 
@@ -166,6 +173,11 @@ public class MemberServiceImpl implements MemberService {
             // enforced on a day the caller changed, not on one it sent back unchanged.
             Integer previousDebitDay = existing.getDebitDay();
             String previousIsCosatu = existing.getIsCosatu();
+            // V55: a seat on record with nothing beside it -- every one stored before the columns existed.
+            boolean legacyShopSteward = Boolean.TRUE.equals(existing.getIsShopSteward())
+                    && existing.getShopStewardElectionDate() == null;
+            boolean legacyBec = Boolean.TRUE.equals(existing.getIsBec()) && existing.getBecCommittee() == null;
+            String previousCosatuPositions = existing.getCosatuPositions();
             this.memberMapper.updateFromMember(updated, existing);
             // 🔴 R1-F1. This resolved onto `updated` -- the TRANSIENT request object --
             // one line ABOVE the merge that deliberately ignores `structure` and
@@ -186,13 +198,50 @@ public class MemberServiceImpl implements MemberService {
             autoPopulateIdDerivedFields(existing);
             autoPopulateBankDerivedFields(existing);
             resolveJobGrade(existing);
+            applySeats(updated.getBecCommitteeCode(), existing);
             MemberValidator.validatePaymentType(existing, previousDebitDay);
             // Not required here: an edit of any other field must not be refused for a type the
             // member was captured without (R-ROB-I). A null in the request keeps the stored one.
             MemberValidator.validateAccountType(existing, false);
             MemberValidator.validateStructures(existing, previousIsCosatu);
+            MemberValidator.validateSeats(existing, legacyShopSteward, legacyBec);
+            MemberValidator.validateBecRoles(existing);
+            MemberValidator.validateCosatuPositions(existing, previousCosatuPositions);
             return this.memberRepository.save(existing);
         });
+    }
+
+    /**
+     * The structure answers' follow-ups (V55): the committee resolved from the code the client sent,
+     * and what a No leaves behind cleared -- a member who is not a shop steward has no shop-steward
+     * election date; one who is not on a BEC sits on no committee and holds no BEC role; and a role
+     * answered No keeps no structures or position.
+     *
+     * <p>The code follows decision ⑨(b): absent keeps the seat, blank clears it, a code sets it. A
+     * code that names no committee is REFUSED rather than dropped -- the finding
+     * {@link #resolveByName}'s javadoc records for the resolvers that still drop one.
+     */
+    private void applySeats(String committeeCode, Member target) {
+        if (committeeCode != null) {
+            target.setBecCommittee(committeeCode.isBlank() ? null
+                    : this.committeeRepository.findByCode(committeeCode.trim()).orElseThrow(() ->
+                            new IllegalArgumentException("No Branch Executive Committee has that code")));
+        }
+        if (!Boolean.TRUE.equals(target.getIsShopSteward())) {
+            target.setShopStewardElectionDate(null);
+        }
+        if (!Boolean.TRUE.equals(target.getIsBec())) {
+            target.setBecCommittee(null);
+            target.setIsBecRecruiter(null);
+            target.setIsBecStructureRep(null);
+            target.setIsBecExecutive(null);
+        }
+        if (!Boolean.TRUE.equals(target.getIsBecStructureRep())) {
+            target.setBecStructures(null);
+        }
+        if (!Boolean.TRUE.equals(target.getIsBecExecutive())) {
+            target.setBecExecutivePosition(null);
+        }
     }
 
     @Override
