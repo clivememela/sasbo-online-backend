@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -96,6 +97,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.mvc.throw-exception-if-no-handler-found=true",
         "spring.web.resources.add-mappings=false"
 })
+// @Isolated for the reason PiiInLogsTest gives: this class captures a Logback logger, and Spring Boot resets
+// Logback whenever a context starts -- again after the test-context cache has closed one -- so a capture beside
+// that reset can come back empty. Seen once in five runs of SeedStartupTest, 2026-09-30.
+@Isolated
 @DisplayName("ACBController")
 class ACBControllerTest {
 

@@ -5,6 +5,7 @@ import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
@@ -31,6 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Limited" and the bank on record is "The Standard Bank of South Africa Limited" (register A5's
  * instance). {@link #todaysRows} writes exactly that state. Every expectation is read from the file.
  */
+// @Isolated for the reason PiiInLogsTest gives: this class captures a Logback logger, and Spring Boot resets
+// Logback whenever a context starts -- again after the test-context cache has closed one -- so a capture beside
+// that reset can come back empty. Seen once in five runs of SeedStartupTest, 2026-09-30.
+@Isolated
 @DisplayName("SubscriptionSeeder -- per row, keyed by bank, and the orphan repaired narrowly")
 class SubscriptionSeederIT extends AbstractWritingIT {
 

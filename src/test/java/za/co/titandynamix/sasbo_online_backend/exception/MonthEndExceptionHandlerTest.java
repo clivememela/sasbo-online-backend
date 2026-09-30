@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.exception;
 import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -38,6 +39,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(WorkplaceController.class)
 @Import({GlobalExceptionHandler.class, MonthEndExceptionHandler.class, JacksonConfig.class,
         MonthEndExceptionHandlerTest.OutsideTheArc.class})
+// @Isolated for the reason PiiInLogsTest gives: this class captures a Logback logger, and Spring Boot resets
+// Logback whenever a context starts -- again after the test-context cache has closed one -- so a capture beside
+// that reset can come back empty. Seen once in five runs of SeedStartupTest, 2026-09-30.
+@Isolated
 @AutoConfigureMockMvc(addFilters = false)
 @DisplayName("MonthEndExceptionHandler")
 class MonthEndExceptionHandlerTest {
