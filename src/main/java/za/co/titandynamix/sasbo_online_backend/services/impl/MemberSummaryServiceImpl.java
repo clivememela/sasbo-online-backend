@@ -14,11 +14,11 @@ import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepositor
 import za.co.titandynamix.sasbo_online_backend.services.MemberSummaryService;
 import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
+import za.co.titandynamix.sasbo_online_backend.utils.Penetration;
 import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
 import za.co.titandynamix.sasbo_online_backend.utils.SmallCounts;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -226,8 +226,7 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
                                             long opening, long joinedYearToDate, long leftYearToDate, Long complement) {
         long paying = onRecord - suspended;
         long unexplained = onRecord - (opening + joined - left + reinstated);
-        BigDecimal penetration = complement == null || complement == 0 ? null
-                : BigDecimal.valueOf(paying).divide(BigDecimal.valueOf(complement), 4, RoundingMode.HALF_UP);
+        BigDecimal penetration = Penetration.of(paying, complement);
         return new MemberSummaryDto.Figures(onRecord, suspended, paying, joined, left, reinstated, opening,
                 unexplained, joinedYearToDate, leftYearToDate, complement, penetration,
                 complement != null && complement > 0 && paying > complement);

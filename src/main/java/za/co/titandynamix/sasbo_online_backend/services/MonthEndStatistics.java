@@ -23,6 +23,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepositor
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository.YearRecruits;
 import za.co.titandynamix.sasbo_online_backend.repository.SasboReferenceRepository;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
+import za.co.titandynamix.sasbo_online_backend.utils.Penetration;
 import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
 import za.co.titandynamix.sasbo_online_backend.utils.SmallCounts;
 
@@ -262,7 +263,8 @@ public class MonthEndStatistics {
                 share("penetration", "Penetration"), rand("subscriptions", "Subscriptions"),
                 count("coreComplement", "Core complement"), count("coreMembers", "Core members"));
         Function<Agg, List<BigDecimal>> cells = a -> cells(staff ? n(a.complement) : null, n(a.paying),
-                staff ? share(a.paying, a.complement) : null, a.subscriptions(), staff ? n(a.coreComplement) : null,
+                staff ? Penetration.of(a.paying, a.complement) : null, a.subscriptions(),
+                staff ? n(a.coreComplement) : null,
                 staff ? n(a.corePaying) : null);
         Sheet byArea = placeSheet(read, "by-area", "The branches, by area", "SUMMARY OF ALL AREAS",
                 MonthEndStatistics::areaKey, columns, cells, false);

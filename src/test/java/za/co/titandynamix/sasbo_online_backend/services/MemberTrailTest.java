@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.services;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.member.MemberChange;
 import za.co.titandynamix.sasbo_online_backend.entity.workplace.Workplace;
@@ -74,7 +75,7 @@ class MemberTrailTest {
         assertThat(rows).extracting(MemberChange::getField).containsExactlyInAnyOrder("cellTel", "bankAccountNumber");
         assertThat(rows).extracting(MemberChange::getSaveId).containsOnly(rows.get(0).getSaveId());
         assertThat(rows).extracting(MemberChange::getChangedAt).containsOnly(NOW);
-        assertThat(rows).extracting(MemberChange::getChangedBy).containsOnly(MemberTrail.ACTOR);
+        assertThat(rows).extracting(MemberChange::getChangedBy).containsOnly(AcbActor.SYSTEM);
         assertThat(rows).filteredOn(r -> r.getField().equals("bankAccountNumber"))
                 .extracting(MemberChange::getOldValue, MemberChange::getNewValue)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("****4567", "****4321"));

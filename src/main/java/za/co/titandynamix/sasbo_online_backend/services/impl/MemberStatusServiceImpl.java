@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import org.springframework.stereotype.Service;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusAnswer;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusRequest;
 import za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange;
@@ -39,9 +40,6 @@ import java.util.stream.Collectors;
  */
 @Service
 public class MemberStatusServiceImpl implements MemberStatusService {
-
-    /** Who a change is recorded as made by, until the API knows who is calling (register B1, PA-12). */
-    static final String ACTOR = "system";
 
     private final MemberService members;
     private final SasboReferenceRepository codes;
@@ -93,7 +91,7 @@ public class MemberStatusServiceImpl implements MemberStatusService {
                     MemberStatusReason.REINSTATED.name() + "," + MemberStatusReason.CAPTURED.name());
         }
         StatusChange change = new StatusChange(toStatus, blankToNull(request.expectedStatus()), reason, deletionCodeId,
-                suspensionCodeId, blankToNull(request.note()), ACTOR, clock.instant());
+                suspensionCodeId, blankToNull(request.note()), AcbActor.current(), clock.instant());
         MemberService.StatusChangeOutcome outcome = members.changeStatus(memberId, change)
                 .orElseThrow(() -> new MonthEndRefusal(MonthEndRefusalCode.MEMBER_NOT_FOUND,
                         "That member is no longer on record.", Map.of("memberId", String.valueOf(memberId))));

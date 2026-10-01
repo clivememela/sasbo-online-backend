@@ -25,6 +25,13 @@ class MonthRangeTest {
     }
 
     @Test
+    @DisplayName("PA-9, rule Y: the year to date begins at midnight on 1 January in Johannesburg, not in UTC")
+    void theYearBeginsInJohannesburg() {
+        assertThat(MonthRange.of(YearMonth.of(2026, 9)).yearStart()).isEqualTo(Instant.parse("2025-12-31T22:00:00Z"));
+        assertThat(MonthRange.of(YearMonth.of(2026, 1)).yearStart()).isEqualTo(MonthRange.of(YearMonth.of(2026, 1)).start());
+    }
+
+    @Test
     @DisplayName("🔒 PA-9, MV-2: both sides of midnight on the first and on the last day -- in Johannesburg, not in UTC")
     void bothSidesOfMidnight() {
         MonthRange september = MonthRange.of(YearMonth.of(2026, 9));

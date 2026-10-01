@@ -210,13 +210,13 @@ public class MonthEndFactsRepository {
                       JOIN members m ON m.id = c.member_id
                       LEFT JOIN deletion_codes d ON d.id = c.deletion_code_id
                         OR (c.deletion_code_id IS NULL AND CAST(c.reason AS VARCHAR(32)) = 'SUBS_IN_ARREARS'
-                            AND d.sasbo_code = %3$d)
+                            AND d.sasbo_code = %2$d)
                       LEFT JOIN deletion_codes p ON p.id = d.parent_id
                       WHERE c.changed_at >= :start AND c.changed_at < :next
-                        AND %1$s = 'L' AND COALESCE(%2$s, '?') <> 'L'
+                        AND %1$s
                     ) l
                     GROUP BY l.workplace_key, l.code, l.name, l.detail
-                    """.formatted(toKind, fromKind, ARREARS_DELETION_CODE);
+                    """.formatted(MemberSummaryRepository.intoLeaving(toKind, fromKind), ARREARS_DELETION_CODE);
             case SUSPENDED_BY_CODE -> """
                     SELECT s.workplace_key AS workplace_key, CAST('SUSPENDED_BY_CODE' AS VARCHAR(20)) AS measure,
                       s.code AS code, s.name AS name, CAST(NULL AS VARCHAR(255)) AS detail, COUNT(*) AS members
@@ -249,10 +249,10 @@ public class MonthEndFactsRepository {
                       FROM members m
                       LEFT JOIN recruiters rc ON rc.id = m.recruiter_id
                       LEFT JOIN recruitment_channel ch ON ch.id = m.recruitment_channel_id
-                      WHERE m.join_date >= :firstDay AND m.join_date < :firstDayOfNext
+                      WHERE %s
                     ) r
                     GROUP BY r.workplace_key, r.code, r.name, r.detail
-                    """;
+                    """.formatted(MemberSummaryRepository.joined("m", "firstDay"));
             case UNKNOWN_STATUS -> """
                     SELECT u.workplace_key AS workplace_key, CAST('UNKNOWN_STATUS' AS VARCHAR(20)) AS measure,
                       CAST(NULL AS INTEGER) AS code, u.name AS name, CAST(NULL AS VARCHAR(255)) AS detail,
@@ -307,11 +307,12 @@ public class MonthEndFactsRepository {
                   SUM(f.left_count) AS left_count
                 FROM month_end_workplaces f
                 JOIN month_end_months mm ON mm.id = f.month_id
-                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
+                  AND %s
                 WHERE f.month_start >= :yearStart AND f.month_start < :until
                 GROUP BY CASE WHEN f.workplace_key = 0 THEN 1 ELSE 0 END, f.area_letter, f.region_code, f.region_name,
                   f.group_core, f.table_code, f.table_code_name
-                """, new MapSqlParameterSource("yearStart", yearStart).addValue("until", until), (rs, n) ->
+                """.formatted(NEWEST_TAKE.formatted("mm")),
+                new MapSqlParameterSource("yearStart", yearStart).addValue("until", until), (rs, n) ->
                 new YearMovement(rs.getInt("no_workplace") == 1, rs.getString("area_letter"), rs.getString("region_code"),
                         rs.getString("region_name"), orNull(rs, rs.getBoolean("group_core")), orNull(rs, rs.getInt("table_code")),
                         rs.getString("table_code_name"), rs.getLong("joined"), rs.getLong("left_count")));
@@ -330,12 +331,13 @@ public class MonthEndFactsRepository {
                   f.area_letter, f.region_code, f.group_core, f.table_code, f.table_code_name, SUM(c.members) AS members
                 FROM month_end_counts c
                 JOIN month_end_months mm ON mm.id = c.month_id
-                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
+                  AND %s
                 LEFT JOIN month_end_workplaces f ON f.month_id = c.month_id AND f.workplace_key = c.workplace_key
                 WHERE c.measure = 'RECRUITED_BY' AND c.month_start >= :yearStart AND c.month_start < :until
                 GROUP BY c.code, c.name, c.detail, CASE WHEN c.workplace_key = 0 THEN 1 ELSE 0 END, f.area_letter,
                   f.region_code, f.group_core, f.table_code, f.table_code_name
-                """, new MapSqlParameterSource("yearStart", yearStart).addValue("until", until), (rs, n) ->
+                """.formatted(NEWEST_TAKE.formatted("mm")),
+                new MapSqlParameterSource("yearStart", yearStart).addValue("until", until), (rs, n) ->
                 new YearRecruits(orNull(rs, rs.getInt("code")), rs.getString("name"), rs.getString("detail"),
                         rs.getInt("no_workplace") == 1, rs.getString("area_letter"), rs.getString("region_code"),
                         orNull(rs, rs.getBoolean("group_core")), orNull(rs, rs.getInt("table_code")),
@@ -344,8 +346,8 @@ public class MonthEndFactsRepository {
 
     /** How many members were captured with a Date Joined in the month -- as the records stand now. */
     public long joinedNow(MonthRange month) {
-        Long n = bounded.queryForObject("SELECT COUNT(*) FROM members WHERE join_date >= :firstDay "
-                + "AND join_date < :firstDayOfNext", arguments(month, List.of()), Long.class);
+        Long n = bounded.queryForObject("SELECT COUNT(*) FROM members m WHERE "
+                + MemberSummaryRepository.joined("m", "firstDay"), arguments(month, List.of()), Long.class);
         return n == null ? 0 : n;
     }
 
@@ -538,7 +540,7 @@ public class MonthEndFactsRepository {
                        THEN COALESCE(ae.from_status, m.status) END AS end_status,
                   CASE WHEN m.join_date IS NULL OR m.join_date < :firstDay
                        THEN COALESCE(ast.from_status, m.status) END AS start_status,
-                  CASE WHEN m.join_date >= :firstDay AND m.join_date < :firstDayOfNext THEN 1 ELSE 0 END AS joined,
+                  CASE WHEN %3$s THEN 1 ELSE 0 END AS joined,
                   COALESCE(mv.left_n, 0) AS left_n, COALESCE(mv.reinstated_n, 0) AS reinstated_n,
                   m.payment_type AS payment_type,
                   COALESCE(m.monthly_subscription_numeric, CAST(0 AS NUMERIC(14, 2))) AS subscription,
@@ -560,13 +562,14 @@ public class MonthEndFactsRepository {
                 ) ast ON ast.member_id = m.id
                 LEFT JOIN (
                   SELECT c.member_id,
-                    SUM(CASE WHEN %1$s = 'L' AND COALESCE(%2$s, '?') <> 'L' THEN 1 ELSE 0 END) AS left_n,
-                    SUM(CASE WHEN %2$s = 'L' AND COALESCE(%1$s, '?') <> 'L' THEN 1 ELSE 0 END) AS reinstated_n
+                    SUM(CASE WHEN %1$s THEN 1 ELSE 0 END) AS left_n,
+                    SUM(CASE WHEN %2$s THEN 1 ELSE 0 END) AS reinstated_n
                   FROM member_status_changes c
                   WHERE c.changed_at >= :start AND c.changed_at < :next
                   GROUP BY c.member_id
                 ) mv ON mv.member_id = m.id
-                """.formatted(toKind, fromKind);
+                """.formatted(MemberSummaryRepository.intoLeaving(toKind, fromKind),
+                MemberSummaryRepository.outOfLeaving(toKind, fromKind), MemberSummaryRepository.joined("m", "firstDay"));
     }
 
     private static MapSqlParameterSource arguments(MonthRange month, Collection<String> seeded) {

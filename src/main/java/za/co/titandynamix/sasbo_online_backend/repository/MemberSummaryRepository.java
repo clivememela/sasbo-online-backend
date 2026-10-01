@@ -114,7 +114,7 @@ public class MemberSummaryRepository {
         return new MapSqlParameterSource()
                 .addValue("start", utc(ask.month().start()))
                 .addValue("next", utc(ask.month().next()))
-                .addValue("yearStart", utc(ask.month().firstDayOfYear().atStartOfDay(MonthRange.ZONE).toInstant()))
+                .addValue("yearStart", utc(ask.month().yearStart()))
                 .addValue("firstDay", ask.month().firstDay())
                 .addValue("firstDayOfNext", ask.month().firstDayOfNext())
                 .addValue("firstDayOfYear", ask.month().firstDayOfYear())
@@ -184,9 +184,9 @@ public class MemberSummaryRepository {
                       AND (x.changed_at < c.changed_at OR (x.changed_at = c.changed_at AND x.id < c.id)))
                 ), moved AS (
                   SELECT c.member_id,
-                    SUM(CASE WHEN c.changed_at >= :start AND %1$s = 'L' AND COALESCE(%2$s, '?') <> 'L' THEN 1 ELSE 0 END) AS left_n,
-                    SUM(CASE WHEN c.changed_at >= :start AND %2$s = 'L' AND COALESCE(%1$s, '?') <> 'L' THEN 1 ELSE 0 END) AS reinstated_n,
-                    SUM(CASE WHEN %1$s = 'L' AND COALESCE(%2$s, '?') <> 'L' THEN 1 ELSE 0 END) AS left_ytd
+                    SUM(CASE WHEN c.changed_at >= :start AND %1$s THEN 1 ELSE 0 END) AS left_n,
+                    SUM(CASE WHEN c.changed_at >= :start AND %2$s THEN 1 ELSE 0 END) AS reinstated_n,
+                    SUM(CASE WHEN %1$s THEN 1 ELSE 0 END) AS left_ytd
                   FROM member_status_changes c
                   WHERE c.changed_at >= :yearStart AND c.changed_at < :next
                   GROUP BY c.member_id
@@ -196,8 +196,8 @@ public class MemberSummaryRepository {
                          THEN COALESCE(ae.from_status, m.status) END AS end_status,
                     CASE WHEN m.join_date IS NULL OR m.join_date < :firstDay
                          THEN COALESCE(ast.from_status, m.status) END AS start_status,
-                    CASE WHEN m.join_date >= :firstDay AND m.join_date < :firstDayOfNext THEN 1 ELSE 0 END AS joined,
-                    CASE WHEN m.join_date >= :firstDayOfYear AND m.join_date < :firstDayOfNext THEN 1 ELSE 0 END AS joined_ytd,
+                    CASE WHEN %20$s THEN 1 ELSE 0 END AS joined,
+                    CASE WHEN %21$s THEN 1 ELSE 0 END AS joined_ytd,
                     COALESCE(mv.left_n, 0) AS left_n, COALESCE(mv.reinstated_n, 0) AS reinstated_n,
                     COALESCE(mv.left_ytd, 0) AS left_ytd,
                     CASE WHEN m.membership_number IN (:seeded) THEN 1 ELSE 0 END AS seeded,
@@ -241,16 +241,18 @@ public class MemberSummaryRepository {
                        CASE WHEN %14$s
                             THEN (SELECT tk.changes_from FROM month_end_months tk
                                   WHERE tk.month_start = :firstDay
-                                    AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = tk.id))
+                                    AND %22$s)
                             ELSE (SELECT MIN(changed_at) FROM member_status_changes) END,
                        (SELECT tk.taken_at FROM month_end_months tk WHERE tk.month_start = :firstDay
-                          AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = tk.id)),
+                          AND %22$s),
                        (SELECT tk.taken_by FROM month_end_months tk WHERE tk.month_start = :firstDay
-                          AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = tk.id))
+                          AND %22$s)
                 FROM (SELECT 1 AS one) single_row
-                """.formatted(toKind, fromKind, key, label, core, order, memberWorkplace, workplaceJoins, where,
-                endKind, startKind, complement, known(ask), taken, noTaking, takenHalf(ask, taken), counted(ask),
-                present(ask, key, label, core, order, workplaceJoins), membersFrom(ask, taken));
+                """.formatted(intoLeaving(toKind, fromKind), outOfLeaving(toKind, fromKind), key, label, core, order,
+                memberWorkplace, workplaceJoins, where, endKind, startKind, complement, known(ask), taken, noTaking,
+                takenHalf(ask, taken), counted(ask), present(ask, key, label, core, order, workplaceJoins),
+                membersFrom(ask, taken), joined("m", "firstDay"), joined("m", "firstDayOfYear"),
+                MonthEndFactsRepository.NEWEST_TAKE.formatted("tk"));
     }
 
     /**
@@ -282,10 +284,10 @@ public class MemberSummaryRepository {
                  UNION ALL
                  SELECT m3.id, m3.status, m3.join_date, m3.workplace_id, m3.membership_number FROM members m3
                    WHERE (m3.status IS NULL OR m3.status IN (%1$s))
-                     AND m3.join_date >= :firstDayOfYear AND m3.join_date < :firstDayOfNext
+                     AND %3$s
                      AND NOT EXISTS (SELECT 1 FROM member_status_changes c1
                                      WHERE c1.member_id = m3.id AND c1.changed_at >= :yearStart))""".formatted(leaving,
-                within);
+                within, joined("m3", "firstDayOfYear"));
     }
 
     /**
@@ -360,6 +362,7 @@ public class MemberSummaryRepository {
                 : ask.area() != null ? " AND f.area_letter = :area"
                 : ask.region() != null ? " AND f.region_code = :region" : "";
         String thisMonth = "f.month_start = :firstDay";
+        String newest = MonthEndFactsRepository.NEWEST_TAKE.formatted("mm");
         String complement = ask.complementServed() && ask.grouped() ? """
                 UNION ALL
                 SELECT 'COMPLEMENT', %1$s, MAX(%2$s), MAX(%3$s), MAX(%4$s), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, CAST(NULL AS DATE),
@@ -367,10 +370,10 @@ public class MemberSummaryRepository {
                        CAST(NULL AS TIMESTAMP WITH TIME ZONE), CAST(NULL AS VARCHAR(100))
                 FROM month_end_workplaces f
                 JOIN month_end_months mm ON mm.id = f.month_id
-                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
+                  AND %8$s
                 WHERE %5$s AND f.workplace_key <> 0 AND %6$s%7$s
                 GROUP BY %1$s
-                """.formatted(key, label, core, order, thisMonth, taken, scope) : "";
+                """.formatted(key, label, core, order, thisMonth, taken, scope, newest) : "";
         return """
                 UNION ALL
                 SELECT 'ROW', %1$s, MAX(%2$s), MAX(%3$s), MAX(%4$s),
@@ -384,7 +387,7 @@ public class MemberSummaryRepository {
                   CAST(NULL AS VARCHAR(100))
                 FROM month_end_workplaces f
                 JOIN month_end_months mm ON mm.id = f.month_id
-                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
+                  AND %9$s
                 WHERE f.month_start >= :firstDayOfYear AND f.month_start <= :firstDay AND %6$s%7$s
                 GROUP BY %1$s
                 %8$s
@@ -394,11 +397,11 @@ public class MemberSummaryRepository {
                        CAST(NULL AS TIMESTAMP WITH TIME ZONE), CAST(NULL AS VARCHAR(100))
                 FROM month_end_counts c
                 JOIN month_end_months mm ON mm.id = c.month_id
-                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
+                  AND %9$s
                 LEFT JOIN month_end_workplaces f ON f.month_id = c.month_id AND f.workplace_key = c.workplace_key
                 WHERE c.month_start = :firstDay AND c.measure = 'UNKNOWN_STATUS' AND %6$s%7$s
                 GROUP BY c.name
-                """.formatted(key, label, core, order, thisMonth, taken, scope, complement);
+                """.formatted(key, label, core, order, thisMonth, taken, scope, complement, newest);
     }
 
     /** {@link #key}, over a taken month's facts: the lineage as it stood. */
@@ -523,6 +526,32 @@ public class MemberSummaryRepository {
                     .append(") THEN '").append(letter(kind)).append("'");
         }
         return sql.append(" END").toString();
+    }
+
+    /**
+     * RULE N (PA-1, MM23): a member is new from {@code :fromDay} up to the next month's first when their Date Joined
+     * falls between -- whatever their status now. Written here once: the month's and the year's figures, the members
+     * the statement reads, and a month's facts, its recruits and the captures since it was taken all ask it.
+     */
+    static String joined(String member, String fromDay) {
+        return member + ".join_date >= :" + fromDay + " AND " + member + ".join_date < :firstDayOfNext";
+    }
+
+    /**
+     * RULE L: a change INTO a status of kind leaving, from one that was not -- over the {@link #kind kinds} of the
+     * status a change went to and the one it came from. Written here once, for the figures, the facts and the leavers
+     * by code.
+     */
+    static String intoLeaving(String toKind, String fromKind) {
+        return toKind + " = 'L' AND COALESCE(" + fromKind + ", '?') <> 'L'";
+    }
+
+    /**
+     * RULE R (PA-5, MM29): a change OUT of a status of kind leaving -- a member who returns is reinstated, an event of
+     * its own, and the leaving stays on record. Written here once, for the figures and the facts.
+     */
+    static String outOfLeaving(String toKind, String fromKind) {
+        return fromKind + " = 'L' AND COALESCE(" + toKind + ", '?') <> 'L'";
     }
 
     private static String letter(MemberStatusKind kind) {
