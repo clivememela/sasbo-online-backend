@@ -71,6 +71,11 @@ public record MonthRange(YearMonth month, Instant start, Instant next, LocalDate
         return asked;
     }
 
+    /** The first instant of the month's year, in SASBO's zone: where the year to date begins (rule Y). */
+    public Instant yearStart() {
+        return firstDayOfYear.atStartOfDay(ZONE).toInstant();
+    }
+
     /** Whether {@code instant} falls in this month -- half-open, in SASBO's zone. */
     public boolean contains(Instant instant) {
         return !instant.isBefore(start) && instant.isBefore(next);

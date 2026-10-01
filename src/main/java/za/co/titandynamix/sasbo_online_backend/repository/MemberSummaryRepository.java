@@ -114,7 +114,7 @@ public class MemberSummaryRepository {
         return new MapSqlParameterSource()
                 .addValue("start", utc(ask.month().start()))
                 .addValue("next", utc(ask.month().next()))
-                .addValue("yearStart", utc(ask.month().firstDayOfYear().atStartOfDay(MonthRange.ZONE).toInstant()))
+                .addValue("yearStart", utc(ask.month().yearStart()))
                 .addValue("firstDay", ask.month().firstDay())
                 .addValue("firstDayOfNext", ask.month().firstDayOfNext())
                 .addValue("firstDayOfYear", ask.month().firstDayOfYear())
