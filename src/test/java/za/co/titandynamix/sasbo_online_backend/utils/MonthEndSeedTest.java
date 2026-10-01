@@ -143,7 +143,7 @@ class MonthEndSeedTest {
     }
 
     @Test
-    @DisplayName("RC7: the deletion codes carry SASBO's numbers, and the reasons for resigning stand under code 2")
+    @DisplayName("PA-3, RC7: the reasons for leaving are SASBO's own deletion codes, as rows carrying SASBO's numbers, and the reasons for resigning stand under code 2")
     void theDeletionCodesCarrySasbosNumbers() {
         assertThat(jdbc.queryForList("SELECT sasbo_code FROM deletion_codes WHERE sasbo_code IS NOT NULL "
                 + "ORDER BY sasbo_code", Integer.class)).containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);

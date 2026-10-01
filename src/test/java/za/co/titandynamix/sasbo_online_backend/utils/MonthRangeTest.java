@@ -25,7 +25,7 @@ class MonthRangeTest {
     }
 
     @Test
-    @DisplayName("🔒 MV-2: both sides of midnight on the first and on the last day -- in Johannesburg, not in UTC")
+    @DisplayName("🔒 PA-9, MV-2: both sides of midnight on the first and on the last day -- in Johannesburg, not in UTC")
     void bothSidesOfMidnight() {
         MonthRange september = MonthRange.of(YearMonth.of(2026, 9));
 
