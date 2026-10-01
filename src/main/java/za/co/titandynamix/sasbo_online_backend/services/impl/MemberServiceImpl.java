@@ -30,11 +30,14 @@ import za.co.titandynamix.sasbo_online_backend.repository.RepresentativeRoleRepo
 import za.co.titandynamix.sasbo_online_backend.repository.UnionStructureRepository;
 import za.co.titandynamix.sasbo_online_backend.services.JobGradeService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
+import za.co.titandynamix.sasbo_online_backend.services.MemberTrail;
+import za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces;
 import za.co.titandynamix.sasbo_online_backend.utils.SaIdParser;
 import za.co.titandynamix.sasbo_online_backend.validator.MemberValidator;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -59,6 +62,10 @@ public class MemberServiceImpl implements MemberService {
     private final RecruitmentChannelRepository recruitmentChannelRepository;
     private final RecruiterRepository recruiterRepository;
     private final MemberStatusChangeRepository statusChanges;
+    /** Month end 01.3: the workplace a save names, looked for before anything is written. */
+    private final MemberWorkplaces workplaces;
+    /** Month end 03.5: the member's history, written inside each of the four saves. */
+    private final MemberTrail trail;
     private final CommitteeRepository committeeRepository;
 
     @Override
@@ -81,6 +88,39 @@ public class MemberServiceImpl implements MemberService {
             // The status and nothing else: no validator runs here, by design (R-ROB-I).
             member.setStatus(change.toStatus());
             return this.memberRepository.save(member);
+        });
+    }
+
+    /**
+     * Month end 03.1: the same narrow change as ACB's -- the status and nothing else, no validator (R-ROB-I) -- with
+     * SASBO's code and a note, on the view the caller had. The member's row is locked for the change, so of two
+     * changes on one view the second finds the first's status: the same status is a no-op that writes nothing (a
+     * retry is safe, ME-3), any other is stale and writes nothing either (MV-5). The history row is written in the
+     * same transaction as the status it records.
+     */
+    @Override
+    @Transactional
+    public Optional<StatusChangeOutcome> changeStatus(Integer memberId, StatusChange change) {
+        return this.memberRepository.findByIdForStatusChange(memberId).map(member -> {
+            if (change.toStatus().equals(member.getStatus())) {
+                return new StatusChangeOutcome(member, null, false);
+            }
+            if (change.expectedStatus() != null && !change.expectedStatus().equals(member.getStatus())) {
+                return new StatusChangeOutcome(member, null, true);
+            }
+            MemberStatusChange row = new MemberStatusChange();
+            row.setMemberId(member.getId());
+            row.setFromStatus(member.getStatus());
+            row.setToStatus(change.toStatus());
+            row.setReason(change.reason());
+            row.setDeletionCodeId(change.deletionCodeId());
+            row.setSuspensionCodeId(change.suspensionCodeId());
+            row.setNote(change.note());
+            row.setChangedBy(change.actor());
+            row.setChangedAt(change.at());
+            MemberStatusChange written = this.statusChanges.save(row);
+            member.setStatus(change.toStatus());
+            return new StatusChangeOutcome(this.memberRepository.save(member), written, false);
         });
     }
 
@@ -120,6 +160,8 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Member create(Member member) {
         member.setId(null);
+        // Month end 01.3, FIRST: a workplace not on record is refused before anything is resolved or written (ME-12).
+        this.workplaces.resolve(member.getWorkplaceId(), member);
         resolveStructureAndRole(member);
         resolveRecruiter(member.getRecruitmentRep(), member);
         resolveAreaRecruited(member.getAreaRecruited(), member);
@@ -137,7 +179,10 @@ public class MemberServiceImpl implements MemberService {
         MemberValidator.validateSeats(member, false, false);
         MemberValidator.validateBecRoles(member);
         MemberValidator.validateCosatuPositions(member, null);
-        return this.memberRepository.save(member);
+        Member saved = this.memberRepository.save(member);
+        // 03.5: one row, "captured" -- inside the capture's transaction.
+        this.trail.captured(saved);
+        return saved;
     }
 
     /**
@@ -169,6 +214,11 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
+            // 03.5, before ANYTHING changes the member: the history's picture of them as they were.
+            Map<String, String> before = this.trail.snapshot(existing);
+            // Month end 01.3, FIRST: a workplace not on record is refused before anything is merged or written (ME-12);
+            // onto `existing`, because the merge ignores `workplace`. None named leaves it as it was (MD58).
+            this.workplaces.resolve(updated.getWorkplaceId(), existing);
             // 🗣️ Decision ⑥. Read BEFORE the merge overwrites it: the range is
             // enforced on a day the caller changed, not on one it sent back unchanged.
             Integer previousDebitDay = existing.getDebitDay();
@@ -207,7 +257,9 @@ public class MemberServiceImpl implements MemberService {
             MemberValidator.validateSeats(existing, legacyShopSteward, legacyBec);
             MemberValidator.validateBecRoles(existing);
             MemberValidator.validateCosatuPositions(existing, previousCosatuPositions);
-            return this.memberRepository.save(existing);
+            Member saved = this.memberRepository.save(existing);
+            this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
+            return saved;
         });
     }
 
@@ -465,6 +517,8 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> updateBanking(Integer id, Member banking) {
         return this.memberRepository.findById(id).map(existing -> {
+            // 03.5, before anything changes the member.
+            Map<String, String> before = this.trail.snapshot(existing);
             // 🗣️ Decision ⑥, as in `update`: read the stored day before it is replaced.
             Integer previousDebitDay = existing.getDebitDay();
             existing.setBankName(banking.getBankName());
@@ -489,15 +543,24 @@ public class MemberServiceImpl implements MemberService {
             // Banking details saved as a debit order carry the account's type: this is the one screen
             // where the type is the thing being edited (00.5).
             MemberValidator.validateAccountType(existing, true);
-            return this.memberRepository.save(existing);
+            Member saved = this.memberRepository.save(existing);
+            this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
+            return saved;
         });
     }
 
+    /**
+     * 03.5: a TRANSACTION of its own now -- the amount and its history row are written together, or neither is.
+     */
     @Override
+    @Transactional
     public Optional<Member> updateMonthlySubscription(Integer id, BigDecimal monthlySubscription) {
         return this.memberRepository.findById(id).map(existing -> {
+            Map<String, String> before = this.trail.snapshot(existing);
             existing.setMonthlySubscription(monthlySubscription);
-            return this.memberRepository.save(existing);
+            Member saved = this.memberRepository.save(existing);
+            this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
+            return saved;
         });
     }
 

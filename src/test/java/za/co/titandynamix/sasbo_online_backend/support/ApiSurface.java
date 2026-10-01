@@ -29,6 +29,12 @@ import za.co.titandynamix.sasbo_online_backend.enums.ListEmptyReason;
 import za.co.titandynamix.sasbo_online_backend.enums.SeedFailure;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
+import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
+import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
+import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
+import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
+import za.co.titandynamix.sasbo_online_backend.utils.ReferenceListSeeder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -277,6 +283,23 @@ public final class ApiSurface {
                     "seedFailures": [%s],
                     "workplacePageMaxSize": %d,
                     "searchMaxLength": %d,
+                    "summaryGroupings": [%s],
+                    "summaryTimeoutSeconds": %d,
+                    "summaryAtOnce": %d,
+                    "memberStatuses": [
+                %s
+                    ],
+                    "statusReasons": [%s],
+                    "deletionCodes": [
+                %s
+                    ],
+                    "suspensionCodes": [
+                %s
+                    ],
+                    "acbReasonReadings": [
+                      {"reason": "SUBS_IN_ARREARS", "deletionCode": 5, "proposed": true},
+                      {"reason": "UNPAID_SUSPENDED", "suspensionCode": 13, "proposed": true}
+                    ],
                     "refusalCodes": [
                 %s
                     ]
@@ -294,7 +317,53 @@ public final class ApiSurface {
                 acbRefusalCodes(),
                 names(WorkplaceSwitch.Mode.values()), names(ListEmptyReason.values()), names(SeedFailure.values()),
                 WorkplaceService.MAX_PAGE_SIZE, WorkplaceService.MAX_SEARCH_LENGTH,
+                Arrays.stream(SummaryGrouping.values()).map(g -> quote(g.wire())).collect(Collectors.joining(", ")),
+                MemberSummaryRepository.TIMEOUT_SECONDS, SummaryGate.AT_ONCE,
+                memberStatuses(), names(MemberStatusReason.values()), seededCodes("deletionCodes"),
+                seededCodes("suspensionCodes"),
                 monthEndRefusalCodes());
+    }
+
+    /**
+     * Every status the member record takes, with its KIND -- the one thing a figure reads of a status (03.2, PA-4).
+     * Read off {@code MemberStatuses.KINDS}, the server's own table, never typed out here.
+     */
+    private static String memberStatuses() {
+        return MemberStatuses.KINDS.entrySet().stream()
+                .map(e -> "      {\"name\": %s, \"kind\": %s}".formatted(quote(e.getKey()), quote(e.getValue().name())))
+                .collect(Collectors.joining(",\n"));
+    }
+
+    /**
+     * SASBO's deletion or suspension codes as the seed resource holds them: SASBO's number and its words -- never the
+     * table's id (RC7). A reason for resigning has no number of SASBO's, and is published under its code.
+     */
+    private static String seededCodes(String list) {
+        try (var stream = new org.springframework.core.io.ClassPathResource(ReferenceListSeeder.RESOURCE).getInputStream()) {
+            var resource = new ObjectMapper().readTree(stream);
+            List<String> rows = new java.util.ArrayList<>();
+            for (var node : resource.path("lists")) {
+                if (!list.equals(node.path("list").asText())) {
+                    continue;
+                }
+                for (var row : node.path("rows")) {
+                    if (list.equals("deletionCodes")) {
+                        rows.add(row.path("sasboCode").isNumber()
+                                ? "      {\"code\": %d, \"name\": %s}".formatted(row.path("sasboCode").asInt(),
+                                        quote(row.path("name").asText()))
+                                : "      {\"code\": null, \"under\": %d, \"name\": %s}".formatted(
+                                        row.path("parent").asInt(), quote(row.path("name").asText())));
+                    } else {
+                        rows.add("      {\"code\": %d, \"name\": %s}".formatted(row.path("code").asInt(),
+                                quote(row.path("name").asText())));
+                    }
+                }
+            }
+            return String.join(",\n", rows);
+        } catch (IOException unreadable) {
+            throw new UncheckedIOException("the seed resource " + ReferenceListSeeder.RESOURCE + " could not be read",
+                    unreadable);
+        }
     }
 
     /**

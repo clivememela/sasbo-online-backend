@@ -11,5 +11,13 @@ public enum MemberStatusReason {
      * An unpaid decided SUSPEND: its code allows no re-debit (Q40, Q44). Suspends -- "still pending and not
      * terminated as yet".
      */
-    UNPAID_SUSPENDED
+    UNPAID_SUSPENDED,
+    /** Month end 03.2 (V56): a change into a leaving status, carrying SASBO's deletion code (rule L). */
+    DELETION_CODE,
+    /** Month end 03.2 (V56): a change into Suspended, carrying SASBO's suspension code (rule U). */
+    SUSPENSION_CODE,
+    /** Month end 03.2 (V56): a change out of a leaving or a suspended status -- a member who came back (MM63). */
+    REINSTATED,
+    /** Month end 03.2 (V56): a status given when the member was captured, or set by hand with no code of SASBO's. */
+    CAPTURED
 }

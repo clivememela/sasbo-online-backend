@@ -59,6 +59,10 @@ class MemberControllerWithoutMailTest {
     @MockitoBean
     private RepresentativeService representativeService;
 
+    /** Month end 01.3: does nothing here, so every answer is the mapper's, as it was before the workplace. */
+    @MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces memberWorkplaces;
+
     @MockitoBean
     private RepresentativeRepository representativeRepository;
 

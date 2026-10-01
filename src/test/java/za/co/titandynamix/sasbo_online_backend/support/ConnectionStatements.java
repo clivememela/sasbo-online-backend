@@ -9,7 +9,6 @@ import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Counts the statements that reach the database AT THE CONNECTION -- whoever sends them (month end, MR-PERF-19,
@@ -22,13 +21,21 @@ import java.util.concurrent.atomic.AtomicLong;
  * {@code executeUpdate} and {@code executeBatch} on any connection it hands out is one statement -- a batch of five
  * hundred rows is one round trip, and is counted once, as the database sees it.
  *
- * <p>Registered in a test's context with {@link #register()}; read with {@link #during}. The count is global to the
- * context, so a test that pins a number runs its work on its own thread with nothing else writing -- which is why the
- * tests that use it are in a context of their own.
+ * <p>Registered in a test's context with {@link #register()}; read with {@link #during}.
+ *
+ * <h2>Counted on the thread that runs the work</h2>
+ * A statement is counted against the thread that sends it, and {@link #during} reads the calling thread's count --
+ * so the work it measures must run on the calling thread, which every JDBC call of month end does. 🔴 It was one count
+ * for the whole JVM until 2026-09-29, and this module runs its test classes concurrently: once a second class counted
+ * (02.2's {@code MemberSummaryTest}, beside {@code MonthEndSeedTest}), each counted the other's statements whenever the
+ * random class order ran them together -- 27 for a pinned 1, 18 for a pinned 16, in the same code that had passed an
+ * hour before (run 36621599441). A context of one's own does not scope a static. {@code ConnectionStatementsTest}
+ * holds the rule, with a statement sent from another thread during the count.
  */
 public final class ConnectionStatements {
 
-    private static final AtomicLong COUNT = new AtomicLong();
+    /** Each thread's count. One slot, read and written only by its own thread. */
+    private static final ThreadLocal<long[]> COUNT = ThreadLocal.withInitial(() -> new long[1]);
     private static final Set<String> EXECUTIONS = Set.of("execute", "executeQuery", "executeUpdate", "executeBatch",
             "executeLargeUpdate", "executeLargeBatch");
 
@@ -46,11 +53,12 @@ public final class ConnectionStatements {
         };
     }
 
-    /** How many statements reached the database while {@code work} ran. */
+    /** How many statements this thread sent to the database while {@code work} ran on it. */
     public static long during(Runnable work) {
-        long before = COUNT.get();
+        long[] count = COUNT.get();
+        long before = count[0];
         work.run();
-        return COUNT.get() - before;
+        return count[0] - before;
     }
 
     static DataSource wrap(DataSource dataSource) {
@@ -73,7 +81,7 @@ public final class ConnectionStatements {
                         : new Class<?>[] {Statement.class};
         return (Statement) Proxy.newProxyInstance(Statement.class.getClassLoader(), types, (proxy, method, args) -> {
             if (EXECUTIONS.contains(method.getName())) {
-                COUNT.incrementAndGet();
+                COUNT.get()[0]++;
             }
             return invoke(statement, method, args);
         });

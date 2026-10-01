@@ -77,6 +77,10 @@ class MalformedRequestDefectsTest {
     @MockitoBean
     private RepresentativeService representativeService;
 
+    /** Month end 01.3: does nothing here, so every answer is the mapper's, as it was before the workplace. */
+    @MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.MemberWorkplaces memberWorkplaces;
+
     // MemberMapperImpl is imported for real, as in MemberControllerTest, so its
     // repositories must exist for the context to start.
     @MockitoBean

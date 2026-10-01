@@ -81,6 +81,14 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
                         // Not a gap, and held null ON PURPOSE: no member record says anything
                         // about a letter. MemberController sets it on the one answer that asked
                         // for one -- a capture with sendWelcome -- after the member is saved (A64).
+                        // Month end 01.3 -- the member's workplace: three scalars from the relation.
+                        // Whether they are ANSWERED is the deployment's switch's (MD62), asked by
+                        // MemberController, which also sets the lineage on the answer for one member.
+                        .sourcePath("workplaceId", "workplace.id")
+                        .sourcePath("workplaceName", "workplace.name")
+                        .sourcePath("workplaceRaNumber", "workplace.raNumber")
+                        .unmapped("workplace", "the lineage, set by MemberController on the answer for one "
+                                + "member from the workplace's own statement -- never read from the entity")
                         .unmapped("welcomeLetter", "set by MemberController on a capture's answer, "
                                 + "never read from the entity -- a member read back must not "
                                 + "claim a letter went"));

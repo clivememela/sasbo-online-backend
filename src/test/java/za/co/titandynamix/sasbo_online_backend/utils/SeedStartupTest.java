@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.DefaultApplicationArguments;
@@ -37,6 +38,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code sasbo-test}, which the other full-context classes have already seeded, and "nothing was seeded"
  * can only be asserted of a database nobody else writes to.
  */
+// @Isolated for the reason PiiInLogsTest gives: this class captures a Logback logger, and Spring Boot resets
+// Logback whenever a context starts -- again after the test-context cache has closed one -- so a capture beside
+// that reset can come back empty. Seen once in five runs of SeedStartupTest, 2026-09-30.
+@Isolated
 @DisplayName("The seed, through a whole start")
 class SeedStartupTest {
 
@@ -155,6 +160,20 @@ class SeedStartupTest {
             assertThat(members.count()).isEqualTo(expected);
             seeder.run(new DefaultApplicationArguments());
             assertThat(members.count()).as("after a second start").isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("🔒 MD53, MV-45: the switch unset is off -- no workplace, nobody placed at one, none of the invented members' past, no taken month")
+        void theSwitchUnsetLeavesNothingOfSasbosShape() {
+            // The invented members are the count above: the 160 and the debit-order population, and nobody else.
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM workplaces", Long.class)).as("no workplace").isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM members WHERE workplace_id IS NOT NULL", Long.class))
+                    .as("nobody placed at one").isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes "
+                    + "WHERE reason IN ('DELETION_CODE', 'SUSPENSION_CODE')", Long.class))
+                    .as("none of the invented members' past, which is written by SASBO's codes").isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM month_end_months", Long.class))
+                    .as("no taken month").isZero();
         }
 
         @Test

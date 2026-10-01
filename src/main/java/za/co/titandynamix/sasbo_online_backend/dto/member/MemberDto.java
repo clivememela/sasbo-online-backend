@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StringSerializer;
 import lombok.Data;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceDto;
 import za.co.titandynamix.sasbo_online_backend.enums.WelcomeLetterOutcome;
 
 import java.math.BigDecimal;
@@ -113,6 +114,18 @@ public class MemberDto {
     // Area fields
     private Integer areaId;
     private String areaName;
+
+    /*
+     * Month end 01.3 -- the member's workplace, ANSWERED AS THE DEPLOYMENT'S SWITCH ALLOWS (MD62): nothing at `none`.
+     * The three scalars are on every answer, the list's included -- three, and no more, from the one join the list's
+     * entity graph gains (MR-PERF-9). The lineage -- employer, group, table code, area, region, committee -- is on the
+     * answer for ONE member only, read by the workplace's own statement; never on the list.
+     */
+    private Long workplaceId;
+    private String workplaceName;
+    private Integer workplaceRaNumber;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private WorkplaceDto workplace;
 
     /** Combined display name of the member's area representative (read-only on the API response). */
     private String areasRep;

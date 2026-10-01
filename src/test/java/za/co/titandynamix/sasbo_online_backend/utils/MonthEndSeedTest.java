@@ -15,13 +15,21 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import za.co.titandynamix.sasbo_online_backend.entity.monthend.MonthEndCount;
+import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
 import za.co.titandynamix.sasbo_online_backend.support.ConnectionStatements;
+import za.co.titandynamix.sasbo_online_backend.support.StatisticsExpectations;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
@@ -66,6 +74,9 @@ class MonthEndSeedTest {
 
     @Autowired
     private WorkplaceSeeder workplaces;
+
+    @Autowired
+    private DemonstrationMemberSeeder invented;
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -160,14 +171,161 @@ class MonthEndSeedTest {
                         + "(SELECT 1 FROM committees c WHERE c.code = w.committee_code)"));
     }
 
+    /** Every member's membership number, and the R/A number of the workplace they stand at. */
+    private Map<String, Integer> standing() {
+        Map<String, Integer> at = new HashMap<>();
+        jdbc.query("SELECT m.membership_number, w.ra_number FROM members m JOIN workplaces w ON w.id = m.workplace_id",
+                rs -> {
+                    at.put(rs.getString(1), rs.getInt(2));
+                });
+        return at;
+    }
+
     @Test
-    @DisplayName("the switch at all changes no member: the 160 and the 150 are there, and nobody else")
-    void theSwitchChangesNoMember() throws IOException {
+    @DisplayName("MD53, MV-45: the switch at all puts the invented members on record -- the 160, the 150 and the file's own, and nobody else")
+    void theSwitchPutsTheInventedMembersOnRecord() throws IOException {
         long original;
         try (InputStream stream = new ClassPathResource("data/members.json").getInputStream()) {
             original = DataSeeder.readSeedMembers(stream).size();
         }
-        assertThat(members.count()).isEqualTo(original + DebitOrderMemberSeeder.readSeedFile().members().size());
+        assertThat(members.count()).isEqualTo(original + DebitOrderMemberSeeder.readSeedFile().members().size()
+                + DemonstrationMemberSeeder.readSeedFile().count());
+    }
+
+    @Test
+    @DisplayName("MD35, MR-ROB-32: every member of the seed stands where the file says -- the invented, and the 310 by their placements")
+    void everyMemberStandsWhereTheFileSays() throws IOException {
+        DemonstrationMember.SeedFile file = DemonstrationMemberSeeder.readSeedFile();
+        Map<String, Integer> expected = new HashMap<>();
+        file.members().forEach(m -> expected.put(m.membershipNumber(), m.workplaceRaNumber()));
+        file.placements().forEach(p -> expected.put(p.membershipNumber(), p.workplaceRaNumber()));
+
+        assertThat(standing()).isEqualTo(expected);
+        assertThat(rows("SELECT count(*) FROM members WHERE workplace_id IS NULL"))
+                .as("on a fresh demonstration database with the switch at all, no member of the seed is without one")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("🔒 MR-PERF-19: a second start of the invented members and the placements is two statements, and writes nothing")
+    void theInventedMembersSecondStartIsPinned() {
+        Map<String, Integer> before = standing();
+        long statements = ConnectionStatements.during(() -> {
+            try {
+                assertThat(invented.seed()).isZero();
+                assertThat(invented.place()).isZero();
+                assertThat(invented.past()).isZero();
+            } catch (IOException unreadable) {
+                throw new java.io.UncheckedIOException(unreadable);
+            }
+        });
+        assertThat(statements).as("one read of the file's numbers on record, one of the seed's members without a workplace, "
+                + "and the past's two: its members' ids, and which of them the seed has changed").isEqualTo(4);
+        assertThat(standing()).isEqualTo(before);
+    }
+
+    @Test
+    @DisplayName("MV-46: the step fills only what is empty -- a workplace a person chose stays, one never given is filled")
+    void thePlacementsFillOnlyWhatIsEmpty() throws IOException {
+        List<DemonstrationMember.Placement> placements = DemonstrationMemberSeeder.readSeedFile().placements();
+        DemonstrationMember.Placement chosen = placements.get(0);
+        DemonstrationMember.Placement empty = placements.get(1);
+        Integer another = jdbc.queryForObject("SELECT min(ra_number) FROM workplaces WHERE ra_number <> ?", Integer.class,
+                chosen.workplaceRaNumber());
+        jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = ?) "
+                + "WHERE membership_number = ?", another, chosen.membershipNumber());
+        jdbc.update("UPDATE members SET workplace_id = NULL WHERE membership_number = ?", empty.membershipNumber());
+        try {
+            assertThat(invented.place()).isEqualTo(1);
+
+            assertThat(standing()).containsEntry(chosen.membershipNumber(), another)
+                    .containsEntry(empty.membershipNumber(), empty.workplaceRaNumber());
+        } finally {
+            jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = ?) "
+                    + "WHERE membership_number = ?", chosen.workplaceRaNumber(), chosen.membershipNumber());
+        }
+    }
+
+    @Test
+    @DisplayName("MD53, MV-46: the switch set late -- the 310, seeded while it was off and standing nowhere, are placed at the next start as the file says, and the start after places none")
+    void theSwitchSetLate() throws IOException {
+        List<DemonstrationMember.Placement> placements = DemonstrationMemberSeeder.readSeedFile().placements();
+        Map<String, Integer> before = standing();
+        // As a start with the switch off left them: on record, and standing nowhere.
+        jdbc.batchUpdate("UPDATE members SET workplace_id = NULL WHERE membership_number = ?",
+                placements.stream().map(p -> new Object[] {p.membershipNumber()}).toList());
+
+        assertThat(invented.place()).as("the next start, with the switch at all, places every one").isEqualTo(
+                placements.size());
+        assertThat(standing()).as("each where the file says").isEqualTo(before);
+        assertThat(invented.place()).as("and the start after places none").isZero();
+    }
+
+    @Test
+    @DisplayName("🔒 03.7: A.C.B.'s count of terminations is unmoved by the demonstration's past -- the past terminates by SASBO's deletion code, never A.C.B.'s SUBS_IN_ARREARS")
+    void acbsTerminationsAreUnmoved() {
+        Long terminated = jdbc.queryForObject("SELECT count(*) FROM member_status_changes WHERE changed_by = ? "
+                + "AND to_status = 'Terminated' AND reason = 'DELETION_CODE'", Long.class, DemonstrationMemberSeeder.SEED_ACTOR);
+        assertThat(terminated).as("the past does terminate members, by SASBO's deletion code").isPositive();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes WHERE changed_by = ? "
+                + "AND reason = 'SUBS_IN_ARREARS'", Long.class, DemonstrationMemberSeeder.SEED_ACTOR))
+                .as("A.C.B. counts its terminations by SUBS_IN_ARREARS, and the past writes none").isZero();
+    }
+
+    @Test
+    @DisplayName("03.7: the three months before the clock's have their leavers and suspended by SASBO's codes, each dated inside its month")
+    void theDemonstrationsPast() throws IOException {
+        List<DemonstrationMember.PastChange> past = DemonstrationMemberSeeder.readSeedFile().past();
+        java.time.YearMonth clocksMonth = java.time.YearMonth.from(SeedStartupTest.MigrationRowsAndAFrozenClock.FROZEN
+                .atZone(MonthRange.ZONE));
+        Map<String, java.time.YearMonth> expected = new HashMap<>();
+        past.forEach(c -> expected.merge(c.membershipNumber() + " " + c.toStatus(), clocksMonth.minusMonths(c.monthsBack()),
+                (a, b) -> a));
+
+        List<Map<String, Object>> written = jdbc.query("SELECT m.membership_number, c.to_status, c.reason, "
+                + "c.deletion_code_id, c.suspension_code_id, c.changed_at FROM member_status_changes c "
+                + "JOIN members m ON m.id = c.member_id WHERE c.changed_by = ?", (rs, n) -> {
+                    Map<String, Object> row = new HashMap<>();
+                    row.put("membership_number", rs.getString("membership_number"));
+                    row.put("to_status", rs.getString("to_status"));
+                    row.put("reason", rs.getString("reason"));
+                    row.put("deletion_code_id", rs.getObject("deletion_code_id"));
+                    row.put("suspension_code_id", rs.getObject("suspension_code_id"));
+                    row.put("changed_at", rs.getObject("changed_at", java.time.OffsetDateTime.class).toInstant());
+                    return row;
+                }, DemonstrationMemberSeeder.SEED_ACTOR);
+
+        assertThat(written).hasSize(past.size());
+        for (Map<String, Object> row : written) {
+            java.time.Instant at = (java.time.Instant) row.get("changed_at");
+            String key = row.get("membership_number") + " " + row.get("to_status");
+            assertThat(java.time.YearMonth.from(at.atZone(MonthRange.ZONE))).as("%s is dated inside its month", key)
+                    .isEqualTo(expected.get(key));
+            switch ((String) row.get("reason")) {
+                case "DELETION_CODE" -> assertThat(row.get("deletion_code_id")).as("a leaver carries SASBO's code").isNotNull();
+                case "SUSPENSION_CODE" -> assertThat(row.get("suspension_code_id")).isNotNull();
+                case "REINSTATED" -> assertThat(row.get("to_status")).isEqualTo("Active");
+                default -> throw new AssertionError("the past wrote " + row.get("reason"));
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes WHERE changed_by = ? "
+                        + "AND reason IN ('SUBS_IN_ARREARS', 'UNPAID_SUSPENDED')", Long.class, DemonstrationMemberSeeder.SEED_ACTOR))
+                .as("none of the past is ACB's, so ACB's count of terminations does not move").isZero();
+    }
+
+    @Test
+    @DisplayName("🔒 BR36: the A.C.B. history, prepared with the invented members on record, lists none of them -- no line, no listed exclusion")
+    void acbListsNoInventedMember() throws IOException {
+        List<String> numbers = DemonstrationMemberSeeder.readSeedFile().members().stream()
+                .map(DemonstrationMember::membershipNumber).toList();
+        List<String> lined = jdbc.queryForList("SELECT DISTINCT m.membership_number FROM acb_run_lines l "
+                + "JOIN members m ON m.id = l.member_id", String.class);
+        List<String> listed = jdbc.queryForList("SELECT DISTINCT m.membership_number FROM acb_run_exclusions x "
+                + "JOIN members m ON m.id = x.member_id", String.class);
+
+        assertThat(lined).as("the history was prepared, or this proves nothing").isNotEmpty();
+        assertThat(lined).as("an invented member on a debit line").doesNotContainAnyElementsOf(numbers);
+        assertThat(listed).as("an invented member on the 'left out, and why' sheet").doesNotContainAnyElementsOf(numbers);
     }
 
     @Test
@@ -331,5 +489,173 @@ class MonthEndSeedTest {
         } finally {
             jdbc.update("DELETE FROM workplaces WHERE ra_number = 999999");
         }
+    }
+
+    // ------------------------------------------------------------------------------------------ 04.2, the months taken
+
+    @Autowired
+    private MonthEndTakeSeeder takeSeeder;
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes takes;
+
+    @Autowired
+    private MonthEndFactsRepository facts;
+
+    @Autowired
+    private MemberSummaryRepository summaryStatement;
+
+    @Autowired
+    private SeedMemberNumbers seedNumbers;
+
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactions;
+
+    @Test
+    @DisplayName("🔒 04.2, BR65: the three months before the clock's are TAKEN on a fresh demonstration database -- on H2, in a whole start")
+    void theThreePastMonthsAreTaken() {
+        List<MonthEndFactsRepository.TakenMonth> taken = takes.takenMonths();
+        assertThat(taken).extracting(MonthEndFactsRepository.TakenMonth::monthStart)
+                .containsExactly(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 7, 1), LocalDate.of(2026, 6, 1));
+        assertThat(taken).extracting(MonthEndFactsRepository.TakenMonth::takenBy)
+                .containsOnly(DemonstrationMemberSeeder.SEED_ACTOR);
+        long open = rows("SELECT count(*) FROM workplaces WHERE closed_on IS NULL");
+        for (MonthEndFactsRepository.TakenMonth month : taken) {
+            List<MonthEndFactsRepository.Fact> frozen = facts.facts(month.id());
+            assertThat(frozen.stream().filter(f -> f.workplaceKey() != 0).count())
+                    .as("%s: a row for every open workplace", month.monthStart()).isGreaterThanOrEqualTo(open);
+            assertThat(frozen.stream().map(MonthEndFactsRepository.Fact::workplaceKey).distinct().count())
+                    .as("one row a workplace").isEqualTo(frozen.size());
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 MV-16: each month taken is the figures' own statement for that month -- the whole, figure for figure, over the demonstration")
+    void theTakenMonthsAreTheFigures() {
+        for (MonthEndFactsRepository.TakenMonth month : takes.takenMonths()) {
+            List<MonthEndFactsRepository.Fact> frozen = facts.facts(month.id());
+            List<MonthEndFactsRepository.Count> counts = facts.counts(month.id());
+            // Rule F reads a taken month from its facts, so the figures' own statement is asked with the months
+            // taken set aside -- in a transaction rolled back after, which H2, having no trigger, allows.
+            List<MemberSummaryRepository.Line> live = new org.springframework.transaction.support.TransactionTemplate(
+                    transactions).execute(status -> {
+                        status.setRollbackOnly();
+                        jdbc.update("DELETE FROM month_end_counts");
+                        jdbc.update("DELETE FROM month_end_workplaces");
+                        jdbc.update("DELETE FROM month_end_months");
+                        return summaryStatement.figures(new MemberSummaryRepository.Ask(
+                                MonthRange.of(java.time.YearMonth.from(month.monthStart())), SummaryGrouping.AREA, true,
+                                true, null, null, seedNumbers.all()));
+                    });
+            List<MemberSummaryRepository.Line> liveRows = live.stream()
+                    .filter(l -> l.part().equals(MemberSummaryRepository.ROW)).toList();
+            String what = month.monthStart().toString();
+
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::onRecord).sum()).as("%s on record", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::onRecord).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::suspended).sum()).as("%s suspended", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::suspended).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::opening).sum()).as("%s opening", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::opening).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::joined).sum()).as("%s joined", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::joined).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::left).sum()).as("%s left", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::left).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::reinstated).sum()).as("%s reinstated", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::reinstated).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::seeded).sum()).as("%s seeded", what)
+                    .isEqualTo(liveRows.stream().mapToLong(MemberSummaryRepository.Line::seeded).sum());
+            assertThat(frozen.stream().filter(f -> f.complement() != null).mapToLong(MonthEndFactsRepository.Fact::complement)
+                    .sum()).as("%s complement", what).isEqualTo(live.stream()
+                    .filter(l -> l.part().equals(MemberSummaryRepository.COMPLEMENT))
+                    .mapToLong(MemberSummaryRepository.Line::complement).sum());
+            assertThat(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::left).sum()).as("%s has leavers", what)
+                    .isPositive();
+
+            assertThat(measured(counts, MonthEndCount.Measure.LEFT_BY_CODE)).as("%s: the leavers by code", what)
+                    .isEqualTo(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::left).sum());
+            assertThat(measured(counts, MonthEndCount.Measure.SUSPENDED_BY_CODE)).as("%s: the suspended by code", what)
+                    .isEqualTo(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::suspended).sum());
+            assertThat(measured(counts, MonthEndCount.Measure.RECRUITED_BY)).as("%s: the recruits", what)
+                    .isEqualTo(frozen.stream().mapToLong(MonthEndFactsRepository.Fact::joined).sum());
+            assertThat(counts).filteredOn(c -> c.measure() == MonthEndCount.Measure.LEFT_BY_CODE)
+                    .as("%s: the past's leavers carry SASBO's numbers (RC7)", what)
+                    .allSatisfy(c -> assertThat(c.code()).isIn(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 MR-PERF-19: a second start takes no month, in one statement")
+    void theTakesSecondStartIsPinned() {
+        long statements = ConnectionStatements.during(() -> assertThat(takeSeeder.seed()).isZero());
+
+        assertThat(statements).as("one read of the months taken, and nothing written").isEqualTo(1);
+    }
+
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.services.MonthEndStatistics statistics;
+
+    @Test
+    @DisplayName("🔒 MV-16: over the demonstration, each statistic of each month taken totals the month's facts -- and a sheet's rows sum to it")
+    void theStatisticsTotalTheFacts() {
+        for (MonthEndFactsRepository.TakenMonth month : takes.takenMonths()) {
+            String asked = java.time.YearMonth.from(month.monthStart()).toString();
+            List<MonthEndFactsRepository.Fact> frozen = facts.facts(month.id());
+            long onRecord = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::onRecord).sum();
+            long paying = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::paying).sum();
+            long suspended = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::suspended).sum();
+            long joined = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::joined).sum();
+            long left = frozen.stream().mapToLong(MonthEndFactsRepository.Fact::left).sum();
+
+            var membership = statistics.membership(asked, null, null);
+            var newAndDeleted = statistics.newAndDeleted(asked, null, null);
+            var leavers = statistics.leavers(asked, null, null);
+            var branches = statistics.branches(asked, null, null);
+            var recruitment = statistics.recruitment(asked, null, null);
+            var representatives = statistics.representatives(asked, null, null);
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(membership, "by-table-code")))
+                    .as("%s: on record, paying, suspended", asked).startsWith(onRecord + " " + paying + " " + suspended + " ");
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(newAndDeleted, "month-joined")))
+                    .as("%s: joined", asked).endsWith(" " + joined);
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(newAndDeleted, "month-left")))
+                    .as("%s: left", asked).endsWith(" " + left);
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(leavers, "by-area")))
+                    .as("%s: the leavers by reason", asked).endsWith(" " + left);
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(branches, "by-area")).split(" ")[1])
+                    .as("%s: members", asked).isEqualTo(String.valueOf(paying));
+            assertThat(StatisticsExpectations.total(StatisticsExpectations.sheet(recruitment, "by-channel")).split(" ")[0])
+                    .as("%s: the recruits", asked).isEqualTo(String.valueOf(joined));
+
+            for (var answer : List.of(membership, newAndDeleted, leavers, branches, recruitment, representatives)) {
+                for (var sheet : answer.sheets()) {
+                    if (sheet.key().equals("by-group") || sheet.total() == null) {
+                        continue;
+                    }
+                    for (int column = 0; column < sheet.columns().size(); column++) {
+                        if (!sheet.columns().get(column).kind().equals("COUNT") || sheet.total().cells().get(column) == null) {
+                            continue;
+                        }
+                        final int c = column;
+                        java.math.BigDecimal shown = sheet.rows().stream()
+                                .filter(r -> r.cells() != null && r.cells().get(c) != null)
+                                .map(r -> r.cells().get(c)).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                        boolean hidden = sheet.rows().stream().anyMatch(r -> r.cells() == null);
+                        String what = asked + " " + answer.statistic() + " " + sheet.key() + " " + sheet.columns().get(c).key();
+                        if (hidden) {
+                            assertThat(shown).as("%s: what is shown never exceeds the total", what)
+                                    .isLessThanOrEqualTo(sheet.total().cells().get(c));
+                        } else if (!sheet.key().startsWith("year") && !answer.statistic().equals("recruitment")) {
+                            assertThat(shown).as("%s: the rows sum to the total", what)
+                                    .isEqualByComparingTo(sheet.total().cells().get(c));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static long measured(List<MonthEndFactsRepository.Count> counts, MonthEndCount.Measure measure) {
+        return counts.stream().filter(c -> c.measure() == measure).mapToLong(MonthEndFactsRepository.Count::members)
+                .sum();
     }
 }

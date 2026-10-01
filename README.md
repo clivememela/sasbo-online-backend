@@ -346,8 +346,8 @@ open a session in the view layer.
 
 ### Seed/reference SQL
 
-`src/main/resources/data/` holds `deletion_codes.sql` and `subscriptions.sql` plus JSON data files consumed
-by the `DataSeeder` (see below).
+`src/main/resources/data/` holds `subscriptions.sql` plus JSON data files consumed by the `DataSeeder` (see below).
+SASBO's deletion codes are seeded from `sasbo_reference_lists.json`, by SASBO's own numbers (month end 01.1).
 
 ---
 

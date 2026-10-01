@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.config;
 import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -19,6 +20,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * start -- proved here through Spring's own binding, which is what F59 needs: the refusal happens as the
  * configuration is bound, before any seeder runs, outside the catch a seeder's failure meets.
  */
+// @Isolated for the reason PiiInLogsTest gives: this class captures a Logback logger, and Spring Boot resets
+// Logback whenever a context starts -- again after the test-context cache has closed one -- so a capture beside
+// that reset can come back empty. Seen once in five runs of SeedStartupTest, 2026-09-30.
+@Isolated
 @DisplayName("SASBO_ENVIRONMENT -- the production marker")
 class SasboEnvironmentTest {
 

@@ -54,6 +54,13 @@ public abstract class MemberMapper {
     // without a word, and this arc has already paid for that once.
     @Mapping(target = "recruitedHow", source = "recruitmentChannel.name")
     @Mapping(target = "areaRecruited", source = "recruitedArea.name")
+    // Month end 01.3 -- the member's workplace: three scalars, from the one join the list's entity graph gains
+    // (MR-PERF-9). Whether they are ANSWERED is the deployment's switch's (MD62), asked by MemberController, which
+    // also sets the lineage -- on the answer for one member, and on no list.
+    @Mapping(target = "workplaceId", source = "workplace.id")
+    @Mapping(target = "workplaceName", source = "workplace.name")
+    @Mapping(target = "workplaceRaNumber", source = "workplace.raNumber")
+    @Mapping(target = "workplace", ignore = true)
     // V55 -- the committee a BEC member sits on. Named explicitly: the entity's transient
     // `becCommitteeCode` shares the DTO's field name, so by name MapStruct would copy the
     // REQUEST's code back out rather than the stored committee's.
@@ -69,6 +76,8 @@ public abstract class MemberMapper {
     @Mapping(target = "structure", source = "structureId", qualifiedByName = "mapIdToStructure")
     @Mapping(target = "role", source = "roleId", qualifiedByName = "mapIdToRole")
     @Mapping(target = "jobGrade.grade", source = "jobGrade") // Sets the string into the new class instance
+    // 01.3: never bound -- the transient workplaceId is what a save names, and the service resolves it.
+    @Mapping(target = "workplace", ignore = true)
     public abstract Member toEntity(MemberDto memberDto);
 
     /**
@@ -90,6 +99,8 @@ public abstract class MemberMapper {
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "recruitmentRepresentative", ignore = true)
     @Mapping(target = "recruiter", ignore = true)
+    // Month end 01.3: resolved from the transient `workplaceId` by the service, as `structure` and `role` are.
+    @Mapping(target = "workplace", ignore = true)
     // V55: resolved onto the target from `becCommitteeCode` by the service, like `structure`.
     @Mapping(target = "becCommittee", ignore = true)
     // ── H8: MONEY IS NOT THE CALLER'S TO SET, even when it sends it ────────────

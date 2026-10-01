@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher;
@@ -48,6 +49,10 @@ import static org.assertj.core.api.Assertions.fail;
  * class uses is pinned inside the range the rate and the calendar cover (SD4-D): no seeder test here
  * reads the wall clock.
  */
+// @Isolated for the reason PiiInLogsTest gives: this class captures a Logback logger, and Spring Boot resets
+// Logback whenever a context starts -- again after the test-context cache has closed one -- so a capture beside
+// that reset can come back empty. Seen once in five runs of SeedStartupTest, 2026-09-30.
+@Isolated
 @DisplayName("AcbHistorySeeder -- the seed's returned month")
 class AcbHistorySeederIT extends AbstractAcbIT {
 

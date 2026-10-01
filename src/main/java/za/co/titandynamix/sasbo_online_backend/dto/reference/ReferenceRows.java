@@ -45,4 +45,11 @@ public final class ReferenceRows {
     /** Why a member is suspended: SASBO's code, and its words as printed. */
     public record SuspensionCode(int code, String name) {
     }
+
+    /**
+     * Why a member left (03.3): SASBO's NUMBER for it -- never the table's id (RC7) -- and its words; or, for one of the
+     * reasons SASBO keeps under a code (the reasons for resigning, under 2), no number and the code it stands {@code under}.
+     */
+    public record DeletionCode(Integer code, String name, Integer under) {
+    }
 }

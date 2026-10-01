@@ -51,6 +51,8 @@ public class DataSeeder implements ApplicationRunner {
     private final AcbHistorySeeder acbHistorySeeder;
     private final ReferenceListSeeder referenceListSeeder;
     private final WorkplaceSeeder workplaceSeeder;
+    private final DemonstrationMemberSeeder demonstrationMemberSeeder;
+    private final MonthEndTakeSeeder monthEndTakeSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -309,8 +311,17 @@ public class DataSeeder implements ApplicationRunner {
         // either: each seeder records what happened beside its list, and the status read answers it (ME-18). Within
         // the block the order is the order the rows refer to each other: SASBO's lists, then the workplaces that
         // stand on them, which are seeded only where the deployment's switch is set (MD45, MD53).
-        seedMonthEnd("SASBO's lists", this.referenceListSeeder::seed);
+        seedMonthEnd("SASBO's lists", this.referenceListSeeder::seedOrRecord);
         seedMonthEnd("SASBO's workplaces", this.workplaceSeeder::seed);
+        // Then the members who stand at them (01.4): the invented, and the seed's own 310 given a workplace in the
+        // same areas -- both only where the switch says all, never where the production marker is set (MD53).
+        seedMonthEnd("the invented members", () -> seedQuietly(this.demonstrationMemberSeeder::seed));
+        seedMonthEnd("the seed members' workplaces", () -> seedQuietly(this.demonstrationMemberSeeder::place));
+        // 03.7: their past -- the three months before the clock's, written through the real status change.
+        seedMonthEnd("the invented members' past", () -> seedQuietly(this.demonstrationMemberSeeder::past));
+        // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
+        // are on record (MD54).
+        seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).
@@ -325,11 +336,25 @@ public class DataSeeder implements ApplicationRunner {
         }
     }
 
+    /** A seeder that reads its file: an unreadable file is a failure of the seeder, caught like any other. */
+    private static void seedQuietly(IoSeeder seeder) {
+        try {
+            seeder.seed();
+        } catch (java.io.IOException unreadable) {
+            throw new java.io.UncheckedIOException(unreadable);
+        }
+    }
+
+    @FunctionalInterface
+    private interface IoSeeder {
+        int seed() throws java.io.IOException;
+    }
+
     /**
      * One call of month end's block, caught (MD65, MV-58): logged scrubbed -- the class and the stack, never the
-     * message, which may quote a row -- and the start goes on to the next.
+     * message, which may quote a row -- and the start goes on to the next. Package-private for its own test (DL-70).
      */
-    private static void seedMonthEnd(String what, Runnable seeder) {
+    static void seedMonthEnd(String what, Runnable seeder) {
         try {
             seeder.run();
         } catch (RuntimeException seedingFailed) {

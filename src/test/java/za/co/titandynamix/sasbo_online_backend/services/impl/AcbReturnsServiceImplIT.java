@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsSummaryDto;
@@ -44,6 +45,10 @@ import static org.assertj.core.api.Assertions.fail;
  * proved here instead, against runs put in the state they would be in; the build does not wait, only
  * its use does.
  */
+// @Isolated for the reason PiiInLogsTest gives: this class captures a Logback logger, and Spring Boot resets
+// Logback whenever a context starts -- again after the test-context cache has closed one -- so a capture beside
+// that reset can come back empty. Seen once in five runs of SeedStartupTest, 2026-09-30.
+@Isolated
 @DisplayName("The returns loop, on PostgreSQL")
 class AcbReturnsServiceImplIT extends AbstractAcbIT {
 

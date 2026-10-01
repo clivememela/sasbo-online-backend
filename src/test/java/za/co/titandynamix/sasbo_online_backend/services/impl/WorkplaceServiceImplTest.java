@@ -51,6 +51,10 @@ class WorkplaceServiceImplTest {
     @Test
     @DisplayName("🔒 MD62: switched off, nothing is read -- an empty page that says the workplaces are not loaded here")
     void switchedOffNothingIsRead() {
+        // A row on record, so that a switch not asked answers it -- and this reddens on an assertion, not a null (DL-68a).
+        when(workplaces.page(any(), anyInt(), anyInt(), anyBoolean()))
+                .thenReturn(new WorkplaceRepository.Slice(List.of(invented(1)), 1));
+
         WorkplacePageDto page = service(null).page(0, 50, null, null, null, null, null);
 
         assertThat(page.content()).isEmpty();
@@ -153,7 +157,7 @@ class WorkplaceServiceImplTest {
 
         assertThat(service("all").page(0, 50, null, null, null, null, null).reason()).isEqualTo("FAILED");
 
-        when(workplaces.count()).thenReturn(5507L);
+        when(workplaces.count()).thenReturn(4242L);
         assertThat(service("all").page(0, 50, null, null, "ZZ", null, null).reason())
                 .as("a filter that found nothing is not a list that is empty")
                 .isNull();

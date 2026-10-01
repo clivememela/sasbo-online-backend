@@ -39,7 +39,9 @@ class MonthEndGuardsTest {
                         || c.path().toString().replace('\\', '/').contains("/dto/reference/")
                         || c.path().toString().replace('\\', '/').contains("/dto/workplace/")
                         || c.path().toString().replace('\\', '/').contains("/entity/reference/")
-                        || c.path().toString().replace('\\', '/').contains("/entity/workplace/"))
+                        || c.path().toString().replace('\\', '/').contains("/entity/workplace/")
+                        || c.path().toString().replace('\\', '/').contains("/dto/monthend/")
+                        || c.path().toString().replace('\\', '/').contains("/entity/monthend/"))
                 .toList();
     }
 
@@ -48,7 +50,16 @@ class MonthEndGuardsTest {
             "MonthEndApi", "WorkplaceSwitch", "ReferenceListController", "WorkplaceController",
             "ListEmptyReason", "SeedFailure", "MonthEndExceptionHandler", "MonthEndRefusal", "MonthEndRefusalCode",
             "SasboReferenceRepository", "WorkplaceRepository", "ReferenceListService", "WorkplaceService",
-            "ReferenceListServiceImpl", "WorkplaceServiceImpl", "ListSync", "ReferenceListSeeder", "WorkplaceSeeder");
+            "ReferenceListServiceImpl", "WorkplaceServiceImpl", "ListSync", "ReferenceListSeeder", "WorkplaceSeeder",
+            "MemberStatusController", "MemberStatusService", "MemberStatusServiceImpl", "MemberStatusRequest",
+            "MemberStatusAnswer", "MemberStatusKind", "MemberWorkplaces", "WorkplaceEntityRepository",
+            "DemonstrationMember", "DemonstrationMemberSeeder", "MemberSummaryController", "MemberSummaryService",
+            "MemberSummaryServiceImpl", "MemberSummaryRepository", "MemberSummaryDto", "SummaryGate", "SummaryGrouping",
+            "MonthRange", "SmallCounts", "MemberHistoryController", "MemberHistoryService", "MemberHistoryRepository",
+            "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
+            "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController", "MonthEndPacks",
+            "MonthEndPackController", "MonthEndPackRepository", "MonthEndWorkbooks", "MonthEndPackLauncher",
+            "MonthEndPackConfig", "SpreadsheetText");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -170,7 +181,7 @@ class MonthEndGuardsTest {
                 calls++;
                 String arguments = withoutAllowed(argumentsOf(call.group(2)));
                 for (String reader : VALUE_READERS) {
-                    if (arguments.toLowerCase(Locale.ROOT).contains(reader.toLowerCase(Locale.ROOT))) {
+                    if (readsAValue(arguments, reader)) {
                         offenders.add(source.name() + ": log." + call.group(1) + "(... " + reader + " ...)");
                     }
                 }
@@ -186,10 +197,38 @@ class MonthEndGuardsTest {
         Matcher call = LOG_CALL.matcher("log.debug(\"searching for {}\", search);");
         assertThat(call.find()).isTrue();
         String arguments = withoutAllowed(argumentsOf(call.group(2)));
-        assertThat(VALUE_READERS.stream().anyMatch(arguments.toLowerCase(Locale.ROOT)::contains)).isTrue();
+        assertThat(VALUE_READERS.stream().anyMatch(reader -> readsAValue(arguments, reader))).isTrue();
         Matcher row = LOG_CALL.matcher("log.info(\"workplace {}\", w.getName());");
         assertThat(row.find()).isTrue();
-        assertThat(VALUE_READERS.stream().anyMatch(withoutAllowed(argumentsOf(row.group(2)))::contains)).isTrue();
+        assertThat(VALUE_READERS.stream().anyMatch(reader -> readsAValue(withoutAllowed(argumentsOf(row.group(2))), reader)))
+                .isTrue();
+        Matcher resultSet = LOG_CALL.matcher("log.info(\"read {}\", rs.getString(1));");
+        assertThat(resultSet.find()).isTrue();
+        assertThat(readsAValue(argumentsOf(resultSet.group(2)), "rs.")).as("a ResultSet read, by its name").isTrue();
+    }
+
+    @Test
+    @DisplayName("must-pass: a count whose name only ENDS in a reader's letters is not a value -- members.size() is not rs.")
+    void aNameThatOnlyEndsInAReaderIsNotOne() {
+        Matcher count = LOG_CALL.matcher("log.info(\"Seeded {} member(s) from {}\", members.size(), SEED_FILE);");
+        assertThat(count.find()).isTrue();
+        String arguments = withoutAllowed(argumentsOf(count.group(2)));
+        assertThat(VALUE_READERS.stream().filter(reader -> readsAValue(arguments, reader)).toList()).isEmpty();
+    }
+
+    /**
+     * Whether the arguments hand the logger a value, by one reader: a reader that is a NAME -- {@code rs.},
+     * {@code row.}, {@code search}, {@code note} -- matches only where it is a name of its own, never the tail of
+     * another ({@code members.size()} is a count, not a ResultSet); a reader that is a call -- {@code .get},
+     * {@code .asText(} -- matches wherever it is. Aimed at the fact, not at the spelling.
+     */
+    static boolean readsAValue(String arguments, String reader) {
+        String lower = arguments.toLowerCase(Locale.ROOT);
+        String wanted = reader.toLowerCase(Locale.ROOT);
+        if (!Character.isLetter(wanted.charAt(0))) {
+            return lower.contains(wanted);
+        }
+        return Pattern.compile("(?<![a-z0-9_])" + Pattern.quote(wanted)).matcher(lower).find();
     }
 
     /** The arguments after the message: the message itself is prose, written here, and names no value. */
@@ -213,9 +252,59 @@ class MonthEndGuardsTest {
     void everyGeneratedFileIsPinned() throws IOException {
         String attributes = Files.readString(Paths.get(".gitattributes"), StandardCharsets.UTF_8);
         for (String file : List.of("src/main/resources/data/sasbo_reference_lists.json",
-                "src/main/resources/data/sasbo_workplaces.json", "month-end-examples.json")) {
+                "src/main/resources/data/sasbo_workplaces.json", "src/main/resources/data/demonstration_members.json",
+                "month-end-examples.json")) {
             assertThat(pinned(attributes, file)).as("%s in .gitattributes", file).isTrue();
         }
+    }
+
+    /**
+     * The resources whose stated sizes no other number of the arc shares: the workplaces' and the invented members'.
+     * A list's size -- 137 at the most -- is too small to look for without catching a weight or a width, and the lists'
+     * tests read theirs from the file (MonthEndSeedTest.everyListIsThere).
+     */
+    static final List<String> SIZED = List.of("src/main/resources/data/sasbo_workplaces.json",
+            "src/main/resources/data/demonstration_members.json");
+
+    @Test
+    @DisplayName("MV-37, BR54: no test types the size a resource states -- each reads it from the file")
+    void noTestTypesAStatedSize() throws IOException {
+        List<String> offenders = new ArrayList<>();
+        int scanned = 0;
+        for (String resource : SIZED) {
+            int size = new ObjectMapper().readTree(Files.readString(Paths.get(resource), StandardCharsets.UTF_8))
+                    .path("count").asInt();
+            assertThat(size).as("%s states its size", resource).isGreaterThan(999);
+            Pattern typed = typedSize(size);
+            try (var files = Files.walk(Paths.get("src", "test", "java"))) {
+                for (var file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
+                    scanned++;
+                    if (typed.matcher(Files.readString(file, StandardCharsets.UTF_8)).find()) {
+                        offenders.add(file.getFileName() + " types " + size);
+                    }
+                }
+            }
+        }
+        assertThat(scanned).as("the test sources, scanned").isPositive();
+        assertThat(offenders).as("a size typed goes stale the day SASBO's list changes").isEmpty();
+    }
+
+    @Test
+    @DisplayName("canary: a size typed in any spelling is caught, and a longer number is not")
+    void theTypedSizePredicateCanFail() {
+        Pattern typed = typedSize(4321);
+        assertThat(typed.matcher("isEqualTo(4_321)").find()).isTrue();
+        assertThat(typed.matcher("generate_series(1, 4321)").find()).isTrue();
+        assertThat(typed.matcher("// 4,321 workplaces").find()).isTrue();
+        assertThat(typed.matcher("14321 and 43210 and 0.4321").find()).isFalse();
+    }
+
+    /** A size in the spellings a hand types it -- 4321, 4_321, 4,321 or 4 321 -- and never inside a longer number. */
+    static Pattern typedSize(int size) {
+        String digits = String.valueOf(size);
+        String thousands = digits.substring(0, digits.length() - 3);
+        return Pattern.compile("(?<![0-9_.,])" + thousands + "[_, ]?" + digits.substring(digits.length() - 3)
+                + "(?![0-9_])");
     }
 
     @Test
@@ -277,6 +366,10 @@ class MonthEndGuardsTest {
         return found;
     }
 
+    /** Why a statistic of month end is open (04.3 to 04.8). */
+    static final String STATISTIC = "counts, under rule C -- a membership below five at a named employer, table code or "
+            + "group never leaves the server -- and cut by where members work only where the switch says all (MD62)";
+
     /** The routes of the arc that are open, and the written reason each is (MV-34). */
     static final Map<String, String> OPEN_BY_REASON = Map.ofEntries(
             Map.entry("GET /api/reference/regions", "a list of SASBO's regions: codes, and nobody"),
@@ -287,6 +380,28 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/committee-provinces", "a list of province letters"),
             Map.entry("GET /api/reference/committees", "a list of committees: organisations"),
             Map.entry("GET /api/reference/suspension-codes", "a list of SASBO's suspension codes"),
+            Map.entry("GET /api/reference/deletion-codes", "a list of SASBO's deletion codes, by their numbers"),
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
-            Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"));
+            Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
+            Map.entry("POST /api/members/{id}/status", "as open as the PUT it replaces (MD13); named in B1's list, "
+                    + "and refusing from the day sign-in exists"),
+            Map.entry("GET /api/members/summary", "counts, under rule C: a membership below five at a named employer "
+                    + "or table code never leaves the server (MD4, MD37)"),
+            Map.entry("GET /api/members/{id}/history", "as open as every member read is today (MR-SEC-1); named in B1's "
+                    + "list, and refusing from the day sign-in exists"),
+            Map.entry("GET /api/month-end/months", "which months are taken, when and by whom: no member, no workplace"),
+            Map.entry("GET /api/month-end/{month}", "one month's record -- taken or open, when and by whom: no member, "
+                    + "no workplace"),
+            Map.entry("GET /api/month-end/{month}/new-and-deleted", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/membership", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/leavers", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/branches", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/recruitment", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/representatives", STATISTIC),
+            Map.entry("POST /api/month-end/{month}/pack", "the statistics as two workbooks: counts only, the sheets the "
+                    + "statistics answer, rule C and the switch applied as they apply them (04.10)"),
+            Map.entry("GET /api/month-end/packs/{id}", "a pack's progress: its month, its state and when"),
+            Map.entry("GET /api/month-end/packs/{id}/{workbook}", "a READY pack's workbook: the statistics' counts, as "
+                    + "open as the statistics are"));
+
 }

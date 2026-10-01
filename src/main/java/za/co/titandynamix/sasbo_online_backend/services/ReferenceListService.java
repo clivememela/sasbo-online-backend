@@ -27,5 +27,8 @@ public interface ReferenceListService {
 
     ReferenceListAnswer<ReferenceRows.SuspensionCode> suspensionCodes();
 
+    /** 03.3: SASBO's deletion codes, by their numbers, for the Change status dialog. */
+    ReferenceListAnswer<ReferenceRows.DeletionCode> deletionCodes();
+
     ReferenceStatusDto status();
 }

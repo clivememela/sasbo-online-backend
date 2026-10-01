@@ -83,6 +83,32 @@ public class ReferenceListSeeder {
         seed(RESOURCE);
     }
 
+    /**
+     * The block's call (MD65, MV-58): the lists seeded -- and should the seeder itself throw, every list this start left
+     * without an outcome is recorded FAILED, in the word for what was thrown, so the status read says the lists could
+     * not be loaded rather than that they are not loaded yet. A list already on record keeps its record. The throw goes
+     * on to the block, which logs it and starts the next seeder.
+     */
+    public void seedOrRecord() {
+        try {
+            seed();
+        } catch (RuntimeException thrown) {
+            SeedFailure word = SeedFailure.of(thrown);
+            Map<String, Record> recorded = Map.of();
+            try {
+                recorded = recorded();
+            } catch (RuntimeException unreadable) {
+                log.error("What SASBO's lists hold could not be read either", AcbLogging.scrubbed(unreadable));
+            }
+            for (String list : ORDER) {
+                if (!recorded.containsKey(list)) {
+                    recordFailure(list, "unknown", null, word);
+                }
+            }
+            throw thrown;
+        }
+    }
+
     /** Seeds from a resource on the classpath -- the real one, or a test's broken one. */
     void seed(String resourcePath) {
         JsonNode resource;

@@ -6,9 +6,12 @@ import org.springframework.stereotype.Repository;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceDto;
 
 import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Reads SASBO's workplaces a page at a time (01.2).
@@ -31,6 +34,11 @@ import java.util.Locale;
  */
 @Repository
 public class WorkplaceRepository {
+
+    /** What a workplace is answered with: itself, and its lineage. */
+    private static final String COLUMNS = "w.id, w.ra_number, w.name, w.employer_printed, e.id AS employer_id,"
+            + " e.name AS employer, g.name AS group_name, t.code AS table_code, w.table_code_by, a.letter AS area,"
+            + " r.code AS region, w.committee_code, c.name AS committee_name, w.staff_complement, w.closed_on";
 
     private static final String FROM = " FROM workplaces w"
             + " JOIN sasbo_areas a ON a.id = w.area_id"
@@ -89,10 +97,7 @@ public class WorkplaceRepository {
         }
         args.addValue("limit", size);
         args.addValue("offset", (long) page * size);
-        String sql = "SELECT w.id, w.ra_number, w.name, w.employer_printed, e.id AS employer_id, e.name AS employer,"
-                + " g.name AS group_name, t.code AS table_code, w.table_code_by, a.letter AS area, r.code AS region,"
-                + " w.committee_code, c.name AS committee_name, w.staff_complement, w.closed_on,"
-                + " count(*) OVER () AS total"
+        String sql = "SELECT " + COLUMNS + ", count(*) OVER () AS total"
                 + FROM
                 + (where.isEmpty() ? "" : " WHERE " + String.join(" AND ", where))
                 + " ORDER BY w.name, w.ra_number"
@@ -100,29 +105,42 @@ public class WorkplaceRepository {
         long[] total = {0};
         List<WorkplaceDto> rows = jdbc.query(sql, args, (rs, n) -> {
             total[0] = rs.getLong("total");
-            long employerId = rs.getLong("employer_id");
-            boolean noEmployer = rs.wasNull();
-            int tableCode = rs.getInt("table_code");
-            boolean noTableCode = rs.wasNull();
-            Date closed = rs.getDate("closed_on");
-            return new WorkplaceDto(
-                    rs.getLong("id"),
-                    rs.getInt("ra_number"),
-                    rs.getString("name"),
-                    rs.getString("employer_printed"),
-                    noEmployer ? null : employerId,
-                    rs.getString("employer"),
-                    rs.getString("group_name"),
-                    noTableCode ? null : tableCode,
-                    rs.getString("table_code_by"),
-                    rs.getString("area"),
-                    rs.getString("region"),
-                    rs.getString("committee_code"),
-                    rs.getString("committee_name"),
-                    withComplement ? rs.getInt("staff_complement") : null,
-                    closed == null ? null : closed.toLocalDate().toString());
+            return row(rs, withComplement);
         });
         return new Slice(rows, total[0]);
+    }
+
+    /**
+     * One workplace, with its lineage, by its id on record -- the lineage a member's answer carries (01.3). Empty where
+     * there is no such workplace. The same statement and the same row as a page's: one shape, read one way.
+     */
+    public Optional<WorkplaceDto> one(long id, boolean withComplement) {
+        return jdbc.query("SELECT " + COLUMNS + FROM + " WHERE w.id = :id",
+                new MapSqlParameterSource("id", id), (rs, n) -> row(rs, withComplement)).stream().findFirst();
+    }
+
+    private static WorkplaceDto row(ResultSet rs, boolean withComplement) throws SQLException {
+        long employerId = rs.getLong("employer_id");
+        boolean noEmployer = rs.wasNull();
+        int tableCode = rs.getInt("table_code");
+        boolean noTableCode = rs.wasNull();
+        Date closed = rs.getDate("closed_on");
+        return new WorkplaceDto(
+                rs.getLong("id"),
+                rs.getInt("ra_number"),
+                rs.getString("name"),
+                rs.getString("employer_printed"),
+                noEmployer ? null : employerId,
+                rs.getString("employer"),
+                rs.getString("group_name"),
+                noTableCode ? null : tableCode,
+                rs.getString("table_code_by"),
+                rs.getString("area"),
+                rs.getString("region"),
+                rs.getString("committee_code"),
+                rs.getString("committee_name"),
+                withComplement ? rs.getInt("staff_complement") : null,
+                closed == null ? null : closed.toLocalDate().toString());
     }
 
     /** How many workplaces are on record -- asked only to say why a page came back empty. */
