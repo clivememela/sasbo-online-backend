@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
@@ -121,13 +122,17 @@ class WorkplaceVisitIT extends AbstractSwitchedOnIT {
         history.seed();
         long seeded = jdbc.queryForObject("SELECT count(*) FROM workplace_visits WHERE seeded AND NOT day_known",
                 Long.class);
-        assertThat(seeded).as("the resource's months, every workplace on record here").isEqualTo(46_702L);
+        // Read from the resource, never typed (MV-37): the file says how many months it holds.
+        long months = objectMapper.readTree(new ClassPathResource(WorkplaceVisitSeeder.RESOURCE).getInputStream())
+                .path("visits").asLong();
+        assertThat(months).as("the resource states its months").isPositive();
+        assertThat(seeded).as("the resource's months, every workplace on record here").isEqualTo(months);
 
         history.seed();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM workplace_visits", Long.class))
                 .as("a second start writes nothing twice").isEqualTo(seeded);
 
-        // A workplace the branch list prints a visit for: not every one has one (5,123 of the 5,507).
+        // A workplace the branch list prints a visit for: not every one has one.
         workplace = jdbc.queryForObject("SELECT min(workplace_id) FROM workplace_visits WHERE seeded", Long.class);
         String month = jdbc.queryForObject("SELECT to_char(max(visited_on), 'YYYY-MM') FROM workplace_visits "
                 + "WHERE workplace_id = ?", String.class, workplace);

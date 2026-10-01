@@ -259,12 +259,14 @@ class MonthEndGuardsTest {
     }
 
     /**
-     * The resources whose stated sizes no other number of the arc shares: the workplaces' and the invented members'.
+     * The resources whose stated sizes no other number of the arc shares: the workplaces', the invented members' and,
+     * since A.1, the workplaces' visits -- whose file states two sizes, its workplaces ({@code count}) and its months
+     * ({@code visits}), and both are looked for.
      * A list's size -- 137 at the most -- is too small to look for without catching a weight or a width, and the lists'
      * tests read theirs from the file (MonthEndSeedTest.everyListIsThere).
      */
     static final List<String> SIZED = List.of("src/main/resources/data/sasbo_workplaces.json",
-            "src/main/resources/data/demonstration_members.json");
+            "src/main/resources/data/demonstration_members.json", "src/main/resources/data/sasbo_workplace_visits.json");
 
     @Test
     @DisplayName("MV-37, BR54: no test types the size a resource states -- each reads it from the file")
@@ -272,15 +274,20 @@ class MonthEndGuardsTest {
         List<String> offenders = new ArrayList<>();
         int scanned = 0;
         for (String resource : SIZED) {
-            int size = new ObjectMapper().readTree(Files.readString(Paths.get(resource), StandardCharsets.UTF_8))
-                    .path("count").asInt();
-            assertThat(size).as("%s states its size", resource).isGreaterThan(999);
-            Pattern typed = typedSize(size);
-            try (var files = Files.walk(Paths.get("src", "test", "java"))) {
-                for (var file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
-                    scanned++;
-                    if (typed.matcher(Files.readString(file, StandardCharsets.UTF_8)).find()) {
-                        offenders.add(file.getFileName() + " types " + size);
+            JsonNode stated = new ObjectMapper().readTree(Files.readString(Paths.get(resource), StandardCharsets.UTF_8));
+            List<Integer> sizes = new ArrayList<>(List.of(stated.path("count").asInt()));
+            if (stated.has("visits")) {
+                sizes.add(stated.path("visits").asInt());
+            }
+            for (int size : sizes) {
+                assertThat(size).as("%s states its size", resource).isGreaterThan(999);
+                Pattern typed = typedSize(size);
+                try (var files = Files.walk(Paths.get("src", "test", "java"))) {
+                    for (var file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
+                        scanned++;
+                        if (typed.matcher(Files.readString(file, StandardCharsets.UTF_8)).find()) {
+                            offenders.add(file.getFileName() + " types " + size);
+                        }
                     }
                 }
             }
