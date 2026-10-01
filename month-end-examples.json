@@ -2726,6 +2726,25 @@
         }
       }
     },
+    "STATUS_VIA_CHANGE_STATUS" : {
+      "request" : "PUT /api/members/{id}",
+      "requestBody" : {
+        "status" : "Resigned"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "A status is changed with \"Change status\", with its reason. The rest of your changes were not saved.",
+        "path" : "/api/members/{id}",
+        "code" : "STATUS_VIA_CHANGE_STATUS",
+        "details" : {
+          "currentStatus" : "Active",
+          "endpoint" : "/api/members/1/status"
+        }
+      }
+    },
     "MONTH_NOT_BEGUN" : {
       "request" : "POST /api/month-end/2026-10/take",
       "status" : 400,

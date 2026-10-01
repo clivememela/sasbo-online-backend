@@ -189,6 +189,9 @@ class MonthEndExamplesTest {
         // workplace not on record here.
         provoked.put(MonthEndRefusalCode.WORKPLACE_UNKNOWN, new Example("PUT", "/api/members/{member}",
                 "{\"workplaceId\": 999999}"));
+        // 03.4: thrown there too -- an edit that would change the status, which Change status alone changes (BR77).
+        provoked.put(MonthEndRefusalCode.STATUS_VIA_CHANGE_STATUS, new Example("PUT", "/api/members/{member}",
+                "{\"status\": \"Resigned\"}"));
         // 02.2: the figures' refusals -- the last with both of the gate's places taken, as two slow queries would.
         provoked.put(MonthEndRefusalCode.SUMMARY_GROUPING_UNKNOWN, new Example("GET", "/api/members/summary?by=bank", null));
         provoked.put(MonthEndRefusalCode.SUMMARY_AREA_UNKNOWN, new Example("GET", "/api/members/summary?area=QQ", null));

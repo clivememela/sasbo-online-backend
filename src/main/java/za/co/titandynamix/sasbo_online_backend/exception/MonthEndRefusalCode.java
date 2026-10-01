@@ -68,6 +68,13 @@ public enum MonthEndRefusalCode {
      * details say what the status is now, when it changed and by whom. Nothing was changed.
      */
     STATUS_CHANGED_SINCE(HttpStatus.CONFLICT),
+    /**
+     * 03.4: an edit that would change the member's status. A status is changed with Change status, by SASBO's code
+     * ({@code POST /api/members/{id}/status}), and never by an edit (MD13, BR77). The edit is refused whole and nothing
+     * is written; the browser keeps the form as typed (ME-2). The details carry the status on record and the route a
+     * status is changed by. The same status sent back unchanged is no change, and is accepted.
+     */
+    STATUS_VIA_CHANGE_STATUS(HttpStatus.CONFLICT),
     /** 04.2: a month that has not begun -- after the server's own, in SASBO's zone. The details carry both. */
     MONTH_NOT_BEGUN(HttpStatus.BAD_REQUEST),
     /**

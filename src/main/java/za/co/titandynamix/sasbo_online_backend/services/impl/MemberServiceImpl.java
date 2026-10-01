@@ -10,6 +10,8 @@ import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequ
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.member.MemberStatusChange;
 import za.co.titandynamix.sasbo_online_backend.enums.JobGradeOutcome;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.utils.DebitDay;
 import za.co.titandynamix.sasbo_online_backend.utils.JobGradeMatcher;
 import za.co.titandynamix.sasbo_online_backend.entity.recruitment.Recruiter;
@@ -214,6 +216,8 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
+            // Month end 03.4, before ANYTHING is merged or written: an edit never changes the status (ME-2).
+            refuseAChangeOfStatus(existing, updated);
             // 03.5, before ANYTHING changes the member: the history's picture of them as they were.
             Map<String, String> before = this.trail.snapshot(existing);
             // Month end 01.3, FIRST: a workplace not on record is refused before anything is merged or written (ME-12);
@@ -261,6 +265,25 @@ public class MemberServiceImpl implements MemberService {
             this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
             return saved;
         });
+    }
+
+    /**
+     * Month end 03.4: a status is changed with Change status, by SASBO's code -- {@code POST /api/members/{id}/status}
+     * and {@link #changeStatus} behind it -- and never by an edit (MD13, BR77). An edit that would change it is refused
+     * WHOLE, before anything is merged or written, and the browser keeps the form as typed (ME-2). The same status sent
+     * back unchanged is no change, and the edit goes on: every screen sends the whole record. None sent leaves it as
+     * it was.
+     *
+     * @throws MonthEndRefusal {@code STATUS_VIA_CHANGE_STATUS} -- nothing written
+     */
+    private static void refuseAChangeOfStatus(Member existing, Member updated) {
+        String asked = updated.getStatus();
+        if (asked != null && !asked.equals(existing.getStatus())) {
+            throw new MonthEndRefusal(MonthEndRefusalCode.STATUS_VIA_CHANGE_STATUS,
+                    "A status is changed with \"Change status\", with its reason. The rest of your changes were not saved.",
+                    Map.of("currentStatus", existing.getStatus() == null ? "" : existing.getStatus(),
+                            "endpoint", "/api/members/" + existing.getId() + "/status"));
+        }
     }
 
     /**

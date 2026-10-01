@@ -152,6 +152,7 @@
       {"code": "DELETION_CODE_UNKNOWN", "status": 400},
       {"code": "SUSPENSION_CODE_UNKNOWN", "status": 400},
       {"code": "STATUS_CHANGED_SINCE", "status": 409},
+      {"code": "STATUS_VIA_CHANGE_STATUS", "status": 409},
       {"code": "MONTH_NOT_BEGUN", "status": 400},
       {"code": "MONTH_ALREADY_TAKEN", "status": 409},
       {"code": "MONTH_NOT_READY", "status": 409},
