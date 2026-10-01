@@ -83,7 +83,7 @@ class MemberStatusChangeIT extends AbstractWritingIT {
     private za.co.titandynamix.sasbo_online_backend.repository.MemberHistoryRepository history;
 
     @Test
-    @DisplayName("04.5: a resignation with the reason given under code 2 -- that reason's row written, SASBO's number answered and in the history")
+    @DisplayName("PA-2, 04.5: a member who leaves keeps their record, with the reason and the date -- a resignation with the reason given under code 2, that reason's row written, SASBO's number answered and in the history")
     void aReasonUnderTheCode() {
         String reason = jdbc.queryForObject("SELECT d.name FROM deletion_codes d JOIN deletion_codes p ON p.id = "
                 + "d.parent_id WHERE p.sasbo_code = 2 ORDER BY d.id LIMIT 1", String.class);
@@ -92,6 +92,10 @@ class MemberStatusChangeIT extends AbstractWritingIT {
                 null, reason.toUpperCase(java.util.Locale.ROOT)));
 
         assertThat(answer.change().deletionCode()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, memberId))
+                .as("PA-2: the member keeps their record -- Resigned, never deleted").isEqualTo("Resigned");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM member_status_changes WHERE member_id = ? "
+                + "AND changed_at IS NOT NULL", Long.class, memberId)).as("PA-2: with its date").isEqualTo(1);
         assertThat(answer.change().reasonUnderCode()).isEqualTo(reason);
         Long row = jdbc.queryForObject("SELECT deletion_code_id FROM member_status_changes WHERE member_id = ?",
                 Long.class, memberId);

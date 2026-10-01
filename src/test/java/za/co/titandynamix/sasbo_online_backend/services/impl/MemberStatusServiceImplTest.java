@@ -75,7 +75,7 @@ class MemberStatusServiceImplTest {
     }
 
     @Test
-    @DisplayName("PA-4: a leaving is written with SASBO's deletion code, by the server's actor and clock")
+    @DisplayName("PA-4, PA-12: a leaving is written with SASBO's deletion code, by the server's actor -- `system` until sign-in -- and clock")
     void aLeavingWithItsCode() {
         when(codes.deletionCode(2)).thenReturn(Optional.of(new SasboReferenceRepository.Code(12L, 2, "Resigned Society")));
         when(codes.deletionCodeById(12L)).thenReturn(Optional.of(new SasboReferenceRepository.Code(12L, 2, "Resigned Society")));

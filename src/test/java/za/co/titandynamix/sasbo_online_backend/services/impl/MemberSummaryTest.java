@@ -83,7 +83,7 @@ class MemberSummaryTest {
 
     @ParameterizedTest(name = "by {0}")
     @FieldSource("GROUPINGS")
-    @DisplayName("every figure of every row, for each of the six groupings -- and the rows sum to the whole (MV-16)")
+    @DisplayName("PA-1, PA-5, PA-7, PA-8, MV-16: every figure of every row, for each of the six groupings -- joined by Date Joined, a return its own event, penetration of the complement on record -- and the rows sum to the whole")
     void everyGrouping(String by) {
         SummaryFixture.assertAnswer(summaries.summary("2026-09", by, null, null), by);
     }

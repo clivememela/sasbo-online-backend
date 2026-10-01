@@ -56,7 +56,7 @@ class MemberHistoryIT extends AbstractWritingIT {
     }
 
     @Test
-    @DisplayName("a capture is one row; a PUT of two fields is two rows under one save; a save of nothing writes nothing")
+    @DisplayName("PA-6: the history is written by one trail inside the save -- a capture is one row; a PUT of two fields is two rows under one save; a save of nothing writes nothing")
     void theRowsASaveWrites() {
         Member captured = members.create(MemberFixture.aMember());
         assertThat(rows(captured.getId())).isEqualTo(1);
