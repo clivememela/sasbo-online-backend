@@ -127,6 +127,8 @@ class WorkplaceVisitIT extends AbstractSwitchedOnIT {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM workplace_visits", Long.class))
                 .as("a second start writes nothing twice").isEqualTo(seeded);
 
+        // A workplace the branch list prints a visit for: not every one has one (5,123 of the 5,507).
+        workplace = jdbc.queryForObject("SELECT min(workplace_id) FROM workplace_visits WHERE seeded", Long.class);
         String month = jdbc.queryForObject("SELECT to_char(max(visited_on), 'YYYY-MM') FROM workplace_visits "
                 + "WHERE workplace_id = ?", String.class, workplace);
         assertThat(record("{\"visitedOn\": \"" + month + "-15\"}").getStatus()).isEqualTo(201);
