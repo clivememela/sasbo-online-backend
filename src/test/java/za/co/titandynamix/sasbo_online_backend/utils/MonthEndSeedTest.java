@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,6 +45,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>No count typed here is a count of SASBO's: every expected size is read from the resource itself, which states
  * how many rows each list holds (MV-37).
  */
+// @Isolated: the fast lane starts more contexts than the test-context cache keeps (32), and runs classes side by side,
+// so a class that starts one can close this class's -- its pool shut down mid-test. Seen on 1 Oct, run 36897728058: MV-16
+// failed "Unable to rollback against JDBC Connection: Connection is closed", its pool's shutdown logged while
+// SubscriptionsControllerTest ran, and a second pool started on the same database. Nothing runs beside it now, so
+// nothing can evict it while it runs -- as the classes that capture Logback do, for the same cache (PiiInLogsTest).
+@Isolated
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
         "sasbo.workplaces=all",
         "spring.datasource.url=jdbc:h2:mem:month-end-seed;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"})
