@@ -172,6 +172,40 @@ class MonthEndStatisticsTest {
     }
 
     @Test
+    @DisplayName("🔒 MO23: A.C.B.'s two reasons read in SASBO's codes -- a termination for SUBS_IN_ARREARS is a leaver under code 5, a suspension for UNPAID_SUSPENDED is suspended under code 13")
+    void acbsTwoReasonsReadInSasbosCodes() {
+        // A.C.B. writes its changes with a reason and no code of SASBO's. Here m14 is terminated by it in September, and
+        // m7 -- the fixture's one suspended member, with no change on record -- suspended by it; undone after. The
+        // fixture's own code-5 leaver, m17, was given the code by hand: the two are one column (MO23).
+        boolean codeAdded = jdbc.queryForObject("SELECT count(*) FROM suspension_codes WHERE code = 13", Long.class) == 0;
+        if (codeAdded) {
+            jdbc.update("INSERT INTO suspension_codes (code, name) VALUES (13, 'INVENTED DEBIT RETURNED')");
+        }
+        Integer m14 = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = 'M-800014'", Integer.class);
+        Integer m7 = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = 'M-800007'", Integer.class);
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at) "
+                + "VALUES (?, 'Active', 'Terminated', 'SUBS_IN_ARREARS', 'acb', "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-13 08:00:00+00:00')", m14);
+        jdbc.update("UPDATE members SET status = 'Terminated' WHERE id = ?", m14);
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at) "
+                + "VALUES (?, 'Active', 'Suspended', 'UNPAID_SUSPENDED', 'acb', "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-05 08:00:00+00:00')", m7);
+        try {
+            MonthEndStatisticDto.Sheet byArea = sheet(statistics.leavers("2026-09", null, null), "by-area");
+            assertThat(rows(byArea)).as("area B: m15 under code 2, and m17 and m14 under code 5 -- none without a code")
+                    .containsExactly("A: 0 0 0 0 0", "B: 0 1 2 0 3");
+            assertThat(rows(sheet(statistics.membership("2026-09", null, null), "suspended-by-code")))
+                    .as("m7 under the code of A.C.B.'s suspension, 13").containsExactly("13: 1");
+        } finally {
+            jdbc.update("DELETE FROM member_status_changes WHERE member_id IN (?, ?) AND changed_by = 'acb'", m14, m7);
+            jdbc.update("UPDATE members SET status = 'Active' WHERE id = ?", m14);
+            if (codeAdded) {
+                jdbc.update("DELETE FROM suspension_codes WHERE code = 13");
+            }
+        }
+    }
+
+    @Test
     @DisplayName("🔒 MR-ROB-4, DL-65: a member captured after September is taken, dated inside it, moves none of its statistics")
     void aLateCaptureMovesNothing() {
         takes.take(SummaryFixture.MONTH, "seed");

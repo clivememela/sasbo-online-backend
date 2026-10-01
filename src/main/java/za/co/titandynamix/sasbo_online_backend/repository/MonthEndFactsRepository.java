@@ -48,6 +48,17 @@ public class MonthEndFactsRepository {
     public static final String DEBIT_ORDER = "Debit Order";
     public static final String PAYROLL_DEDUCTION = "Payroll Deduction";
 
+    /**
+     * A.C.B.'s two reasons, read in SASBO's codes -- the owner's decision of 2026-10-01 (MO23), as A.C.B.'s owner: a
+     * termination A.C.B. writes for {@code SUBS_IN_ARREARS}, with no deletion code of its own, is a leaver under SASBO's
+     * deletion code 5, <em>Subscription in Arrears</em>; a suspension it writes for {@code UNPAID_SUSPENDED} is
+     * suspended under suspension code 13, <em>Debit returned</em>. Only month end's counts read it so: A.C.B.'s own
+     * code, and its count of terminations by {@code SUBS_IN_ARREARS} (BR39), are untouched. Where the code is not on
+     * the list, the change is counted as before, under its reason.
+     */
+    static final int ARREARS_DELETION_CODE = 5;
+    static final int DEBIT_RETURNED_SUSPENSION_CODE = 13;
+
     /** The take's: a month is taken whole, however long the database takes over it. */
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -139,10 +150,12 @@ public class MonthEndFactsRepository {
      * members}, one row a workplace and a value:
      * <ul>
      *   <li>{@code LEFT_BY_CODE}: the month's changes INTO a leaving status (rule L), by SASBO's number -- the code's
-     *       own, or the one it is a reason under -- with the reason under it as the detail. A leaver with no code
-     *       (ACB's {@code SUBS_IN_ARREARS}) is counted under the reason as stored;</li>
+     *       own, or the one it is a reason under -- with the reason under it as the detail. A.C.B.'s
+     *       {@code SUBS_IN_ARREARS} is read as code 5 (MO23, {@link #ARREARS_DELETION_CODE}); any other leaver with no
+     *       code is counted under the reason as stored;</li>
      *   <li>{@code SUSPENDED_BY_CODE}: the suspended at the month's end, by the code of the last change into a
-     *       suspended status before it ended. Suspended with no change on record (captured so): no code;</li>
+     *       suspended status before it ended -- A.C.B.'s {@code UNPAID_SUSPENDED} read as code 13 (MO23,
+     *       {@link #DEBIT_RETURNED_SUSPENSION_CODE}). Suspended with no change on record (captured so): no code;</li>
      *   <li>{@code RECRUITED_BY}: a Date Joined in the month, whatever the status now (rule N), by recruiter and
      *       channel;</li>
      *   <li>{@code UNKNOWN_STATUS}: a status at the month's end nobody knows (rule X), as stored.</li>
@@ -166,12 +179,14 @@ public class MonthEndFactsRepository {
                       FROM member_status_changes c
                       JOIN members m ON m.id = c.member_id
                       LEFT JOIN deletion_codes d ON d.id = c.deletion_code_id
+                        OR (c.deletion_code_id IS NULL AND CAST(c.reason AS VARCHAR(32)) = 'SUBS_IN_ARREARS'
+                            AND d.sasbo_code = %3$d)
                       LEFT JOIN deletion_codes p ON p.id = d.parent_id
                       WHERE c.changed_at >= :start AND c.changed_at < :next
                         AND %1$s = 'L' AND COALESCE(%2$s, '?') <> 'L'
                     ) l
                     GROUP BY l.workplace_key, l.code, l.name, l.detail
-                    """.formatted(toKind, fromKind);
+                    """.formatted(toKind, fromKind, ARREARS_DELETION_CODE);
             case SUSPENDED_BY_CODE -> """
                     SELECT s.workplace_key AS workplace_key, CAST('SUSPENDED_BY_CODE' AS VARCHAR(20)) AS measure,
                       s.code AS code, s.name AS name, CAST(NULL AS VARCHAR(255)) AS detail, COUNT(*) AS members
@@ -188,10 +203,13 @@ public class MonthEndFactsRepository {
                             AND (y.changed_at > c.changed_at OR (y.changed_at = c.changed_at AND y.id > c.id)))
                       ) last_in ON last_in.member_id = k.member_id
                       LEFT JOIN suspension_codes sc ON sc.id = last_in.suspension_code_id
+                        OR (last_in.suspension_code_id IS NULL
+                            AND CAST(last_in.reason AS VARCHAR(32)) = 'UNPAID_SUSPENDED' AND sc.code = %4$d)
                       WHERE k.end_kind = 'S'
                     ) s
                     GROUP BY s.workplace_key, s.code, s.name
-                    """.formatted(kinds(), toKind, MemberSummaryRepository.kind("y.to_status"));
+                    """.formatted(kinds(), toKind, MemberSummaryRepository.kind("y.to_status"),
+                    DEBIT_RETURNED_SUSPENSION_CODE);
             case RECRUITED_BY -> """
                     SELECT r.workplace_key AS workplace_key, CAST('RECRUITED_BY' AS VARCHAR(20)) AS measure,
                       r.code AS code, r.name AS name, r.detail AS detail, COUNT(*) AS members
