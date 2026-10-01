@@ -51,6 +51,7 @@ public class DataSeeder implements ApplicationRunner {
     private final AcbHistorySeeder acbHistorySeeder;
     private final ReferenceListSeeder referenceListSeeder;
     private final WorkplaceSeeder workplaceSeeder;
+    private final WorkplaceVisitSeeder workplaceVisitSeeder;
     private final DemonstrationMemberSeeder demonstrationMemberSeeder;
     private final MonthEndTakeSeeder monthEndTakeSeeder;
 
@@ -313,6 +314,9 @@ public class DataSeeder implements ApplicationRunner {
         // stand on them, which are seeded only where the deployment's switch is set (MD45, MD53).
         seedMonthEnd("SASBO's lists", this.referenceListSeeder::seedOrRecord);
         seedMonthEnd("SASBO's workplaces", this.workplaceSeeder::seed);
+        // A.1: their history of visits, the months the branch list prints -- on the workplaces they stand on, only where
+        // the switch is set (MD45, MD53).
+        seedMonthEnd("SASBO's branch visits", this.workplaceVisitSeeder::seed);
         // Then the members who stand at them (01.4): the invented, and the seed's own 310 given a workplace in the
         // same areas -- both only where the switch says all, never where the production marker is set (MD53).
         seedMonthEnd("the invented members", () -> seedQuietly(this.demonstrationMemberSeeder::seed));

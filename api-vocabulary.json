@@ -139,6 +139,7 @@
       {"code": "REQUEST_MALFORMED", "status": 400},
       {"code": "WORKPLACE_PAGE_INVALID", "status": 400},
       {"code": "WORKPLACE_UNKNOWN", "status": 400},
+      {"code": "VISIT_INVALID", "status": 400},
       {"code": "SUMMARY_GROUPING_UNKNOWN", "status": 400},
       {"code": "SUMMARY_AREA_UNKNOWN", "status": 400},
       {"code": "SUMMARY_MONTH_INVALID", "status": 400},

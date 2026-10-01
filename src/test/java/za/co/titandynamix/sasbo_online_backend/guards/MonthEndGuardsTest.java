@@ -383,6 +383,10 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/deletion-codes", "a list of SASBO's deletion codes, by their numbers"),
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
             Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
+            Map.entry("GET /api/workplaces/{id}/visits", "a workplace's visits: the day and the complement found; who "
+                    + "visited and the counts of members are withheld (MD61, B1)"),
+            Map.entry("POST /api/workplaces/{id}/visits", "a visit recorded: as open as every write today, and named in "
+                    + "B1's list (MR-SEC-1)"),
             Map.entry("POST /api/members/{id}/status", "as open as the PUT it replaces (MD13); named in B1's list, "
                     + "and refusing from the day sign-in exists"),
             Map.entry("GET /api/members/summary", "counts, under rule C: a membership below five at a named employer "

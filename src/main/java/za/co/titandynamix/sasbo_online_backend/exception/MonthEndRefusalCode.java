@@ -24,14 +24,24 @@ public enum MonthEndRefusalCode {
      * details carry the NAME of the field, never what was sent.
      */
     REQUEST_MALFORMED(HttpStatus.BAD_REQUEST),
-    /** 01.2: a page of the workplaces that does not exist. The details carry the page, the size and the ceiling. */
+    /**
+     * 01.2: a page of the workplaces that does not exist -- and A.1: a page of a workplace's visits that does not.
+     * The details carry the page, the size and the ceiling.
+     */
     WORKPLACE_PAGE_INVALID(HttpStatus.BAD_REQUEST),
     /**
      * 01.3: a member's save names a workplace that is not on record here -- or none is served here (MD62). Looked for
      * BEFORE the save, so the database's foreign key is never what refuses it; answered by the global handler, the
      * save running under {@code MemberController} (ME-12). The details carry the id asked for. Nothing was written.
+     * A.1: also a visit asked of, or recorded for, a workplace that is not on record here.
      */
     WORKPLACE_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /**
+     * A.1: a visit that cannot be recorded -- no day, a day still to come in SASBO's zone, a count below nought, a
+     * time out before the time in, or a visitor's name past its column. The details name the field. Nothing was
+     * written, the workplace's complement included.
+     */
+    VISIT_INVALID(HttpStatus.BAD_REQUEST),
     /** 02.2: a grouping the figures do not take. The details carry the six they do. */
     SUMMARY_GROUPING_UNKNOWN(HttpStatus.BAD_REQUEST),
     /** 02.2: an area or a region that is not on record here. The details name which was asked for. */

@@ -378,6 +378,60 @@
         "reason" : null
       }
     },
+    "GET /api/workplaces/{id}/visits" : {
+      "request" : "GET /api/workplaces/{workplace}/visits",
+      "status" : 200,
+      "body" : {
+        "workplaceId" : 1,
+        "visits" : [
+          {
+            "id" : 2,
+            "visitedOn" : "2026-08-20",
+            "dayKnown" : true,
+            "complementFound" : 40,
+            "complementBefore" : 38,
+            "seeded" : false
+          },
+          {
+            "id" : 1,
+            "visitedOn" : "2026-07-01",
+            "dayKnown" : false,
+            "complementFound" : null,
+            "complementBefore" : null,
+            "seeded" : true
+          }
+        ],
+        "page" : 0,
+        "size" : 20,
+        "totalElements" : 2,
+        "totalPages" : 1,
+        "withheld" : [
+          "organiser",
+          "membershipFound",
+          "nonMembers",
+          "recruited",
+          "nonMembersInterviewed"
+        ]
+      }
+    },
+    "POST /api/workplaces/{id}/visits" : {
+      "request" : "POST /api/workplaces/{workplace}/visits",
+      "requestBody" : {
+        "visitedOn" : "2026-09-10",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "membershipFound" : 12
+      },
+      "status" : 201,
+      "body" : {
+        "id" : 3,
+        "visitedOn" : "2026-09-10",
+        "dayKnown" : true,
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "seeded" : false
+      }
+    },
     "GET /api/members/summary" : {
       "request" : "GET /api/members/summary?by=group",
       "status" : 200,
@@ -2490,6 +2544,24 @@
         "code" : "WORKPLACE_UNKNOWN",
         "details" : {
           "workplaceId" : "999999"
+        }
+      }
+    },
+    "VISIT_INVALID" : {
+      "request" : "POST /api/workplaces/{workplace}/visits",
+      "requestBody" : {
+        "complementFound" : 40
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "The day of the visit is needed. Nothing was saved.",
+        "path" : "/api/workplaces/1/visits",
+        "code" : "VISIT_INVALID",
+        "details" : {
+          "field" : "visitedOn"
         }
       }
     },

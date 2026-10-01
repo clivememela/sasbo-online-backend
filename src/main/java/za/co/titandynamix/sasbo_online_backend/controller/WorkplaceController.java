@@ -1,12 +1,20 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.config.MonthEndApi;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplacePageDto;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceVisitPageDto;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceVisitRequest;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
+import za.co.titandynamix.sasbo_online_backend.services.WorkplaceVisitService;
 
 /**
  * SASBO's workplaces, a page at a time (month end 01.2).
@@ -24,9 +32,11 @@ import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
 public class WorkplaceController {
 
     private final WorkplaceService workplaces;
+    private final WorkplaceVisitService visits;
 
-    public WorkplaceController(WorkplaceService workplaces) {
+    public WorkplaceController(WorkplaceService workplaces, WorkplaceVisitService visits) {
         this.workplaces = workplaces;
+        this.visits = visits;
     }
 
     @GetMapping
@@ -38,5 +48,22 @@ public class WorkplaceController {
                                  @RequestParam(required = false) String committee,
                                  @RequestParam(required = false) String search) {
         return workplaces.page(page, size, employer, tableCode, area, committee, search);
+    }
+
+    /** A.1: a workplace's visits, a page at a time, newest first -- the day and the complement found (MD61, B1). */
+    @GetMapping("/{id}/visits")
+    public WorkplaceVisitPageDto visitsOf(@PathVariable Long id, @RequestParam(required = false) Integer page,
+                                          @RequestParam(required = false) Integer size) {
+        return visits.page(id, page, size);
+    }
+
+    /**
+     * A.1: records a visit to a workplace -- as open as every write today, and named in B1's list (MR-SEC-1). A visit
+     * that found another complement writes the workplace's, keeping what it was.
+     */
+    @PostMapping("/{id}/visits")
+    public ResponseEntity<WorkplaceVisitPageDto.Visit> record(@PathVariable Long id,
+                                                              @RequestBody WorkplaceVisitRequest visit) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(visits.record(id, visit));
     }
 }

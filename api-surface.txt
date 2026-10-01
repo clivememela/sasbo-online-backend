@@ -103,4 +103,6 @@ DELETE /api/subscriptions/{id}
 GET /api/subscriptions/{id}
 PUT /api/subscriptions/{id}
 GET /api/workplaces
+GET /api/workplaces/{id}/visits
+POST /api/workplaces/{id}/visits
 ANY /error
