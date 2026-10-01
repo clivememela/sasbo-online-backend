@@ -357,12 +357,21 @@ public class MonthEndStatistics {
                 "SASBO AREA SUMMARY OF COMMITTEE MEMBERS", MonthEndStatistics::tableCodeKey, committeeColumns,
                 a -> cells(n(a.committeeMembers), n(a.workplaces), n(a.withCommitteeMembers),
                         n(a.workplaces - a.withCommitteeMembers), share(a.withCommitteeMembers, a.workplaces)), true);
+        // MM80, SASBO's answer of 1 Oct: a Memnet member is marked so from the nomination form, at capture or on an edit.
+        List<Column> memnetColumns = List.of(count("memnetMembers", "Memnet members"), count("workplaces", "Workplaces"),
+                count("with", "With a Memnet member"), count("without", "Without one"),
+                share("share", "Share with one"));
+        Sheet memnet = placeSheet(read, "memnet-members", "Memnet members, by table code",
+                "SASBO AREA SUMMARY OF MEMNET MEMBERS", MonthEndStatistics::tableCodeKey, memnetColumns,
+                a -> cells(n(a.memnetMembers), n(a.workplaces), n(a.withMemnetMembers),
+                        n(a.workplaces - a.withMemnetMembers), share(a.withMemnetMembers, a.workplaces)), true);
         List<String> notes = notes(read);
         notes.add("A representative is a member on record marked as a shop steward, and a committee member one marked "
                 + "as a BEC member -- a reading SASBO is asked to confirm.");
-        notes.add("Memnet membership is not captured by this system, so it is not counted here.");
+        notes.add("A Memnet member is a member on record marked so from the nomination form, at capture or on an edit. "
+                + "A month taken before the mark existed counts none.");
         return answer("representatives", List.of("reps_no", "comm_mem", "memnet_area"), read,
-                List.of(reps, committees), notes);
+                List.of(reps, committees, memnet), notes);
     }
 
     /**
@@ -831,9 +840,11 @@ public class MonthEndStatistics {
         long byOther;
         long representatives;
         long committeeMembers;
+        long memnetMembers;
         long workplaces;
         long withRepresentatives;
         long withCommitteeMembers;
+        long withMemnetMembers;
         long complement;
         long coreComplement;
         long corePaying;
@@ -858,10 +869,12 @@ public class MonthEndStatistics {
             byOther += f.byOther();
             representatives += f.representatives();
             committeeMembers += f.committeeMembers();
+            memnetMembers += f.memnetMembers();
             if (f.workplaceKey() != 0) {
                 workplaces++;
                 withRepresentatives += f.representatives() > 0 ? 1 : 0;
                 withCommitteeMembers += f.committeeMembers() > 0 ? 1 : 0;
+                withMemnetMembers += f.memnetMembers() > 0 ? 1 : 0;
             }
             long staff = f.complement() == null ? 0 : f.complement();
             complement += staff;
@@ -885,9 +898,11 @@ public class MonthEndStatistics {
             byOther += a.byOther;
             representatives += a.representatives;
             committeeMembers += a.committeeMembers;
+            memnetMembers += a.memnetMembers;
             workplaces += a.workplaces;
             withRepresentatives += a.withRepresentatives;
             withCommitteeMembers += a.withCommitteeMembers;
+            withMemnetMembers += a.withMemnetMembers;
             complement += a.complement;
             coreComplement += a.coreComplement;
             corePaying += a.corePaying;

@@ -132,6 +132,10 @@ public class MonthEndWorkplaceFact {
     @Column(name = "committee_members", nullable = false)
     private Integer committeeMembers;
 
+    /** 04.8 (V63, MM80): the members on record marked as Memnet members. A month taken before the mark counts none. */
+    @Column(name = "memnet_members", nullable = false)
+    private Integer memnetMembers;
+
     @Column(name = "seeded", nullable = false)
     private Integer seeded;
 

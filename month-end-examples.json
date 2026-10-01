@@ -2451,13 +2451,131 @@
                 0.0
               ]
             }
+          },
+          {
+            "key" : "memnet-members",
+            "title" : "Memnet members, by table code",
+            "legacyTitle" : "SASBO AREA SUMMARY OF MEMNET MEMBERS",
+            "columns" : [
+              {
+                "key" : "memnetMembers",
+                "label" : "Memnet members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "workplaces",
+                "label" : "Workplaces",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "with",
+                "label" : "With a Memnet member",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "without",
+                "label" : "Without one",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "share",
+                "label" : "Share with one",
+                "kind" : "SHARE"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "901",
+                "label" : "901 INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "902",
+                "label" : "902 INVENTED BANK DEPARTMENTS",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "903",
+                "label" : "903 INVENTED INSURER CASH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                4,
+                0,
+                4,
+                0.0
+              ]
+            }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
           "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
           "A representative is a member on record marked as a shop steward, and a committee member one marked as a BEC member -- a reading SASBO is asked to confirm.",
-          "Memnet membership is not captured by this system, so it is not counted here."
+          "A Memnet member is a member on record marked so from the nomination form, at capture or on an edit. A month taken before the mark existed counts none."
         ]
       }
     },

@@ -185,6 +185,11 @@ public final class StatisticsExpectations {
         assertThat(rows(committees)).containsExactly("901: withheld", "902: fewer than five",
                 "~NO_TABLE_CODE: 0 1 0 1 0.0000", "~NO_WORKPLACE: 0 0 0 0 -");
         assertThat(total(committees)).as("four workplaces, none with a committee member").isEqualTo("0 4 0 4 0.0000");
-        assertThat(answer.notes()).anyMatch(n -> n.contains("Memnet"));
+        // MM80: Memnet, a mark on the member from the nomination form -- nobody in the fixture carries it.
+        Sheet memnet = sheet(answer, "memnet-members");
+        assertThat(rows(memnet)).containsExactly("901: withheld", "902: fewer than five",
+                "~NO_TABLE_CODE: 0 1 0 1 0.0000", "~NO_WORKPLACE: 0 0 0 0 -");
+        assertThat(total(memnet)).as("four workplaces, none with a Memnet member").isEqualTo("0 4 0 4 0.0000");
+        assertThat(answer.notes()).anyMatch(n -> n.contains("nomination form"));
     }
 }

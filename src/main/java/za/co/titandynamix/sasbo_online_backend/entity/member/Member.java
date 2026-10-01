@@ -397,6 +397,13 @@ public class Member {
     private Boolean isBec;
 
     /**
+     * Month end 04.8 (V63, MM80): a Memnet member -- SASBO, 2026-10-01: "a contact member, it get updated or captured
+     * as a mnet member when we get the nomination firm", at capture or on an edit. Null is not answered.
+     */
+    @Column(name = "is_memnet")
+    private Boolean isMemnet;
+
+    /**
      * When the member was elected shop steward (V55): asked once "Shop Steward?" is Yes, and
      * required then -- SASBO, 2026-09-30. Its own column rather than {@link #electionDate}, which
      * is the representative model's and which {@code resolveStructureAndRole} clears for every

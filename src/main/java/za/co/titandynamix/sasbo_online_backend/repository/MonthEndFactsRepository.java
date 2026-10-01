@@ -110,13 +110,13 @@ public class MonthEndFactsRepository {
                   area_letter, region_code, region_name, committee_code, committee_name, complement,
                   on_record, suspended, paying, opening, joined, left_count, reinstated,
                   by_debit_order, by_deduction, by_other, debit_order_rand, deduction_rand, other_rand,
-                  representatives, committee_members, seeded, members_from)
+                  representatives, committee_members, memnet_members, seeded, members_from)
                 SELECT :monthId, :firstDay, f.workplace_key, f.workplace_id, f.ra_number,
                   f.table_code, f.table_code_name, f.employer_ordinal, f.employer_name, f.group_name, f.group_ordinal,
                   f.group_core, f.area_letter, f.region_code, f.region_name, f.committee_code, f.committee_name,
                   f.complement, f.on_record, f.suspended, f.paying, f.opening, f.joined, f.left_count, f.reinstated,
                   f.by_debit_order, f.by_deduction, f.by_other, f.debit_order_rand, f.deduction_rand, f.other_rand,
-                  f.representatives, f.committee_members, f.seeded, f.members_from
+                  f.representatives, f.committee_members, f.memnet_members, f.seeded, f.members_from
                 FROM (""" + factsStatement() + ") f", arguments(month, seeded).addValue("monthId", monthId));
     }
 
@@ -391,7 +391,7 @@ public class MonthEndFactsRepository {
                        String committeeCode, String committeeName, Integer complement, long onRecord, long suspended,
                        long paying, long opening, long joined, long left, long reinstated, long byDebitOrder,
                        long byDeduction, long byOther, BigDecimal debitOrderRand, BigDecimal deductionRand,
-                       BigDecimal otherRand, long representatives, long committeeMembers, long seeded,
+                       BigDecimal otherRand, long representatives, long committeeMembers, long memnetMembers, long seeded,
                        LocalDate membersFrom) {
     }
 
@@ -407,7 +407,7 @@ public class MonthEndFactsRepository {
                   employer_name, group_name, group_ordinal, group_core, area_letter, region_code, region_name,
                   committee_code, committee_name, complement, on_record, suspended, paying, opening, joined, left_count,
                   reinstated, by_debit_order, by_deduction, by_other, debit_order_rand, deduction_rand, other_rand,
-                  representatives, committee_members, seeded, members_from
+                  representatives, committee_members, memnet_members, seeded, members_from
                 FROM month_end_workplaces WHERE month_id = :monthId ORDER BY workplace_key
                 """, new MapSqlParameterSource("monthId", monthId), MonthEndFactsRepository::fact);
     }
@@ -443,7 +443,8 @@ public class MonthEndFactsRepository {
                   SUM(p.by_deduction) AS by_deduction, SUM(p.by_other) AS by_other,
                   SUM(p.debit_order_rand) AS debit_order_rand, SUM(p.deduction_rand) AS deduction_rand,
                   SUM(p.other_rand) AS other_rand, SUM(p.representatives) AS representatives,
-                  SUM(p.committee_members) AS committee_members, SUM(p.seeded) AS seeded,
+                  SUM(p.committee_members) AS committee_members, SUM(p.memnet_members) AS memnet_members,
+                  SUM(p.seeded) AS seeded,
                   MIN(p.join_date) AS members_from
                 FROM (
                   SELECT k.workplace_id AS workplace_id,
@@ -464,12 +465,13 @@ public class MonthEndFactsRepository {
                          THEN k.subscription ELSE CAST(0 AS NUMERIC(14, 2)) END AS other_rand,
                     CASE WHEN k.end_kind IN ('N', 'S') AND k.shop_steward = TRUE THEN 1 ELSE 0 END AS representatives,
                     CASE WHEN k.end_kind IN ('N', 'S') AND k.bec = TRUE THEN 1 ELSE 0 END AS committee_members,
+                    CASE WHEN k.end_kind IN ('N', 'S') AND k.memnet = TRUE THEN 1 ELSE 0 END AS memnet_members,
                     CASE WHEN k.end_kind IN ('N', 'S') AND k.seed = 1 THEN 1 ELSE 0 END AS seeded,
                     k.join_date AS join_date
                   FROM (%3$s) k
                   UNION ALL
                   SELECT w0.id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, CAST(0 AS NUMERIC(14, 2)), CAST(0 AS NUMERIC(14, 2)),
-                    CAST(0 AS NUMERIC(14, 2)), 0, 0, 0, CAST(NULL AS DATE)
+                    CAST(0 AS NUMERIC(14, 2)), 0, 0, 0, 0, CAST(NULL AS DATE)
                   FROM workplaces w0 WHERE w0.closed_on IS NULL
                 ) p
                 LEFT JOIN workplaces w ON w.id = p.workplace_id
@@ -493,7 +495,8 @@ public class MonthEndFactsRepository {
                 SELECT s.member_id AS member_id, s.workplace_id AS workplace_id, s.end_status AS end_status,
                   %1$s AS end_kind, %2$s AS start_kind, s.joined AS joined, s.left_n AS left_n,
                   s.reinstated_n AS reinstated_n, s.payment_type AS payment_type, s.subscription AS subscription,
-                  s.shop_steward AS shop_steward, s.bec AS bec, s.seed AS seed, s.join_date AS join_date
+                  s.shop_steward AS shop_steward, s.bec AS bec, s.memnet AS memnet, s.seed AS seed,
+                  s.join_date AS join_date
                 FROM (%3$s) s
                 """.formatted(MemberSummaryRepository.kind("s.end_status"),
                 MemberSummaryRepository.kind("s.start_status"), statuses());
@@ -513,7 +516,7 @@ public class MonthEndFactsRepository {
                   COALESCE(mv.left_n, 0) AS left_n, COALESCE(mv.reinstated_n, 0) AS reinstated_n,
                   m.payment_type AS payment_type,
                   COALESCE(m.monthly_subscription_numeric, CAST(0 AS NUMERIC(14, 2))) AS subscription,
-                  m.is_shop_steward AS shop_steward, m.is_bec AS bec,
+                  m.is_shop_steward AS shop_steward, m.is_bec AS bec, m.is_memnet AS memnet,
                   CASE WHEN m.membership_number IN (:seeded) THEN 1 ELSE 0 END AS seed,
                   m.join_date AS join_date
                 FROM members m
@@ -572,7 +575,7 @@ public class MonthEndFactsRepository {
                 rs.getLong("reinstated"), rs.getLong("by_debit_order"), rs.getLong("by_deduction"),
                 rs.getLong("by_other"), rs.getBigDecimal("debit_order_rand"), rs.getBigDecimal("deduction_rand"),
                 rs.getBigDecimal("other_rand"), rs.getLong("representatives"), rs.getLong("committee_members"),
-                rs.getLong("seeded"), from == null ? null : from.toLocalDate());
+                rs.getLong("memnet_members"), rs.getLong("seeded"), from == null ? null : from.toLocalDate());
     }
 
     /**

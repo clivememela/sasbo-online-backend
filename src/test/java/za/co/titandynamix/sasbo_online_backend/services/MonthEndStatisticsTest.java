@@ -206,6 +206,23 @@ class MonthEndStatisticsTest {
     }
 
     @Test
+    @DisplayName("🔒 04.8, MM80: a member marked as Memnet is counted by table code -- and a member who is not, is not")
+    void aMemnetMemberIsCounted() {
+        // m13, on record at W3 under table code 901, marked from the nomination form; m15 at the same workplace, who
+        // resigned in September, marked too -- a member no longer on record is not a Memnet member of the month's.
+        jdbc.update("UPDATE members SET is_memnet = TRUE WHERE membership_number IN ('M-800013', 'M-800015')");
+        try {
+            MonthEndStatisticDto representatives = statistics.representatives("2026-09", null, null);
+            assertThat(total(sheet(representatives, "memnet-members")))
+                    .as("one Memnet member, at one workplace of four").isEqualTo("1 4 1 3 0.2500");
+            assertThat(total(sheet(representatives, "committee-members"))).as("the BEC mark is another's")
+                    .isEqualTo("0 4 0 4 0.0000");
+        } finally {
+            jdbc.update("UPDATE members SET is_memnet = NULL WHERE membership_number IN ('M-800013', 'M-800015')");
+        }
+    }
+
+    @Test
     @DisplayName("🔒 04.9: the branches due a visit -- the longest unvisited first, each with its last visit; rule C over its members and what it could still yield; the total whole")
     void theBranchesDueAVisit() {
         // W1 visited on 5 September, captured here; W2 visited in June, a month SASBO's branch list prints; W3 and W4
@@ -316,7 +333,7 @@ class MonthEndStatisticsTest {
                 .containsExactly("B: 8 3 0.3750 0.00 5 2");
         // 04.8 "by area and table code", as reps_no and comm_mem print them: an area's table codes, and its total.
         MonthEndStatisticDto representativesOfB = statistics.representatives("2026-09", "B", null);
-        for (String key : List.of("representatives", "committee-members")) {
+        for (String key : List.of("representatives", "committee-members", "memnet-members")) {
             assertThat(sheet(representativesOfB, key).rows()).as("%s: area B's table codes alone", key)
                     .extracting(MonthEndStatisticDto.Row::key).containsExactly("901", "~NO_TABLE_CODE");
             assertThat(total(sheet(representativesOfB, key))).as("%s: area B's two workplaces, none with one", key)
@@ -438,6 +455,6 @@ class MonthEndStatisticsTest {
                         "membership by-table-code", "leavers by-area", "leavers by-employer", "leavers by-table-code",
                         "leavers joined-deleted", "leavers resigned", "branches by-area", "branches by-employer",
                         "recruitment by-table-code", "representatives representatives",
-                        "representatives committee-members");
+                        "representatives committee-members", "representatives memnet-members");
     }
 }
