@@ -471,7 +471,7 @@ class MonthEndExamplesTest {
     }
 
     @Test
-    @DisplayName("MV-33: every refusal of the arc is provoked through its route, and answers its own code and status")
+    @DisplayName("MV-33, ME-12: every refusal of the arc is provoked through its route, and answers its own code and status -- the identity sentence nowhere")
     void everyRefusalIsProvoked() throws Exception {
         assertThat(REFUSALS.keySet())
                 .as("a refusal code with no request that provokes it through its route")
@@ -482,6 +482,10 @@ class MonthEndExamplesTest {
             assertThat(result.getResponse().getStatus()).as(refusal.getKey().name())
                     .isEqualTo(refusal.getKey().status().value());
             assertThat(body(result).path("code").asText()).isEqualTo(refusal.getKey().name());
+            // ME-12: the global handler answers every broken constraint "most often a member with the same identity
+            // number"; a constraint this arc can break is a refusal of its own, and that sentence is never one.
+            assertThat(result.getResponse().getContentAsString()).as(refusal.getKey().name())
+                    .doesNotContainIgnoringCase("identity number");
         }
     }
 
