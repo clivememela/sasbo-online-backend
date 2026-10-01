@@ -19,7 +19,9 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -322,6 +324,32 @@ public class MonthEndFactsRepository {
         Long n = bounded.queryForObject("SELECT COUNT(*) FROM sasbo_areas WHERE letter = :letter",
                 new MapSqlParameterSource("letter", letter), Long.class);
         return n != null && n > 0;
+    }
+
+    /** A workplace's name, and its last visit by a month's end -- the first day of that visit's month. */
+    public record LastVisit(String name, LocalDate lastVisited) {
+    }
+
+    /**
+     * 04.9: every workplace's name and its newest visit before the month ends (A.1) -- by workplace id, one statement.
+     * For a TAKEN month, only the visits on record when it was taken ({@code captured_at} at or before the take), so the
+     * month reads as it stood then (MD19): the visits are append-only, and nothing captured later moves it. A visit's
+     * day is its month here: SASBO's own history prints a month and no day.
+     */
+    public Map<Long, LastVisit> lastVisits(MonthRange month, Instant takenAt) {
+        Map<Long, LastVisit> found = new HashMap<>();
+        bounded.query("""
+                SELECT w.id AS id, w.name AS name, MAX(v.visited_on) AS last_visited
+                FROM workplaces w
+                LEFT JOIN workplace_visits v ON v.workplace_id = w.id AND v.visited_on < :firstDayOfNext
+                  AND (CAST(:takenAt AS TIMESTAMP WITH TIME ZONE) IS NULL OR v.captured_at <= :takenAt)
+                GROUP BY w.id, w.name
+                """, arguments(month, List.of()).addValue("takenAt", takenAt == null ? null : utc(takenAt)), rs -> {
+            Date last = rs.getDate("last_visited");
+            found.put(rs.getLong("id"), new LastVisit(rs.getString("name"),
+                    last == null ? null : last.toLocalDate().withDayOfMonth(1)));
+        });
+        return found;
     }
 
     /** Whether a region code is on record. */

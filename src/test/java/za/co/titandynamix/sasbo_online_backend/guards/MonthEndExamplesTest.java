@@ -158,7 +158,7 @@ class MonthEndExamplesTest {
         routes.add(new Example("GET", "/api/month-end/" + TAKEN, null));
         // 04.3 to 04.8: each statistic of the invented August, read from what was frozen.
         for (String statistic : List.of("new-and-deleted", "membership", "leavers", "branches", "recruitment",
-                "representatives")) {
+                "representatives", "visits")) {
             routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/" + statistic, null));
         }
         // 04.10: the invented August's statistics pack -- asked for, prepared on the caller's thread under test, READY --

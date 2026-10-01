@@ -2461,6 +2461,128 @@
         ]
       }
     },
+    "GET /api/month-end/{month}/visits" : {
+      "request" : "GET /api/month-end/2026-08/visits",
+      "status" : 200,
+      "body" : {
+        "statistic" : "visits",
+        "legacy" : [
+          "visits"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "due-a-visit",
+            "title" : "The branches due a visit",
+            "legacyTitle" : "BANK BRANCHES REQUIRING ATTENTION",
+            "columns" : [
+              {
+                "key" : "members",
+                "label" : "Members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "couldYield",
+                "label" : "Could still yield",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "W2",
+                "label" : "R/A 900002 INVENTED HEAD OFFICE · never visited",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  120,
+                  120
+                ]
+              },
+              {
+                "key" : "W3",
+                "label" : "R/A 900003 INVENTED HARBOUR · never visited",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  15,
+                  15
+                ]
+              },
+              {
+                "key" : "W4",
+                "label" : "R/A 900004 INVENTED OUTPOST · never visited",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  3,
+                  3
+                ]
+              },
+              {
+                "key" : "W1",
+                "label" : "R/A 900001 INVENTED MAIN STREET · last visited Aug 2026",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  40,
+                  40
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                1,
+                178,
+                178
+              ]
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "The last visit is the newest on record by the month's end -- a visit captured here, or a month SASBO's branch list prints; as they stood when the month was taken.",
+          "Members are the members on record less the suspended. A branch could still yield its complement less its members, where the complement is the more.",
+          "The branch manager's name and telephone are a person's details, and are shown once administrators sign in to this system."
+        ]
+      }
+    },
     "POST /api/month-end/{month}/pack" : {
       "request" : "POST /api/month-end/2026-08/pack",
       "status" : 202,

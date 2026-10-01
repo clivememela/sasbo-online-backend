@@ -206,6 +206,43 @@ class MonthEndStatisticsTest {
     }
 
     @Test
+    @DisplayName("🔒 04.9: the branches due a visit -- the longest unvisited first, each with its last visit; rule C over its members and what it could still yield; the total whole")
+    void theBranchesDueAVisit() {
+        // W1 visited on 5 September, captured here; W2 visited in June, a month SASBO's branch list prints; W3 and W4
+        // never. The three smaller rows are fewer than five; three hidden rows give back only their sum, never one of
+        // them, so W1's eight stand (MD37: a row beside is withheld where ONE hidden row could be worked out).
+        Long w1 = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900001", Long.class);
+        Long w2 = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900002", Long.class);
+        Long w3 = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900003", Long.class);
+        Long w4 = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900004", Long.class);
+        jdbc.update("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, complement_found, seeded, "
+                + "captured_at) VALUES (?, DATE '2026-09-05', TRUE, 20, FALSE, "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-05 10:00:00+00:00')", w1);
+        jdbc.update("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, seeded, captured_at) VALUES "
+                + "(?, DATE '2026-06-01', FALSE, TRUE, TIMESTAMP WITH TIME ZONE '2026-09-01 08:00:00+00:00')", w2);
+        try {
+            MonthEndStatisticDto visits = statistics.visits("2026-09", null, null);
+            MonthEndStatisticDto.Sheet sheet = sheet(visits, "due-a-visit");
+
+            assertThat(visits.statistic()).isEqualTo("visits");
+            assertThat(sheet.rows()).extracting(MonthEndStatisticDto.Row::key)
+                    .as("never visited first, then the oldest visit; the members with no workplace last")
+                    .containsExactly("W" + w3, "W" + w4, "W" + w2, "W" + w1, "~NO_WORKPLACE");
+            assertThat(sheet.rows()).extracting(MonthEndStatisticDto.Row::label).startsWith(
+                    "R/A 900003 INVENTED HARBOUR · never visited", "R/A 900004 INVENTED OUTPOST · never visited",
+                    "R/A 900002 INVENTED HEAD OFFICE · last visited Jun 2026",
+                    "R/A 900001 INVENTED MAIN STREET · last visited Sep 2026");
+            assertThat(rows(sheet)).as("rule C: what it could still yield goes with the members it would give back")
+                    .containsExactly("W" + w3 + ": fewer than five", "W" + w4 + ": fewer than five",
+                            "W" + w2 + ": fewer than five", "W" + w1 + ": 8 20 12", "~NO_WORKPLACE: 2 0 0");
+            assertThat(total(sheet)).as("the members, the complement, and the sum of what each branch could yield")
+                    .isEqualTo("16 38 24");
+        } finally {
+            jdbc.update("DELETE FROM workplace_visits");
+        }
+    }
+
+    @Test
     @DisplayName("🔒 MR-ROB-4, DL-65: a member captured after September is taken, dated inside it, moves none of its statistics")
     void aLateCaptureMovesNothing() {
         takes.take(SummaryFixture.MONTH, "seed");

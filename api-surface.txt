@@ -71,6 +71,7 @@ POST /api/month-end/{month}/pack
 GET /api/month-end/{month}/recruitment
 GET /api/month-end/{month}/representatives
 POST /api/month-end/{month}/take
+GET /api/month-end/{month}/visits
 GET /api/provinces
 GET /api/recruiters
 GET /api/recruitment-channels
