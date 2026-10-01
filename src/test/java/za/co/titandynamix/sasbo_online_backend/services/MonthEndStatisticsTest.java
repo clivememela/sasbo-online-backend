@@ -14,6 +14,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
 import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
+import za.co.titandynamix.sasbo_online_backend.controller.MonthEndStatisticsController;
 import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndStatisticDto;
 import za.co.titandynamix.sasbo_online_backend.dto.summary.MemberSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
@@ -31,6 +32,7 @@ import java.time.YearMonth;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static za.co.titandynamix.sasbo_online_backend.support.StatisticsExpectations.rows;
 import static za.co.titandynamix.sasbo_online_backend.support.StatisticsExpectations.sheet;
@@ -422,10 +424,21 @@ class MonthEndStatisticsTest {
     void belowAllEverySheet() {
         MonthEndStatistics atNames = new MonthEndStatistics(takes, facts, codes, new WorkplaceSwitch("names"),
                 environment, seedNumbers, gate);
-        List<MonthEndStatisticDto> below = atNames.all("2026-09");
-        List<MonthEndStatisticDto> atAll = statistics.all("2026-09");
+        // The pack's statistics and every one outside it. 04.9's is not in the pack, so this loop never asked it below
+        // 'all' -- and on the link, its switch unset, it answered 500 (1 Oct): every member has no workplace there, and
+        // the empty map of last visits refused the null key.
+        assertThatCode(() -> atNames.visits("2026-09", null, null))
+                .as("04.9 below 'all' answers: a member with no workplace has no last visit to look up")
+                .doesNotThrowAnyException();
+        List<MonthEndStatisticDto> below = new java.util.ArrayList<>(atNames.all("2026-09"));
+        below.add(atNames.visits("2026-09", null, null));
+        List<MonthEndStatisticDto> atAll = new java.util.ArrayList<>(statistics.all("2026-09"));
+        atAll.add(statistics.visits("2026-09", null, null));
         assertThat(below).extracting(MonthEndStatisticDto::statistic)
                 .containsExactlyElementsOf(atAll.stream().map(MonthEndStatisticDto::statistic).toList());
+        assertThat(below).extracting(MonthEndStatisticDto::statistic)
+                .as("every statistic the controller serves is asked here -- a new one outside the pack is added above")
+                .containsExactlyInAnyOrderElementsOf(servedStatistics());
 
         List<String> cut = new java.util.ArrayList<>();
         for (int i = 0; i < below.size(); i++) {
@@ -455,6 +468,17 @@ class MonthEndStatisticsTest {
                         "membership by-table-code", "leavers by-area", "leavers by-employer", "leavers by-table-code",
                         "leavers joined-deleted", "leavers resigned", "branches by-area", "branches by-employer",
                         "recruitment by-table-code", "representatives representatives",
-                        "representatives committee-members", "representatives memnet-members");
+                        "representatives committee-members", "representatives memnet-members", "visits due-a-visit");
+    }
+
+    /** The statistics {@link MonthEndStatisticsController} serves, by their routes: each a GET of a name, no variable. */
+    private static List<String> servedStatistics() {
+        return java.util.Arrays.stream(MonthEndStatisticsController.class.getDeclaredMethods())
+                .map(m -> m.getAnnotation(org.springframework.web.bind.annotation.GetMapping.class))
+                .filter(java.util.Objects::nonNull)
+                .flatMap(mapping -> java.util.Arrays.stream(mapping.value()))
+                .filter(route -> !route.contains("{"))
+                .map(route -> route.substring(1))
+                .toList();
     }
 }

@@ -389,7 +389,7 @@ public class MonthEndStatistics {
         Map<String, Agg> byWorkplace = aggregate(read, f -> workplaceKey(f, lastVisits));
         Map<String, LocalDate> lastOf = new HashMap<>();
         for (Fact f : read.facts()) {
-            MonthEndFactsRepository.LastVisit visit = lastVisits.get(f.workplaceId());
+            MonthEndFactsRepository.LastVisit visit = lastVisitOf(f, lastVisits);
             if (visit != null && visit.lastVisited() != null) {
                 lastOf.put("W" + f.workplaceKey(), visit.lastVisited());
             }
@@ -428,13 +428,23 @@ public class MonthEndStatistics {
 
     /** {key, label, order} of a workplace's row: its R/A number and name, and when it was last visited. */
     private static String[] workplaceKey(Fact f, Map<Long, MonthEndFactsRepository.LastVisit> lastVisits) {
-        MonthEndFactsRepository.LastVisit visit = lastVisits.get(f.workplaceId());
+        MonthEndFactsRepository.LastVisit visit = lastVisitOf(f, lastVisits);
         String name = visit == null || visit.name() == null ? "" : " " + visit.name();
         String last = visit == null || visit.lastVisited() == null ? "never visited"
                 : "last visited " + visit.lastVisited().getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH) + " "
                         + visit.lastVisited().getYear();
         return new String[] {"W" + f.workplaceKey(), "R/A " + f.raNumber() + name + " · " + last,
                 f.raNumber() == null ? null : String.valueOf(f.raNumber())};
+    }
+
+    /**
+     * A member's workplace's last visit, or none. A member with no workplace on record has none to ask about -- every
+     * member, below 'all', where nothing of SASBO's is placed -- and the map below 'all' is {@code Map.of()}, which
+     * refuses a null key outright: asked anyway, the statistic answered 500 on the link (1 Oct, switch unset).
+     */
+    private static MonthEndFactsRepository.LastVisit lastVisitOf(Fact f,
+                                                                 Map<Long, MonthEndFactsRepository.LastVisit> lastVisits) {
+        return f.workplaceId() == null ? null : lastVisits.get(f.workplaceId());
     }
 
     /**

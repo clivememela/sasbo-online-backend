@@ -173,8 +173,8 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
         // 🔑 The two non-vacuity halves. Without them every assertion above is
         // satisfied by a merge that copies NOTHING.
         assertThat(target.getStatus())
-                .as("`status` is DELIBERATELY writable -- Edit Member edits it and the "
-                        + "Recruiters screen sets Inactive through PUT (BR3-1)")
+                .as("`status` is DELIBERATELY writable at the mapper: a PUT that would change it is refused by the "
+                        + "service before the merge (03.4, STATUS_VIA_CHANGE_STATUS, BR77) -- no screen sends one since 03.3 and A49")
                 .isEqualTo("Inactive");
         assertThat(target.getSurname())
                 .as("and an ordinary field still merges")
