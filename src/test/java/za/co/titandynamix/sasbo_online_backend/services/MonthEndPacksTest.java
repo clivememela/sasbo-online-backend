@@ -16,6 +16,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndPackDto;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndPackRepository;
 import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
@@ -117,6 +118,20 @@ class MonthEndPacksTest {
 
         assertThat(again.started()).isFalse();
         assertThat(again.pack().id()).isEqualTo(first.pack().id());
+    }
+
+    @Test
+    @DisplayName("🔒 04.11, MD70: a month taken again has a pack of its own -- the first take's READY pack is never served as the month's")
+    void aMonthTakenAgainHasAPackOfItsOwn() {
+        MonthEndFactsRepository.TakenMonth august = takes.take(YearMonth.of(2026, 8), "seed");
+        MonthEndPacks.Asked first = packs.ask("2026-08");
+        takes.take(YearMonth.of(2026, 8), "corrected", august.id());
+
+        MonthEndPacks.Asked again = packs.ask("2026-08");
+
+        assertThat(again.started()).as("prepared afresh, from the newest take").isTrue();
+        assertThat(again.pack().id()).isNotEqualTo(first.pack().id());
+        assertThat(packs.ask("2026-08").pack().id()).as("and then kept, as the newest take's").isEqualTo(again.pack().id());
     }
 
     @Test

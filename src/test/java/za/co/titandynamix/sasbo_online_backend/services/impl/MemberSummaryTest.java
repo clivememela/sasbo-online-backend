@@ -134,6 +134,36 @@ class MemberSummaryTest {
     }
 
     @Test
+    @DisplayName("🔒 04.11, MD70: a month taken again is read from its newest take -- the late member on record, its who and when the newest's")
+    void aMonthTakenAgain() {
+        Integer late = null;
+        try {
+            var first = takes.take(SummaryFixture.MONTH, "seed");
+            long before = summaries.summary("2026-09", "group", null, null).totals().onRecord();
+            var member = za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture.withSurname("InventedLate");
+            member.setMembershipNumber("M-899996");
+            member.setStatus("Active");
+            member.setJoinDate(java.time.LocalDate.of(2026, 9, 14));
+            late = members.save(member).getId();
+            assertThat(summaries.summary("2026-09", "group", null, null).totals().onRecord())
+                    .as("read from the first take, which did not count them").isEqualTo(before);
+
+            takes.take(SummaryFixture.MONTH, "corrected", first.id());
+
+            MemberSummaryDto again = summaries.summary("2026-09", "group", null, null);
+            assertThat(again.totals().onRecord()).as("read from the newest take").isEqualTo(before + 1);
+            assertThat(again.takenBy()).isEqualTo("corrected");
+        } finally {
+            if (late != null) {
+                jdbc.update("DELETE FROM members WHERE id = ?", late);
+            }
+            jdbc.update("DELETE FROM month_end_counts");
+            jdbc.update("DELETE FROM month_end_workplaces");
+            jdbc.update("DELETE FROM month_end_months");
+        }
+    }
+
+    @Test
     @DisplayName("🔒 MR-ROB-18, MV-24: a request is ONE statement, counted at the connection")
     void oneStatement() {
         assertThat(ConnectionStatements.during(() -> summaries.summary("2026-09", "employer", null, null)))

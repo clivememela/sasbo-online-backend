@@ -8,8 +8,13 @@ package za.co.titandynamix.sasbo_online_backend.dto.monthend;
  * @param state   {@value #TAKEN} or {@value #OPEN}
  * @param takenAt the instant it was taken, ISO-8601; {@code null} while open
  * @param takenBy who took it -- {@code seed} for the demonstration's months; {@code null} while open
+ * @param takeId  the take the month is read from -- its newest -- which a take again names (04.11); {@code null} while
+ *                open
+ * @param firstTakenAt where the month was taken again, the instant of its first take, ISO-8601; otherwise {@code null}
+ * @param firstTakenBy where the month was taken again, who took it first; otherwise {@code null}
  */
-public record MonthEndMonthDto(String month, String state, String takenAt, String takenBy) {
+public record MonthEndMonthDto(String month, String state, String takenAt, String takenBy, Long takeId,
+                               String firstTakenAt, String firstTakenBy) {
 
     /** The month is frozen: its statistics are read from what was taken. */
     public static final String TAKEN = "TAKEN";

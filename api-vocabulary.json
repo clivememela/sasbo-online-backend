@@ -156,6 +156,7 @@
       {"code": "STATUS_VIA_CHANGE_STATUS", "status": 409},
       {"code": "MONTH_NOT_BEGUN", "status": 400},
       {"code": "MONTH_ALREADY_TAKEN", "status": 409},
+      {"code": "MONTH_TAKEN_SINCE", "status": 409},
       {"code": "MONTH_NOT_READY", "status": 409},
       {"code": "MONTH_NOT_TAKEN", "status": 404},
       {"code": "IDENTITY_REQUIRED", "status": 403},

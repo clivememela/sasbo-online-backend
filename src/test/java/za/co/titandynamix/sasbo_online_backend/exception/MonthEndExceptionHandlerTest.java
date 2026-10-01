@@ -121,4 +121,21 @@ class MonthEndExceptionHandlerTest {
                     .doesNotContain("PLANTED-VALUE");
         }
     }
+
+    @Test
+    @DisplayName("🔒 ME-12, MD71: a constraint nobody named is this server's defect -- the 500 with a reference, never the global handler's 409 about identity numbers")
+    void aConstraintNobodyNamedIsTheServersDefect() throws Exception {
+        when(workplaces.page(any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException(
+                        "duplicate key value violates unique constraint \"planted_index\" Key (code)=(PLANTED-VALUE)"));
+
+        try (LogCapture log = LogCapture.on(MonthEndExceptionHandler.class)) {
+            mockMvc.perform(get("/api/workplaces"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.message", containsString("Quote reference")))
+                    .andExpect(content().string(not(containsString("identity number"))))
+                    .andExpect(content().string(not(containsString("PLANTED-VALUE"))));
+            assertThat(log.rendered()).contains("DataIntegrityViolationException").doesNotContain("PLANTED-VALUE");
+        }
+    }
 }

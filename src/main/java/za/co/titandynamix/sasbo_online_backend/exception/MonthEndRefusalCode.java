@@ -89,10 +89,16 @@ public enum MonthEndRefusalCode {
     MONTH_NOT_BEGUN(HttpStatus.BAD_REQUEST),
     /**
      * 04.2: the month has been taken already -- refused by the partial unique index where two takes meet, never by
-     * looking first (ME-12, MV-28). The details say who took it and when. A second take, if SASBO wants one, is a new
-     * version beside the first (MM51), and is not built.
+     * looking first (ME-12, MV-28). The details say who took it, when, and the take's id: taking it again names that
+     * take (04.11).
      */
     MONTH_ALREADY_TAKEN(HttpStatus.CONFLICT),
+    /**
+     * 04.11: a take again that names a take which is not the month's newest -- another took it again since. Nobody
+     * overwrites a take they have not seen; refused by the index that replaces a take once where two meet, never by
+     * looking first. The details say who took the newest, when, and its id.
+     */
+    MONTH_TAKEN_SINCE(HttpStatus.CONFLICT),
     /**
      * 04.2: the month cannot be taken here -- what it would be frozen from is not on record: the workplaces (MD54). A
      * month frozen with none would be kept that way by its own triggers. The details name what is missing.

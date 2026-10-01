@@ -74,27 +74,55 @@ public class MonthEndFactsRepository {
         this.bounded = new NamedParameterJdbcTemplate(limited);
     }
 
-    /** A taken month's record. */
-    public record TakenMonth(long id, LocalDate monthStart, String takenBy, Instant takenAt, Instant changesFrom) {
+    /**
+     * A taken month's record -- its NEWEST take, the one nothing replaces (04.11, MD70). Where the month was taken again,
+     * {@code takeNumber} is above 1 and its first take's who and when stand beside it; otherwise they are {@code null}.
+     */
+    public record TakenMonth(long id, LocalDate monthStart, String takenBy, Instant takenAt, Instant changesFrom,
+                             int takeNumber, String firstTakenBy, Instant firstTakenAt) {
+
+        /** A month's first take, which nothing has replaced. */
+        public TakenMonth(long id, LocalDate monthStart, String takenBy, Instant takenAt, Instant changesFrom) {
+            this(id, monthStart, takenBy, takenAt, changesFrom, 1, null, null);
+        }
     }
+
+    /**
+     * What every read of a taken month asks of its take {@code %s}: that nothing replaces it -- the month's newest
+     * (04.11, MD70). The take it replaced is kept, append-only, and read by nothing but the months' line.
+     */
+    static final String NEWEST_TAKE = "NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = %s.id)";
+
+    /** A taken month's record: its newest take, beside its first. */
+    private static final String TAKEN = """
+            SELECT m.id, m.month_start, m.taken_by, m.taken_at, m.changes_from, m.take_number,
+              f.taken_by AS first_taken_by, f.taken_at AS first_taken_at
+            FROM month_end_months m
+            JOIN month_end_months f ON f.month_start = m.month_start AND f.replaces_id IS NULL
+            WHERE\s""" + NEWEST_TAKE.formatted("m");
 
     // ------------------------------------------------------------------------------------------------ the take
 
     /**
-     * The month's record -- the take's first statement, and the one the partial unique index refuses a second time
-     * (MD46). The earliest status change on record is read in the same statement.
+     * The month's record -- the take's first statement. A month's first take is refused a second time by the partial
+     * unique index {@code month_end_months_taken_once}; a take that replaces another names it, and is refused a second
+     * time by {@code month_end_months_replaced_once}, and anywhere but its own month by foreign key (04.11, MD46). The
+     * earliest status change on record is read in the same statement.
      *
+     * @param replaces the take this one replaces -- the month's newest -- or {@code null} for the month's first take
      * @return the record's id
      */
-    public long insertMonth(LocalDate monthStart, String takenBy, Instant takenAt) {
+    public long insertMonth(LocalDate monthStart, String takenBy, Instant takenAt, TakenMonth replaces) {
         KeyHolder key = new GeneratedKeyHolder();
         jdbc.update("""
-                INSERT INTO month_end_months (month_start, taken_by, taken_at, changes_from)
-                SELECT :monthStart, :takenBy, :takenAt, MIN(changed_at) FROM member_status_changes
+                INSERT INTO month_end_months (month_start, taken_by, taken_at, changes_from, replaces_id, take_number)
+                SELECT :monthStart, :takenBy, :takenAt, MIN(changed_at), :replaces, :takeNumber FROM member_status_changes
                 """, new MapSqlParameterSource()
                 .addValue("monthStart", monthStart)
                 .addValue("takenBy", takenBy)
-                .addValue("takenAt", utc(takenAt)), key, new String[] {"id"});
+                .addValue("takenAt", utc(takenAt))
+                .addValue("replaces", replaces == null ? null : replaces.id(), java.sql.Types.BIGINT)
+                .addValue("takeNumber", replaces == null ? 1 : replaces.takeNumber() + 1), key, new String[] {"id"});
         Number id = key.getKey();
         if (id == null) {
             throw new IllegalStateException("the month's record was written and no id came back");
@@ -278,7 +306,8 @@ public class MonthEndFactsRepository {
                   f.region_name, f.group_core, f.table_code, f.table_code_name, SUM(f.joined) AS joined,
                   SUM(f.left_count) AS left_count
                 FROM month_end_workplaces f
-                JOIN month_end_months mm ON mm.id = f.month_id AND mm.replaces_id IS NULL
+                JOIN month_end_months mm ON mm.id = f.month_id
+                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
                 WHERE f.month_start >= :yearStart AND f.month_start < :until
                 GROUP BY CASE WHEN f.workplace_key = 0 THEN 1 ELSE 0 END, f.area_letter, f.region_code, f.region_name,
                   f.group_core, f.table_code, f.table_code_name
@@ -300,7 +329,8 @@ public class MonthEndFactsRepository {
                 SELECT c.code, c.name, c.detail, CASE WHEN c.workplace_key = 0 THEN 1 ELSE 0 END AS no_workplace,
                   f.area_letter, f.region_code, f.group_core, f.table_code, f.table_code_name, SUM(c.members) AS members
                 FROM month_end_counts c
-                JOIN month_end_months mm ON mm.id = c.month_id AND mm.replaces_id IS NULL
+                JOIN month_end_months mm ON mm.id = c.month_id
+                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
                 LEFT JOIN month_end_workplaces f ON f.month_id = c.month_id AND f.workplace_key = c.workplace_key
                 WHERE c.measure = 'RECRUITED_BY' AND c.month_start >= :yearStart AND c.month_start < :until
                 GROUP BY c.code, c.name, c.detail, CASE WHEN c.workplace_key = 0 THEN 1 ELSE 0 END, f.area_letter,
@@ -361,21 +391,17 @@ public class MonthEndFactsRepository {
 
     // ------------------------------------------------------------------------------------------------ reads
 
-    /** The month's record, where it has been taken (the first take; nothing replaces one yet). */
+    /** The month's record, where it has been taken: its newest take (04.11). */
     public Optional<TakenMonth> taken(LocalDate monthStart) {
-        return jdbc.query("""
-                SELECT id, month_start, taken_by, taken_at, changes_from FROM month_end_months
-                WHERE month_start = :monthStart AND replaces_id IS NULL
-                """, new MapSqlParameterSource("monthStart", monthStart), MonthEndFactsRepository::takenMonth)
+        return jdbc.query(TAKEN + " AND m.month_start = :monthStart",
+                new MapSqlParameterSource("monthStart", monthStart), MonthEndFactsRepository::takenMonth)
                 .stream().findFirst();
     }
 
-    /** Every month taken, the newest first. */
+    /** Every month taken, the newest month first -- each by its newest take (04.11). */
     public List<TakenMonth> takenMonths() {
-        return jdbc.query("""
-                SELECT id, month_start, taken_by, taken_at, changes_from FROM month_end_months
-                WHERE replaces_id IS NULL ORDER BY month_start DESC
-                """, new MapSqlParameterSource(), MonthEndFactsRepository::takenMonth);
+        return jdbc.query(TAKEN + " ORDER BY m.month_start DESC", new MapSqlParameterSource(),
+                MonthEndFactsRepository::takenMonth);
     }
 
     /** How many workplaces are on record -- what a month needs before it can be taken (MD54). */
@@ -558,8 +584,11 @@ public class MonthEndFactsRepository {
 
     private static TakenMonth takenMonth(ResultSet rs, int n) throws SQLException {
         OffsetDateTime from = rs.getObject("changes_from", OffsetDateTime.class);
+        int number = rs.getInt("take_number");
+        OffsetDateTime first = number > 1 ? rs.getObject("first_taken_at", OffsetDateTime.class) : null;
         return new TakenMonth(rs.getLong("id"), rs.getDate("month_start").toLocalDate(), rs.getString("taken_by"),
-                rs.getObject("taken_at", OffsetDateTime.class).toInstant(), from == null ? null : from.toInstant());
+                rs.getObject("taken_at", OffsetDateTime.class).toInstant(), from == null ? null : from.toInstant(),
+                number, number > 1 ? rs.getString("first_taken_by") : null, first == null ? null : first.toInstant());
     }
 
     static Fact fact(ResultSet rs, int n) throws SQLException {

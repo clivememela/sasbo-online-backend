@@ -148,6 +148,33 @@ class MonthEndControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MONTH_NOT_READY"))
                 .andExpect(jsonPath("$.details.missing").value("workplaces"));
-        verify(facts, never()).insertMonth(any(), any(), any());
+        verify(facts, never()).insertMonth(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("🔒 04.11: a take again says what it knows before it refuses -- a take that is not the newest, a month never taken -- then waits for sign-in")
+    void aTakeAgainSaysWhatItKnows() throws Exception {
+        when(facts.taken(LocalDate.of(2026, 8, 1))).thenReturn(Optional.of(AUGUST));
+        when(facts.taken(LocalDate.of(2026, 7, 1))).thenReturn(Optional.empty());
+        when(facts.workplacesOnRecord()).thenReturn(5L);
+
+        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json").content("{\"replaces\": 2}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MONTH_TAKEN_SINCE"))
+                .andExpect(jsonPath("$.details.takeId").value("3"))
+                .andExpect(jsonPath("$.details.takenBy").value("seed"));
+        mockMvc.perform(post("/api/month-end/2026-07/take").contentType("application/json").content("{\"replaces\": 3}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("MONTH_NOT_TAKEN"));
+        // The arc's own refusal, by its code's status -- this slice runs no security filter, and asserts none (the
+        // security-slice guard): the 403 is IDENTITY_REQUIRED's, which the code beside it proves.
+        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json").content("{\"replaces\": 3}"))
+                .andExpect(status().is(za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode
+                        .IDENTITY_REQUIRED.status().value()))
+                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
+        mockMvc.perform(get("/api/month-end/2026-08"))
+                .andExpect(jsonPath("$.takeId").value(3))
+                .andExpect(jsonPath("$.firstTakenAt").doesNotExist());
+        verify(facts, never()).insertMonth(any(), any(), any(), any());
     }
 }

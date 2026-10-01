@@ -284,6 +284,37 @@ class MonthEndStatisticsTest {
     }
 
     @Test
+    @DisplayName("🔒 04.11, MD70: September taken again is read from its newest take -- a late member counted by every statistic and the year to date, the first take kept")
+    void aMonthTakenAgain() {
+        MonthEndFactsRepository.TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
+        MonthEndStatisticDto before = statistics.membership("2026-09", null, null);
+        String joinedBefore = total(sheet(statistics.newAndDeleted("2026-09", null, null), "year-joined"));
+        za.co.titandynamix.sasbo_online_backend.entity.member.Member late =
+                za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture.withSurname("InventedLate");
+        late.setMembershipNumber("M-899997");
+        late.setStatus("Active");
+        late.setJoinDate(java.time.LocalDate.of(2026, 9, 14));
+        Integer id = members.save(late).getId();
+        try {
+            jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = 900001) "
+                    + "WHERE id = ?", id);
+            takes.take(SummaryFixture.MONTH, "corrected", first.id());
+
+            MonthEndStatisticDto again = statistics.membership("2026-09", null, null);
+            assertThat(again.takenBy()).as("the newest take's").isEqualTo("corrected");
+            assertThat(again.sheets()).as("the late member counted").isNotEqualTo(before.sheets());
+            assertThat(total(sheet(statistics.newAndDeleted("2026-09", null, null), "year-joined")))
+                    .as("the year to date sums the newest take of each month").isNotEqualTo(joinedBefore);
+            assertThat(facts.facts(first.id()).stream().mapToLong(MonthEndFactsRepository.Fact::onRecord).sum())
+                    .as("the first take kept as it was").isEqualTo(
+                            facts.facts(takes.taken(SummaryFixture.MONTH).orElseThrow().id()).stream()
+                                    .mapToLong(MonthEndFactsRepository.Fact::onRecord).sum() - 1);
+        } finally {
+            jdbc.update("DELETE FROM members WHERE id = ?", id);
+        }
+    }
+
+    @Test
     @DisplayName("🔒 rule Y: the year to date is the sum of the months taken -- June, August and September's leavers")
     void theYearToDate() {
         takes.take(YearMonth.of(2026, 6), "seed");

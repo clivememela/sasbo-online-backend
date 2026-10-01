@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
@@ -105,14 +106,54 @@ class MonthEndTakeIT extends AbstractSwitchedOnIT {
     }
 
     @Test
-    @DisplayName("🔒 MD46: taken once by a PARTIAL unique index, by name; the facts' index is (month, workplace)")
+    @DisplayName("🔒 MD46, 04.11: taken once and replaced once by PARTIAL unique indexes, by name; the facts' index is (take, workplace)")
     void theIndexesByName() {
         String once = jdbc.queryForObject("SELECT indexdef FROM pg_indexes WHERE indexname = 'month_end_months_taken_once'",
                 String.class);
         assertThat(once).contains("UNIQUE").contains("(month_start)").contains("WHERE (replaces_id IS NULL)");
+        String replacedOnce = jdbc.queryForObject(
+                "SELECT indexdef FROM pg_indexes WHERE indexname = 'month_end_months_replaced_once'", String.class);
+        assertThat(replacedOnce).contains("UNIQUE").contains("(replaces_id)").contains("WHERE (replaces_id IS NOT NULL)");
         String facts = jdbc.queryForObject(
                 "SELECT indexdef FROM pg_indexes WHERE indexname = 'month_end_workplaces_one_a_workplace'", String.class);
-        assertThat(facts).contains("UNIQUE").contains("(month_start, workplace_key)");
+        assertThat(facts).contains("UNIQUE").contains("(month_id, workplace_key)");
+    }
+
+    @Test
+    @DisplayName("🔒 04.11, MD70: a take is replaced once -- a second take again of the same take is refused by the index, by name")
+    void aTakeIsReplacedOnce() {
+        TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
+        facts.insertMonth(SummaryFixture.MONTH.atDay(1), "one", SummaryFixture.NOW, first);
+
+        assertThatThrownBy(() -> facts.insertMonth(SummaryFixture.MONTH.atDay(1), "two", SummaryFixture.NOW, first))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("month_end_months_replaced_once");
+    }
+
+    @Test
+    @DisplayName("🔒 04.11: a take replaces only a take of its own month -- by foreign key, by name; the twin replaces its own")
+    void aTakeReplacesOnlyItsOwnMonth() {
+        TakenMonth september = takes.take(SummaryFixture.MONTH, "seed");
+
+        assertThatThrownBy(() -> facts.insertMonth(LocalDate.of(2026, 8, 1), "elsewhere", SummaryFixture.NOW, september))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("month_end_months_replaces_its_own_month");
+        assertThat(facts.insertMonth(SummaryFixture.MONTH.atDay(1), "corrected", SummaryFixture.NOW, september))
+                .as("the same month's take again is let through").isPositive();
+    }
+
+    @Test
+    @DisplayName("🔒 04.11: a month taken again is read from its newest take on PostgreSQL too -- the first kept beside it")
+    void aMonthTakenAgain() {
+        TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
+        TakenMonth again = takes.take(SummaryFixture.MONTH, "corrected", first.id());
+
+        assertThat(takes.taken(SummaryFixture.MONTH)).get().extracting(TakenMonth::id).isEqualTo(again.id());
+        assertThat(again.takeNumber()).isEqualTo(2);
+        assertThat(again.firstTakenBy()).isEqualTo("seed");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM month_end_workplaces WHERE month_id = ?", Long.class,
+                first.id())).as("the first take's facts are kept").isPositive();
+        SummaryFixture.assertTakenSeptember(facts.facts(again.id()), facts.counts(again.id()));
     }
 
     @Test
