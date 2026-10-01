@@ -8,6 +8,9 @@ package za.co.titandynamix.sasbo_online_backend.acb;
  * that moves money, sends a letter, submits a file or changes a member's status is refused to every
  * caller. The day callers have names, this is where the name comes from, and the audit trail says
  * who prepared and who approved -- the same person, as often as not (D14 as amended, Q29).
+ *
+ * <p>A member's change of status, the history of a save and a month end's pack are recorded by the
+ * same actor (PA-12): one place, for the day the name comes.
  */
 public final class AcbActor {
 

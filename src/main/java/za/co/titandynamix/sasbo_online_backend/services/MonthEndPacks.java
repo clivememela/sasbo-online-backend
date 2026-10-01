@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.services;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbLogging;
 import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndPackDto;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
@@ -32,7 +33,7 @@ import java.util.concurrent.RejectedExecutionException;
  *   <li>A JOB THAT DIED IS FOUND (ME-21): a pack whose heartbeat is older than {@link #HEARTBEAT_LIMIT} is FAILED,
  *       interrupted -- at start, and whenever the packs are read. Its failure is said once, in one sentence;</li>
  *   <li>counts only, and open as the statistics are: until sign-in exists the one who asks is
- *       {@value #ACTOR}.</li>
+ *       {@value AcbActor#SYSTEM} (PA-12).</li>
  * </ul>
  */
 @Slf4j
@@ -44,9 +45,6 @@ public class MonthEndPacks {
 
     static final String INTERRUPTED = "Interrupted: the service restarted while this pack was being prepared. Ask for "
             + "it again.";
-
-    /** Who asks, until sign-in exists. */
-    static final String ACTOR = "system";
 
     private static final String XLSX = ".xlsx";
 
@@ -96,7 +94,8 @@ public class MonthEndPacks {
         }
         long id;
         try {
-            id = packs.insertPreparing(asked.atDay(1), taken.map(TakenMonth::id).orElse(null), ACTOR, clock.instant());
+            id = packs.insertPreparing(asked.atDay(1), taken.map(TakenMonth::id).orElse(null), AcbActor.current(),
+                    clock.instant());
         } catch (DataIntegrityViolationException anotherInHand) {
             // Another ask started one between the look and the write: the index is the arbiter.
             return inHandOrBusy(packs.preparing().orElseThrow(() -> anotherInHand), asked);

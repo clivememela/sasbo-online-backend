@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.services;
 
 import org.springframework.stereotype.Component;
+import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.member.MemberChange;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberChangeRepository;
@@ -36,9 +37,6 @@ import java.util.function.Function;
  */
 @Component
 public class MemberTrail {
-
-    /** Who changed it, until sign-in exists. */
-    public static final String ACTOR = "system";
 
     /** The one row a capture writes. */
     public static final String CAPTURED = "captured";
@@ -128,7 +126,7 @@ public class MemberTrail {
     /** A capture: one row, {@code captured}. */
     public void captured(Member saved) {
         changes.save(new MemberChange(saved.getId(), UUID.randomUUID().toString(), CAPTURED, null,
-                saved.getMembershipNumber(), ACTOR, clock.instant()));
+                saved.getMembershipNumber(), AcbActor.current(), clock.instant()));
     }
 
     /**
@@ -145,7 +143,7 @@ public class MemberTrail {
         for (Map.Entry<String, String> field : after.entrySet()) {
             String was = before.get(field.getKey());
             if (!Objects.equals(was, field.getValue())) {
-                rows.add(new MemberChange(memberId, saveId, field.getKey(), was, field.getValue(), ACTOR,
+                rows.add(new MemberChange(memberId, saveId, field.getKey(), was, field.getValue(), AcbActor.current(),
                         clock.instant()));
             }
         }
