@@ -918,7 +918,7 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
         edit.put("arrearsBalance", "888888");
         edit.put("lastMonthBalance", "777777");
         edit.put("monthlySubscription", "0.01");
-        edit.put("status", "Inactive");            // NOT ignored -- two screens set it
+        edit.put("remarks", "INVENTED REMARK");    // NOT ignored -- the non-vacuity half below
 
         this.mockMvc.perform(put("/api/members/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -936,12 +936,54 @@ class MemberCaptureRoundTripIT extends AbstractWritingIT {
                 .as("the subscription amount changes through PATCH /subscription and "
                         + "nowhere else")
                 .isEqualTo(storedSubscription);
-        assertThat(read.get("status").asText())
-                .as("🔑 the non-vacuity half: `status` is DELIBERATELY still writable, "
-                        + "because Edit Member edits it and the Recruiters screen sets "
-                        + "Inactive through PUT. Without this the test above passes "
-                        + "against a mapper that has stopped copying anything at all")
-                .isEqualTo("Inactive");
+        assertThat(read.get("remarks").asText())
+                .as("🔑 the non-vacuity half: the same PUT DID write a field it may write. "
+                        + "Without this the test above passes against a mapper that has stopped "
+                        + "copying anything at all. (It was `status` until month end 03.4, which "
+                        + "made a status change through the PUT a refusal of its own -- BR77.)")
+                .isEqualTo("INVENTED REMARK");
+    }
+
+    @Test
+    @DisplayName("🔒 03.4, BR77, DL-13 — a PUT that changes the status is refused whole, STATUS_VIA_CHANGE_STATUS; the same status sent back is accepted")
+    void aPutCannotChangeTheStatus() throws Exception {
+        // Re-aimed from the test above, whose non-vacuity half pinned, on purpose, that a status WAS writable through
+        // the PUT: two screens set it so. Since 03.3 neither does, and a status is changed with Change status, by
+        // SASBO's code (POST /api/members/{id}/status). A changed status is refused WHOLE -- the remark beside it is
+        // not written either (ME-2) -- and the status the member already has, sent back as every screen sends it, is
+        // no change at all.
+        JsonNode created = captureAnotherPerson(94);
+        int id = created.get("id").asInt();
+        String status = created.get("status").asText();
+
+        ObjectNode changed = formPayload();
+        changed.put("identityNumber", MemberFixture.syntheticIdFor(94));
+        changed.put("status", "Resigned");
+        changed.put("remarks", "NOT WRITTEN");
+        MockHttpServletResponse refused = this.mockMvc.perform(put("/api/members/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(changed.toString()))
+                .andReturn().getResponse();
+
+        assertThat(refused.getStatus()).isEqualTo(409);
+        JsonNode body = this.objectMapper.readTree(refused.getContentAsString());
+        assertThat(body.get("code").asText()).isEqualTo("STATUS_VIA_CHANGE_STATUS");
+        assertThat(body.get("details").get("currentStatus").asText()).isEqualTo(status);
+        assertThat(body.get("details").get("endpoint").asText()).isEqualTo("/api/members/" + id + "/status");
+        JsonNode after = readBack(created);
+        assertThat(after.get("status").asText()).as("the status as it was").isEqualTo(status);
+        assertThat(after.path("remarks").asText()).as("refused whole: nothing of the edit written")
+                .isNotEqualTo("NOT WRITTEN");
+
+        ObjectNode same = formPayload();
+        same.put("identityNumber", MemberFixture.syntheticIdFor(94));
+        same.put("status", status);
+        same.put("remarks", "WRITTEN");
+        assertThat(this.mockMvc.perform(put("/api/members/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(same.toString()))
+                .andReturn().getResponse().getStatus()).as("the same status is no change").isEqualTo(200);
+        assertThat(readBack(created).get("remarks").asText()).isEqualTo("WRITTEN");
     }
 
     private JsonNode readBack(JsonNode created) throws Exception {

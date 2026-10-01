@@ -259,12 +259,14 @@ class MonthEndGuardsTest {
     }
 
     /**
-     * The resources whose stated sizes no other number of the arc shares: the workplaces' and the invented members'.
+     * The resources whose stated sizes no other number of the arc shares: the workplaces', the invented members' and,
+     * since A.1, the workplaces' visits -- whose file states two sizes, its workplaces ({@code count}) and its months
+     * ({@code visits}), and both are looked for.
      * A list's size -- 137 at the most -- is too small to look for without catching a weight or a width, and the lists'
      * tests read theirs from the file (MonthEndSeedTest.everyListIsThere).
      */
     static final List<String> SIZED = List.of("src/main/resources/data/sasbo_workplaces.json",
-            "src/main/resources/data/demonstration_members.json");
+            "src/main/resources/data/demonstration_members.json", "src/main/resources/data/sasbo_workplace_visits.json");
 
     @Test
     @DisplayName("MV-37, BR54: no test types the size a resource states -- each reads it from the file")
@@ -272,15 +274,20 @@ class MonthEndGuardsTest {
         List<String> offenders = new ArrayList<>();
         int scanned = 0;
         for (String resource : SIZED) {
-            int size = new ObjectMapper().readTree(Files.readString(Paths.get(resource), StandardCharsets.UTF_8))
-                    .path("count").asInt();
-            assertThat(size).as("%s states its size", resource).isGreaterThan(999);
-            Pattern typed = typedSize(size);
-            try (var files = Files.walk(Paths.get("src", "test", "java"))) {
-                for (var file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
-                    scanned++;
-                    if (typed.matcher(Files.readString(file, StandardCharsets.UTF_8)).find()) {
-                        offenders.add(file.getFileName() + " types " + size);
+            JsonNode stated = new ObjectMapper().readTree(Files.readString(Paths.get(resource), StandardCharsets.UTF_8));
+            List<Integer> sizes = new ArrayList<>(List.of(stated.path("count").asInt()));
+            if (stated.has("visits")) {
+                sizes.add(stated.path("visits").asInt());
+            }
+            for (int size : sizes) {
+                assertThat(size).as("%s states its size", resource).isGreaterThan(999);
+                Pattern typed = typedSize(size);
+                try (var files = Files.walk(Paths.get("src", "test", "java"))) {
+                    for (var file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
+                        scanned++;
+                        if (typed.matcher(Files.readString(file, StandardCharsets.UTF_8)).find()) {
+                            offenders.add(file.getFileName() + " types " + size);
+                        }
                     }
                 }
             }
@@ -383,6 +390,10 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/deletion-codes", "a list of SASBO's deletion codes, by their numbers"),
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
             Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
+            Map.entry("GET /api/workplaces/{id}/visits", "a workplace's visits: the day and the complement found; who "
+                    + "visited and the counts of members are withheld (MD61, B1)"),
+            Map.entry("POST /api/workplaces/{id}/visits", "a visit recorded: as open as every write today, and named in "
+                    + "B1's list (MR-SEC-1)"),
             Map.entry("POST /api/members/{id}/status", "as open as the PUT it replaces (MD13); named in B1's list, "
                     + "and refusing from the day sign-in exists"),
             Map.entry("GET /api/members/summary", "counts, under rule C: a membership below five at a named employer "
@@ -398,6 +409,8 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/month-end/{month}/branches", STATISTIC),
             Map.entry("GET /api/month-end/{month}/recruitment", STATISTIC),
             Map.entry("GET /api/month-end/{month}/representatives", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/visits", "a statistic: counts, by branch, rule C applied; the "
+                    + "manager's name and telephone are not answered until sign-in (B1)"),
             Map.entry("POST /api/month-end/{month}/pack", "the statistics as two workbooks: counts only, the sheets the "
                     + "statistics answer, rule C and the switch applied as they apply them (04.10)"),
             Map.entry("GET /api/month-end/packs/{id}", "a pack's progress: its month, its state and when"),

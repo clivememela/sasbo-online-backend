@@ -16,6 +16,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndExceptionHandle
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
+import za.co.titandynamix.sasbo_online_backend.services.WorkplaceVisitService;
 
 import java.util.List;
 
@@ -46,6 +47,10 @@ class WorkplaceControllerTest {
 
     @MockitoBean
     private WorkplaceService workplaces;
+
+    /** The controller's other collaborator since A.1 -- a workplace's visits. Not what this slice is about. */
+    @MockitoBean
+    private WorkplaceVisitService visits;
 
     @Test
     @DisplayName("each narrowing reaches the service as it was sent, and the page answers ACB's shape")

@@ -19,7 +19,9 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -47,6 +49,17 @@ public class MonthEndFactsRepository {
     /** How the paying pay, as the member record stores it (BR41). Anything else is other. */
     public static final String DEBIT_ORDER = "Debit Order";
     public static final String PAYROLL_DEDUCTION = "Payroll Deduction";
+
+    /**
+     * A.C.B.'s two reasons, read in SASBO's codes -- the owner's decision of 2026-10-01 (MO23), as A.C.B.'s owner: a
+     * termination A.C.B. writes for {@code SUBS_IN_ARREARS}, with no deletion code of its own, is a leaver under SASBO's
+     * deletion code 5, <em>Subscription in Arrears</em>; a suspension it writes for {@code UNPAID_SUSPENDED} is
+     * suspended under suspension code 13, <em>Debit returned</em>. Only month end's counts read it so: A.C.B.'s own
+     * code, and its count of terminations by {@code SUBS_IN_ARREARS} (BR39), are untouched. Where the code is not on
+     * the list, the change is counted as before, under its reason.
+     */
+    static final int ARREARS_DELETION_CODE = 5;
+    static final int DEBIT_RETURNED_SUSPENSION_CODE = 13;
 
     /** The take's: a month is taken whole, however long the database takes over it. */
     private final NamedParameterJdbcTemplate jdbc;
@@ -97,13 +110,13 @@ public class MonthEndFactsRepository {
                   area_letter, region_code, region_name, committee_code, committee_name, complement,
                   on_record, suspended, paying, opening, joined, left_count, reinstated,
                   by_debit_order, by_deduction, by_other, debit_order_rand, deduction_rand, other_rand,
-                  representatives, committee_members, seeded, members_from)
+                  representatives, committee_members, memnet_members, seeded, members_from)
                 SELECT :monthId, :firstDay, f.workplace_key, f.workplace_id, f.ra_number,
                   f.table_code, f.table_code_name, f.employer_ordinal, f.employer_name, f.group_name, f.group_ordinal,
                   f.group_core, f.area_letter, f.region_code, f.region_name, f.committee_code, f.committee_name,
                   f.complement, f.on_record, f.suspended, f.paying, f.opening, f.joined, f.left_count, f.reinstated,
                   f.by_debit_order, f.by_deduction, f.by_other, f.debit_order_rand, f.deduction_rand, f.other_rand,
-                  f.representatives, f.committee_members, f.seeded, f.members_from
+                  f.representatives, f.committee_members, f.memnet_members, f.seeded, f.members_from
                 FROM (""" + factsStatement() + ") f", arguments(month, seeded).addValue("monthId", monthId));
     }
 
@@ -139,10 +152,12 @@ public class MonthEndFactsRepository {
      * members}, one row a workplace and a value:
      * <ul>
      *   <li>{@code LEFT_BY_CODE}: the month's changes INTO a leaving status (rule L), by SASBO's number -- the code's
-     *       own, or the one it is a reason under -- with the reason under it as the detail. A leaver with no code
-     *       (ACB's {@code SUBS_IN_ARREARS}) is counted under the reason as stored;</li>
+     *       own, or the one it is a reason under -- with the reason under it as the detail. A.C.B.'s
+     *       {@code SUBS_IN_ARREARS} is read as code 5 (MO23, {@link #ARREARS_DELETION_CODE}); any other leaver with no
+     *       code is counted under the reason as stored;</li>
      *   <li>{@code SUSPENDED_BY_CODE}: the suspended at the month's end, by the code of the last change into a
-     *       suspended status before it ended. Suspended with no change on record (captured so): no code;</li>
+     *       suspended status before it ended -- A.C.B.'s {@code UNPAID_SUSPENDED} read as code 13 (MO23,
+     *       {@link #DEBIT_RETURNED_SUSPENSION_CODE}). Suspended with no change on record (captured so): no code;</li>
      *   <li>{@code RECRUITED_BY}: a Date Joined in the month, whatever the status now (rule N), by recruiter and
      *       channel;</li>
      *   <li>{@code UNKNOWN_STATUS}: a status at the month's end nobody knows (rule X), as stored.</li>
@@ -166,12 +181,14 @@ public class MonthEndFactsRepository {
                       FROM member_status_changes c
                       JOIN members m ON m.id = c.member_id
                       LEFT JOIN deletion_codes d ON d.id = c.deletion_code_id
+                        OR (c.deletion_code_id IS NULL AND CAST(c.reason AS VARCHAR(32)) = 'SUBS_IN_ARREARS'
+                            AND d.sasbo_code = %3$d)
                       LEFT JOIN deletion_codes p ON p.id = d.parent_id
                       WHERE c.changed_at >= :start AND c.changed_at < :next
                         AND %1$s = 'L' AND COALESCE(%2$s, '?') <> 'L'
                     ) l
                     GROUP BY l.workplace_key, l.code, l.name, l.detail
-                    """.formatted(toKind, fromKind);
+                    """.formatted(toKind, fromKind, ARREARS_DELETION_CODE);
             case SUSPENDED_BY_CODE -> """
                     SELECT s.workplace_key AS workplace_key, CAST('SUSPENDED_BY_CODE' AS VARCHAR(20)) AS measure,
                       s.code AS code, s.name AS name, CAST(NULL AS VARCHAR(255)) AS detail, COUNT(*) AS members
@@ -188,10 +205,13 @@ public class MonthEndFactsRepository {
                             AND (y.changed_at > c.changed_at OR (y.changed_at = c.changed_at AND y.id > c.id)))
                       ) last_in ON last_in.member_id = k.member_id
                       LEFT JOIN suspension_codes sc ON sc.id = last_in.suspension_code_id
+                        OR (last_in.suspension_code_id IS NULL
+                            AND CAST(last_in.reason AS VARCHAR(32)) = 'UNPAID_SUSPENDED' AND sc.code = %4$d)
                       WHERE k.end_kind = 'S'
                     ) s
                     GROUP BY s.workplace_key, s.code, s.name
-                    """.formatted(kinds(), toKind, MemberSummaryRepository.kind("y.to_status"));
+                    """.formatted(kinds(), toKind, MemberSummaryRepository.kind("y.to_status"),
+                    DEBIT_RETURNED_SUSPENSION_CODE);
             case RECRUITED_BY -> """
                     SELECT r.workplace_key AS workplace_key, CAST('RECRUITED_BY' AS VARCHAR(20)) AS measure,
                       r.code AS code, r.name AS name, r.detail AS detail, COUNT(*) AS members
@@ -306,6 +326,32 @@ public class MonthEndFactsRepository {
         return n != null && n > 0;
     }
 
+    /** A workplace's name, and its last visit by a month's end -- the first day of that visit's month. */
+    public record LastVisit(String name, LocalDate lastVisited) {
+    }
+
+    /**
+     * 04.9: every workplace's name and its newest visit before the month ends (A.1) -- by workplace id, one statement.
+     * For a TAKEN month, only the visits on record when it was taken ({@code captured_at} at or before the take), so the
+     * month reads as it stood then (MD19): the visits are append-only, and nothing captured later moves it. A visit's
+     * day is its month here: SASBO's own history prints a month and no day.
+     */
+    public Map<Long, LastVisit> lastVisits(MonthRange month, Instant takenAt) {
+        Map<Long, LastVisit> found = new HashMap<>();
+        bounded.query("""
+                SELECT w.id AS id, w.name AS name, MAX(v.visited_on) AS last_visited
+                FROM workplaces w
+                LEFT JOIN workplace_visits v ON v.workplace_id = w.id AND v.visited_on < :firstDayOfNext
+                  AND (CAST(:takenAt AS TIMESTAMP WITH TIME ZONE) IS NULL OR v.captured_at <= :takenAt)
+                GROUP BY w.id, w.name
+                """, arguments(month, List.of()).addValue("takenAt", takenAt == null ? null : utc(takenAt)), rs -> {
+            Date last = rs.getDate("last_visited");
+            found.put(rs.getLong("id"), new LastVisit(rs.getString("name"),
+                    last == null ? null : last.toLocalDate().withDayOfMonth(1)));
+        });
+        return found;
+    }
+
     /** Whether a region code is on record. */
     public boolean regionOnRecord(String code) {
         Long n = bounded.queryForObject("SELECT COUNT(*) FROM sasbo_regions WHERE code = :code",
@@ -345,7 +391,7 @@ public class MonthEndFactsRepository {
                        String committeeCode, String committeeName, Integer complement, long onRecord, long suspended,
                        long paying, long opening, long joined, long left, long reinstated, long byDebitOrder,
                        long byDeduction, long byOther, BigDecimal debitOrderRand, BigDecimal deductionRand,
-                       BigDecimal otherRand, long representatives, long committeeMembers, long seeded,
+                       BigDecimal otherRand, long representatives, long committeeMembers, long memnetMembers, long seeded,
                        LocalDate membersFrom) {
     }
 
@@ -361,7 +407,7 @@ public class MonthEndFactsRepository {
                   employer_name, group_name, group_ordinal, group_core, area_letter, region_code, region_name,
                   committee_code, committee_name, complement, on_record, suspended, paying, opening, joined, left_count,
                   reinstated, by_debit_order, by_deduction, by_other, debit_order_rand, deduction_rand, other_rand,
-                  representatives, committee_members, seeded, members_from
+                  representatives, committee_members, memnet_members, seeded, members_from
                 FROM month_end_workplaces WHERE month_id = :monthId ORDER BY workplace_key
                 """, new MapSqlParameterSource("monthId", monthId), MonthEndFactsRepository::fact);
     }
@@ -397,7 +443,8 @@ public class MonthEndFactsRepository {
                   SUM(p.by_deduction) AS by_deduction, SUM(p.by_other) AS by_other,
                   SUM(p.debit_order_rand) AS debit_order_rand, SUM(p.deduction_rand) AS deduction_rand,
                   SUM(p.other_rand) AS other_rand, SUM(p.representatives) AS representatives,
-                  SUM(p.committee_members) AS committee_members, SUM(p.seeded) AS seeded,
+                  SUM(p.committee_members) AS committee_members, SUM(p.memnet_members) AS memnet_members,
+                  SUM(p.seeded) AS seeded,
                   MIN(p.join_date) AS members_from
                 FROM (
                   SELECT k.workplace_id AS workplace_id,
@@ -418,12 +465,13 @@ public class MonthEndFactsRepository {
                          THEN k.subscription ELSE CAST(0 AS NUMERIC(14, 2)) END AS other_rand,
                     CASE WHEN k.end_kind IN ('N', 'S') AND k.shop_steward = TRUE THEN 1 ELSE 0 END AS representatives,
                     CASE WHEN k.end_kind IN ('N', 'S') AND k.bec = TRUE THEN 1 ELSE 0 END AS committee_members,
+                    CASE WHEN k.end_kind IN ('N', 'S') AND k.memnet = TRUE THEN 1 ELSE 0 END AS memnet_members,
                     CASE WHEN k.end_kind IN ('N', 'S') AND k.seed = 1 THEN 1 ELSE 0 END AS seeded,
                     k.join_date AS join_date
                   FROM (%3$s) k
                   UNION ALL
                   SELECT w0.id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, CAST(0 AS NUMERIC(14, 2)), CAST(0 AS NUMERIC(14, 2)),
-                    CAST(0 AS NUMERIC(14, 2)), 0, 0, 0, CAST(NULL AS DATE)
+                    CAST(0 AS NUMERIC(14, 2)), 0, 0, 0, 0, CAST(NULL AS DATE)
                   FROM workplaces w0 WHERE w0.closed_on IS NULL
                 ) p
                 LEFT JOIN workplaces w ON w.id = p.workplace_id
@@ -447,7 +495,8 @@ public class MonthEndFactsRepository {
                 SELECT s.member_id AS member_id, s.workplace_id AS workplace_id, s.end_status AS end_status,
                   %1$s AS end_kind, %2$s AS start_kind, s.joined AS joined, s.left_n AS left_n,
                   s.reinstated_n AS reinstated_n, s.payment_type AS payment_type, s.subscription AS subscription,
-                  s.shop_steward AS shop_steward, s.bec AS bec, s.seed AS seed, s.join_date AS join_date
+                  s.shop_steward AS shop_steward, s.bec AS bec, s.memnet AS memnet, s.seed AS seed,
+                  s.join_date AS join_date
                 FROM (%3$s) s
                 """.formatted(MemberSummaryRepository.kind("s.end_status"),
                 MemberSummaryRepository.kind("s.start_status"), statuses());
@@ -467,7 +516,7 @@ public class MonthEndFactsRepository {
                   COALESCE(mv.left_n, 0) AS left_n, COALESCE(mv.reinstated_n, 0) AS reinstated_n,
                   m.payment_type AS payment_type,
                   COALESCE(m.monthly_subscription_numeric, CAST(0 AS NUMERIC(14, 2))) AS subscription,
-                  m.is_shop_steward AS shop_steward, m.is_bec AS bec,
+                  m.is_shop_steward AS shop_steward, m.is_bec AS bec, m.is_memnet AS memnet,
                   CASE WHEN m.membership_number IN (:seeded) THEN 1 ELSE 0 END AS seed,
                   m.join_date AS join_date
                 FROM members m
@@ -526,7 +575,7 @@ public class MonthEndFactsRepository {
                 rs.getLong("reinstated"), rs.getLong("by_debit_order"), rs.getLong("by_deduction"),
                 rs.getLong("by_other"), rs.getBigDecimal("debit_order_rand"), rs.getBigDecimal("deduction_rand"),
                 rs.getBigDecimal("other_rand"), rs.getLong("representatives"), rs.getLong("committee_members"),
-                rs.getLong("seeded"), from == null ? null : from.toLocalDate());
+                rs.getLong("memnet_members"), rs.getLong("seeded"), from == null ? null : from.toLocalDate());
     }
 
     /**

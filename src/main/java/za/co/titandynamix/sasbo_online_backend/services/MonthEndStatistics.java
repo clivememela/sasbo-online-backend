@@ -357,12 +357,84 @@ public class MonthEndStatistics {
                 "SASBO AREA SUMMARY OF COMMITTEE MEMBERS", MonthEndStatistics::tableCodeKey, committeeColumns,
                 a -> cells(n(a.committeeMembers), n(a.workplaces), n(a.withCommitteeMembers),
                         n(a.workplaces - a.withCommitteeMembers), share(a.withCommitteeMembers, a.workplaces)), true);
+        // MM80, SASBO's answer of 1 Oct: a Memnet member is marked so from the nomination form, at capture or on an edit.
+        List<Column> memnetColumns = List.of(count("memnetMembers", "Memnet members"), count("workplaces", "Workplaces"),
+                count("with", "With a Memnet member"), count("without", "Without one"),
+                share("share", "Share with one"));
+        Sheet memnet = placeSheet(read, "memnet-members", "Memnet members, by table code",
+                "SASBO AREA SUMMARY OF MEMNET MEMBERS", MonthEndStatistics::tableCodeKey, memnetColumns,
+                a -> cells(n(a.memnetMembers), n(a.workplaces), n(a.withMemnetMembers),
+                        n(a.workplaces - a.withMemnetMembers), share(a.withMemnetMembers, a.workplaces)), true);
         List<String> notes = notes(read);
         notes.add("A representative is a member on record marked as a shop steward, and a committee member one marked "
                 + "as a BEC member -- a reading SASBO is asked to confirm.");
-        notes.add("Memnet membership is not captured by this system, so it is not counted here.");
+        notes.add("A Memnet member is a member on record marked so from the nomination form, at capture or on an edit. "
+                + "A month taken before the mark existed counts none.");
         return answer("representatives", List.of("reps_no", "comm_mem", "memnet_area"), read,
-                List.of(reps, committees), notes);
+                List.of(reps, committees, memnet), notes);
+    }
+
+    /**
+     * 04.9: the branches due a visit (visits) -- each workplace, its last visit, its members, its complement and the
+     * recruits it could still yield, the longest unvisited first. Needs A.1, whose visits it reads.
+     */
+    public MonthEndStatisticDto visits(String month, String area, String region) {
+        return visits(read(month, area, region, false));
+    }
+
+    MonthEndStatisticDto visits(Read read) {
+        boolean staff = read.grouped();
+        Map<Long, MonthEndFactsRepository.LastVisit> lastVisits = read.grouped()
+                ? facts.lastVisits(read.range(), read.taken() == null ? null : read.taken().takenAt()) : Map.of();
+        Map<String, Agg> byWorkplace = aggregate(read, f -> workplaceKey(f, lastVisits));
+        Map<String, LocalDate> lastOf = new HashMap<>();
+        for (Fact f : read.facts()) {
+            MonthEndFactsRepository.LastVisit visit = lastVisits.get(f.workplaceId());
+            if (visit != null && visit.lastVisited() != null) {
+                lastOf.put("W" + f.workplaceKey(), visit.lastVisited());
+            }
+        }
+        // The longest unvisited first -- never visited, then the oldest last visit -- then by R/A number; the rows of
+        // none last. The order SASBO's own report keeps: BANK BRANCHES REQUIRING ATTENTION.
+        List<Agg> ordered = byWorkplace.values().stream().sorted(
+                Comparator.<Agg>comparingInt(a -> a.key.startsWith("~") ? 1 + SPECIAL_ORDER.indexOf(a.key) : 0)
+                        .thenComparing(a -> lastOf.get(a.key), Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(a -> a.order == null ? Integer.MAX_VALUE : a.order)).toList();
+        Agg total = new Agg("~TOTAL", "Total", null);
+        ordered.forEach(total::absorb);
+        List<Column> columns = List.of(count("members", "Members"), count("complement", "Complement"),
+                count("couldYield", "Could still yield"));
+        Function<Agg, List<BigDecimal>> cells = a -> cells(n(a.paying), staff ? n(a.complement) : null,
+                staff ? n(Math.max(a.complement - a.paying, 0)) : null);
+        // A row that withholds its members withholds what the branch could still yield with them: the two would give
+        // each other back (BR44). Rule C's own rows do exactly that, the whole row at once.
+        List<Row> rows = settledRows(read, ordered, true, total.onRecord, cells);
+        long yieldAll = ordered.stream().filter(a -> !a.key.startsWith("~"))
+                .mapToLong(a -> Math.max(a.complement - a.paying, 0)).sum();
+        Row totalRow = new Row(total.key, total.label, Row.TOTAL, false, false,
+                cells(n(total.paying), staff ? n(total.complement) : null, staff ? n(yieldAll) : null));
+        Sheet sheet = new Sheet("due-a-visit", "The branches due a visit", "BANK BRANCHES REQUIRING ATTENTION",
+                columns, rows, totalRow);
+        List<String> notes = notes(read);
+        notes.add("The last visit is the newest on record by the month's end -- a visit captured here, or a month "
+                + "SASBO's branch list prints; " + (read.taken() == null ? "as the visits stand now."
+                : "as they stood when the month was taken."));
+        notes.add("Members are the members on record less the suspended. A branch could still yield its complement "
+                + "less its members, where the complement is the more.");
+        notes.add("The branch manager's name and telephone are a person's details, and are shown once administrators "
+                + "sign in to this system.");
+        return answer("visits", List.of("visits"), read, List.of(sheet), notes);
+    }
+
+    /** {key, label, order} of a workplace's row: its R/A number and name, and when it was last visited. */
+    private static String[] workplaceKey(Fact f, Map<Long, MonthEndFactsRepository.LastVisit> lastVisits) {
+        MonthEndFactsRepository.LastVisit visit = lastVisits.get(f.workplaceId());
+        String name = visit == null || visit.name() == null ? "" : " " + visit.name();
+        String last = visit == null || visit.lastVisited() == null ? "never visited"
+                : "last visited " + visit.lastVisited().getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH) + " "
+                        + visit.lastVisited().getYear();
+        return new String[] {"W" + f.workplaceKey(), "R/A " + f.raNumber() + name + " · " + last,
+                f.raNumber() == null ? null : String.valueOf(f.raNumber())};
     }
 
     /**
@@ -768,9 +840,11 @@ public class MonthEndStatistics {
         long byOther;
         long representatives;
         long committeeMembers;
+        long memnetMembers;
         long workplaces;
         long withRepresentatives;
         long withCommitteeMembers;
+        long withMemnetMembers;
         long complement;
         long coreComplement;
         long corePaying;
@@ -795,10 +869,12 @@ public class MonthEndStatistics {
             byOther += f.byOther();
             representatives += f.representatives();
             committeeMembers += f.committeeMembers();
+            memnetMembers += f.memnetMembers();
             if (f.workplaceKey() != 0) {
                 workplaces++;
                 withRepresentatives += f.representatives() > 0 ? 1 : 0;
                 withCommitteeMembers += f.committeeMembers() > 0 ? 1 : 0;
+                withMemnetMembers += f.memnetMembers() > 0 ? 1 : 0;
             }
             long staff = f.complement() == null ? 0 : f.complement();
             complement += staff;
@@ -822,9 +898,11 @@ public class MonthEndStatistics {
             byOther += a.byOther;
             representatives += a.representatives;
             committeeMembers += a.committeeMembers;
+            memnetMembers += a.memnetMembers;
             workplaces += a.workplaces;
             withRepresentatives += a.withRepresentatives;
             withCommitteeMembers += a.withCommitteeMembers;
+            withMemnetMembers += a.withMemnetMembers;
             complement += a.complement;
             coreComplement += a.coreComplement;
             corePaying += a.corePaying;

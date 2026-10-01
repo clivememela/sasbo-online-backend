@@ -172,6 +172,94 @@ class MonthEndStatisticsTest {
     }
 
     @Test
+    @DisplayName("🔒 MO23: A.C.B.'s two reasons read in SASBO's codes -- a termination for SUBS_IN_ARREARS is a leaver under code 5, a suspension for UNPAID_SUSPENDED is suspended under code 13")
+    void acbsTwoReasonsReadInSasbosCodes() {
+        // A.C.B. writes its changes with a reason and no code of SASBO's. Here m14 is terminated by it in September, and
+        // m7 -- the fixture's one suspended member, with no change on record -- suspended by it; undone after. The
+        // fixture's own code-5 leaver, m17, was given the code by hand: the two are one column (MO23).
+        boolean codeAdded = jdbc.queryForObject("SELECT count(*) FROM suspension_codes WHERE code = 13", Long.class) == 0;
+        if (codeAdded) {
+            jdbc.update("INSERT INTO suspension_codes (code, name) VALUES (13, 'INVENTED DEBIT RETURNED')");
+        }
+        Integer m14 = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = 'M-800014'", Integer.class);
+        Integer m7 = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = 'M-800007'", Integer.class);
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at) "
+                + "VALUES (?, 'Active', 'Terminated', 'SUBS_IN_ARREARS', 'acb', "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-13 08:00:00+00:00')", m14);
+        jdbc.update("UPDATE members SET status = 'Terminated' WHERE id = ?", m14);
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, changed_by, changed_at) "
+                + "VALUES (?, 'Active', 'Suspended', 'UNPAID_SUSPENDED', 'acb', "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-05 08:00:00+00:00')", m7);
+        try {
+            MonthEndStatisticDto.Sheet byArea = sheet(statistics.leavers("2026-09", null, null), "by-area");
+            assertThat(rows(byArea)).as("area B: m15 under code 2, and m17 and m14 under code 5 -- none without a code")
+                    .containsExactly("A: 0 0 0 0 0", "B: 0 1 2 0 3");
+            assertThat(rows(sheet(statistics.membership("2026-09", null, null), "suspended-by-code")))
+                    .as("m7 under the code of A.C.B.'s suspension, 13").containsExactly("13: 1");
+        } finally {
+            jdbc.update("DELETE FROM member_status_changes WHERE member_id IN (?, ?) AND changed_by = 'acb'", m14, m7);
+            jdbc.update("UPDATE members SET status = 'Active' WHERE id = ?", m14);
+            if (codeAdded) {
+                jdbc.update("DELETE FROM suspension_codes WHERE code = 13");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 04.8, MM80: a member marked as Memnet is counted by table code -- and a member who is not, is not")
+    void aMemnetMemberIsCounted() {
+        // m13, on record at W3 under table code 901, marked from the nomination form; m15 at the same workplace, who
+        // resigned in September, marked too -- a member no longer on record is not a Memnet member of the month's.
+        jdbc.update("UPDATE members SET is_memnet = TRUE WHERE membership_number IN ('M-800013', 'M-800015')");
+        try {
+            MonthEndStatisticDto representatives = statistics.representatives("2026-09", null, null);
+            assertThat(total(sheet(representatives, "memnet-members")))
+                    .as("one Memnet member, at one workplace of four").isEqualTo("1 4 1 3 0.2500");
+            assertThat(total(sheet(representatives, "committee-members"))).as("the BEC mark is another's")
+                    .isEqualTo("0 4 0 4 0.0000");
+        } finally {
+            jdbc.update("UPDATE members SET is_memnet = NULL WHERE membership_number IN ('M-800013', 'M-800015')");
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 04.9: the branches due a visit -- the longest unvisited first, each with its last visit; rule C over its members and what it could still yield; the total whole")
+    void theBranchesDueAVisit() {
+        // W1 visited on 5 September, captured here; W2 visited in June, a month SASBO's branch list prints; W3 and W4
+        // never. The three smaller rows are fewer than five; three hidden rows give back only their sum, never one of
+        // them, so W1's eight stand (MD37: a row beside is withheld where ONE hidden row could be worked out).
+        Long w1 = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900001", Long.class);
+        Long w2 = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900002", Long.class);
+        Long w3 = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900003", Long.class);
+        Long w4 = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900004", Long.class);
+        jdbc.update("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, complement_found, seeded, "
+                + "captured_at) VALUES (?, DATE '2026-09-05', TRUE, 20, FALSE, "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-05 10:00:00+00:00')", w1);
+        jdbc.update("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, seeded, captured_at) VALUES "
+                + "(?, DATE '2026-06-01', FALSE, TRUE, TIMESTAMP WITH TIME ZONE '2026-09-01 08:00:00+00:00')", w2);
+        try {
+            MonthEndStatisticDto visits = statistics.visits("2026-09", null, null);
+            MonthEndStatisticDto.Sheet sheet = sheet(visits, "due-a-visit");
+
+            assertThat(visits.statistic()).isEqualTo("visits");
+            assertThat(sheet.rows()).extracting(MonthEndStatisticDto.Row::key)
+                    .as("never visited first, then the oldest visit; the members with no workplace last")
+                    .containsExactly("W" + w3, "W" + w4, "W" + w2, "W" + w1, "~NO_WORKPLACE");
+            assertThat(sheet.rows()).extracting(MonthEndStatisticDto.Row::label).startsWith(
+                    "R/A 900003 INVENTED HARBOUR · never visited", "R/A 900004 INVENTED OUTPOST · never visited",
+                    "R/A 900002 INVENTED HEAD OFFICE · last visited Jun 2026",
+                    "R/A 900001 INVENTED MAIN STREET · last visited Sep 2026");
+            assertThat(rows(sheet)).as("rule C: what it could still yield goes with the members it would give back")
+                    .containsExactly("W" + w3 + ": fewer than five", "W" + w4 + ": fewer than five",
+                            "W" + w2 + ": fewer than five", "W" + w1 + ": 8 20 12", "~NO_WORKPLACE: 2 0 0");
+            assertThat(total(sheet)).as("the members, the complement, and the sum of what each branch could yield")
+                    .isEqualTo("16 38 24");
+        } finally {
+            jdbc.update("DELETE FROM workplace_visits");
+        }
+    }
+
+    @Test
     @DisplayName("🔒 MR-ROB-4, DL-65: a member captured after September is taken, dated inside it, moves none of its statistics")
     void aLateCaptureMovesNothing() {
         takes.take(SummaryFixture.MONTH, "seed");
@@ -245,7 +333,7 @@ class MonthEndStatisticsTest {
                 .containsExactly("B: 8 3 0.3750 0.00 5 2");
         // 04.8 "by area and table code", as reps_no and comm_mem print them: an area's table codes, and its total.
         MonthEndStatisticDto representativesOfB = statistics.representatives("2026-09", "B", null);
-        for (String key : List.of("representatives", "committee-members")) {
+        for (String key : List.of("representatives", "committee-members", "memnet-members")) {
             assertThat(sheet(representativesOfB, key).rows()).as("%s: area B's table codes alone", key)
                     .extracting(MonthEndStatisticDto.Row::key).containsExactly("901", "~NO_TABLE_CODE");
             assertThat(total(sheet(representativesOfB, key))).as("%s: area B's two workplaces, none with one", key)
@@ -367,6 +455,6 @@ class MonthEndStatisticsTest {
                         "membership by-table-code", "leavers by-area", "leavers by-employer", "leavers by-table-code",
                         "leavers joined-deleted", "leavers resigned", "branches by-area", "branches by-employer",
                         "recruitment by-table-code", "representatives representatives",
-                        "representatives committee-members");
+                        "representatives committee-members", "representatives memnet-members");
     }
 }

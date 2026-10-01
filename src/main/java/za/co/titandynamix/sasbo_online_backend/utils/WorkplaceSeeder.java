@@ -67,6 +67,9 @@ public class WorkplaceSeeder {
     private static final List<String> COLUMNS = List.of("name", "employer_printed", "table_code_id", "table_code_by",
             "area_id", "committee_code", "committee_id", "staff_complement", "cl_code");
 
+    /** Where the staff complement stands among {@link #COLUMNS}. */
+    private static final int COMPLEMENT = COLUMNS.indexOf("staff_complement");
+
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final SasboEnvironment environment;
@@ -167,6 +170,12 @@ public class WorkplaceSeeder {
                 open.add(ra);
             }
         });
+        // A.1: a complement a visit captured here wrote is a person's own reading of the branch, and the seed leaves it
+        // as it is -- as the members' placement leaves a person's own choice (MD53). The complement is kept by hand from
+        // organisers' visits (SASBO's reply, point 42), and the branch list is the older of the two.
+        Set<Long> visited = new HashSet<>(jdbc.queryForList("SELECT DISTINCT w.ra_number FROM workplace_visits v "
+                + "JOIN workplaces w ON w.id = v.workplace_id WHERE NOT v.seeded AND v.complement_found IS NOT NULL",
+                Long.class));
         beforeWrite.run();
         List<Object[]> inserts = new ArrayList<>();
         List<Object[]> updates = new ArrayList<>();
@@ -185,6 +194,9 @@ public class WorkplaceSeeder {
             long ra = row.raNumber();
             printed.add(ra);
             Object[] existing = onRecord.get(ra);
+            if (existing != null && visited.contains(ra)) {
+                values[COMPLEMENT] = existing[COMPLEMENT];
+            }
             if (existing == null) {
                 Object[] insert = new Object[values.length + 1];
                 insert[0] = row.raNumber();

@@ -102,6 +102,8 @@ public class MemberTrail {
         f.put("isShopSteward", Member::getIsShopSteward);
         f.put("shopStewardElectionDate", Member::getShopStewardElectionDate);
         f.put("isBec", Member::getIsBec);
+        // Month end 04.8 (MM80): the Memnet mark, set from the nomination form.
+        f.put("isMemnet", Member::getIsMemnet);
         f.put("becCommitteeCode", m -> m.getBecCommittee() == null ? null : m.getBecCommittee().getCode());
         f.put("isBecRecruiter", Member::getIsBecRecruiter);
         f.put("isBecStructureRep", Member::getIsBecStructureRep);

@@ -160,6 +160,8 @@ public class MemberDto {
     // ─── SASBO structures (V29, CM-05) ───
     private Boolean isShopSteward;
     private Boolean isBec;
+    /** Month end 04.8 (MM80): a Memnet member, from the nomination form. */
+    private Boolean isMemnet;
     // ─── and what a Yes needs beside it (V55) ───
     private LocalDate shopStewardElectionDate;
     /** The committee the member sits on, by SASBO's code -- what the record sends back to change it. */

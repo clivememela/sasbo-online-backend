@@ -79,6 +79,14 @@ public class MonthEndStatisticsController {
         return statistics.representatives(month, area, region);
     }
 
+    /** 04.9: the branches due a visit -- counts; the manager's details are shown once sign-in exists. */
+    @GetMapping("/visits")
+    public MonthEndStatisticDto visits(@PathVariable("month") String month,
+                                       @RequestParam(required = false) String area,
+                                       @RequestParam(required = false) String region) {
+        return statistics.visits(month, area, region);
+    }
+
     /**
      * 🔒 A listing -- the month's new members, its deleted, the members a recruiter signed up, the elected
      * representatives -- names members, and is refused to every caller before anything is read (MD4).

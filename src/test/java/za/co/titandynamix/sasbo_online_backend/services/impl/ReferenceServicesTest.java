@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
 import za.co.titandynamix.sasbo_online_backend.dto.bank.BankBranchDto;
 import za.co.titandynamix.sasbo_online_backend.dto.location.ProvinceDto;
 import za.co.titandynamix.sasbo_online_backend.dto.recruitment.RecruitmentChannelDto;
@@ -31,8 +33,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -97,6 +101,7 @@ class ReferenceServicesTest {
     class RecruitmentChannels {
 
         @Mock private RecruitmentChannelRepository repository;
+        @Mock private JdbcTemplate jdbc;
 
         @Test
         @DisplayName("refuses a duplicate name, and writes nothing when it does")
@@ -169,8 +174,21 @@ class ReferenceServicesTest {
             verify(this.repository, never()).deleteById(99L);
         }
 
+        @Test
+        @DisplayName("🔒 MO21, A49: a channel's members are cleared of it BEFORE it is deleted -- their status untouched")
+        void membersAreClearedFirst() {
+            when(this.repository.existsById(1L)).thenReturn(true);
+
+            service().delete(1L);
+
+            InOrder order = inOrder(this.jdbc, this.repository);
+            order.verify(this.jdbc).update("UPDATE members SET recruitment_channel_id = NULL WHERE recruitment_channel_id = ?", 1L);
+            order.verify(this.repository).deleteById(1L);
+            verifyNoMoreInteractions(this.jdbc);
+        }
+
         private RecruitmentChannelServiceImpl service() {
-            return new RecruitmentChannelServiceImpl(this.repository);
+            return new RecruitmentChannelServiceImpl(this.repository, this.jdbc);
         }
 
         private RecruitmentChannelDto dto(String name) {

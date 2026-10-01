@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.controller.WorkplaceController;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
+import za.co.titandynamix.sasbo_online_backend.services.WorkplaceVisitService;
 import za.co.titandynamix.sasbo_online_backend.support.LogCapture;
 
 import java.util.Map;
@@ -61,6 +62,10 @@ class MonthEndExceptionHandlerTest {
 
     @MockitoBean
     private WorkplaceService workplaces;
+
+    /** The controller's other collaborator since A.1 -- a workplace's visits. Not what this slice is about. */
+    @MockitoBean
+    private WorkplaceVisitService visits;
 
     @Test
     @DisplayName("ME-11: a word where a page number is wanted is REQUEST_MALFORMED, naming the field and giving nothing back")

@@ -121,6 +121,7 @@ class MonthEndExamplesTest {
 
         String key() {
             return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}").replace("{pack}", "{id}")
+                    .replace("{workplace}", "{id}")
                     .replaceAll("/\\d{4}-\\d{2}(/|$)", "/{month}$1")
                     .replaceAll("/\\d+/", "/{id}/");
         }
@@ -139,6 +140,11 @@ class MonthEndExamplesTest {
             routes.add(new Example("GET", "/api/reference/" + list, null));
         }
         routes.add(new Example("GET", "/api/workplaces?page=0&size=2", null));
+        // A.1: the invented main street's visits -- one of SASBO's own months and one captured here, newest first -- and
+        // a visit recorded, the complement it found the one on record, so no other answer moves.
+        routes.add(new Example("GET", "/api/workplaces/{workplace}/visits", null));
+        routes.add(new Example("POST", "/api/workplaces/{workplace}/visits", "{\"visitedOn\": \"2026-09-10\", "
+                + "\"organiser\": \"INVENTED ORGANISER\", \"complementFound\": 40, \"membershipFound\": 12}"));
         // 02.2: the figures of the clock's month, by employer group -- the first screen's one request (MD69).
         routes.add(new Example("GET", "/api/members/summary?by=group", null));
         // 03.6: the invented member's history -- a capture and a field changed, merged with its status changes.
@@ -152,7 +158,7 @@ class MonthEndExamplesTest {
         routes.add(new Example("GET", "/api/month-end/" + TAKEN, null));
         // 04.3 to 04.8: each statistic of the invented August, read from what was frozen.
         for (String statistic : List.of("new-and-deleted", "membership", "leavers", "branches", "recruitment",
-                "representatives")) {
+                "representatives", "visits")) {
             routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/" + statistic, null));
         }
         // 04.10: the invented August's statistics pack -- asked for, prepared on the caller's thread under test, READY --
@@ -189,6 +195,12 @@ class MonthEndExamplesTest {
         // workplace not on record here.
         provoked.put(MonthEndRefusalCode.WORKPLACE_UNKNOWN, new Example("PUT", "/api/members/{member}",
                 "{\"workplaceId\": 999999}"));
+        // A.1: a visit with no day.
+        provoked.put(MonthEndRefusalCode.VISIT_INVALID, new Example("POST", "/api/workplaces/{workplace}/visits",
+                "{\"complementFound\": 40}"));
+        // 03.4: thrown there too -- an edit that would change the status, which Change status alone changes (BR77).
+        provoked.put(MonthEndRefusalCode.STATUS_VIA_CHANGE_STATUS, new Example("PUT", "/api/members/{member}",
+                "{\"status\": \"Resigned\"}"));
         // 02.2: the figures' refusals -- the last with both of the gate's places taken, as two slow queries would.
         provoked.put(MonthEndRefusalCode.SUMMARY_GROUPING_UNKNOWN, new Example("GET", "/api/members/summary?by=bank", null));
         provoked.put(MonthEndRefusalCode.SUMMARY_AREA_UNKNOWN, new Example("GET", "/api/members/summary?area=QQ", null));
@@ -252,6 +264,17 @@ class MonthEndExamplesTest {
         jdbc.update("UPDATE members SET status = 'Active' WHERE membership_number = ?", MEMBER);
         // No pack before any example: each asks from nothing, and is answered the same on every run.
         jdbc.update("DELETE FROM month_end_packs");
+        // A.1: the invented main street's two visits and no other, numbered from one -- the visit an example records is
+        // answered with the same number on every run. (The fast lane's schema is the entities': no trigger here.)
+        jdbc.update("DELETE FROM workplace_visits");
+        jdbc.execute("ALTER TABLE workplace_visits ALTER COLUMN id RESTART WITH 1");
+        jdbc.update("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, seeded, captured_at) "
+                + "SELECT id, DATE '2026-07-01', FALSE, TRUE, TIMESTAMP WITH TIME ZONE '2026-09-01 08:00:00+00:00' "
+                + "FROM workplaces WHERE ra_number = 900001");
+        jdbc.update("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, organiser, complement_found, "
+                + "complement_before, membership_found, seeded, captured_at) SELECT id, DATE '2026-08-20', TRUE, "
+                + "'INVENTED ORGANISER', 40, 38, 11, FALSE, TIMESTAMP WITH TIME ZONE '2026-08-20 14:00:00+00:00' "
+                + "FROM workplaces WHERE ra_number = 900001");
     }
 
     private void lists() {
@@ -320,7 +343,9 @@ class MonthEndExamplesTest {
 
     private MvcResult perform(Example example) throws Exception {
         Integer member = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = ?", Integer.class, MEMBER);
-        String path = example.path().replace("{member}", String.valueOf(member));
+        Long workplace = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900001", Long.class);
+        String path = example.path().replace("{member}", String.valueOf(member))
+                .replace("{workplace}", String.valueOf(workplace));
         if (path.contains("{pack}")) {
             path = path.replace("{pack}", String.valueOf(packs.ask(TAKEN).pack().id()));
         }

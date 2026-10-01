@@ -378,6 +378,60 @@
         "reason" : null
       }
     },
+    "GET /api/workplaces/{id}/visits" : {
+      "request" : "GET /api/workplaces/{workplace}/visits",
+      "status" : 200,
+      "body" : {
+        "workplaceId" : 1,
+        "visits" : [
+          {
+            "id" : 2,
+            "visitedOn" : "2026-08-20",
+            "dayKnown" : true,
+            "complementFound" : 40,
+            "complementBefore" : 38,
+            "seeded" : false
+          },
+          {
+            "id" : 1,
+            "visitedOn" : "2026-07-01",
+            "dayKnown" : false,
+            "complementFound" : null,
+            "complementBefore" : null,
+            "seeded" : true
+          }
+        ],
+        "page" : 0,
+        "size" : 20,
+        "totalElements" : 2,
+        "totalPages" : 1,
+        "withheld" : [
+          "organiser",
+          "membershipFound",
+          "nonMembers",
+          "recruited",
+          "nonMembersInterviewed"
+        ]
+      }
+    },
+    "POST /api/workplaces/{id}/visits" : {
+      "request" : "POST /api/workplaces/{workplace}/visits",
+      "requestBody" : {
+        "visitedOn" : "2026-09-10",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "membershipFound" : 12
+      },
+      "status" : 201,
+      "body" : {
+        "id" : 3,
+        "visitedOn" : "2026-09-10",
+        "dayKnown" : true,
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "seeded" : false
+      }
+    },
     "GET /api/members/summary" : {
       "request" : "GET /api/members/summary?by=group",
       "status" : 200,
@@ -2397,13 +2451,253 @@
                 0.0
               ]
             }
+          },
+          {
+            "key" : "memnet-members",
+            "title" : "Memnet members, by table code",
+            "legacyTitle" : "SASBO AREA SUMMARY OF MEMNET MEMBERS",
+            "columns" : [
+              {
+                "key" : "memnetMembers",
+                "label" : "Memnet members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "workplaces",
+                "label" : "Workplaces",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "with",
+                "label" : "With a Memnet member",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "without",
+                "label" : "Without one",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "share",
+                "label" : "Share with one",
+                "kind" : "SHARE"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "901",
+                "label" : "901 INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "902",
+                "label" : "902 INVENTED BANK DEPARTMENTS",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "903",
+                "label" : "903 INVENTED INSURER CASH",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  1,
+                  0.0
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                4,
+                0,
+                4,
+                0.0
+              ]
+            }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
           "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
           "A representative is a member on record marked as a shop steward, and a committee member one marked as a BEC member -- a reading SASBO is asked to confirm.",
-          "Memnet membership is not captured by this system, so it is not counted here."
+          "A Memnet member is a member on record marked so from the nomination form, at capture or on an edit. A month taken before the mark existed counts none."
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/visits" : {
+      "request" : "GET /api/month-end/2026-08/visits",
+      "status" : 200,
+      "body" : {
+        "statistic" : "visits",
+        "legacy" : [
+          "visits"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "due-a-visit",
+            "title" : "The branches due a visit",
+            "legacyTitle" : "BANK BRANCHES REQUIRING ATTENTION",
+            "columns" : [
+              {
+                "key" : "members",
+                "label" : "Members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "couldYield",
+                "label" : "Could still yield",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "W2",
+                "label" : "R/A 900002 INVENTED HEAD OFFICE · never visited",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  120,
+                  120
+                ]
+              },
+              {
+                "key" : "W3",
+                "label" : "R/A 900003 INVENTED HARBOUR · never visited",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  15,
+                  15
+                ]
+              },
+              {
+                "key" : "W4",
+                "label" : "R/A 900004 INVENTED OUTPOST · never visited",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  3,
+                  3
+                ]
+              },
+              {
+                "key" : "W1",
+                "label" : "R/A 900001 INVENTED MAIN STREET · last visited Aug 2026",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  40,
+                  40
+                ]
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  1,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                1,
+                178,
+                178
+              ]
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "The last visit is the newest on record by the month's end -- a visit captured here, or a month SASBO's branch list prints; as they stood when the month was taken.",
+          "Members are the members on record less the suspended. A branch could still yield its complement less its members, where the complement is the more.",
+          "The branch manager's name and telephone are a person's details, and are shown once administrators sign in to this system."
         ]
       }
     },
@@ -2490,6 +2784,24 @@
         "code" : "WORKPLACE_UNKNOWN",
         "details" : {
           "workplaceId" : "999999"
+        }
+      }
+    },
+    "VISIT_INVALID" : {
+      "request" : "POST /api/workplaces/{workplace}/visits",
+      "requestBody" : {
+        "complementFound" : 40
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "The day of the visit is needed. Nothing was saved.",
+        "path" : "/api/workplaces/1/visits",
+        "code" : "VISIT_INVALID",
+        "details" : {
+          "field" : "visitedOn"
         }
       }
     },
@@ -2723,6 +3035,25 @@
         "code" : "STATUS_CHANGED_SINCE",
         "details" : {
           "currentStatus" : "Active"
+        }
+      }
+    },
+    "STATUS_VIA_CHANGE_STATUS" : {
+      "request" : "PUT /api/members/{id}",
+      "requestBody" : {
+        "status" : "Resigned"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "A status is changed with \"Change status\", with its reason. The rest of your changes were not saved.",
+        "path" : "/api/members/{id}",
+        "code" : "STATUS_VIA_CHANGE_STATUS",
+        "details" : {
+          "currentStatus" : "Active",
+          "endpoint" : "/api/members/1/status"
         }
       }
     },

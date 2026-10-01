@@ -56,10 +56,11 @@ class MonthEndSeedTest {
      * on record. SASBO's lists: one read of what {@code reference_lists} holds, then one read of the keys on record a
      * list -- ten, the deletion codes being two, SASBO's numbered codes and the reasons for resigning under code 2.
      * The workplaces: one read of their record, one each of the areas, table codes and committees they refer to,
-     * and one of the workplaces on record. Nothing is written. A question asked a row would multiply this by
+     * and one of the workplaces on record -- and since A.1 one of the workplaces a visit captured here gave a
+     * complement, which the seed leaves as it is. Nothing is written. A question asked a row would multiply this by
      * thousands; a write would add one.
      */
-    static final long SECOND_START_STATEMENTS = 11 + 5;
+    static final long SECOND_START_STATEMENTS = 11 + 6;
 
     @TestConfiguration
     static class CountedAtTheConnection {
