@@ -24,7 +24,7 @@ import java.time.LocalDate;
  */
 @Entity
 @Table(name = "month_end_workplaces", uniqueConstraints = @UniqueConstraint(
-        name = "month_end_workplaces_one_a_workplace", columnNames = {"month_start", "workplace_key"}))
+        name = "month_end_workplaces_one_a_workplace", columnNames = {"month_id", "workplace_key"}))
 @Getter
 @NoArgsConstructor
 public class MonthEndWorkplaceFact {

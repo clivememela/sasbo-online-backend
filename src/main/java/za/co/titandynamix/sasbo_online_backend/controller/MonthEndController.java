@@ -3,11 +3,13 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.config.MonthEndApi;
 import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthDto;
 import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthsDto;
+import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndTakeRequest;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
@@ -49,11 +51,19 @@ public class MonthEndController {
         return takes.record(month);
     }
 
-    /** 🔒 Refused to every caller until sign-in exists -- after saying what is known of the month. */
+    /**
+     * 🔒 Refused to every caller until sign-in exists -- after saying what is known of the month. A take again (04.11)
+     * names the take it replaces; one that is not the month's newest is said so first.
+     */
     @PostMapping("/{month}/take")
-    public MonthEndMonthDto take(@PathVariable("month") String month) {
+    public MonthEndMonthDto take(@PathVariable("month") String month,
+                                 @RequestBody(required = false) MonthEndTakeRequest request) {
         YearMonth asked = takes.month(month);
-        takes.refuseIfTaken(asked);
+        if (request == null || request.replaces() == null) {
+            takes.refuseIfTaken(asked);
+        } else {
+            takes.replacing(asked, request.replaces());
+        }
         takes.refuseIfNotReady();
         throw new MonthEndRefusal(MonthEndRefusalCode.IDENTITY_REQUIRED, "Taking a month freezes its figures for "
                 + "good, so it waits until administrators sign in to this system. Nothing has been taken.",

@@ -18,13 +18,16 @@ import java.time.LocalDate;
  * Written once, by {@code MonthEndFactsRepository}'s statement, inside the take's one snapshot -- never saved through
  * this entity, which exists so that H2's schema, built from the entities, has the table the statement writes.
  *
- * <p>🔒 Taken once. On PostgreSQL by a PARTIAL unique index, {@code month_end_months_taken_once}, over the months no
- * later take replaces (V60); on H2 the constraint below stands in for it, whole, because nothing replaces a take yet
- * (MM51). Append-only on PostgreSQL by trigger (MD46).
+ * <p>🔒 A month's first take once, and each take replaced once (04.11, MM51, MD70). On PostgreSQL by two PARTIAL
+ * unique indexes: {@code month_end_months_taken_once} over the first takes (V60), {@code month_end_months_replaced_once}
+ * over the takes that replace one (V64), and a take replaces only a take of its own month, by foreign key. H2 has no
+ * partial index, so the constraint below stands in for both: a month's take numbers are unique -- the first is 1, and
+ * two re-takes of one take would both be the next. Append-only on PostgreSQL by trigger (MD46).
  */
 @Entity
 @Table(name = "month_end_months",
-        uniqueConstraints = @UniqueConstraint(name = "month_end_months_taken_once", columnNames = "month_start"))
+        uniqueConstraints = @UniqueConstraint(name = "month_end_months_one_a_take",
+                columnNames = {"month_start", "take_number"}))
 @Getter
 @NoArgsConstructor
 public class MonthEndMonth {
@@ -47,6 +50,10 @@ public class MonthEndMonth {
 
     @Column(name = "replaces_id")
     private Long replacesId;
+
+    /** 1 for a month's first take, one more for each take that replaces it (V64). */
+    @Column(name = "take_number", nullable = false)
+    private Integer takeNumber;
 
     @Override
     public String toString() {

@@ -240,10 +240,13 @@ public class MemberSummaryRepository {
                        %13$s,
                        CASE WHEN %14$s
                             THEN (SELECT tk.changes_from FROM month_end_months tk
-                                  WHERE tk.month_start = :firstDay AND tk.replaces_id IS NULL)
+                                  WHERE tk.month_start = :firstDay
+                                    AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = tk.id))
                             ELSE (SELECT MIN(changed_at) FROM member_status_changes) END,
-                       (SELECT tk.taken_at FROM month_end_months tk WHERE tk.month_start = :firstDay AND tk.replaces_id IS NULL),
-                       (SELECT tk.taken_by FROM month_end_months tk WHERE tk.month_start = :firstDay AND tk.replaces_id IS NULL)
+                       (SELECT tk.taken_at FROM month_end_months tk WHERE tk.month_start = :firstDay
+                          AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = tk.id)),
+                       (SELECT tk.taken_by FROM month_end_months tk WHERE tk.month_start = :firstDay
+                          AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = tk.id))
                 FROM (SELECT 1 AS one) single_row
                 """.formatted(toKind, fromKind, key, label, core, order, memberWorkplace, workplaceJoins, where,
                 endKind, startKind, complement, known(ask), taken, noTaking, takenHalf(ask, taken), counted(ask),
@@ -363,7 +366,8 @@ public class MemberSummaryRepository {
                        SUM(f.complement), CAST(NULL AS VARCHAR(100)), 0, CAST(NULL AS TIMESTAMP WITH TIME ZONE),
                        CAST(NULL AS TIMESTAMP WITH TIME ZONE), CAST(NULL AS VARCHAR(100))
                 FROM month_end_workplaces f
-                JOIN month_end_months mm ON mm.id = f.month_id AND mm.replaces_id IS NULL
+                JOIN month_end_months mm ON mm.id = f.month_id
+                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
                 WHERE %5$s AND f.workplace_key <> 0 AND %6$s%7$s
                 GROUP BY %1$s
                 """.formatted(key, label, core, order, thisMonth, taken, scope) : "";
@@ -379,7 +383,8 @@ public class MemberSummaryRepository {
                   CAST(NULL AS TIMESTAMP WITH TIME ZONE), CAST(NULL AS TIMESTAMP WITH TIME ZONE),
                   CAST(NULL AS VARCHAR(100))
                 FROM month_end_workplaces f
-                JOIN month_end_months mm ON mm.id = f.month_id AND mm.replaces_id IS NULL
+                JOIN month_end_months mm ON mm.id = f.month_id
+                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
                 WHERE f.month_start >= :firstDayOfYear AND f.month_start <= :firstDay AND %6$s%7$s
                 GROUP BY %1$s
                 %8$s
@@ -388,7 +393,8 @@ public class MemberSummaryRepository {
                        c.name, SUM(c.members), CAST(NULL AS TIMESTAMP WITH TIME ZONE),
                        CAST(NULL AS TIMESTAMP WITH TIME ZONE), CAST(NULL AS VARCHAR(100))
                 FROM month_end_counts c
-                JOIN month_end_months mm ON mm.id = c.month_id AND mm.replaces_id IS NULL
+                JOIN month_end_months mm ON mm.id = c.month_id
+                  AND NOT EXISTS (SELECT 1 FROM month_end_months newer WHERE newer.replaces_id = mm.id)
                 LEFT JOIN month_end_workplaces f ON f.month_id = c.month_id AND f.workplace_key = c.workplace_key
                 WHERE c.month_start = :firstDay AND c.measure = 'UNKNOWN_STATUS' AND %6$s%7$s
                 GROUP BY c.name

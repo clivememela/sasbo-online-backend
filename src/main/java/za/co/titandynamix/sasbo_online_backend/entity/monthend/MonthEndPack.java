@@ -34,6 +34,10 @@ public class MonthEndPack {
     @Column(name = "month_start", nullable = false)
     private LocalDate monthStart;
 
+    /** The take the pack was built from -- none for the open month, read live (04.11, V64). */
+    @Column(name = "month_id")
+    private Long monthId;
+
     @Column(name = "status", nullable = false, length = 12)
     private String status;
 

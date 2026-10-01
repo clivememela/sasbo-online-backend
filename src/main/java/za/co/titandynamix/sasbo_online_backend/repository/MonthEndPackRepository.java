@@ -51,14 +51,23 @@ public class MonthEndPackRepository {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
     }
 
-    /** A pack in preparation. The partial unique index refuses a second while one is in hand (MR-PERF-11). */
+    /** A pack in preparation, of no take -- the open month's, read live. */
     public long insertPreparing(LocalDate monthStart, String askedBy, Instant now) {
+        return insertPreparing(monthStart, null, askedBy, now);
+    }
+
+    /**
+     * A pack in preparation, of the take it is built from -- the month's newest, where it is taken (04.11): a pack of a
+     * take since replaced is never served as the month's. The partial unique index refuses a second while one is in
+     * hand (MR-PERF-11).
+     */
+    public long insertPreparing(LocalDate monthStart, Long takeId, String askedBy, Instant now) {
         KeyHolder key = new GeneratedKeyHolder();
         jdbc.update("""
-                INSERT INTO month_end_packs (month_start, status, asked_by, started_at, heartbeat_at)
-                VALUES (:monthStart, 'PREPARING', :askedBy, :now, :now)
-                """, new MapSqlParameterSource("monthStart", monthStart).addValue("askedBy", askedBy)
-                .addValue("now", utc(now)), key, new String[] {"id"});
+                INSERT INTO month_end_packs (month_start, month_id, status, asked_by, started_at, heartbeat_at)
+                VALUES (:monthStart, :takeId, 'PREPARING', :askedBy, :now, :now)
+                """, new MapSqlParameterSource("monthStart", monthStart).addValue("takeId", takeId, java.sql.Types.BIGINT)
+                .addValue("askedBy", askedBy).addValue("now", utc(now)), key, new String[] {"id"});
         Number id = key.getKey();
         if (id == null) {
             throw new IllegalStateException("the pack was written and no id came back");
@@ -75,10 +84,10 @@ public class MonthEndPackRepository {
         return one("WHERE status = 'PREPARING'", new MapSqlParameterSource());
     }
 
-    /** The newest READY pack of a month. */
-    public Optional<Pack> latestReady(LocalDate monthStart) {
-        return one("WHERE month_start = :monthStart AND status = 'READY' ORDER BY id DESC",
-                new MapSqlParameterSource("monthStart", monthStart));
+    /** The newest READY pack of a month's take -- its newest, as the caller reads it (04.11). */
+    public Optional<Pack> latestReady(LocalDate monthStart, long takeId) {
+        return one("WHERE month_start = :monthStart AND month_id = :takeId AND status = 'READY' ORDER BY id DESC",
+                new MapSqlParameterSource("monthStart", monthStart).addValue("takeId", takeId));
     }
 
     /** The job is alive. */

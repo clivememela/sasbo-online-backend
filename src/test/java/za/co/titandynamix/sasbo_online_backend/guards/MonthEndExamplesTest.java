@@ -215,6 +215,9 @@ class MonthEndExamplesTest {
         String take = "/api/month-end/%s/take";
         provoked.put(MonthEndRefusalCode.MONTH_NOT_BEGUN, new Example("POST", take.formatted("2026-10"), null));
         provoked.put(MonthEndRefusalCode.MONTH_ALREADY_TAKEN, new Example("POST", take.formatted(TAKEN), null));
+        // 04.11: a take again that names a take which is not the month's newest -- said before the take refuses.
+        provoked.put(MonthEndRefusalCode.MONTH_TAKEN_SINCE, new Example("POST", take.formatted(TAKEN),
+                "{\"replaces\": 999999}"));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_READY, new Example("POST", take.formatted("2026-07"), null, false,
                 true));
         provoked.put(MonthEndRefusalCode.IDENTITY_REQUIRED, new Example("POST", take.formatted("2026-07"), null));

@@ -85,7 +85,7 @@ public class MonthEndPacks {
         }
         sweepInterrupted();
         if (taken.isPresent()) {
-            Optional<Pack> ready = packs.latestReady(asked.atDay(1));
+            Optional<Pack> ready = packs.latestReady(asked.atDay(1), taken.get().id());
             if (ready.isPresent()) {
                 return new Asked(dto(ready.get()), false);
             }
@@ -96,7 +96,7 @@ public class MonthEndPacks {
         }
         long id;
         try {
-            id = packs.insertPreparing(asked.atDay(1), ACTOR, clock.instant());
+            id = packs.insertPreparing(asked.atDay(1), taken.map(TakenMonth::id).orElse(null), ACTOR, clock.instant());
         } catch (DataIntegrityViolationException anotherInHand) {
             // Another ask started one between the look and the write: the index is the arbiter.
             return inHandOrBusy(packs.preparing().orElseThrow(() -> anotherInHand), asked);

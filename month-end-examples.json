@@ -644,7 +644,10 @@
             "month" : "2026-08",
             "state" : "TAKEN",
             "takenAt" : "2026-09-29T08:00:00Z",
-            "takenBy" : "seed"
+            "takenBy" : "seed",
+            "takeId" : 1,
+            "firstTakenAt" : null,
+            "firstTakenBy" : null
           }
         ]
       }
@@ -656,7 +659,10 @@
         "month" : "2026-08",
         "state" : "TAKEN",
         "takenAt" : "2026-09-29T08:00:00Z",
-        "takenBy" : "seed"
+        "takenBy" : "seed",
+        "takeId" : 1,
+        "firstTakenAt" : null,
+        "firstTakenBy" : null
       }
     },
     "GET /api/month-end/{month}/new-and-deleted" : {
@@ -3080,13 +3086,35 @@
         "timestamp" : "2026-09-29T08:00:00",
         "status" : 409,
         "error" : "Conflict",
-        "message" : "That month has been taken already, and a month is taken once. Its figures are read from what was frozen then.",
+        "message" : "That month has been taken already. Its figures are read from what was frozen then; to correct them, take it again.",
         "path" : "/api/month-end/2026-08/take",
         "code" : "MONTH_ALREADY_TAKEN",
         "details" : {
           "month" : "2026-08",
           "takenBy" : "seed",
-          "takenAt" : "2026-09-29T08:00:00Z"
+          "takenAt" : "2026-09-29T08:00:00Z",
+          "takeId" : "1"
+        }
+      }
+    },
+    "MONTH_TAKEN_SINCE" : {
+      "request" : "POST /api/month-end/2026-08/take",
+      "requestBody" : {
+        "replaces" : 999999
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "That month has been taken again since. Nothing was taken: look at the newest take, and take it again from there if it still needs correcting.",
+        "path" : "/api/month-end/2026-08/take",
+        "code" : "MONTH_TAKEN_SINCE",
+        "details" : {
+          "month" : "2026-08",
+          "takenBy" : "seed",
+          "takenAt" : "2026-09-29T08:00:00Z",
+          "takeId" : "1"
         }
       }
     },

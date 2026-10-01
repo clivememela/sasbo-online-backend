@@ -145,12 +145,13 @@ public class MonthEndTakes {
                     "That month was not taken, and a past month is read only from what was taken.",
                     MonthEndRefusal.details("month", asked.toString(), "open", open.toString()));
         }
-        return new MonthEndMonthDto(asked.toString(), MonthEndMonthDto.OPEN, null, null);
+        return new MonthEndMonthDto(asked.toString(), MonthEndMonthDto.OPEN, null, null, null, null, null);
     }
 
     private static MonthEndMonthDto dto(TakenMonth taken) {
         return new MonthEndMonthDto(YearMonth.from(taken.monthStart()).toString(), MonthEndMonthDto.TAKEN,
-                taken.takenAt().toString(), taken.takenBy());
+                taken.takenAt().toString(), taken.takenBy(), taken.id(),
+                taken.firstTakenAt() == null ? null : taken.firstTakenAt().toString(), taken.firstTakenBy());
     }
 
     /** What the route says before it refuses: a month taken already is said so, naming who took it and when. */
@@ -171,20 +172,48 @@ public class MonthEndTakes {
     }
 
     /**
+     * The take a take again replaces (04.11): the month's newest, named by its id -- a month never taken is
+     * {@code MONTH_NOT_TAKEN}, and a take that is not the newest is {@code MONTH_TAKEN_SINCE}, naming the newest.
+     */
+    public TakenMonth replacing(YearMonth month, long replaces) {
+        TakenMonth newest = taken(month).orElseThrow(() -> new MonthEndRefusal(MonthEndRefusalCode.MONTH_NOT_TAKEN,
+                "That month has not been taken, so there is no take to take again.",
+                MonthEndRefusal.details("month", month.toString(), "open", openMonth().toString())));
+        if (newest.id() != replaces) {
+            throw takenSince(newest);
+        }
+        return newest;
+    }
+
+    /**
      * Takes {@code month} for {@code actor}: its record and its facts, in one snapshot.
      *
      * @throws MonthEndRefusal {@code MONTH_NOT_BEGUN}, {@code MONTH_NOT_READY}, or {@code MONTH_ALREADY_TAKEN} where
      *                         the index refused it
      */
     public TakenMonth take(YearMonth month, String actor) {
+        return take(month, actor, null);
+    }
+
+    /**
+     * Takes {@code month} for {@code actor} -- again, where {@code replaces} names its newest take (04.11, MD70): a new
+     * take beside it, its record and its facts in one snapshot; every read of the month is of it from then on.
+     *
+     * @throws MonthEndRefusal {@code MONTH_NOT_BEGUN}, {@code MONTH_NOT_READY}; for a first take
+     *                         {@code MONTH_ALREADY_TAKEN} where the index refused it; for a take again
+     *                         {@code MONTH_NOT_TAKEN}, or {@code MONTH_TAKEN_SINCE} where it is not the newest or the
+     *                         index refused it
+     */
+    public TakenMonth take(YearMonth month, String actor, Long replaces) {
         requireBegun(month);
         refuseIfNotReady();
+        TakenMonth replaced = replaces == null ? null : replacing(month, replaces);
         MonthRange range = MonthRange.of(month);
         Instant now = clock.instant();
         Collection<String> seeded = environment.isProduction() ? List.of() : seedNumbers.all();
         try {
             return tx.execute(status -> {
-                long id = facts.insertMonth(range.firstDay(), actor, now);
+                long id = facts.insertMonth(range.firstDay(), actor, now, replaced);
                 facts.insertFacts(id, range, seeded);
                 pause.between();
                 facts.insertLeftByCode(id, range);
@@ -198,7 +227,7 @@ public class MonthEndTakes {
             // Another take of the same month committed first. The index is the arbiter, and its answer is the same
             // refusal the route gives -- read now, in a snapshot of its own, where the winner is visible.
             TakenMonth taken = facts.taken(range.firstDay()).orElseThrow(() -> lostTheRace);
-            throw alreadyTaken(taken);
+            throw replaced == null ? alreadyTaken(taken) : takenSince(taken);
         }
     }
 
@@ -212,8 +241,17 @@ public class MonthEndTakes {
 
     private static MonthEndRefusal alreadyTaken(TakenMonth taken) {
         return new MonthEndRefusal(MonthEndRefusalCode.MONTH_ALREADY_TAKEN,
-                "That month has been taken already, and a month is taken once. Its figures are read from what was "
-                        + "frozen then.", MonthEndRefusal.details("month", YearMonth.from(taken.monthStart()).toString(),
-                "takenBy", taken.takenBy(), "takenAt", taken.takenAt().toString()));
+                "That month has been taken already. Its figures are read from what was frozen then; to correct them, "
+                        + "take it again.", MonthEndRefusal.details("month", YearMonth.from(taken.monthStart()).toString(),
+                "takenBy", taken.takenBy(), "takenAt", taken.takenAt().toString(), "takeId", String.valueOf(taken.id())));
+    }
+
+    private static MonthEndRefusal takenSince(TakenMonth newest) {
+        return new MonthEndRefusal(MonthEndRefusalCode.MONTH_TAKEN_SINCE,
+                "That month has been taken again since. Nothing was taken: look at the newest take, and take it again "
+                        + "from there if it still needs correcting.",
+                MonthEndRefusal.details("month", YearMonth.from(newest.monthStart()).toString(),
+                        "takenBy", newest.takenBy(), "takenAt", newest.takenAt().toString(),
+                        "takeId", String.valueOf(newest.id())));
     }
 }

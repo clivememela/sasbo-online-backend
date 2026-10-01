@@ -134,6 +134,67 @@ class MonthEndTakesTest {
     }
 
     @Test
+    @DisplayName("🔒 04.11, MD70: a month taken again is a new take beside the first -- read in its place, the late member counted, the first kept as it was")
+    void aMonthTakenAgain() {
+        TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
+        Member late = MemberFixture.withSurname("InventedLate");
+        late.setMembershipNumber("M-899999");
+        late.setStatus("Active");
+        late.setJoinDate(LocalDate.of(2026, 9, 14));
+        members.save(late);
+
+        TakenMonth again = takes.take(SummaryFixture.MONTH, "corrected", first.id());
+
+        assertThat(again.id()).isNotEqualTo(first.id());
+        assertThat(again.takeNumber()).isEqualTo(2);
+        assertThat(again.takenBy()).isEqualTo("corrected");
+        assertThat(again.firstTakenBy()).as("the first take's who and when, beside the newest").isEqualTo("seed");
+        assertThat(again.firstTakenAt()).isEqualTo(first.takenAt());
+        assertThat(takes.taken(SummaryFixture.MONTH)).as("the month is read from its newest take").get()
+                .extracting(TakenMonth::id).isEqualTo(again.id());
+        assertThat(takes.takenMonths()).extracting(TakenMonth::id).containsExactly(again.id());
+        SummaryFixture.assertTakenSeptember(facts.facts(first.id()), facts.counts(first.id()));
+        assertThat(facts.facts(again.id()).stream().mapToLong(MonthEndFactsRepository.Fact::joined).sum())
+                .as("the late member, joined on 14 September, counted by the take that corrects the first")
+                .isEqualTo(facts.facts(first.id()).stream().mapToLong(MonthEndFactsRepository.Fact::joined).sum() + 1);
+    }
+
+    @Test
+    @DisplayName("🔒 04.11: a take again names the month's newest take -- an older one is MONTH_TAKEN_SINCE naming the newest, a month never taken is MONTH_NOT_TAKEN; neither writes")
+    void aTakeAgainNamesTheNewest() {
+        TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
+        TakenMonth second = takes.take(SummaryFixture.MONTH, "corrected", first.id());
+
+        assertThatThrownBy(() -> takes.take(SummaryFixture.MONTH, "late", first.id()))
+                .isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
+                    assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MONTH_TAKEN_SINCE);
+                    assertThat(refusal.details()).containsEntry("month", "2026-09").containsEntry("takenBy", "corrected")
+                            .containsEntry("takeId", String.valueOf(second.id()));
+                });
+        assertThatThrownBy(() -> takes.take(YearMonth.of(2026, 7), "late", first.id()))
+                .isInstanceOfSatisfying(MonthEndRefusal.class,
+                        refusal -> assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MONTH_NOT_TAKEN));
+        // Another month's take is never the one a take again replaces -- the look names it so before anything is
+        // written; on PostgreSQL a foreign key would refuse it too, and H2 has none.
+        TakenMonth august = takes.take(YearMonth.of(2026, 8), "seed");
+        assertThatThrownBy(() -> takes.take(SummaryFixture.MONTH, "late", august.id()))
+                .isInstanceOfSatisfying(MonthEndRefusal.class,
+                        refusal -> assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MONTH_TAKEN_SINCE));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM month_end_months", Long.class)).isEqualTo(3);
+        assertThat(takes.taken(SummaryFixture.MONTH)).get().extracting(TakenMonth::id).isEqualTo(second.id());
+    }
+
+    @Test
+    @DisplayName("🔒 04.11: two takes again of one take -- the second written loses to the database, never to a look first (H2: one take number a month)")
+    void aTakeIsReplacedOnce() {
+        TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
+        facts.insertMonth(LocalDate.of(2026, 9, 1), "one", SummaryFixture.NOW, first);
+
+        assertThatThrownBy(() -> facts.insertMonth(LocalDate.of(2026, 9, 1), "two", SummaryFixture.NOW, first))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
     @DisplayName("a month that has not begun is MONTH_NOT_BEGUN, and nothing is written")
     void notBegun() {
         assertThatThrownBy(() -> takes.take(YearMonth.of(2026, 10), "seed"))
