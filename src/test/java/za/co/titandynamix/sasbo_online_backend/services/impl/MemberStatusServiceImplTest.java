@@ -181,6 +181,10 @@ class MemberStatusServiceImplTest {
                     assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.STATUS_CHANGED_SINCE);
                     assertThat(refusal.details()).containsEntry("currentStatus", "Suspended")
                             .containsEntry("changedAt", "2026-09-28T10:00:00Z").containsEntry("changedBy", "system");
+                    // The sentence is a person's: the moment in Johannesburg, as the screens write one -- never the
+                    // ISO instant, which the details keep for a machine.
+                    assertThat(refusal.getMessage())
+                            .isEqualTo("This member was moved to Suspended on 28 September 2026 at 12:00. Nothing was changed.");
                 });
     }
 
