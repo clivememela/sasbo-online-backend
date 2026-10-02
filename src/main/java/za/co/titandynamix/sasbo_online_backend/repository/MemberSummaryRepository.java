@@ -173,15 +173,9 @@ public class MemberSummaryRepository {
                         where.isEmpty() ? " WHERE " : where + " AND ", "w.closed_on IS NULL", taken, key) : "";
         return """
                 WITH after_end AS (
-                  SELECT c.member_id, c.from_status FROM member_status_changes c
-                  WHERE c.changed_at >= :next AND NOT EXISTS (SELECT 1 FROM member_status_changes x
-                    WHERE x.member_id = c.member_id AND x.changed_at >= :next
-                      AND (x.changed_at < c.changed_at OR (x.changed_at = c.changed_at AND x.id < c.id)))
+                %23$s
                 ), after_start AS (
-                  SELECT c.member_id, c.from_status FROM member_status_changes c
-                  WHERE c.changed_at >= :start AND NOT EXISTS (SELECT 1 FROM member_status_changes x
-                    WHERE x.member_id = c.member_id AND x.changed_at >= :start
-                      AND (x.changed_at < c.changed_at OR (x.changed_at = c.changed_at AND x.id < c.id)))
+                %24$s
                 ), moved AS (
                   SELECT c.member_id,
                     SUM(CASE WHEN c.changed_at >= :start AND %1$s THEN 1 ELSE 0 END) AS left_n,
@@ -192,10 +186,8 @@ public class MemberSummaryRepository {
                   GROUP BY c.member_id
                 ), placed AS (
                   SELECT %3$s AS gkey, %4$s AS glabel, %5$s AS gcore, %6$s AS gorder,
-                    CASE WHEN m.join_date IS NULL OR m.join_date < :firstDayOfNext
-                         THEN COALESCE(ae.from_status, m.status) END AS end_status,
-                    CASE WHEN m.join_date IS NULL OR m.join_date < :firstDay
-                         THEN COALESCE(ast.from_status, m.status) END AS start_status,
+                    %25$s AS end_status,
+                    %26$s AS start_status,
                     CASE WHEN %20$s THEN 1 ELSE 0 END AS joined,
                     CASE WHEN %21$s THEN 1 ELSE 0 END AS joined_ytd,
                     COALESCE(mv.left_n, 0) AS left_n, COALESCE(mv.reinstated_n, 0) AS reinstated_n,
@@ -252,7 +244,8 @@ public class MemberSummaryRepository {
                 memberWorkplace, workplaceJoins, where, endKind, startKind, complement, known(ask), taken, noTaking,
                 takenHalf(ask, taken), counted(ask), present(ask, key, label, core, order, workplaceJoins),
                 membersFrom(ask, taken), joined("m", "firstDay"), joined("m", "firstDayOfYear"),
-                MonthEndFactsRepository.NEWEST_TAKE.formatted("tk"));
+                MonthEndFactsRepository.NEWEST_TAKE.formatted("tk"), firstChangeFrom("next"),
+                firstChangeFrom("start"), statusAt("m", "ae", "firstDayOfNext"), statusAt("m", "ast", "firstDay"));
     }
 
     /**
@@ -552,6 +545,31 @@ public class MemberSummaryRepository {
      */
     static String outOfLeaving(String toKind, String fromKind) {
         return fromKind + " = 'L' AND COALESCE(" + toKind + ", '?') <> 'L'";
+    }
+
+    /**
+     * A member's status AT AN INSTANT -- the opening and the closing that rule S adds up: the status their first change
+     * at or after the instant moved them FROM, or the one on record where nothing has changed since; and none at all
+     * for a member who joined on or after {@code :joinedBefore}, who was not one of them then. Written here once, for
+     * the figures and the facts, over {@link #firstChangeFrom the first change} joined in as {@code firstChange}.
+     */
+    static String statusAt(String member, String firstChange, String joinedBefore) {
+        return ("CASE WHEN %1$s.join_date IS NULL OR %1$s.join_date < :%3$s"
+                + " THEN COALESCE(%2$s.from_status, %1$s.status) END").formatted(member, firstChange, joinedBefore);
+    }
+
+    /**
+     * Each member's first change of status at or after {@code :instant}, and the status it moved them from -- the half
+     * of {@link #statusAt} that is a subquery. Two changes at one instant are taken in the order they were written, by
+     * their own number.
+     */
+    static String firstChangeFrom(String instant) {
+        return """
+                  SELECT c.member_id, c.from_status FROM member_status_changes c
+                  WHERE c.changed_at >= :%1$s AND NOT EXISTS (SELECT 1 FROM member_status_changes x
+                    WHERE x.member_id = c.member_id AND x.changed_at >= :%1$s
+                      AND (x.changed_at < c.changed_at OR (x.changed_at = c.changed_at AND x.id < c.id)))\
+                """.formatted(instant);
     }
 
     private static String letter(MemberStatusKind kind) {

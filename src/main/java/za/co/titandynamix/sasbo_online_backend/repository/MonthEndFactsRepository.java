@@ -530,16 +530,17 @@ public class MonthEndFactsRepository {
                 MemberSummaryRepository.kind("s.start_status"), statuses());
     }
 
-    /** Each member's status at the month's end and at its start (rule S), and the month's changes counted. */
+    /**
+     * Each member's status at the month's end and at its start, as {@link MemberSummaryRepository#statusAt} writes
+     * it for rule S, and the month's changes counted.
+     */
     private static String statuses() {
         String toKind = MemberSummaryRepository.kind("c.to_status");
         String fromKind = MemberSummaryRepository.kind("c.from_status");
         return """
                 SELECT m.id AS member_id, m.workplace_id AS workplace_id,
-                  CASE WHEN m.join_date IS NULL OR m.join_date < :firstDayOfNext
-                       THEN COALESCE(ae.from_status, m.status) END AS end_status,
-                  CASE WHEN m.join_date IS NULL OR m.join_date < :firstDay
-                       THEN COALESCE(ast.from_status, m.status) END AS start_status,
+                  %6$s AS end_status,
+                  %7$s AS start_status,
                   CASE WHEN %3$s THEN 1 ELSE 0 END AS joined,
                   COALESCE(mv.left_n, 0) AS left_n, COALESCE(mv.reinstated_n, 0) AS reinstated_n,
                   m.payment_type AS payment_type,
@@ -549,16 +550,10 @@ public class MonthEndFactsRepository {
                   m.join_date AS join_date
                 FROM members m
                 LEFT JOIN (
-                  SELECT c.member_id, c.from_status FROM member_status_changes c
-                  WHERE c.changed_at >= :next AND NOT EXISTS (SELECT 1 FROM member_status_changes x
-                    WHERE x.member_id = c.member_id AND x.changed_at >= :next
-                      AND (x.changed_at < c.changed_at OR (x.changed_at = c.changed_at AND x.id < c.id)))
+                %4$s
                 ) ae ON ae.member_id = m.id
                 LEFT JOIN (
-                  SELECT c.member_id, c.from_status FROM member_status_changes c
-                  WHERE c.changed_at >= :start AND NOT EXISTS (SELECT 1 FROM member_status_changes x
-                    WHERE x.member_id = c.member_id AND x.changed_at >= :start
-                      AND (x.changed_at < c.changed_at OR (x.changed_at = c.changed_at AND x.id < c.id)))
+                %5$s
                 ) ast ON ast.member_id = m.id
                 LEFT JOIN (
                   SELECT c.member_id,
@@ -569,7 +564,10 @@ public class MonthEndFactsRepository {
                   GROUP BY c.member_id
                 ) mv ON mv.member_id = m.id
                 """.formatted(MemberSummaryRepository.intoLeaving(toKind, fromKind),
-                MemberSummaryRepository.outOfLeaving(toKind, fromKind), MemberSummaryRepository.joined("m", "firstDay"));
+                MemberSummaryRepository.outOfLeaving(toKind, fromKind), MemberSummaryRepository.joined("m", "firstDay"),
+                MemberSummaryRepository.firstChangeFrom("next"), MemberSummaryRepository.firstChangeFrom("start"),
+                MemberSummaryRepository.statusAt("m", "ae", "firstDayOfNext"),
+                MemberSummaryRepository.statusAt("m", "ast", "firstDay"));
     }
 
     private static MapSqlParameterSource arguments(MonthRange month, Collection<String> seeded) {
