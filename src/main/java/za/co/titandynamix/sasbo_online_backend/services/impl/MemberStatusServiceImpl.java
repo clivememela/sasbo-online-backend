@@ -15,9 +15,12 @@ import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService.StatusChange;
 import za.co.titandynamix.sasbo_online_backend.services.MemberStatusService;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
+import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
 import java.time.Clock;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -40,6 +43,13 @@ import java.util.stream.Collectors;
  */
 @Service
 public class MemberStatusServiceImpl implements MemberStatusService {
+
+    /**
+     * A moment as a person reads it, in SASBO's zone -- {@code 2026-09-28T10:00:00Z} is "28 September 2026 at 12:00", as
+     * the screens write an instant. The sentence of a refusal is a person's; its details keep the ISO instant.
+     */
+    static final DateTimeFormatter SAID = DateTimeFormatter.ofPattern("d MMMM yyyy 'at' HH:mm", Locale.ENGLISH)
+            .withZone(MonthRange.ZONE);
 
     private final MemberService members;
     private final SasboReferenceRepository codes;
@@ -181,7 +191,8 @@ public class MemberStatusServiceImpl implements MemberStatusService {
         MemberStatusChange last = history.isEmpty() ? null : history.get(history.size() - 1);
         String at = last == null ? null : last.getChangedAt().toString();
         return new MonthEndRefusal(MonthEndRefusalCode.STATUS_CHANGED_SINCE,
-                "This member was moved to " + currentStatus + (at == null ? "" : " at " + at) + ". Nothing was changed.",
+                "This member was moved to " + currentStatus
+                        + (last == null ? "" : " on " + SAID.format(last.getChangedAt())) + ". Nothing was changed.",
                 MonthEndRefusal.details("currentStatus", currentStatus, "changedAt", at,
                         "changedBy", last == null ? null : last.getChangedBy()));
     }
