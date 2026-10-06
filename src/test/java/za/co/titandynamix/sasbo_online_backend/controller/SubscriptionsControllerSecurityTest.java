@@ -61,9 +61,13 @@ class SubscriptionsControllerSecurityTest {
                 true, SubscriptionsStatus.ACTIVE, REGISTERED));
     }
 
-    /** Not a success: the body of a refusal is the sign-in stream's to settle (contract, signin.md). */
-    private static ResultMatcher notASuccess() {
-        return result -> assertThat(result.getResponse().getStatus()).as("a refused write").isGreaterThanOrEqualTo(400);
+    /**
+     * An anonymous caller's refusal: a 4xx, and never the catch-all's 500. 403 today (Http403ForbiddenEntryPoint); the
+     * sign-in stream's entry point makes it 401 SIGN_IN_REQUIRED, which this still holds (contract, signin.md).
+     */
+    private static ResultMatcher refusedAsAnonymous() {
+        return result -> assertThat(result.getResponse().getStatus()).as("a refused anonymous write")
+                .isBetween(400, 499);
     }
 
     @Test
@@ -87,15 +91,12 @@ class SubscriptionsControllerSecurityTest {
     @WithMockUser(authorities = "MEMBERS_VIEW")
     @DisplayName("a signed-in user without the permission is refused every write, and nothing reaches the service")
     void aUserWithoutThePermissionIsRefused() throws Exception {
-        // The STATUS of a denial is oct/base's to settle -- a denial must reach Spring Security's translation, not
-        // the global catch-all (reported to the build session, 6 Oct). What this route owns is held here: no write
-        // succeeds and nothing reaches the service.
         this.mockMvc.perform(post("/api/subscriptions").contentType(MediaType.APPLICATION_JSON).content(row()))
-                .andExpect(notASuccess());
+                .andExpect(status().isForbidden());
         this.mockMvc.perform(put("/api/subscriptions/4").contentType(MediaType.APPLICATION_JSON).content(row()))
-                .andExpect(notASuccess());
+                .andExpect(status().isForbidden());
         this.mockMvc.perform(delete("/api/subscriptions/4"))
-                .andExpect(notASuccess());
+                .andExpect(status().isForbidden());
 
         verifyNoInteractions(this.subscriptionsService);
     }
@@ -105,11 +106,11 @@ class SubscriptionsControllerSecurityTest {
     @DisplayName("an anonymous caller is refused every write while sign-in is open, and nothing reaches the service")
     void anAnonymousCallerIsRefusedTheWrites() throws Exception {
         this.mockMvc.perform(post("/api/subscriptions").contentType(MediaType.APPLICATION_JSON).content(row()))
-                .andExpect(notASuccess());
+                .andExpect(refusedAsAnonymous());
         this.mockMvc.perform(put("/api/subscriptions/4").contentType(MediaType.APPLICATION_JSON).content(row()))
-                .andExpect(notASuccess());
+                .andExpect(refusedAsAnonymous());
         this.mockMvc.perform(delete("/api/subscriptions/4"))
-                .andExpect(notASuccess());
+                .andExpect(refusedAsAnonymous());
 
         verifyNoInteractions(this.subscriptionsService);
     }
