@@ -54,6 +54,9 @@ class VisitDraftIT extends AbstractSwitchedOnIT {
     @Autowired
     private VisitDraftSeeder seed;
 
+    @Autowired
+    private WorkplaceVisitDraftRepository drafts;
+
     private long workplace;
     private int raNumber;
     private int complement;
@@ -145,6 +148,23 @@ class VisitDraftIT extends AbstractSwitchedOnIT {
                 .contentType(MediaType.APPLICATION_JSON).content(saved(complement, 0, 2)));
         assertThat(after.getStatus()).isEqualTo(409);
         assertThat(json(after).get("code").asText()).isEqualTo("VISIT_ALREADY_SUBMITTED");
+    }
+
+    @Test
+    @DisplayName("🔒 the optimistic lock is in the statement: of two saves made from one version, one lands -- whatever checked first -- and never another person's")
+    void theLockIsInTheStatement() {
+        WorkplaceVisitDraftRepository.Fields fields = new WorkplaceVisitDraftRepository.Fields(
+                java.time.LocalDate.of(2026, 9, 10), null, null, "INVENTED ORGANISER", complement, null, null, null, null);
+        java.time.Instant at = java.time.Instant.parse("2026-09-14T08:00:00Z");
+        long id = drafts.insert(workplace, fields, "invented.organiser", "system", at);
+
+        assertThat(drafts.update(id, "invented.organiser", 0, workplace, fields, at)).isTrue();
+        assertThat(drafts.update(id, "invented.organiser", 0, workplace, fields, at))
+                .as("the second save made from version 0").isFalse();
+        assertThat(drafts.update(id, "invented.other", 1, workplace, fields, at)).as("another person's save").isFalse();
+        assertThat(drafts.mine("invented.organiser", "DRAFT", 0, 20).rows())
+                .extracting(za.co.titandynamix.sasbo_online_backend.dto.workplace.VisitDraftDto::version)
+                .containsExactly(1);
     }
 
     @Test
