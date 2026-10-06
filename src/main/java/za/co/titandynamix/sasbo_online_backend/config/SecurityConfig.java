@@ -66,6 +66,10 @@ public class SecurityConfig {
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(List.of("*"));
+        // October build: the site calls the API cross-origin, so a browser hides every response header but a few
+        // unless it is exposed here -- a download's file name (Content-Disposition) and the debit order file's
+        // download count and checksum. One line for every stream's file routes.
+        config.setExposedHeaders(List.of("Content-Disposition", "X-File-Downloads", "X-File-Sha256"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
