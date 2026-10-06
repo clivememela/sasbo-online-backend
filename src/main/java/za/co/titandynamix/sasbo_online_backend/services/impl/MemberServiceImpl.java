@@ -629,7 +629,7 @@ public class MemberServiceImpl implements MemberService {
     /**
      * Auto-populates all bank-derived fields on a member:
      * - monthlySubscription (read-only — overwrites user value)
-     * - debitDay (pre-selected by bank)
+     * - debitDay (the bank's, only where the member has none -- A67)
      * - bankAddress (auto-generated from BankBranch)
      */
     /**
@@ -690,21 +690,31 @@ public class MemberServiceImpl implements MemberService {
     }
 
     /**
-     * Applies the bank's ACB day ONLY when this API would accept it.
+     * The bank's ACB day as a DEFAULT: given only to a member with no debit day of their own, and only when this
+     * API would accept it.
      *
-     * <p>⚠️ It is NOT silent. When the bank's day cannot be used the fact is
-     * logged, because a derivation that quietly declines to derive is the shape
-     * {@code autoPopulateBankAddress} spent this whole arc being caught by.
+     * <p>🔴 A67. This assigned the bank's day whenever it was in range -- on create, update and updateBanking -- so
+     * a day the administrator chose was replaced without a word. SASBO, 2026-09-21 (Q42): the day must be flexible,
+     * "as banks debit days change". So a day on the member stands: one chosen at capture, one sent with an edit, or
+     * the stored one an edit did not mention (the merge ignores a null, decision ⑨). Only a member with none is
+     * given the bank's.
+     *
+     * <p>⚠️ It is NOT silent. When the default is needed and the bank's day cannot be used the fact is logged,
+     * because a derivation that quietly declines to derive is the shape {@code autoPopulateBankAddress} spent this
+     * whole arc being caught by.
      */
     private void applyBankDebitDay(Member member, Subscriptions subscription) {
+        if (member.getDebitDay() != null) {
+            return;
+        }
         Integer bankDay = subscription.getAcbDebitDay();
         if (bankDay != null && DebitDay.isInRange(bankDay)) {
             member.setDebitDay(bankDay);
         } else {
-            log.warn("{} has an ACB debit day of {}, outside {} - the member's own "
-                            + "choice of {} stands. The bank's subscription record and the "
-                            + "permitted range disagree; the range is authoritative.",
-                    member.getBankName(), bankDay, DebitDay.message(), member.getDebitDay());
+            log.warn("{} has an ACB debit day of {}, outside {} - the member has no debit day of their own and is "
+                            + "given none. The bank's subscription record and the permitted range disagree; the "
+                            + "range is authoritative.",
+                    member.getBankName(), bankDay, DebitDay.message());
         }
     }
 
