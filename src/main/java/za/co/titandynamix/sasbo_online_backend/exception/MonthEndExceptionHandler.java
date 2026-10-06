@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -85,6 +87,12 @@ public class MonthEndExceptionHandler {
         return refused(new MonthEndRefusal(MonthEndRefusalCode.REQUEST_MALFORMED,
                 "This request could not be read. Send each field in the form it is expected in.",
                 field == null ? Map.of() : Map.of("field", field)), request);
+    }
+
+    /** A permission refused by method security answers 401/403 from the filter chain, never this arc's 500. */
+    @ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
+    public void securityRefusal(RuntimeException refusal) {
+        throw refusal;
     }
 
     /**
