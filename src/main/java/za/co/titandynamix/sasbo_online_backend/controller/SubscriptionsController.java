@@ -1,14 +1,24 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
 import za.co.titandynamix.sasbo_online_backend.services.SubscriptionsService;
 
 import java.util.List;
 
+/**
+ * The subscription rows: SASBO's fee, and each bank's ACB day.
+ *
+ * <p>🔒 The three writes need {@code SUBSCRIPTIONS_MAINTAIN}: only staff change amounts (the 5 Oct Show &amp; Tell,
+ * which also moved Subscriptions under Maintenance). While sign-in is open an anonymous caller is refused them, so the
+ * demonstration link can read the rows but not change an amount until SASBO has accounts. The reads stay open: the
+ * capture form shows the fee and the bank's debit day from them.
+ */
 @RestController
 @RequestMapping("/api/subscriptions")
 @RequiredArgsConstructor
@@ -30,12 +40,15 @@ public class SubscriptionsController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /** A23: the route the browser's create now reaches -- a row it cannot use is refused by field, before a write. */
+    @PreAuthorize("hasAuthority('SUBSCRIPTIONS_MAINTAIN')")
     @PostMapping
-    public ResponseEntity<SubscriptionsDto> create(@RequestBody SubscriptionsDto dto) {
+    public ResponseEntity<SubscriptionsDto> create(@Valid @RequestBody SubscriptionsDto dto) {
         SubscriptionsDto created = this.subscriptionsService.create(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @PreAuthorize("hasAuthority('SUBSCRIPTIONS_MAINTAIN')")
     @PutMapping("/{id}")
     public ResponseEntity<SubscriptionsDto> update(@PathVariable Long id, @RequestBody SubscriptionsDto dto) {
         return this.subscriptionsService.update(id, dto)
@@ -43,6 +56,7 @@ public class SubscriptionsController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasAuthority('SUBSCRIPTIONS_MAINTAIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         boolean deleted = this.subscriptionsService.delete(id);

@@ -145,6 +145,56 @@ class SubscriptionsControllerTest {
         this.mockMvc.perform(delete("/api/subscriptions/99")).andExpect(status().isNotFound());
     }
 
+    // ============================================================
+    // A23 -- the route the browser's create now reaches refuses a row it cannot use, by field, before any write.
+    // (Before the fix it was sent `{ name }` -- to the recruitment channels; sent here, that is the first case below.)
+    // ============================================================
+
+    @Test
+    @DisplayName("A23: a new row without its bank, amount or a day in 1-31 is refused field by field, and nothing is written")
+    void aNewRowItCannotUseIsRefusedByField() throws Exception {
+        this.mockMvc.perform(post("/api/subscriptions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Synthetic Channel\",\"acbDebitDay\":32}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.bankName").value("Bank is required."))
+                .andExpect(jsonPath("$.validationErrors.subscriptionAmount").value("Subscription amount is required."))
+                .andExpect(jsonPath("$.validationErrors.acbDebitDay").value("Debit day must be between 1 and 31."));
+
+        org.mockito.Mockito.verifyNoInteractions(this.subscriptionsService);
+    }
+
+    @Test
+    @DisplayName("A23: an amount of R0 is refused in words")
+    void aZeroAmountIsRefused() throws Exception {
+        SubscriptionsDto free = new SubscriptionsDto(null, "Absa", 25, BigDecimal.ZERO, true,
+                SubscriptionsStatus.ACTIVE, REGISTERED);
+
+        this.mockMvc.perform(post("/api/subscriptions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(this.objectMapper.writeValueAsString(free)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.subscriptionAmount").value("Subscription amount must be more than R0."));
+    }
+
+    @Test
+    @DisplayName("A23: a second row for a bank is a 409 SUBSCRIPTION_BANK_TAKEN naming the bank")
+    void aSecondRowForABankIsCoded() throws Exception {
+        when(this.subscriptionsService.create(any(SubscriptionsDto.class)))
+                .thenThrow(new za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusal(
+                        za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusalCode.SUBSCRIPTION_BANK_TAKEN,
+                        "Absa already has its subscription row. Change that row instead of adding another.",
+                        java.util.Map.of("bankName", "Absa")));
+
+        this.mockMvc.perform(post("/api/subscriptions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(this.objectMapper.writeValueAsString(subscription(null))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUBSCRIPTION_BANK_TAKEN"))
+                .andExpect(jsonPath("$.message")
+                        .value("Absa already has its subscription row. Change that row instead of adding another."));
+    }
+
     private static SubscriptionsDto subscription(Long id) {
         return new SubscriptionsDto(id, "Absa", 25, new BigDecimal("120.50"), true,
                 SubscriptionsStatus.ACTIVE, REGISTERED);

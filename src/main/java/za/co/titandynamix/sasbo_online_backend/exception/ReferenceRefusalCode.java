@@ -12,7 +12,9 @@ public enum ReferenceRefusalCode {
     /** No branch on record has this id: removed since the list was loaded, or never there. */
     BRANCH_NOT_FOUND(HttpStatus.NOT_FOUND),
     /** Another branch of the same bank already has this branch code ({@code bank_branches}' unique key). */
-    BRANCH_CODE_TAKEN(HttpStatus.CONFLICT);
+    BRANCH_CODE_TAKEN(HttpStatus.CONFLICT),
+    /** The bank already has its subscription row; that row is changed, not added to. */
+    SUBSCRIPTION_BANK_TAKEN(HttpStatus.CONFLICT);
 
     private final HttpStatus status;
 

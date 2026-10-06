@@ -16,4 +16,7 @@ public interface SubscriptionsRepository extends JpaRepository<Subscriptions, Lo
 
     @Query("SELECT s FROM Subscriptions s LEFT JOIN FETCH s.bank WHERE s.bank.id = :bankId")
     List<Subscriptions> findByBankIdWithBank(Long bankId);
+
+    /** A23: whether the bank already has its row -- a second would leave every reader two to choose from. */
+    boolean existsByBank_Id(Integer bankId);
 }
