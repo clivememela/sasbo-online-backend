@@ -96,6 +96,9 @@ class WorkplaceVisitServiceTest {
                 "visitedOn");
         assertInvalid(new WorkplaceVisitRequest("2026-09-10", "nine", null, null, 23, null, null, null, null),
                 "timeIn");
+        // October build: a count has a ceiling -- a staff of a hundred thousand is a typing slip.
+        assertInvalid(new WorkplaceVisitRequest("2026-09-10", null, null, null, 100_000, null, null, null, null),
+                "complementFound");
 
         verify(visits, never()).setComplement(anyLong(), anyInt());
         verify(visits, never()).insert(anyLong(), any(), any(), any(), any(), any(), any());

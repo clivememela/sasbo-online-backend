@@ -432,6 +432,273 @@
         "seeded" : false
       }
     },
+    "GET /api/workplaces/listings" : {
+      "request" : "GET /api/workplaces/listings?raNumbers=900001,900003,900099",
+      "status" : 200,
+      "body" : {
+        "asked" : [
+          900001,
+          900003,
+          900099
+        ],
+        "listings" : [
+          {
+            "workplace" : {
+              "id" : 1,
+              "raNumber" : 900001,
+              "name" : "INVENTED MAIN STREET",
+              "employerPrinted" : "INVENTED BANK",
+              "employerId" : 1,
+              "employer" : "INVENTED BANK",
+              "group" : "INVENTED GROUP CORE",
+              "tableCode" : 901,
+              "tableCodeBy" : "NAME",
+              "area" : "A",
+              "region" : "NORTH",
+              "committee" : "Q01",
+              "committeeName" : "INVENTED NORTH COMMITTEE",
+              "staffComplement" : 40,
+              "closedOn" : null
+            },
+            "lastVisited" : [
+              {
+                "visitedOn" : "2026-08-20",
+                "dayKnown" : true
+              },
+              {
+                "visitedOn" : "2026-07-01",
+                "dayKnown" : false
+              }
+            ]
+          },
+          {
+            "workplace" : {
+              "id" : 3,
+              "raNumber" : 900003,
+              "name" : "INVENTED HARBOUR",
+              "employerPrinted" : "INVENTED INSURER",
+              "employerId" : 2,
+              "employer" : "INVENTED INSURER",
+              "group" : "INVENTED GROUP OTHER",
+              "tableCode" : 903,
+              "tableCodeBy" : "NAME",
+              "area" : "B",
+              "region" : "SOUTH",
+              "committee" : "R01",
+              "committeeName" : "INVENTED SOUTH COMMITTEE",
+              "staffComplement" : 15,
+              "closedOn" : null
+            },
+            "lastVisited" : [ ]
+          }
+        ],
+        "unknown" : [
+          900099
+        ],
+        "workplacesServed" : "ALL",
+        "reason" : null
+      }
+    },
+    "GET /api/workplaces/{id}/members" : {
+      "request" : "GET /api/workplaces/{workplace}/members",
+      "status" : 200,
+      "body" : {
+        "workplaceId" : 1,
+        "members" : [
+          {
+            "id" : 1,
+            "membershipNumber" : "M-900001",
+            "title" : null,
+            "initials" : null,
+            "surname" : "Example",
+            "status" : "Active",
+            "suspended" : false,
+            "joinedOn" : null,
+            "employeeNumber" : "****0042",
+            "monthlySubscription" : null,
+            "email" : false,
+            "cell" : true,
+            "identity" : true
+          }
+        ],
+        "page" : 0,
+        "size" : 50,
+        "totalElements" : 1,
+        "totalPages" : 1
+      }
+    },
+    "GET /api/workplaces/visit-drafts" : {
+      "request" : "GET /api/workplaces/visit-drafts",
+      "status" : 200,
+      "body" : {
+        "drafts" : [
+          {
+            "id" : 999001,
+            "status" : "DRAFT",
+            "workplaceId" : 1,
+            "raNumber" : 900001,
+            "workplaceName" : "INVENTED MAIN STREET",
+            "visitedOn" : "2026-09-28",
+            "timeIn" : "09:00",
+            "timeOut" : "10:30",
+            "organiser" : "INVENTED ORGANISER",
+            "complementFound" : 40,
+            "complementBefore" : null,
+            "membershipFound" : 12,
+            "nonMembers" : null,
+            "recruited" : null,
+            "nonMembersInterviewed" : null,
+            "createdBy" : "system",
+            "createdAt" : "2026-09-28T15:00:00Z",
+            "updatedAt" : "2026-09-28T15:00:00Z",
+            "submittedBy" : null,
+            "submittedAt" : null,
+            "visitId" : null,
+            "version" : 0
+          }
+        ],
+        "status" : "DRAFT",
+        "page" : 0,
+        "size" : 20,
+        "totalElements" : 1,
+        "totalPages" : 1
+      }
+    },
+    "POST /api/workplaces/visit-drafts" : {
+      "request" : "POST /api/workplaces/visit-drafts",
+      "requestBody" : {
+        "raNumber" : 900001,
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "membershipFound" : 12
+      },
+      "status" : 201,
+      "body" : {
+        "id" : 1,
+        "status" : "DRAFT",
+        "workplaceId" : 1,
+        "raNumber" : 900001,
+        "workplaceName" : "INVENTED MAIN STREET",
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "membershipFound" : 12,
+        "nonMembers" : null,
+        "recruited" : null,
+        "nonMembersInterviewed" : null,
+        "createdBy" : "system",
+        "createdAt" : "2026-09-29T08:00:00Z",
+        "updatedAt" : "2026-09-29T08:00:00Z",
+        "submittedBy" : null,
+        "submittedAt" : null,
+        "visitId" : null,
+        "version" : 0
+      }
+    },
+    "GET /api/workplaces/visit-drafts/{id}" : {
+      "request" : "GET /api/workplaces/visit-drafts/{draft}",
+      "status" : 200,
+      "body" : {
+        "id" : 999001,
+        "status" : "DRAFT",
+        "workplaceId" : 1,
+        "raNumber" : 900001,
+        "workplaceName" : "INVENTED MAIN STREET",
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "membershipFound" : 12,
+        "nonMembers" : null,
+        "recruited" : null,
+        "nonMembersInterviewed" : null,
+        "createdBy" : "system",
+        "createdAt" : "2026-09-28T15:00:00Z",
+        "updatedAt" : "2026-09-28T15:00:00Z",
+        "submittedBy" : null,
+        "submittedAt" : null,
+        "visitId" : null,
+        "version" : 0
+      }
+    },
+    "PUT /api/workplaces/visit-drafts/{id}" : {
+      "request" : "PUT /api/workplaces/visit-drafts/{draft}",
+      "requestBody" : {
+        "raNumber" : 900001,
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "membershipFound" : 12,
+        "recruited" : 2,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "id" : 999001,
+        "status" : "DRAFT",
+        "workplaceId" : 1,
+        "raNumber" : 900001,
+        "workplaceName" : "INVENTED MAIN STREET",
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "membershipFound" : 12,
+        "nonMembers" : null,
+        "recruited" : 2,
+        "nonMembersInterviewed" : null,
+        "createdBy" : "system",
+        "createdAt" : "2026-09-28T15:00:00Z",
+        "updatedAt" : "2026-09-29T08:00:00Z",
+        "submittedBy" : null,
+        "submittedAt" : null,
+        "visitId" : null,
+        "version" : 1
+      }
+    },
+    "POST /api/workplaces/visit-drafts/{id}/submit" : {
+      "request" : "POST /api/workplaces/visit-drafts/{draft}/submit",
+      "requestBody" : {
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "id" : 999001,
+        "status" : "SUBMITTED",
+        "workplaceId" : 1,
+        "raNumber" : 900001,
+        "workplaceName" : "INVENTED MAIN STREET",
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "membershipFound" : 12,
+        "nonMembers" : null,
+        "recruited" : null,
+        "nonMembersInterviewed" : null,
+        "createdBy" : "system",
+        "createdAt" : "2026-09-28T15:00:00Z",
+        "updatedAt" : "2026-09-29T08:00:00Z",
+        "submittedBy" : "system",
+        "submittedAt" : "2026-09-29T08:00:00Z",
+        "visitId" : 3,
+        "version" : 1
+      }
+    },
     "GET /api/members/summary" : {
       "request" : "GET /api/members/summary?by=group",
       "status" : 200,
@@ -2772,6 +3039,92 @@
           "page" : "9",
           "size" : "2",
           "maxSize" : "200"
+        }
+      }
+    },
+    "RA_NUMBERS_INVALID" : {
+      "request" : "GET /api/workplaces/listings?raNumbers=12A",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Each R/A number is a number of up to nine digits. Nothing was looked up.",
+        "path" : "/api/workplaces/listings",
+        "code" : "RA_NUMBERS_INVALID",
+        "details" : {
+          "reason" : "NOT_A_NUMBER",
+          "max" : "50"
+        }
+      }
+    },
+    "WORKPLACE_OUT_OF_SCOPE" : {
+      "request" : "GET /api/workplaces/{workplace}/members",
+      "status" : 403,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 403,
+        "error" : "Forbidden",
+        "message" : "That workplace is outside your region or area.",
+        "path" : "/api/workplaces/1/members",
+        "code" : "WORKPLACE_OUT_OF_SCOPE",
+        "details" : {
+          "workplaceId" : "1"
+        }
+      }
+    },
+    "VISIT_DRAFT_NOT_FOUND" : {
+      "request" : "GET /api/workplaces/visit-drafts/999999",
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "That visit draft is not one of yours, or is no longer there.",
+        "path" : "/api/workplaces/visit-drafts/999999",
+        "code" : "VISIT_DRAFT_NOT_FOUND",
+        "details" : {
+          "draftId" : "999999"
+        }
+      }
+    },
+    "VISIT_DRAFT_STALE" : {
+      "request" : "PUT /api/workplaces/visit-drafts/{draft}",
+      "requestBody" : {
+        "raNumber" : 900001,
+        "version" : 0
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This draft was saved again after you opened it, in another tab or on another device. Nothing was written over it: open it again to see it as it is now.",
+        "path" : "/api/workplaces/visit-drafts/999001",
+        "code" : "VISIT_DRAFT_STALE",
+        "details" : {
+          "version" : "1",
+          "updatedAt" : "2026-09-28T15:00:00Z"
+        }
+      }
+    },
+    "VISIT_ALREADY_SUBMITTED" : {
+      "request" : "PUT /api/workplaces/visit-drafts/{draft}",
+      "requestBody" : {
+        "raNumber" : 900001,
+        "version" : 1
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This visit has been submitted, and a submitted visit cannot be changed.",
+        "path" : "/api/workplaces/visit-drafts/999001",
+        "code" : "VISIT_ALREADY_SUBMITTED",
+        "details" : {
+          "visitId" : "2",
+          "submittedAt" : "2026-08-20T14:00:00Z"
         }
       }
     },

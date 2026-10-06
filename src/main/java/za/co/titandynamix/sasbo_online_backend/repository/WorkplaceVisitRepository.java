@@ -78,6 +78,31 @@ public class WorkplaceVisitRepository {
         return n == null ? 0 : n;
     }
 
+    /** One of a workplace's newest visits: its day -- or the first of its month, where only the month is known. */
+    public record Newest(long workplaceId, LocalDate visitedOn, boolean dayKnown) {
+    }
+
+    /**
+     * The newest visits of each workplace asked for, {@code each} at most a workplace -- a location listing's "Last
+     * Visited" line, ten months as the branch list prints it (October build). ONE statement for every workplace of a
+     * batch print, numbered within each workplace on {@code workplace_visits_newest}'s order; workplace by workplace,
+     * newest first.
+     */
+    public List<Newest> newest(java.util.Collection<Long> workplaceIds, int each) {
+        if (workplaceIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.query("""
+                SELECT workplace_id, visited_on, day_known FROM (
+                  SELECT workplace_id, visited_on, day_known,
+                         ROW_NUMBER() OVER (PARTITION BY workplace_id ORDER BY visited_on DESC, id DESC) AS n
+                  FROM workplace_visits WHERE workplace_id IN (:ids)) numbered
+                WHERE n <= :each ORDER BY workplace_id, n
+                """, new MapSqlParameterSource("ids", workplaceIds).addValue("each", each),
+                (rs, i) -> new Newest(rs.getLong("workplace_id"), rs.getDate("visited_on").toLocalDate(),
+                        rs.getBoolean("day_known")));
+    }
+
     /** A page of a workplace's visits, newest first and then by their own number. */
     public List<Visit> page(long workplaceId, int page, int size) {
         return jdbc.query("""

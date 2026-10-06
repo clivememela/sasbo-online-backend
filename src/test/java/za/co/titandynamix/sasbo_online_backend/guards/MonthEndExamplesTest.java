@@ -32,6 +32,12 @@ import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.WorkplaceSeeder;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
+import za.co.titandynamix.sasbo_online_backend.security.ScopedPrincipal;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -106,7 +112,12 @@ class MonthEndExamplesTest {
      * preparation (04.10). {@code {pack}} is a pack prepared for the example.
      */
     record Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces,
-                   boolean packInHand) {
+                   boolean packInHand, String authorities, String areas, List<String> setup) {
+        Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces,
+                boolean packInHand) {
+            this(method, path, body, gateHeld, withoutWorkplaces, packInHand, null, null, null);
+        }
+
         Example(String method, String path, String body) {
             this(method, path, body, false, false, false);
         }
@@ -119,13 +130,49 @@ class MonthEndExamplesTest {
             this(method, path, body, gateHeld, withoutWorkplaces, false);
         }
 
+        /**
+         * October build: asked by a signed-in caller holding {@code authorities} (comma-separated) -- of the area letters
+         * {@code areas}, or of everything where none -- after {@code setup}'s statements, which are rolled back with
+         * the request. {@code {draft}} is the draft the setup writes.
+         */
+        static Example signedIn(String method, String path, String body, String authorities, String areas,
+                                List<String> setup) {
+            return new Example(method, path, body, false, false, false, authorities, areas, setup);
+        }
+
         String key() {
             return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}").replace("{pack}", "{id}")
-                    .replace("{workplace}", "{id}")
+                    .replace("{workplace}", "{id}").replace("{draft}", "{id}")
                     .replaceAll("/\\d{4}-\\d{2}(/|$)", "/{month}$1")
                     .replaceAll("/\\d+/", "/{id}/");
         }
     }
+
+    /** The invented organiser an example is asked as: a user of the sign-in seed's shape, by its principal. */
+    record SignedInOrganiser(String username, String displayName, CallerScope scope) implements ScopedPrincipal {
+    }
+
+    /** The visit draft the drafts' examples write first, by a number no other row has. */
+    static final long DRAFT = 999_001L;
+
+    /** That draft, saved at version {@code version} by the invented organiser for the invented main street. */
+    static String aDraftAt(int version) {
+        return "INSERT INTO workplace_visit_drafts (id, workplace_id, status, visited_on, organiser, time_in, time_out, "
+                + "complement_found, membership_found, owner, created_by, created_at, updated_at, version) "
+                + "SELECT " + DRAFT + ", id, 'DRAFT', DATE '2026-09-28', 'INVENTED ORGANISER', TIME '09:00:00', "
+                + "TIME '10:30:00', 40, 12, 'organiser', 'system', TIMESTAMP WITH TIME ZONE '2026-09-28 15:00:00+00:00', "
+                + "TIMESTAMP WITH TIME ZONE '2026-09-28 15:00:00+00:00', " + version + " FROM workplaces "
+                + "WHERE ra_number = 900001";
+    }
+
+    /** That draft, submitted already as the invented main street's captured visit of 20 August. */
+    static final String A_SUBMITTED_DRAFT = "INSERT INTO workplace_visit_drafts (id, workplace_id, status, visited_on, "
+            + "organiser, complement_found, membership_found, owner, created_by, created_at, updated_at, submitted_at, "
+            + "submitted_by, visit_id, version) SELECT " + DRAFT + ", w.id, 'SUBMITTED', DATE '2026-08-20', "
+            + "'INVENTED ORGANISER', 40, 11, 'organiser', 'system', TIMESTAMP WITH TIME ZONE '2026-08-20 14:00:00+00:00', "
+            + "TIMESTAMP WITH TIME ZONE '2026-08-20 14:00:00+00:00', TIMESTAMP WITH TIME ZONE '2026-08-20 14:00:00+00:00', "
+            + "'system', v.id, 1 FROM workplaces w JOIN workplace_visits v ON v.workplace_id = w.id "
+            + "AND v.visited_on = DATE '2026-08-20' WHERE w.ra_number = 900001";
 
     /** Every route of the arc that answers, and the request that shows it. */
     static final List<Example> ANSWERS = answers();
@@ -145,6 +192,25 @@ class MonthEndExamplesTest {
         routes.add(new Example("GET", "/api/workplaces/{workplace}/visits", null));
         routes.add(new Example("POST", "/api/workplaces/{workplace}/visits", "{\"visitedOn\": \"2026-09-10\", "
                 + "\"organiser\": \"INVENTED ORGANISER\", \"complementFound\": 40, \"membershipFound\": 12}"));
+        // October build: the organisers' batch print -- two invented workplaces and a number that is none -- and the
+        // members at the invented main street, the invented member placed there for the example and taken back after.
+        routes.add(new Example("GET", "/api/workplaces/listings?raNumbers=900001,900003,900099", null));
+        routes.add(Example.signedIn("GET", "/api/workplaces/{workplace}/members", null, "MEMBERS_VIEW", null,
+                List.of("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = 900001), "
+                        + "employee_number = 'INV00042', cell_tel = '+27 60 555 0002' WHERE membership_number = '"
+                        + MEMBER + "'")));
+        // October build: the visit forms -- my drafts, a draft saved, read back, saved again, and submitted.
+        String saved = "{\"raNumber\": 900001, \"visitedOn\": \"2026-09-28\", \"timeIn\": \"09:00\", \"timeOut\": "
+                + "\"10:30\", \"organiser\": \"INVENTED ORGANISER\", \"complementFound\": 40, \"membershipFound\": 12";
+        routes.add(Example.signedIn("GET", "/api/workplaces/visit-drafts", null, "VISITS_CAPTURE", null,
+                List.of(aDraftAt(0))));
+        routes.add(Example.signedIn("POST", "/api/workplaces/visit-drafts", saved + "}", "VISITS_CAPTURE", null, null));
+        routes.add(Example.signedIn("GET", "/api/workplaces/visit-drafts/{draft}", null, "VISITS_CAPTURE", null,
+                List.of(aDraftAt(0))));
+        routes.add(Example.signedIn("PUT", "/api/workplaces/visit-drafts/{draft}",
+                saved + ", \"recruited\": 2, \"version\": 0}", "VISITS_CAPTURE", null, List.of(aDraftAt(0))));
+        routes.add(Example.signedIn("POST", "/api/workplaces/visit-drafts/{draft}/submit", "{\"version\": 0}",
+                "VISITS_CAPTURE", null, List.of(aDraftAt(0))));
         // 02.2: the figures of the clock's month, by employer group -- the first screen's one request (MD69).
         routes.add(new Example("GET", "/api/members/summary?by=group", null));
         // 03.6: the invented member's history -- a capture and a field changed, merged with its status changes.
@@ -226,6 +292,19 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.PACK_BUSY, new Example("POST", "/api/month-end/" + TAKEN + "/pack", null, false,
                 false, true));
         provoked.put(MonthEndRefusalCode.PACK_NOT_FOUND, new Example("GET", "/api/month-end/packs/999999", null));
+        // October build: the batch print's numbers, one not a number; the members at a branch outside the caller's
+        // area; and the visit drafts' three -- none of mine, saved since, and submitted already.
+        provoked.put(MonthEndRefusalCode.RA_NUMBERS_INVALID, new Example("GET", "/api/workplaces/listings?raNumbers=12A",
+                null));
+        provoked.put(MonthEndRefusalCode.WORKPLACE_OUT_OF_SCOPE, Example.signedIn("GET",
+                "/api/workplaces/{workplace}/members", null, "MEMBERS_VIEW", "B", null));
+        provoked.put(MonthEndRefusalCode.VISIT_DRAFT_NOT_FOUND, Example.signedIn("GET",
+                "/api/workplaces/visit-drafts/999999", null, "VISITS_CAPTURE", null, null));
+        provoked.put(MonthEndRefusalCode.VISIT_DRAFT_STALE, Example.signedIn("PUT", "/api/workplaces/visit-drafts/{draft}",
+                "{\"raNumber\": 900001, \"version\": 0}", "VISITS_CAPTURE", null, List.of(aDraftAt(1))));
+        provoked.put(MonthEndRefusalCode.VISIT_ALREADY_SUBMITTED, Example.signedIn("PUT",
+                "/api/workplaces/visit-drafts/{draft}", "{\"raNumber\": 900001, \"version\": 1}", "VISITS_CAPTURE", null,
+                List.of(A_SUBMITTED_DRAFT)));
         return provoked;
     }
 
@@ -269,6 +348,10 @@ class MonthEndExamplesTest {
         jdbc.update("DELETE FROM month_end_packs");
         // A.1: the invented main street's two visits and no other, numbered from one -- the visit an example records is
         // answered with the same number on every run. (The fast lane's schema is the entities': no trigger here.)
+        // October build: no visit draft before any example -- a draft names a visit, so the drafts go first -- and
+        // the draft an example saves is answered with the same number on every run.
+        jdbc.update("DELETE FROM workplace_visit_drafts");
+        jdbc.execute("ALTER TABLE workplace_visit_drafts ALTER COLUMN id RESTART WITH 1");
         jdbc.update("DELETE FROM workplace_visits");
         jdbc.execute("ALTER TABLE workplace_visits ALTER COLUMN id RESTART WITH 1");
         jdbc.update("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, seeded, captured_at) "
@@ -345,10 +428,42 @@ class MonthEndExamplesTest {
     }
 
     private MvcResult perform(Example example) throws Exception {
+        if (example.authorities() == null) {
+            return performAs(example);
+        }
+        // October build: asked as the invented organiser -- the context the request's method security reads, set on
+        // this thread, where the request runs (this class asks with the filters off), and cleared after.
+        CallerScope scope = example.areas() == null ? CallerScope.all()
+                : CallerScope.areas(Set.of(example.areas().split(",")));
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(
+                new SignedInOrganiser("organiser", "Invented Organiser", scope), null,
+                AuthorityUtils.commaSeparatedStringToAuthorityList(example.authorities())));
+        SecurityContextHolder.setContext(context);
+        try {
+            if (example.setup() == null) {
+                return performAs(example);
+            }
+            // After the example's own rows, written in a transaction that is rolled back with the request.
+            return new TransactionTemplate(transactions).execute(status -> {
+                status.setRollbackOnly();
+                example.setup().forEach(jdbc::update);
+                try {
+                    return performAs(example);
+                } catch (Exception failed) {
+                    throw new IllegalStateException(failed);
+                }
+            });
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    private MvcResult performAs(Example example) throws Exception {
         Integer member = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = ?", Integer.class, MEMBER);
         Long workplace = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900001", Long.class);
         String path = example.path().replace("{member}", String.valueOf(member))
-                .replace("{workplace}", String.valueOf(workplace));
+                .replace("{workplace}", String.valueOf(workplace)).replace("{draft}", String.valueOf(DRAFT));
         if (path.contains("{pack}")) {
             path = path.replace("{pack}", String.valueOf(packs.ask(TAKEN).pack().id()));
         }

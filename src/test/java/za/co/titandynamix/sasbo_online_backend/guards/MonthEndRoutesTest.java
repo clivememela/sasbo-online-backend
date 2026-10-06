@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
@@ -45,9 +46,57 @@ class MonthEndRoutesTest {
             // 04.3, 04.7, 04.8: a listing names members; proved refusing by MonthEndStatisticsControllerSecurityTest.
             "GET /api/month-end/{month}/listings/{listing}");
 
+    /**
+     * October build: the arc's routes that answer a signed-in caller holding a permission, and refuse everyone else --
+     * each with the permission its handler names in {@code @PreAuthorize} (contracts/permissions.md).
+     */
+    static final Map<String, String> BY_PERMISSION = Map.of(
+            // The Location Listing's members at a branch: a listing that names members.
+            "GET /api/workplaces/{id}/members", "MEMBERS_VIEW",
+            // The visit forms: a person's own visit drafts, saved and submitted.
+            "GET /api/workplaces/visit-drafts", "VISITS_CAPTURE",
+            "POST /api/workplaces/visit-drafts", "VISITS_CAPTURE",
+            "GET /api/workplaces/visit-drafts/{id}", "VISITS_CAPTURE",
+            "PUT /api/workplaces/visit-drafts/{id}", "VISITS_CAPTURE",
+            "POST /api/workplaces/visit-drafts/{id}/submit", "VISITS_CAPTURE");
+
     @Autowired
     @Qualifier("requestMappingHandlerMapping")
     private RequestMappingHandlerMapping mapping;
+
+    /** Every route, as METHOD path, with the handler that answers it. */
+    private Map<String, HandlerMethod> handlers() {
+        Map<String, HandlerMethod> found = new TreeMap<>();
+        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : mapping.getHandlerMethods().entrySet()) {
+            Set<RequestMethod> methods = entry.getKey().getMethodsCondition().getMethods();
+            for (String path : entry.getKey().getPatternValues()) {
+                for (RequestMethod method : methods.isEmpty() ? Set.of(RequestMethod.GET) : methods) {
+                    found.put(method.name() + " " + path, entry.getValue());
+                }
+            }
+        }
+        return found;
+    }
+
+    @Test
+    @DisplayName("🔒 October build: every route the arc guards by a permission names exactly that permission on its handler")
+    void everyGuardedRouteNamesItsPermission() {
+        Map<String, HandlerMethod> handlers = handlers();
+        Set<String> wrong = new TreeSet<>();
+        BY_PERMISSION.forEach((route, permission) -> {
+            HandlerMethod handler = handlers.get(route);
+            PreAuthorize guard = handler == null ? null
+                    : AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(), PreAuthorize.class);
+            String expected = "hasAuthority('" + permission + "')";
+            if (guard == null || !expected.equals(guard.value())) {
+                wrong.add(route + (handler == null ? " is no route" : " does not carry @PreAuthorize(\"" + expected
+                        + "\")"));
+            }
+            // The name is the catalogue's, never a spelling of it.
+            za.co.titandynamix.sasbo_online_backend.security.Permission.valueOf(permission);
+        });
+        assertThat(wrong).as("a route listed as guarded whose handler names another permission, or none").isEmpty();
+    }
 
     /** Every route, as METHOD path, with whether its controller carries {@link MonthEndApi}. */
     private Map<String, Boolean> routes() {
@@ -106,9 +155,12 @@ class MonthEndRoutesTest {
         Set<String> undecided = new TreeSet<>(arcs);
         undecided.removeAll(MonthEndGuardsTest.OPEN_BY_REASON.keySet());
         undecided.removeAll(REFUSING);
-        assertThat(undecided).as("routes of the arc that are neither open by a written reason nor refusing").isEmpty();
+        undecided.removeAll(BY_PERMISSION.keySet());
+        assertThat(undecided).as("routes of the arc that are neither open by a written reason, refusing, nor guarded by a "
+                + "permission").isEmpty();
         Set<String> gone = new TreeSet<>(MonthEndGuardsTest.OPEN_BY_REASON.keySet());
         gone.addAll(REFUSING);
+        gone.addAll(BY_PERMISSION.keySet());
         gone.removeAll(arcs);
         assertThat(gone).as("entries that are no route of the arc -- take them off the list").isEmpty();
         assertThat(MonthEndGuardsTest.OPEN_BY_REASON.values()).allSatisfy(reason -> assertThat(reason).isNotBlank());

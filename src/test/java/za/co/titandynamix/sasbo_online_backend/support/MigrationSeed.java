@@ -206,7 +206,9 @@ public final class MigrationSeed {
             "V61__month_end_packs.sql",
             "V62__workplace_visits.sql",
             "V63__member_memnet.sql",
-            "V64__month_end_taken_again.sql");
+            "V64__month_end_taken_again.sql",
+            // October build, reports-visits: an organiser's visit saved as a draft and submitted.
+            "V82__workplace_visit_drafts.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

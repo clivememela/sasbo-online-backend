@@ -59,7 +59,11 @@ class MonthEndGuardsTest {
             "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
             "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController", "MonthEndPacks",
             "MonthEndPackController", "MonthEndPackRepository", "MonthEndWorkbooks", "MonthEndPackLauncher",
-            "MonthEndPackConfig", "SpreadsheetText");
+            "MonthEndPackConfig", "SpreadsheetText",
+            // October build, reports-visits: the Location Listing's reads and the visit drafts.
+            "WorkplaceListingController", "WorkplaceListingService", "WorkplaceLookupRepository",
+            "WorkplaceMemberRepository", "VisitDraftController", "WorkplaceVisitDraftService",
+            "WorkplaceVisitDraftRepository", "VisitDraftSeeder");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -394,6 +398,8 @@ class MonthEndGuardsTest {
                     + "visited and the counts of members are withheld (MD61, B1)"),
             Map.entry("POST /api/workplaces/{id}/visits", "a visit recorded: as open as every write today, and named in "
                     + "B1's list (MR-SEC-1)"),
+            Map.entry("GET /api/workplaces/listings", "the organisers' batch print: workplaces by R/A number, fifty at "
+                    + "most -- organisations, answered as the switch allows (MD62); the members at each need MEMBERS_VIEW"),
             Map.entry("POST /api/members/{id}/status", "as open as the PUT it replaces (MD13); named in B1's list, "
                     + "and refusing from the day sign-in exists"),
             Map.entry("GET /api/members/summary", "counts, under rule C: a membership below five at a named employer "

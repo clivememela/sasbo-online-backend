@@ -138,6 +138,11 @@
     "refusalCodes": [
       {"code": "REQUEST_MALFORMED", "status": 400},
       {"code": "WORKPLACE_PAGE_INVALID", "status": 400},
+      {"code": "RA_NUMBERS_INVALID", "status": 400},
+      {"code": "WORKPLACE_OUT_OF_SCOPE", "status": 403},
+      {"code": "VISIT_DRAFT_NOT_FOUND", "status": 404},
+      {"code": "VISIT_DRAFT_STALE", "status": 409},
+      {"code": "VISIT_ALREADY_SUBMITTED", "status": 409},
       {"code": "WORKPLACE_UNKNOWN", "status": 400},
       {"code": "VISIT_INVALID", "status": 400},
       {"code": "SUMMARY_GROUPING_UNKNOWN", "status": 400},

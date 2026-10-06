@@ -119,6 +119,19 @@ public class WorkplaceRepository {
                 new MapSqlParameterSource("id", id), (rs, n) -> row(rs, withComplement)).stream().findFirst();
     }
 
+    /**
+     * The workplaces whose R/A numbers are asked for, with their lineage -- the organisers' batch print (October
+     * build): fifty at most, the service's ceiling, in ONE statement on the R/A number's unique index, never one a
+     * number. A number not on record is simply not answered; the caller says which. In no particular order.
+     */
+    public List<WorkplaceDto> byRaNumbers(java.util.Collection<Integer> numbers, boolean withComplement) {
+        if (numbers.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.query("SELECT " + COLUMNS + FROM + " WHERE w.ra_number IN (:numbers)",
+                new MapSqlParameterSource("numbers", numbers), (rs, n) -> row(rs, withComplement));
+    }
+
     private static WorkplaceDto row(ResultSet rs, boolean withComplement) throws SQLException {
         long employerId = rs.getLong("employer_id");
         boolean noEmployer = rs.wasNull();
