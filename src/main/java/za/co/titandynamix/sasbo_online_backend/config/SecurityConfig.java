@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,6 +14,10 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+// October build: routes that need a permission say so with @PreAuthorize("hasAuthority('...')"), naming a
+// security.Permission. Nothing on main carries one, so this changes no route that exists; every route stays open
+// until the sign-in work decides what an anonymous caller may reach.
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
