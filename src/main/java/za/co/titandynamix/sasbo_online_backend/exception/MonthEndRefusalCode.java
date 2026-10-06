@@ -120,7 +120,15 @@ public enum MonthEndRefusalCode {
      */
     PACK_BUSY(HttpStatus.CONFLICT),
     /** 04.10: no such pack -- or no such workbook of it, or none yet: a pack's files are there once it is READY. */
-    PACK_NOT_FOUND(HttpStatus.NOT_FOUND);
+    PACK_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /**
+     * Register row A10: a page of the member register that cannot be asked for -- below nought, or a size outside one to
+     * a hundred. The details carry the page, the size and the ceiling. A page past the last is not refused: the last
+     * page is answered, and says so.
+     */
+    REGISTER_PAGE_INVALID(HttpStatus.BAD_REQUEST),
+    /** Register row A10: an order the register is not read in. The details carry the orders and directions it takes. */
+    REGISTER_SORT_UNKNOWN(HttpStatus.BAD_REQUEST);
 
     private final HttpStatus status;
 

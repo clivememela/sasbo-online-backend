@@ -36,7 +36,7 @@ class MonthEndRoutesTest {
     /** Where the arc's routes live. A route here in a controller that is not the arc's is the finding. */
     static final Pattern ARC_ROUTE = Pattern.compile(
             "^(/api/reference/.*|/api/workplaces(/.*)?|/api/month-end(/.*)?|/api/members/summary"
-                    + "|/api/members/\\{[^}]+}/status|/api/members/\\{[^}]+}/history)$");
+                    + "|/api/members/\\{[^}]+}/status|/api/members/\\{[^}]+}/history|/api/members/register/.*)$");
 
     /** The arc's routes that refuse every caller until sign-in exists (MD4), each named by the unit that adds it. */
     static final Set<String> REFUSING = Set.of(
@@ -88,6 +88,7 @@ class MonthEndRoutesTest {
     void theAddressPredicateCanFail() {
         assertThat(ARC_ROUTE.matcher("/api/reference/regions").matches()).isTrue();
         assertThat(ARC_ROUTE.matcher("/api/members/{id}/status").matches()).isTrue();
+        assertThat(ARC_ROUTE.matcher("/api/members/register/search").matches()).isTrue();
         assertThat(ARC_ROUTE.matcher("/api/members/{id}").matches()).isFalse();
         assertThat(ARC_ROUTE.matcher("/api/members").matches()).isFalse();
         assertThat(ARC_ROUTE.matcher("/api/workplacesX").matches()).isFalse();

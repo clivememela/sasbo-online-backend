@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -74,6 +75,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.datasource.url=jdbc:h2:mem:month-end-examples;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"})
 @AutoConfigureMockMvc(addFilters = false)
 @Import(MonthEndExamplesTest.AFrozenClock.class)
+// Every example is asked as an anonymous caller -- what the link is while sign-in is open. Without the filters there
+// is no caller at all, and a route that names a permission (the register's, A10) refuses a caller who is not there.
+@WithAnonymousUser
 @DisplayName("Month end's golden answers")
 class MonthEndExamplesTest {
 
@@ -152,6 +156,10 @@ class MonthEndExamplesTest {
         routes.add(new Example("POST", "/api/members/{member}/status", "{\"toStatus\": \"Resigned\", "
                 + "\"expectedStatus\": \"Active\", \"reason\": \"DELETION_CODE\", \"deletionCode\": 2, "
                 + "\"reasonUnderCode\": \"INVENTED: MOVED AWAY\", \"note\": \"Invented: moved away\"}"));
+        // Register row A10: a page of the register -- the invented member, found by the start of their surname -- and
+        // the register's figures.
+        routes.add(new Example("POST", "/api/members/register/search", "{\"q\": \"exa\", \"size\": 25}"));
+        routes.add(new Example("GET", "/api/members/register/overview", null));
         // 04.2: the months taken -- the invented August, taken as the seed takes a month, at the frozen clock -- and
         // that month's record.
         routes.add(new Example("GET", "/api/month-end/months", null));
@@ -226,6 +234,11 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.PACK_BUSY, new Example("POST", "/api/month-end/" + TAKEN + "/pack", null, false,
                 false, true));
         provoked.put(MonthEndRefusalCode.PACK_NOT_FOUND, new Example("GET", "/api/month-end/packs/999999", null));
+        // Register row A10: a page larger than the register gives, and an order it is not read in.
+        provoked.put(MonthEndRefusalCode.REGISTER_PAGE_INVALID, new Example("POST", "/api/members/register/search",
+                "{\"size\": 500}"));
+        provoked.put(MonthEndRefusalCode.REGISTER_SORT_UNKNOWN, new Example("POST", "/api/members/register/search",
+                "{\"sort\": \"identityNumber,asc\"}"));
         return provoked;
     }
 
@@ -265,6 +278,10 @@ class MonthEndExamplesTest {
         jdbc.update("DELETE FROM member_status_changes WHERE member_id = (SELECT id FROM members WHERE "
                 + "membership_number = ?)", MEMBER);
         jdbc.update("UPDATE members SET status = 'Active' WHERE membership_number = ?", MEMBER);
+        // A10: last saved on the frozen clock's day -- the status example saves the member again at the wall clock's
+        // time, and the register's figures count the saves of today.
+        jdbc.update("UPDATE members SET updated_at = TIMESTAMP '2026-09-29 08:00:00' WHERE membership_number = ?",
+                MEMBER);
         // No pack before any example: each asks from nothing, and is answered the same on every run.
         jdbc.update("DELETE FROM month_end_packs");
         // A.1: the invented main street's two visits and no other, numbered from one -- the visit an example records is
