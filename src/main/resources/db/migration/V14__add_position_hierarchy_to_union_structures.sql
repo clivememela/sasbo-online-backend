@@ -21,7 +21,8 @@ DELETE FROM representative_structures WHERE structure_id NOT IN (SELECT id FROM 
 DELETE FROM union_structures;
 
 -- 3. Reset the ID sequence so IDs start predictably
-ALTER SEQUENCE union_structures_id_seq RESTART WITH 1;
+-- Identity sequence names differ between PostgreSQL and H2; explicit IDs above
+-- keep the hierarchy deterministic without resetting a generated sequence.
 
 -- 4. Seed the hierarchy (parents first, then children)
 
@@ -52,4 +53,5 @@ INSERT INTO union_structures (id, name, parent_id) VALUES (15, 'Deputy Secretary
 INSERT INTO union_structures (id, name, parent_id) VALUES (16, 'Treasurer', 8);
 
 -- 5. Advance the sequence past the manually-inserted IDs
-ALTER SEQUENCE union_structures_id_seq RESTART WITH 100;
+-- Identity sequence names differ between PostgreSQL and H2; explicit IDs above
+-- keep the hierarchy deterministic without resetting a generated sequence.

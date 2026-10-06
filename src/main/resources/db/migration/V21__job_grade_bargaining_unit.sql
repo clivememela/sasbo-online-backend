@@ -33,11 +33,10 @@
 -- behind Flyway's back, which is the failure mode already on record here.
 -- ============================================================
 
-ALTER TABLE job_grades
-    ADD COLUMN IF NOT EXISTS bargaining_unit           VARCHAR(16),
-    ADD COLUMN IF NOT EXISTS bargaining_unit_condition VARCHAR(500),
-    ADD COLUMN IF NOT EXISTS grading_system            VARCHAR(32),
-    ADD COLUMN IF NOT EXISTS band                      VARCHAR(8);
+ALTER TABLE job_grades ADD COLUMN IF NOT EXISTS bargaining_unit VARCHAR(16);
+ALTER TABLE job_grades ADD COLUMN IF NOT EXISTS bargaining_unit_condition VARCHAR(500);
+ALTER TABLE job_grades ADD COLUMN IF NOT EXISTS grading_system VARCHAR(32);
+ALTER TABLE job_grades ADD COLUMN IF NOT EXISTS band VARCHAR(8);
 
 -- ---- Backfill from the prose the column used to hold --------------------
 -- Matched case-insensitively on purpose: the four spellings are the reason

@@ -171,19 +171,8 @@ ALTER TABLE members
 -- under the `validate-on-migrate: true` this suite runs with, reddens every
 -- database that already has it. Fixing the precondition here keeps every shared
 -- file untouched, which is this whole file's premise.
-DO $$
-    BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.columns
-                   WHERE table_name = 'recruiters'
-                     AND column_name = 'members_recruited'
-                     AND data_type <> 'character varying') THEN
-            -- The USING clause is explicit rather than left to Postgres to
-            -- infer. integer -> varchar is an ASSIGNMENT cast, which
-            -- ALTER COLUMN ... TYPE does accept, but "accepts an assignment
-            -- cast" is a rule worth not depending on in a migration that only
-            -- ever runs once per database.
-            ALTER TABLE recruiters
-                ALTER COLUMN members_recruited TYPE VARCHAR(255)
-                USING members_recruited::VARCHAR(255);
-        END IF;
-    END $$;
+-- H2 and PostgreSQL both support this ALTER COLUMN form. The migration runs
+-- before V17, so the seed can insert its text values and V18 can restore the
+-- final INTEGER type.
+ALTER TABLE recruiters
+    ALTER COLUMN members_recruited TYPE VARCHAR(255);

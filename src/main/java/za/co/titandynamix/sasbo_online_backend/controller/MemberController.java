@@ -168,6 +168,18 @@ public class MemberController {
                        .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping(value = "/welcome-letter-preview", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> postWelcomeLetterPreview(@RequestBody Member member) {
+        if (this.emailService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        byte[] preview = this.emailService.buildWelcomeLetterPdf(member);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(ContentDisposition.inline().filename("Sasbo Welcome Letter.pdf").build());
+        return ResponseEntity.ok().headers(headers).body(preview);
+    }
+
     @GetMapping(value = "/{id}/welcome-letter-preview", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> getWelcomeLetterPreview(@PathVariable Integer id) {
         if (this.emailService == null) {

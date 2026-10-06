@@ -10,8 +10,7 @@
 --                       A member may hold multiple positions.
 -- ============================================================
 
-ALTER TABLE members
-    ADD COLUMN IF NOT EXISTS is_cosatu         VARCHAR(1)   DEFAULT 'N',
-    ADD COLUMN IF NOT EXISTS cosatu_local      VARCHAR(255),
-    ADD COLUMN IF NOT EXISTS cosatu_region     VARCHAR(255),
-    ADD COLUMN IF NOT EXISTS cosatu_positions  VARCHAR(500);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS is_cosatu VARCHAR(1) DEFAULT 'N';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS cosatu_local VARCHAR(255);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS cosatu_region VARCHAR(255);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS cosatu_positions VARCHAR(500);

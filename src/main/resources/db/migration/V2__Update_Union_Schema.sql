@@ -1,41 +1,26 @@
 -- Drop old foreign key if it exists (legacy Hibernate-generated name)
 ALTER TABLE public.members DROP CONSTRAINT IF EXISTS fko50vehm7g7hgw5t9ukg8i8ms1;
 
--- Add columns if not already present (V1 creates them on fresh DB)
+-- Add columns individually because H2 does not accept PostgreSQL's
+-- comma-separated ADD COLUMN form.
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS is_representative BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS role_id INT4;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS structure_id INT4;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS election_date DATE;
+
+-- The surviving V1 schema already supplies the role and structure foreign keys.
+-- Add only the constraints that are absent from that baseline.
 ALTER TABLE public.members
-    ADD COLUMN IF NOT EXISTS is_representative BOOLEAN DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS role_id            INT4,
-    ADD COLUMN IF NOT EXISTS structure_id       INT4,
-    ADD COLUMN IF NOT EXISTS election_date      DATE;
+    ADD CONSTRAINT fk_member_recruiter_self FOREIGN KEY (recruitment_rep) REFERENCES public.members(id);
 
--- Add constraints only if they don't already exist
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_member_recruiter_self') THEN
-        ALTER TABLE public.members
-            ADD CONSTRAINT fk_member_recruiter_self FOREIGN KEY (recruitment_rep) REFERENCES public.members(id);
-    END IF;
-END $$;
+ALTER TABLE public.members
+    ADD CONSTRAINT fk_member_rep_role FOREIGN KEY (role_id) REFERENCES public.representative_roles(id);
 
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_member_rep_role') THEN
-        ALTER TABLE public.members
-            ADD CONSTRAINT fk_member_rep_role FOREIGN KEY (role_id) REFERENCES public.representative_roles(id);
-    END IF;
-END $$;
+ALTER TABLE public.members
+    ADD CONSTRAINT fk_member_union_structure FOREIGN KEY (structure_id) REFERENCES public.union_structures(id);
 
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_member_union_structure') THEN
-        ALTER TABLE public.members
-            ADD CONSTRAINT fk_member_union_structure FOREIGN KEY (structure_id) REFERENCES public.union_structures(id);
-    END IF;
-END $$;
-
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_cannot_recruit_self') THEN
-        ALTER TABLE public.members
-            ADD CONSTRAINT chk_cannot_recruit_self CHECK (recruitment_rep <> id);
-    END IF;
-END $$;
+ALTER TABLE public.members
+    ADD CONSTRAINT chk_cannot_recruit_self CHECK (recruitment_rep <> id);
 
 -- Delete banks with empty names
 DELETE FROM banks WHERE TRIM(name) = '';

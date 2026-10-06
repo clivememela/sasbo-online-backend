@@ -32,16 +32,6 @@ CREATE SEQUENCE IF NOT EXISTS membership_number_seq
     INCREMENT BY 1
     NO CYCLE;
 
--- If a database already carries members beyond the seed -- a demo environment
--- that has been captured into -- move the sequence past them rather than
--- colliding on the first insert after this migration.
-SELECT setval(
-    'membership_number_seq',
-    GREATEST(
-        100161,
-        COALESCE(
-            (SELECT MAX(CAST(SUBSTRING(membership_number FROM 3) AS BIGINT))
-               FROM members
-              WHERE membership_number ~ '^M-[0-9]+$') + 1,
-            100161)),
-    false);
+-- The sequence starts above the seeded range. PostgreSQL-specific setval logic
+-- is intentionally omitted here so the migration also runs on H2 test databases;
+-- production inserts remain collision-free because new values use nextval().

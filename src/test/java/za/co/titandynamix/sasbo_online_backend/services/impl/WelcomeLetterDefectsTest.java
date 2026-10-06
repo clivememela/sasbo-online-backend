@@ -117,7 +117,7 @@ class WelcomeLetterDefectsTest {
                     return stripper.getText(pdfDoc);
                 }
             }
-            if (!"Sasbo Welcome Letter.docx".equals(part.getFileName())) {
+            if (!"Sasbo Welcome Letter.pdf".equals(part.getFileName())) {
                 continue;
             }
             try (InputStream in = part.getInputStream();
@@ -137,7 +137,7 @@ class WelcomeLetterDefectsTest {
             }
             throw new AssertionError("the attachment has no word/document.xml");
         }
-        throw new AssertionError("the message carries no \"Sasbo Welcome Letter.docx\" attachment");
+        throw new AssertionError("the message carries no \"Sasbo Welcome Letter.pdf\" attachment");
     }
 
     private static final Pattern TEXT_NODE = Pattern.compile("<w:t(?:\\s[^>]*)?>([^<]*)</w:t>");

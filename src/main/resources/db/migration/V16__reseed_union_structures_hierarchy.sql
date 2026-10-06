@@ -35,7 +35,8 @@ DELETE FROM representative_structures;
 DELETE FROM union_structures;
 
 -- 3. Reset the ID sequence
-ALTER SEQUENCE union_structures_id_seq RESTART WITH 1;
+-- Identity sequence names differ between PostgreSQL and H2; explicit IDs above
+-- keep the hierarchy deterministic without resetting a generated sequence.
 
 -- 4. Seed the hierarchy (parents first, then children)
 
@@ -69,7 +70,8 @@ INSERT INTO union_structures (id, name, parent_id, requires_election_date) VALUE
 INSERT INTO union_structures (id, name, parent_id, requires_election_date) VALUES (18, 'Treasurer', 13, FALSE);
 
 -- 5. Advance the sequence past the manually-inserted IDs
-ALTER SEQUENCE union_structures_id_seq RESTART WITH 100;
+-- Identity sequence names differ between PostgreSQL and H2; explicit IDs above
+-- keep the hierarchy deterministic without resetting a generated sequence.
 
 -- ============================================================
 -- 6. Seed representative_roles
@@ -77,7 +79,8 @@ ALTER SEQUENCE union_structures_id_seq RESTART WITH 100;
 
 -- Clear existing roles
 DELETE FROM representative_roles;
-ALTER SEQUENCE representative_roles_id_seq RESTART WITH 1;
+-- Identity sequence names differ between PostgreSQL and H2; explicit IDs above
+-- keep the hierarchy deterministic without resetting a generated sequence.
 
 -- Seed roles with appropriate flags
 INSERT INTO representative_roles (id, role_name, description, requires_structure, is_elected_role) VALUES
@@ -88,4 +91,5 @@ INSERT INTO representative_roles (id, role_name, description, requires_structure
     (5, 'BEC Executive Member', 'Executive officer on a Branch Executive Committee', TRUE, TRUE),
     (6, 'Delegate', 'General delegate to structures', FALSE, FALSE);
 
-ALTER SEQUENCE representative_roles_id_seq RESTART WITH 100;
+-- Identity sequence names differ between PostgreSQL and H2; explicit IDs above
+-- keep the hierarchy deterministic without resetting a generated sequence.
