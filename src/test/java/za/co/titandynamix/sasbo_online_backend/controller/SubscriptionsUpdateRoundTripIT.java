@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
 import za.co.titandynamix.sasbo_online_backend.fixtures.BankFixture;
@@ -56,6 +57,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * round-trip its own date format is testing the author's memory.
  */
 @AutoConfigureMockMvc
+// Staff, because only staff change amounts (the 5 Oct Show & Tell): the writes need SUBSCRIPTIONS_MAINTAIN since the
+// October build. This class is about the round trip; who may make it is SubscriptionsControllerSecurityTest's.
+@WithMockUser(authorities = "SUBSCRIPTIONS_MAINTAIN")
 @DisplayName("PUT /api/subscriptions/{id} against a real database")
 class SubscriptionsUpdateRoundTripIT extends AbstractWritingIT {
 
