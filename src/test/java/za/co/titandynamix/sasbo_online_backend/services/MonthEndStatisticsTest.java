@@ -446,7 +446,7 @@ class MonthEndStatisticsTest {
 
     /** The sheets cut by a code, not by where members work: the same at every switch. */
     private static final List<String> CUT_BY_A_CODE = List.of("membership suspended-by-code",
-            "recruitment by-recruiter", "recruitment by-channel");
+            "recruitment by-recruiter", "recruitment by-channel", "suspensions by-code", "suspensions no-deduction");
 
     @Test
     @DisplayName("🔒 MD62, MV-55: below 'all' EVERY sheet cut by where members work is one row -- the whole, equal to its total and to the whole at 'all'")
@@ -461,8 +461,11 @@ class MonthEndStatisticsTest {
                 .doesNotThrowAnyException();
         List<MonthEndStatisticDto> below = new java.util.ArrayList<>(atNames.all("2026-09"));
         below.add(atNames.visits("2026-09", null, null));
+        // MEN-18's suspensions are outside the pack too.
+        below.add(atNames.suspensions("2026-09", null, null));
         List<MonthEndStatisticDto> atAll = new java.util.ArrayList<>(statistics.all("2026-09"));
         atAll.add(statistics.visits("2026-09", null, null));
+        atAll.add(statistics.suspensions("2026-09", null, null));
         assertThat(below).extracting(MonthEndStatisticDto::statistic)
                 .containsExactlyElementsOf(atAll.stream().map(MonthEndStatisticDto::statistic).toList());
         assertThat(below).extracting(MonthEndStatisticDto::statistic)
@@ -494,7 +497,7 @@ class MonthEndStatisticsTest {
         assertThat(cut).as("every sheet cut by where members work -- a new sheet is placed here, or among the cut by a code")
                 .containsExactlyInAnyOrder("new-and-deleted month-joined", "new-and-deleted month-left",
                         "new-and-deleted year-joined", "new-and-deleted year-left", "membership by-group",
-                        "membership by-table-code", "leavers by-area", "leavers by-employer", "leavers by-table-code",
+                        "membership by-table-code", "membership by-tier", "suspensions by-employer", "leavers by-area", "leavers by-employer", "leavers by-table-code",
                         "leavers joined-deleted", "leavers resigned", "branches by-area", "branches by-employer",
                         "recruitment by-table-code", "representatives representatives",
                         "representatives committee-members", "representatives memnet-members", "visits due-a-visit");

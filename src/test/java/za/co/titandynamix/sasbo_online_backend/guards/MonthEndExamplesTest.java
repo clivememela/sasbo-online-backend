@@ -260,7 +260,7 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_INVALID, new Example("POST", reasons,
                 "{\"name\": \" \", \"suspensionCode\": 11}"));
         provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_TAKEN, new Example("POST", reasons,
-                "{\"name\": \"sick leave\", \"suspensionCode\": 21}"));
+                "{\"name\": \"unpaid LEAVE\", \"suspensionCode\": 11}"));
         provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_NOT_FOUND, new Example("PUT", reasons + "/999999",
                 "{\"name\": \"Unpaid leave\", \"suspensionCode\": 11, \"version\": 0}"));
         provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_CHANGED_SINCE, new Example("PUT", reasons + "/{reasonId}",
