@@ -62,6 +62,8 @@ CREATE TABLE workplace_visit_drafts (
 CREATE INDEX workplace_visit_drafts_mine ON workplace_visit_drafts (owner, status, updated_at DESC, id DESC);
 -- A visit is submitted from one draft, never two.
 CREATE UNIQUE INDEX workplace_visit_drafts_visit_once ON workplace_visit_drafts (visit_id) WHERE visit_id IS NOT NULL;
+-- The foreign key's side: a workplace's drafts, read by its id -- and checked by it whenever a workplace's row changes.
+CREATE INDEX workplace_visit_drafts_workplace ON workplace_visit_drafts (workplace_id);
 
 CREATE FUNCTION workplace_visit_drafts_submitted_read_only() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

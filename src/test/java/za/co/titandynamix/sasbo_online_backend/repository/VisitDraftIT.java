@@ -26,6 +26,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -247,7 +248,7 @@ class VisitDraftIT extends AbstractSwitchedOnIT {
     }
 
     @Test
-    @DisplayName("🔒 the seed: six invented visits of the demonstration organiser in area L -- three submitted, each a visit on record at the workplace's own complement -- and a second start writes none")
+    @DisplayName("🔒 the seed: six invented visits of the demonstration organiser in area L -- three submitted, each a visit on record with NO complement, captured at 10:00 on its own day -- and a second start writes none")
     void theSeed() {
         int written = seed.seed();
 
@@ -257,14 +258,66 @@ class VisitDraftIT extends AbstractSwitchedOnIT {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM workplace_visit_drafts d JOIN workplace_visits v "
                         + "ON v.id = d.visit_id JOIN workplaces w ON w.id = d.workplace_id JOIN sasbo_areas a "
                         + "ON a.id = w.area_id WHERE d.status = 'SUBMITTED' AND a.letter = 'L' AND v.seeded = FALSE "
-                        + "AND v.complement_found = w.staff_complement AND v.complement_before IS NULL",
-                Long.class)).as("each submitted draft is a visit captured at the workplace's own complement")
+                        + "AND v.complement_found IS NULL AND d.complement_found IS NULL AND v.complement_before IS NULL",
+                Long.class)).as("review: an invented visit takes no staff complement -- no real branch's is frozen")
                 .isEqualTo(3L);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM workplace_visits WHERE visited_on >= DATE '2026-08-01' "
-                + "AND visited_on < DATE '2026-09-01'", Long.class))
-                .as("the submitted visits are in the month before the clock's").isEqualTo(3L);
+                + "AND visited_on < DATE '2026-09-01' AND captured_at = (CAST(visited_on AS TIMESTAMP) + INTERVAL '10 hours') "
+                + "AT TIME ZONE 'Africa/Johannesburg'", Long.class))
+                .as("review: each submitted visit is in the month before the clock's, captured at 10:00 SAST on its own day")
+                .isEqualTo(3L);
 
         assertThat(seed.seed()).as("a second start writes nothing").isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM workplace_visit_drafts", Long.class)).isEqualTo(6L);
+    }
+
+    @Test
+    @DisplayName("🔒 review: a seeded draft the organiser submitted does not come back as a new draft at the next start")
+    void aSubmittedSeededDraftStaysSubmitted() {
+        seed.seed();
+        Long draft = jdbc.queryForObject("SELECT min(id) FROM workplace_visit_drafts WHERE status = 'DRAFT' "
+                + "AND visited_on IS NOT NULL", Long.class);
+        Long visit = jdbc.queryForObject("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, seeded, "
+                + "captured_at) SELECT workplace_id, visited_on, TRUE, FALSE, now() FROM workplace_visit_drafts WHERE id = ? "
+                + "RETURNING id", Long.class, draft);
+        jdbc.update("UPDATE workplace_visit_drafts SET status = 'SUBMITTED', visit_id = ?, submitted_at = now(), "
+                + "submitted_by = 'system', version = version + 1 WHERE id = ?", visit, draft);
+
+        assertThat(seed.seed()).as("the workplace already has the seed's draft, submitted").isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM workplace_visit_drafts", Long.class)).isEqualTo(6L);
+    }
+
+    @Test
+    @DisplayName("🔒 review: V82's workplace_visit_drafts_visit_once, by name -- a visit is submitted from one draft, never two")
+    void aVisitIsSubmittedFromOneDraft() {
+        Long visit = jdbc.queryForObject("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, seeded, "
+                + "captured_at) VALUES (?, DATE '2026-09-10', TRUE, FALSE, now()) RETURNING id", Long.class, workplace);
+        insertDraft("SUBMITTED", visit);
+
+        assertThatThrownBy(() -> insertDraft("SUBMITTED", visit))
+                .hasMessageContaining("workplace_visit_drafts_visit_once");
+    }
+
+    @Test
+    @DisplayName("🔒 review: Discard draft deletes my draft at its version -- and a submitted visit is never discarded")
+    void discarding() throws Exception {
+        long draft = json(asOrganiser(post("/api/workplaces/visit-drafts").contentType(MediaType.APPLICATION_JSON)
+                .content(saved(complement, 0, null)))).get("id").asLong();
+
+        MockHttpServletResponse stale = asOrganiser(delete("/api/workplaces/visit-drafts/{id}", draft).param("version", "3"));
+        assertThat(stale.getStatus()).isEqualTo(409);
+        assertThat(asOrganiser(delete("/api/workplaces/visit-drafts/{id}", draft).param("version", "0")).getStatus())
+                .isEqualTo(204);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM workplace_visit_drafts", Long.class)).isZero();
+
+        long submitted = json(asOrganiser(post("/api/workplaces/visit-drafts").contentType(MediaType.APPLICATION_JSON)
+                .content(saved(complement, 0, null)))).get("id").asLong();
+        asOrganiser(post("/api/workplaces/visit-drafts/{id}/submit", submitted).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"version\": 0}"));
+        MockHttpServletResponse refused = asOrganiser(delete("/api/workplaces/visit-drafts/{id}", submitted)
+                .param("version", "1"));
+        assertThat(refused.getStatus()).isEqualTo(409);
+        assertThat(json(refused).get("code").asText()).isEqualTo("VISIT_ALREADY_SUBMITTED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM workplace_visit_drafts", Long.class)).isEqualTo(1L);
     }
 }
