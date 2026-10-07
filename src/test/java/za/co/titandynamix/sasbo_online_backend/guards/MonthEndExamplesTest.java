@@ -18,6 +18,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.context.TestSecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -27,6 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
+import za.co.titandynamix.sasbo_online_backend.security.Permission;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
 import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
@@ -41,6 +44,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -52,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 /**
  * THE GOLDEN ANSWERS (month end, MD48, MV-32): {@value #FILE_NAME} -- a real answer for each route of the arc and an
@@ -121,7 +126,7 @@ class MonthEndExamplesTest {
 
         String key() {
             return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}").replace("{pack}", "{id}")
-                    .replace("{workplace}", "{id}")
+                    .replace("{workplace}", "{id}").replace("{reasonId}", "{id}")
                     .replaceAll("/\\d{4}-\\d{2}(/|$)", "/{month}$1")
                     .replaceAll("/\\d+/", "/{id}/");
         }
@@ -165,8 +170,25 @@ class MonthEndExamplesTest {
         // and a pack as the screen polls it.
         routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/pack", null));
         routes.add(new Example("GET", "/api/month-end/packs/{pack}", null));
+        // October build, month end's rules. MEN-17: the reasons for no payroll deduction -- read, added, edited.
+        routes.add(new Example("GET", "/api/reference/no-deduction-reasons", null));
+        routes.add(new Example("POST", "/api/reference/no-deduction-reasons",
+                "{\"name\": \"Study leave\", \"suspensionCode\": 11}"));
+        routes.add(new Example("PUT", "/api/reference/no-deduction-reasons/{reasonId}", "{\"name\": \"Unpaid leave\", "
+                + "\"suspensionCode\": 11, \"ordinal\": 1, \"active\": true, \"version\": 0}"));
+        // MEN-31: the tiers, and a table code's tier set.
+        routes.add(new Example("GET", "/api/reference/core-tiers", null));
+        routes.add(new Example("PUT", "/api/reference/table-codes/902/core-tier", "{\"tier\": \"B\"}"));
+        // MEN-18: the suspended within each bank in the invented August, and the invented suspended member -- listed,
+        // and lapsed, three months after June.
+        routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/suspensions", null));
+        routes.add(new Example("GET", "/api/month-end/suspensions/members", null));
+        routes.add(new Example("GET", "/api/month-end/suspensions/lapsed", null));
         return routes;
     }
+
+    /** The invented member who is suspended: for no payroll deduction, in June, so lapsed by the frozen clock. */
+    static final String SUSPENDED_MEMBER = "M-900002";
 
     /** The month the invented rows have taken. */
     static final String TAKEN = "2026-08";
@@ -217,7 +239,40 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.MONTH_ALREADY_TAKEN, new Example("POST", take.formatted(TAKEN), null));
         // 04.11: a take again that names a take which is not the month's newest -- said before the take refuses.
         provoked.put(MonthEndRefusalCode.MONTH_TAKEN_SINCE, new Example("POST", take.formatted(TAKEN),
+                "{\"replaces\": 999999, \"reason\": \"Invented: corrected\"}"));
+        // October build, MEN-11: a take again says why -- said first of all.
+        provoked.put(MonthEndRefusalCode.TAKE_REASON_REQUIRED, new Example("POST", take.formatted(TAKEN),
                 "{\"replaces\": 999999}"));
+        provoked.put(MonthEndRefusalCode.TAKE_REASON_INVALID, new Example("POST", take.formatted(TAKEN),
+                "{\"replaces\": 999999, \"reason\": \"" + "x".repeat(501) + "\"}"));
+        // MEN-19: the invented member captured again -- answered by the global handler, the capture being
+        // MemberController's; the refusal names the member's number and never the person.
+        provoked.put(MonthEndRefusalCode.MEMBER_ALREADY_CAPTURED, new Example("POST", "/api/members",
+                "{\"firstNames\": \"Invented\", \"surname\": \"Again\", \"identityType\": \"I.D. Number\", "
+                        + "\"identityNumber\": \"" + MemberFixture.syntheticIdFor(900) + "\", \"paymentType\": \"Payroll\"}"));
+        // MEN-17: a suspension under 11 with neither a reason from the list nor one typed; a reason not on it.
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_REQUIRED, new Example("POST", status,
+                "{\"toStatus\": \"Suspended\", \"reason\": \"SUSPENSION_CODE\", \"suspensionCode\": 11}"));
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_UNKNOWN, new Example("POST", status,
+                "{\"toStatus\": \"Suspended\", \"reason\": \"SUSPENSION_CODE\", \"noDeductionReasonId\": 999999}"));
+        // The reasons' own maintenance: no name; a name taken in another case; no such reason; an edit on a stale view.
+        String reasons = "/api/reference/no-deduction-reasons";
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_INVALID, new Example("POST", reasons,
+                "{\"name\": \" \", \"suspensionCode\": 11}"));
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_TAKEN, new Example("POST", reasons,
+                "{\"name\": \"sick leave\", \"suspensionCode\": 21}"));
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_NOT_FOUND, new Example("PUT", reasons + "/999999",
+                "{\"name\": \"Unpaid leave\", \"suspensionCode\": 11, \"version\": 0}"));
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_CHANGED_SINCE, new Example("PUT", reasons + "/{reasonId}",
+                "{\"name\": \"Unpaid leave\", \"suspensionCode\": 11, \"version\": 7}"));
+        // MEN-18: a page of the suspended past its ceiling.
+        provoked.put(MonthEndRefusalCode.SUSPENDED_PAGE_INVALID, new Example("GET",
+                "/api/month-end/suspensions/members?size=500", null));
+        // MEN-31: a tier that is not A, B or C; a table code that is not on record.
+        provoked.put(MonthEndRefusalCode.CORE_TIER_UNKNOWN, new Example("PUT", "/api/reference/table-codes/901/core-tier",
+                "{\"tier\": \"D\"}"));
+        provoked.put(MonthEndRefusalCode.TABLE_CODE_UNKNOWN, new Example("PUT", "/api/reference/table-codes/999/core-tier",
+                "{\"tier\": \"A\"}"));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_READY, new Example("POST", take.formatted("2026-07"), null, false,
                 true));
         provoked.put(MonthEndRefusalCode.IDENTITY_REQUIRED, new Example("POST", take.formatted("2026-07"), null));
@@ -278,6 +333,29 @@ class MonthEndExamplesTest {
                 + "complement_before, membership_found, seeded, captured_at) SELECT id, DATE '2026-08-20', TRUE, "
                 + "'INVENTED ORGANISER', 40, 38, 11, FALSE, TIMESTAMP WITH TIME ZONE '2026-08-20 14:00:00+00:00' "
                 + "FROM workplaces WHERE ra_number = 900001");
+        // October build: her reasons for no payroll deduction, numbered from one, as V79 writes them -- an example that
+        // adds or edits one is answered the same on every run; the invented suspended member's change names the first.
+        jdbc.update("DELETE FROM member_status_changes WHERE member_id = (SELECT id FROM members WHERE "
+                + "membership_number = ?)", SUSPENDED_MEMBER);
+        jdbc.update("DELETE FROM no_deduction_reasons");
+        jdbc.execute("ALTER TABLE no_deduction_reasons ALTER COLUMN id RESTART WITH 1");
+        for (String[] reason : new String[][] {{"Unpaid leave", "11", "1", "TRUE"}, {"Maternity leave", "12", "2", "FALSE"},
+                {"Paternity leave", "11", "3", "TRUE"}, {"Insufficient funds", "11", "4", "TRUE"},
+                {"Sick leave", "21", "5", "FALSE"}}) {
+            jdbc.update("INSERT INTO no_deduction_reasons (name, suspension_code, ordinal, active, provisional, version, "
+                    + "updated_by, updated_at) VALUES (?, ?, ?, TRUE, ?, 0, 'migration', TIMESTAMP WITH TIME ZONE "
+                    + "'2026-10-06 00:00:00+02:00')", reason[0], Integer.parseInt(reason[1]),
+                    Integer.parseInt(reason[2]), Boolean.parseBoolean(reason[3]));
+        }
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, suspension_code_id, "
+                + "no_deduction_reason_id, note, changed_by, changed_at) SELECT m.id, 'Active', 'Suspended', "
+                + "'SUSPENSION_CODE', (SELECT id FROM suspension_codes WHERE code = 11), 1, 'Invented: unpaid leave', "
+                + "'system', TIMESTAMP WITH TIME ZONE '2026-06-02 08:00:00+00:00' FROM members m "
+                + "WHERE m.membership_number = ?", SUSPENDED_MEMBER);
+        // MEN-31: the invented bank's table code in Core A, and no other code in a tier.
+        jdbc.update("UPDATE table_codes SET core_tier_id = NULL, core_tier_by = NULL, core_tier_at = NULL");
+        jdbc.update("UPDATE table_codes SET core_tier_id = (SELECT id FROM core_tiers WHERE code = 'A'), core_tier_by = "
+                + "'seed', core_tier_at = TIMESTAMP WITH TIME ZONE '2026-09-29 08:00:00+00:00' WHERE code = 901");
     }
 
     private void lists() {
@@ -305,6 +383,9 @@ class MonthEndExamplesTest {
                 + "'INVENTED SOUTH COMMITTEE', NULL FROM committee_provinces WHERE letter = 'R'");
         jdbc.update("INSERT INTO suspension_codes (code, name) VALUES (11, 'NOT ON PAYROLL'), (13, 'DEBIT RETURNED'), "
                 + "(19, 'INVALID ACCOUNT')");
+        // MEN-31: the three tiers V79 writes, and the invented bank's code in Core A before August is taken.
+        jdbc.update("INSERT INTO core_tiers (code, name, ordinal) VALUES ('A', 'Core A', 1), ('B', 'Core B', 2), "
+                + "('C', 'Core C', 3)");
         jdbc.update("INSERT INTO deletion_codes (sasbo_code, name) VALUES (2, 'Resigned Society'), "
                 + "(5, 'Subscription in Arrears')");
         // 04.5: a reason SASBO keeps under code 2 -- the row a resignation names by `reasonUnderCode`.
@@ -331,8 +412,16 @@ class MonthEndExamplesTest {
         jdbc.update("INSERT INTO member_changes (member_id, save_id, field, old_value, new_value, changed_by, changed_at) "
                 + "SELECT id, 'invented-save-2', 'cellTel', '+27 60 555 0001', '+27 60 555 0002', 'system', "
                 + "TIMESTAMP WITH TIME ZONE '2026-09-10 08:00:00+00:00' FROM members WHERE membership_number = ?", MEMBER);
+        jdbc.update("UPDATE table_codes SET core_tier_id = (SELECT id FROM core_tiers WHERE code = 'A'), core_tier_by = "
+                + "'seed', core_tier_at = TIMESTAMP WITH TIME ZONE '2026-09-29 08:00:00+00:00' WHERE code = 901");
         // 04.2: August taken, as the seed takes a month -- through the real take, at the frozen clock.
         takes.take(YearMonth.parse(TAKEN), DemonstrationMemberSeeder.SEED_ACTOR);
+        // October build, MEN-18: an invented member suspended for no payroll deduction -- after August was taken, so
+        // August reads as it did; their change is written by invented(), each time.
+        jdbc.update("INSERT INTO members (membership_number, first_names, initials, surname, identity_number, status, "
+                + "payment_type, bank_name, is_representative, created_at, updated_at) VALUES (?, 'Invented', 'I', "
+                + "'Suspended', ?, 'Suspended', 'Payroll', 'INVENTED BANK', FALSE, TIMESTAMP '2026-09-29 08:00:00', "
+                + "TIMESTAMP '2026-09-29 08:00:00')", SUSPENDED_MEMBER, MemberFixture.syntheticIdFor(901));
     }
 
     private void workplace(int ra, String name, String employer, Integer tableCode, String by, String area,
@@ -344,6 +433,20 @@ class MonthEndExamplesTest {
                 ra, name, employer, tableCode, by, area, committee, committee, complement);
     }
 
+    /**
+     * Whether a request reaches a route HELD BY A PERMISSION (MonthEndRoutesTest): such an example is asked by a caller
+     * holding every permission, and every other example anonymously -- the filters are off here, so the caller is put in
+     * the context for the one request and taken out again, and an open route answers as it does to anyone.
+     */
+    static boolean held(String method, String path) {
+        String bare = path.replaceAll("\\?.*$", "");
+        return MonthEndRoutesTest.HELD_BY_PERMISSION.keySet().stream().anyMatch(route -> {
+            String routeMethod = route.substring(0, route.indexOf(' '));
+            String template = route.substring(route.indexOf(' ') + 1);
+            return routeMethod.equals(method) && bare.matches(template.replaceAll("\\{[^}]+}", "[^/]+"));
+        });
+    }
+
     private MvcResult perform(Example example) throws Exception {
         Integer member = jdbc.queryForObject("SELECT id FROM members WHERE membership_number = ?", Integer.class, MEMBER);
         Long workplace = jdbc.queryForObject("SELECT id FROM workplaces WHERE ra_number = 900001", Long.class);
@@ -352,12 +455,29 @@ class MonthEndExamplesTest {
         if (path.contains("{pack}")) {
             path = path.replace("{pack}", String.valueOf(packs.ask(TAKEN).pack().id()));
         }
-        MockHttpServletRequestBuilder request = switch (example.method()) {
+        if (path.contains("{reasonId}")) {
+            path = path.replace("{reasonId}", String.valueOf(jdbc.queryForObject(
+                    "SELECT id FROM no_deduction_reasons WHERE name = 'Unpaid leave'", Long.class)));
+        }
+        MockHttpServletRequestBuilder built = switch (example.method()) {
             case "POST" -> example.body() == null ? post(path)
                     : post(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             default -> get(path);
         };
+        TestSecurityContextHolder.clearContext();
+        if (!held(example.method(), path)) {
+            return asked(example, built);
+        }
+        try {
+            return asked(example, built.with(user("examples").authorities(Arrays.stream(Permission.values())
+                    .map(p -> new SimpleGrantedAuthority(p.name())).toList())));
+        } finally {
+            TestSecurityContextHolder.clearContext();
+        }
+    }
+
+    private MvcResult asked(Example example, MockHttpServletRequestBuilder request) throws Exception {
         if (example.packInHand()) {
             // Asked in a transaction holding July's pack in preparation, and rolled back.
             return new TransactionTemplate(transactions).execute(status -> {
@@ -426,7 +546,7 @@ class MonthEndExamplesTest {
     private ObjectNode recorded(ObjectNode into, String key, Example example, MvcResult result) throws IOException {
         ObjectNode entry = into.putObject(key);
         entry.put("request", example.method() + " " + example.path().replace("{member}", "{id}")
-                .replace("{pack}", "{id}"));
+                .replace("{pack}", "{id}").replace("{reasonId}", "{id}"));
         if (example.body() != null) {
             entry.set("requestBody", objectMapper.readTree(example.body()));
         }
