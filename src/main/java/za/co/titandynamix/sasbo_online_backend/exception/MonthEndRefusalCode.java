@@ -42,7 +42,7 @@ public enum MonthEndRefusalCode {
      * written, the workplace's complement included.
      */
     VISIT_INVALID(HttpStatus.BAD_REQUEST),
-    /** 02.2: a grouping the figures do not take. The details carry the six they do. */
+    /** 02.2: a grouping the figures do not take. The details carry the ones they do -- seven, with the tier (MEN-31). */
     SUMMARY_GROUPING_UNKNOWN(HttpStatus.BAD_REQUEST),
     /** 02.2: an area or a region that is not on record here. The details name which was asked for. */
     SUMMARY_AREA_UNKNOWN(HttpStatus.BAD_REQUEST),

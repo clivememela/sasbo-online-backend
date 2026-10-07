@@ -12,7 +12,6 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
 import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
 import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
-import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -43,12 +42,8 @@ class MemberSummaryServiceImplTest {
     private final SummaryGate gate = new SummaryGate();
 
     private MemberSummaryServiceImpl service(String workplaces, String environment) {
-        za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes takes =
-                mock(za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes.class);
-        // MEN-14: the window is the calendar month wherever no month is taken -- the case these tests are about.
-        when(takes.counted(any())).thenAnswer(asked -> MonthRange.of(asked.getArgument(0)));
         return new MemberSummaryServiceImpl(repository, new WorkplaceSwitch(workplaces), new SasboEnvironment(environment),
-                new SeedMemberNumbers(), gate, CLOCK, takes);
+                new SeedMemberNumbers(), gate, CLOCK);
     }
 
     private static MemberSummaryRepository.Line check() {
@@ -140,12 +135,12 @@ class MemberSummaryServiceImplTest {
     }
 
     @Test
-    @DisplayName("ME-14: a grouping nobody takes is SUMMARY_GROUPING_UNKNOWN naming the six -- and never the one sent")
+    @DisplayName("ME-14: a grouping nobody takes is SUMMARY_GROUPING_UNKNOWN naming the seven -- and never the one sent")
     void aGroupingNobodyTakes() {
         assertThatThrownBy(() -> service("all", null).summary("2026-09", "PLANTEDGROUPING", null, null))
                 .isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
                     assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.SUMMARY_GROUPING_UNKNOWN);
-                    assertThat(refusal.details()).containsEntry("known", "group,employer,tableCode,area,region,committee");
+                    assertThat(refusal.details()).containsEntry("known", "group,employer,tableCode,area,region,committee,tier");
                     assertThat(refusal.getMessage() + refusal.details()).doesNotContain("PLANTEDGROUPING");
                 });
         verifyNoInteractions(repository);

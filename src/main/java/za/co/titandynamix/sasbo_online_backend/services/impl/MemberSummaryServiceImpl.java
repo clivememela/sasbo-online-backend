@@ -12,7 +12,6 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
 import za.co.titandynamix.sasbo_online_backend.services.MemberSummaryService;
-import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
 import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 import za.co.titandynamix.sasbo_online_backend.utils.Penetration;
@@ -79,19 +78,16 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
     private final SeedMemberNumbers seedNumbers;
     private final SummaryGate gate;
     private final Clock clock;
-    /** October build, MEN-14: the window a month counts -- from the cut-off of the month before. */
-    private final MonthEndTakes takes;
 
     public MemberSummaryServiceImpl(MemberSummaryRepository repository, WorkplaceSwitch workplaceSwitch,
                                     SasboEnvironment environment, SeedMemberNumbers seedNumbers, SummaryGate gate,
-                                    Clock clock, MonthEndTakes takes) {
+                                    Clock clock) {
         this.repository = repository;
         this.workplaceSwitch = workplaceSwitch;
         this.environment = environment;
         this.seedNumbers = seedNumbers;
         this.gate = gate;
         this.clock = clock;
-        this.takes = takes;
     }
 
     @Override
@@ -106,7 +102,8 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
         YearMonth asked = MonthRange.asked(month, clock);
         boolean grouped = workplaceSwitch.staffNumbersServed();
         boolean courtesy = SmallCounts.appliesToTheCaller();
-        MemberSummaryRepository.Ask ask = new MemberSummaryRepository.Ask(takes.counted(asked), grouping, grouped,
+        // The calendar month: the statement works out the window it counts from the takes (MEN-14), in itself.
+        MemberSummaryRepository.Ask ask = new MemberSummaryRepository.Ask(MonthRange.of(asked), grouping, grouped,
                 grouped, areaCode, regionCode, environment.isProduction() ? List.of() : seedNumbers.all());
 
         if (!gate.tryEnter()) {
