@@ -95,6 +95,8 @@ public abstract class MemberMapper {
     @Mapping(target = "membershipNumber", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
+    // V79, MEN-14: when the member was captured -- provenance, written by the capture, never by an edit.
+    @Mapping(target = "capturedAt", ignore = true)
     @Mapping(target = "structure", ignore = true)
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "recruitmentRepresentative", ignore = true)

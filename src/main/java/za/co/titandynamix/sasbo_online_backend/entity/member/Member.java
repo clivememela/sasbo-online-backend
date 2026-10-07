@@ -60,6 +60,16 @@ public class Member {
     private String status;
     private LocalDate joinDate;
 
+    /**
+     * The instant the member was captured -- the injected clock's, written by the capture with its history row (V79).
+     * Stephne, MEN-14: "After month end is done - all capturing and changes move to the next month" -- a member captured
+     * after the cut-off counts in the next month, even on the day of the take; Date Joined alone cannot say which side
+     * of the take they fell on. Empty for every member captured before it was kept. Never bound from a request.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "captured_at")
+    private java.time.Instant capturedAt;
+
     // Contact
     private String personalEmail;
     private String workEmail;

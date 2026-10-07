@@ -42,4 +42,19 @@ public class TableCode {
     /** {@code DEPARTMENTS} or {@code CASH} where the name says it is that part of its employer; else empty. */
     @Column(name = "part", length = 20)
     private String part;
+
+    /**
+     * V79, Stephne MEN-31: the core tier the code stands in -- Core A, B or C -- or none, for "all other". The Senior
+     * Secretariat decides; the seeder writes the provisional mapping only where nobody has set one.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "core_tier_id")
+    private CoreTier coreTier;
+
+    /** Who set the tier -- {@code seed} for the provisional mapping -- and when; empty where nobody has. */
+    @Column(name = "core_tier_by", length = 100)
+    private String coreTierBy;
+
+    @Column(name = "core_tier_at")
+    private java.time.Instant coreTierAt;
 }

@@ -69,6 +69,13 @@ public class MonthEndWorkplaceFact {
     @Column(name = "group_core")
     private Boolean groupCore;
 
+    /**
+     * V79, Stephne MEN-31: the core tier the workplace's table code stood in when the month was taken -- {@code A},
+     * {@code B} or {@code C}, or empty for "all other". Empty, too, on every month taken before tiers existed.
+     */
+    @Column(name = "core_tier", length = 1)
+    private String coreTier;
+
     @Column(name = "area_letter", length = 4)
     private String areaLetter;
 
