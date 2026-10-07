@@ -296,7 +296,7 @@ public class AcbHistorySeeder {
             AcbRuns.rateInForce(rates, earlier);
         } catch (AcbRefusal noRate) {
             return Optional.of("no subscription rate is in force for " + earlier
-                    + " -- the history is the two months before today's, and the first rate is from January 2026");
+                    + " -- the history is the two months before today's, and no rate is dated that early");
         }
         HolidayCalendar calendar = calendars.load();
         if (!calendar.covers(later)) {

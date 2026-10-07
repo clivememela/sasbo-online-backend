@@ -229,10 +229,11 @@ class AcbHistorySeederIT extends AbstractAcbIT {
     @Test
     @DisplayName("🔒 SD4-D: a clock whose history has no rate in force skips it with one WARN -- and nothing is written")
     void outsideTheKnownRangeIsSkipped() {
-        Clock tooEarly = Clock.fixed(Instant.parse("2026-02-15T08:00:00Z"), AcbTime.ZONE);
+        // Before V70's provisional R166.65 of January 2025, nothing is in force (V41, V70).
+        Clock tooEarly = Clock.fixed(Instant.parse("2025-02-15T08:00:00Z"), AcbTime.ZONE);
         try (LogCapture log = LogCapture.on(AcbHistorySeeder.class)) {
             assertThat(seederAt(tooEarly, null).seed()).isEqualTo(AcbHistorySeeder.Outcome.SKIPPED);
-            assertThat(log.renderedAt(Level.WARN)).contains("skipped").contains("2025-12");
+            assertThat(log.renderedAt(Level.WARN)).contains("skipped").contains("2024-12");
         }
         assertThat(count("SELECT count(*) FROM acb_runs")).isZero();
     }

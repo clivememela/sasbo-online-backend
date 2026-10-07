@@ -414,8 +414,10 @@ class MemberSummaryPlanIT extends AbstractPostgresIT {
             VALUES ('INVENTED LEFT SERVICE', 1), ('INVENTED RESIGNED', 2), ('INVENTED IN ARREARS', 5)
             """,
             """
+            -- V70 puts SASBO's own codes on record, 11 and 13 among them; only the codes are read below.
             INSERT INTO suspension_codes (code, name)
             VALUES (11, 'INVENTED SUSPENSION ELEVEN'), (13, 'INVENTED SUSPENSION THIRTEEN')
+            ON CONFLICT (code) DO NOTHING
             """,
             // The members, in the order they joined. On record, by number: one in two hundred of the oldest two
             // hundred thousand, one in ten of the next, seven in twenty of the next hundred thousand, nine in ten of
