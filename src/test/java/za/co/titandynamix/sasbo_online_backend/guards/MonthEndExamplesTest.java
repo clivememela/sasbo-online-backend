@@ -432,9 +432,12 @@ class MonthEndExamplesTest {
             return performAs(example);
         }
         // October build: asked as the invented organiser -- the context the request's method security reads, set on
-        // this thread, where the request runs (this class asks with the filters off), and cleared after.
+        // this thread, where the request runs (this class asks with the filters off) -- and the context it found put
+        // back after, never cleared: another stream's examples in the same method may run as the caller the class set
+        // (register paging's @WithAnonymousUser), and an empty context refuses them before they are answered.
         CallerScope scope = example.areas() == null ? CallerScope.all()
                 : CallerScope.areas(Set.of(example.areas().split(",")));
+        SecurityContext previous = SecurityContextHolder.getContext();
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(
                 new SignedInOrganiser("organiser", "Invented Organiser", scope), null,
@@ -455,7 +458,7 @@ class MonthEndExamplesTest {
                 }
             });
         } finally {
-            SecurityContextHolder.clearContext();
+            SecurityContextHolder.setContext(previous);
         }
     }
 
