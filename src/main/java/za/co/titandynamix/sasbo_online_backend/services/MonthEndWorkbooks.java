@@ -106,7 +106,13 @@ public class MonthEndWorkbooks {
 
     private static void writeSheet(SXSSFWorkbook book, Styles styles, Set<String> names, MonthEndStatisticDto answer,
                                    MonthEndStatisticDto.Sheet sheet) {
-        Sheet out = book.createSheet(sheetName(names, answer.statistic() + " " + sheet.key()));
+        writeSheet(book, styles, names, answer.statistic() + " " + sheet.key(), answer, sheet);
+    }
+
+    /** One sheet of a statistic, under the name asked for -- a region's pack names each by its area (October build). */
+    static void writeSheet(SXSSFWorkbook book, Styles styles, Set<String> names, String name,
+                           MonthEndStatisticDto answer, MonthEndStatisticDto.Sheet sheet) {
+        Sheet out = book.createSheet(sheetName(names, name));
         int r = 0;
         text(out.createRow(r++), 0, sheet.title(), styles.title);
         text(out.createRow(r++), 0, sheet.legacyTitle(), styles.quiet);

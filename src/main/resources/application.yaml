@@ -62,6 +62,11 @@ spring:
           auth: true
           starttls:
             enable: true
+          # Bounded (October build): month end e-mails the regions' packs on the request that asks, and an SMTP server
+          # that never answers would otherwise hold that request -- and its thread -- for good. Milliseconds.
+          connectiontimeout: 10000
+          timeout: 15000
+          writetimeout: 30000
 
 # 🔴 THE MAIL HEALTH INDICATOR IS OFF, AND WITHOUT THIS THE APPLICATION IS UNDEPLOYABLE.
 #
@@ -115,6 +120,20 @@ front:
 
 mail:
   from: ${MAIL_FROM:noreply@sasbo.co.za}
+
+# Month end's files that leave SASBO (October build). Law Call's list goes straight onto the provider's SFTP server
+# (Stephne, MEN-35: "Azoza List goes directly onto their STFP"). OFF UNLESS ALL FOUR OF host, username, private-key-path
+# AND known-hosts ARE SET on a host, by the owner -- until then the screen says "not configured" and the list is
+# downloaded. The key is named by its PATH (a secret file the host mounts), never written here; known-hosts is the
+# server's public host key line, so the server is checked, never trusted blind. No credential is ever committed.
+month-end:
+  sftp:
+    host: ${MONTH_END_SFTP_HOST:}
+    port: ${MONTH_END_SFTP_PORT:22}
+    username: ${MONTH_END_SFTP_USERNAME:}
+    private-key-path: ${MONTH_END_SFTP_PRIVATE_KEY_PATH:}
+    known-hosts: ${MONTH_END_SFTP_KNOWN_HOSTS:}
+    directory: ${MONTH_END_SFTP_DIRECTORY:}
 
 # The ACB bureau file's four collection identifiers: SASBO's user code, user branch, the account the
 # debits are credited to, and its bank identifiers. From the environment only -- never committed.
