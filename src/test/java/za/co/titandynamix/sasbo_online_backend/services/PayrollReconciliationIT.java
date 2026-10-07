@@ -298,6 +298,19 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
         assertThat(query.counts().correct()).as("the old rate; deducted twice").isEqualTo(2);
         assertThat(query.lines()).extracting(PayrollQueryDto.Line::reason)
                 .contains("Not a member of SASBO: please stop this deduction.");
+        // The member missing from the file (ADD) has no line on it, so the employer is told whom to deduct from the
+        // record: its staff number, and its ID number masked to the last four as a file's are -- never just a name and
+        // a SASBO number (the defect the presentation session found, 7 Oct).
+        JsonNode missing = java.util.stream.StreamSupport.stream(
+                        PayrollItSupport.manifest("standard-bank").path("people").spliterator(), false)
+                .filter(p -> p.path("seedAsMember").asBoolean() && !p.path("onFile").asBoolean(true))
+                .findFirst().orElseThrow();
+        String idOnRecord = missing.path("identityNumber").asText();
+        assertThat(query.lines()).filteredOn(line -> "ADD".equals(line.action())).singleElement().satisfies(line -> {
+            assertThat(line.staffNumber()).isEqualTo(missing.path("employeeNumberOnRecord").asText());
+            assertThat(line.idNumber()).isEqualTo("****" + idOnRecord.substring(idOnRecord.length() - 4));
+            assertThat(line.membershipNumber()).isNotBlank();
+        });
         assertThat(discrepancies.ofFile(file, null, "QUERIED", 0, 100).totalElements()).isEqualTo(5);
         assertThatThrownBy(() -> queries.raise(file, "an IT")).isInstanceOfSatisfying(PayrollRefusal.class,
                 r -> assertThat(r.code()).isEqualTo(PayrollRefusalCode.NOTHING_TO_QUERY));

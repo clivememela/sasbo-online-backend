@@ -195,7 +195,7 @@ public class PayrollReads {
             + "d.amount_on_file, d.expected_amount, d.difference, d.months, d.query_id, d.outcome, d.resolved_by, "
             + "d.resolved_at, d.created_at, d.version, m.membership_number, m.initials AS m_initials, "
             + "m.first_names AS m_first, m.surname AS m_surname, m.status AS m_status, m.payment_type AS m_payment, "
-            + "m.employee_number AS m_staff, "
+            + "m.employee_number AS m_staff, m.identity_number AS m_id, "
             + "r.line_number AS r_line, r.staff_number AS r_staff, r.id_number AS r_id, r.initials AS r_initials, "
             + "r.surname AS r_surname, r.amount AS r_amount, q.raised_at AS q_raised";
 
@@ -279,7 +279,7 @@ public class PayrollReads {
                                       BigDecimal amountOnFile, BigDecimal expected, BigDecimal difference,
                                       Integer months, PayrollDiscrepancyDto.QueryRef query, PayrollOutcome outcome,
                                       String resolvedBy, java.time.Instant resolvedAt, java.time.Instant createdAt,
-                                      int version) {
+                                      int version, String memberIdNumber) {
 
         PayrollDiscrepancyDto complete(List<PayrollDiscrepancyDto.Note> notes, boolean withNotes) {
             PayrollDiscrepancyDto.Resolution resolution = outcome == null ? null
@@ -316,7 +316,8 @@ public class PayrollReads {
                 (Integer) rs.getObject("months"), queryId == null ? null
                         : new PayrollDiscrepancyDto.QueryRef(queryId, raised == null ? null : raised.toString()),
                 outcome == null ? null : PayrollOutcome.valueOf(outcome), rs.getString("resolved_by"),
-                instant(rs, "resolved_at"), instant(rs, "created_at"), rs.getInt("version"));
+                instant(rs, "resolved_at"), instant(rs, "created_at"), rs.getInt("version"),
+                PayrollKeys.masked(rs.getString("m_id")));
     }
 
     /** The notes of the discrepancies given, oldest first: one statement. */
@@ -442,8 +443,10 @@ public class PayrollReads {
         PayrollQueryAction action = d.type().queryAction();
         String name = d.row() != null ? PayrollMatcher.displayName(d.row().initials(), d.row().surname())
                 : d.member() == null ? null : d.member().name();
-        String staff = d.row() != null ? d.row().staffNumber() : null;
-        String id = d.row() != null ? d.row().idNumber() : null;
+        // A line with no line on the file -- "Missing from the file", ADD -- names the member by the record's own staff
+        // number and ID number, masked to its last four as a file's are, so the employer can find whom to deduct.
+        String staff = d.row() != null ? d.row().staffNumber() : d.member() == null ? null : d.member().staffNumber();
+        String id = d.row() != null ? d.row().idNumber() : d.memberIdNumber();
         return new PayrollQueryDto.Line(action.name(), d.id(), d.type().name(), staff, id, name,
                 d.member() == null ? null : d.member().membershipNumber(), PayrollKeys.money(d.amountOnFile()),
                 PayrollKeys.money(d.expected()), queryReason(d.type(), action));
