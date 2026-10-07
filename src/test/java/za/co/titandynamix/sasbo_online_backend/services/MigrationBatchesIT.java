@@ -217,7 +217,10 @@ class MigrationBatchesIT extends AbstractSwitchedOnIT {
         assertThat(report.warnings()).anySatisfy(count -> {
             assertThat(count.code()).isEqualTo("PHONE_INVALID");
             assertThat(count.field()).isEqualTo("cellTel");
-            assertThat(count.firstRows()).containsExactly(16);
+            // Row 16's number is five digits. Row 45 is the fixture's malformed row, checked loosely by design: commas
+            // left unquoted in its surname and address read every cell after them columns along, so its CELL NO
+            // holds the subscription.
+            assertThat(count.firstRows()).containsExactly(16, 45);
         });
         assertThat(report.toString()).doesNotContain(LegacyFixtures.ON_RECORD_ID);
     }
