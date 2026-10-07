@@ -527,6 +527,40 @@
         "totalPages" : 1
       }
     },
+    "GET /api/workplaces/members" : {
+      "request" : "GET /api/workplaces/members?ids={workplace},999999",
+      "status" : 200,
+      "body" : {
+        "branches" : [
+          {
+            "workplaceId" : 1,
+            "outOfScope" : false,
+            "members" : [
+              {
+                "id" : 1,
+                "membershipNumber" : "M-900001",
+                "title" : null,
+                "initials" : null,
+                "surname" : "Example",
+                "status" : "Active",
+                "suspended" : false,
+                "joinedOn" : null,
+                "employeeNumber" : "****0042",
+                "monthlySubscription" : null,
+                "email" : false,
+                "cell" : true,
+                "identity" : true
+              }
+            ],
+            "totalElements" : 1
+          }
+        ],
+        "unknown" : [
+          999999
+        ],
+        "perBranch" : 500
+      }
+    },
     "GET /api/workplaces/visit-drafts" : {
       "request" : "GET /api/workplaces/visit-drafts",
       "status" : 200,
