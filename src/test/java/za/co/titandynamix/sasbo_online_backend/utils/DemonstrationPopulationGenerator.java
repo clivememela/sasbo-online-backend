@@ -119,10 +119,12 @@ public final class DemonstrationPopulationGenerator {
     static final int LEFT_A_MONTH = 1;
 
     /**
-     * SASBO's deletion codes 1 to 10 and how many leave under each: one leaver an area a month (23 areas, three months),
-     * every code at least three times, most leaving service or resigning as most of SASBO's August leavers did.
+     * SASBO's deletion codes 1 to 10 and how many leave under each IN EACH MONTH -- one leaver an area (23) and one at an
+     * employer outside the core groups: every code every month, code 2 once for each of the five reasons under it, most
+     * leaving service or resigning as most of SASBO's August leavers did.
      */
-    static final int[][] LEAVING = {{1, 18}, {2, 16}, {3, 3}, {4, 3}, {5, 6}, {6, 3}, {7, 3}, {8, 7}, {9, 6}, {10, 4}};
+    static final int[][] LEAVING_A_MONTH = {{1, 6}, {2, 5}, {3, 1}, {4, 1}, {5, 2}, {6, 1}, {7, 1}, {8, 3}, {9, 3},
+            {10, 1}};
 
     /** Stephne's suspension codes and how many stand suspended under each at the end -- every code at least three. */
     static final int[][] SUSPENDED = {{11, 8}, {12, 4}, {13, 3}, {15, 3}, {16, 3}, {18, 3}, {19, 3}, {21, 4}, {30, 3},
@@ -400,57 +402,79 @@ public final class DemonstrationPopulationGenerator {
         Map<Integer, Integer> room = new HashMap<>();
         chosen.forEach(c -> room.put(c.workplace().raNumber(), EXISTING_AREAS.contains(c.workplace().area())
                 ? c.members() - Math.max(0, AT_LEAST - c.workplace().target()) : c.members() - AT_LEAST));
-        List<Integer> leavingCodes = expand(LEAVING);
-        Collections.shuffle(leavingCodes, random);
-        Deque<Integer> leaving = new ArrayDeque<>(leavingCodes);
+        // Each month its own codes, shuffled: every deletion code, and code 2 once for every reason under it, in EVERY
+        // month -- so the month a slide shows has no column of nought.
         List<String> reasons = lists.reasonsUnderTwo();
-        int[] reasonTurn = {0};
+        List<Deque<Integer>> leaving = new ArrayList<>();
+        int[] reasonTurn = new int[MONTHS + 1];
+        for (int monthsBack = 1; monthsBack <= MONTHS; monthsBack++) {
+            List<Integer> codes = expand(LEAVING_A_MONTH);
+            Collections.shuffle(codes, random);
+            leaving.add(new ArrayDeque<>(codes));
+        }
         int[] recruiterTurn = {0};
         List<Map<String, Object>> past = new ArrayList<>();
         List<List<Person>> movable = new ArrayList<>();
         for (Map.Entry<String, List<Person>> area : peopleOf.entrySet()) {
             // Only the planned areas move: a workplace added to lift a group or a table code holds what lifts it.
-            if (!inThePacks(area.getKey())) {
-                continue;
+            if (inThePacks(area.getKey())) {
+                List<Person> people = new ArrayList<>(area.getValue());
+                Collections.shuffle(people, random);
+                movable.add(people);
             }
-            List<Person> people = new ArrayList<>(area.getValue());
-            Collections.shuffle(people, random);
-            movable.add(people);
+        }
+        // First, each month, a joiner and a leaver at an employer outside the core groups: "other" is a column of its
+        // own in the new and deleted members, and must move too.
+        List<Person> outsideTheCore = new ArrayList<>();
+        movable.forEach(people -> people.stream().filter(p -> !lists.coreGroups().contains(p.at.workplace().group()))
+                .forEach(outsideTheCore::add));
+        for (int monthsBack = 1; monthsBack <= MONTHS; monthsBack++) {
+            Person joiner = firstWithRoom(outsideTheCore, room);
+            Person leaver = firstWithRoom(outsideTheCore, room);
+            if (joiner == null || leaver == null) {
+                throw new IllegalStateException("no room outside the core groups for month " + monthsBack + "'s movement");
+            }
+            joins(joiner, monthsBack, recruiterTurn, random);
+            past.add(leaver(leaver, monthsBack, leaving.get(monthsBack - 1).poll(), reasons, reasonTurn, random));
+        }
+        // Then every planned area's own: two joiners and one leaver a month.
+        for (List<Person> people : movable) {
             int joined = 0;
             for (Person p : people) {
                 if (joined == MONTHS * JOINED_A_MONTH) {
                     break;
                 }
-                if (!takeRoom(p, room)) {
-                    continue;
+                if (takeRoom(p, room)) {
+                    joins(p, 1 + joined / JOINED_A_MONTH, recruiterTurn, random);
+                    joined++;
                 }
-                p.fields.put("joinDate", null);
-                p.fields.put("joinedMonthsBack", 1 + joined / JOINED_A_MONTH);
-                p.fields.put("joinDay", 1 + random.nextInt(28));
-                p.fields.put("dateLastChanged", null);
-                p.fields.put("recruiter", 1 + recruiterTurn[0]++ % RECRUITERS);
-                joined++;
             }
-            for (int monthsBack = 1; monthsBack <= MONTHS * LEFT_A_MONTH && !leaving.isEmpty(); monthsBack++) {
-                Person p = firstWithRoom(people, room);
-                if (p == null) {
-                    break;
+            for (int monthsBack = 1; monthsBack <= MONTHS; monthsBack++) {
+                Deque<Integer> codes = leaving.get(monthsBack - 1);
+                for (int i = 0; i < LEFT_A_MONTH && !codes.isEmpty(); i++) {
+                    Person p = firstWithRoom(people, room);
+                    if (p != null) {
+                        past.add(leaver(p, monthsBack, codes.poll(), reasons, reasonTurn, random));
+                    }
                 }
-                past.add(leaver(p, 1 + (monthsBack - 1) % MONTHS, leaving.poll(), reasons, reasonTurn, random));
             }
         }
-        // Codes left over where an area had no room: one more leaver an area, in turn, until every code is placed.
-        for (int extra = 0; !leaving.isEmpty(); extra++) {
-            boolean placed = false;
-            for (List<Person> people : movable) {
-                Person p = leaving.isEmpty() ? null : firstWithRoom(people, room);
-                if (p != null) {
-                    past.add(leaver(p, 1 + extra % MONTHS, leaving.poll(), reasons, reasonTurn, random));
-                    placed = true;
+        // A month's codes left over where an area had no room: placed in that month, area by area, until none is left.
+        for (int monthsBack = 1; monthsBack <= MONTHS; monthsBack++) {
+            Deque<Integer> codes = leaving.get(monthsBack - 1);
+            while (!codes.isEmpty()) {
+                boolean placed = false;
+                for (List<Person> people : movable) {
+                    Person p = codes.isEmpty() ? null : firstWithRoom(people, room);
+                    if (p != null) {
+                        past.add(leaver(p, monthsBack, codes.poll(), reasons, reasonTurn, random));
+                        placed = true;
+                    }
                 }
-            }
-            if (!placed) {
-                throw new IllegalStateException(leaving.size() + " leavers found no workplace with room to lose them");
+                if (!placed) {
+                    throw new IllegalStateException(codes.size() + " leavers of month " + monthsBack
+                            + " found no workplace with room to lose them");
+                }
             }
         }
 
@@ -542,12 +566,24 @@ public final class DemonstrationPopulationGenerator {
         return null;
     }
 
-    /** A leaving under SASBO's code -- and, under code 2, the next of the reasons SASBO keeps there. */
+    /**
+     * A leaving under SASBO's code -- and, under code 2, the month's next reason SASBO keeps there: a turn a month, so
+     * that each month's code-2 leavers give every reason.
+     */
     private static Map<String, Object> leaver(Person p, int monthsBack, int code, List<String> reasons, int[] reasonTurn,
                                               Random random) {
-        String reason = code == 2 ? reasons.get(reasonTurn[0]++ % reasons.size()) : null;
+        String reason = code == 2 ? reasons.get(reasonTurn[monthsBack]++ % reasons.size()) : null;
         return change(p.number(), monthsBack, 1 + random.nextInt(28), DemonstrationMemberGenerator.leavingStatus(code),
                 "DELETION_CODE", code, reason, null);
+    }
+
+    /** A joiner of the month {@code monthsBack} before the clock's, on a day of it, credited to the next recruiter. */
+    private static void joins(Person p, int monthsBack, int[] recruiterTurn, Random random) {
+        p.fields.put("joinDate", null);
+        p.fields.put("joinedMonthsBack", monthsBack);
+        p.fields.put("joinDay", 1 + random.nextInt(28));
+        p.fields.put("dateLastChanged", null);
+        p.fields.put("recruiter", 1 + recruiterTurn[0]++ % RECRUITERS);
     }
 
     /** The next member in turn at a workplace with room, area by area. */
@@ -781,9 +817,12 @@ public final class DemonstrationPopulationGenerator {
 
     // ================================================================================================ what it reads
 
-    /** SASBO's lists as the resource holds them: a table code's employer, an employer's name and group, and the reasons. */
+    /**
+     * SASBO's lists as the resource holds them: a table code's employer, an employer's name and group, the reasons under
+     * code 2, and which groups are core.
+     */
     record Lists(Map<Integer, Integer> employerOfCode, Map<Integer, String> employerName, Map<Integer, String> groupOf,
-                 List<String> reasonsUnderTwo) {
+                 List<String> reasonsUnderTwo, Set<String> coreGroups) {
     }
 
     static Lists lists() {
@@ -791,6 +830,7 @@ public final class DemonstrationPopulationGenerator {
         Map<Integer, String> employerName = new HashMap<>();
         Map<Integer, String> groupOf = new HashMap<>();
         List<String> reasons = new ArrayList<>();
+        Set<String> core = new HashSet<>();
         Set<Integer> numbered = new HashSet<>();
         for (JsonNode list : DemonstrationMemberGenerator.read(ReferenceListSeeder.RESOURCE).path("lists")) {
             String name = list.path("list").asText();
@@ -805,6 +845,11 @@ public final class DemonstrationPopulationGenerator {
                         employerName.put(row.path("ordinal").asInt(), row.path("name").asText());
                         groupOf.put(row.path("ordinal").asInt(), row.path("group").asText());
                     }
+                    case "employerGroups" -> {
+                        if (row.path("core").asBoolean()) {
+                            core.add(row.path("name").asText());
+                        }
+                    }
                     case "deletionCodes" -> {
                         if (row.path("sasboCode").isNumber()) {
                             numbered.add(row.path("sasboCode").asInt());
@@ -818,15 +863,18 @@ public final class DemonstrationPopulationGenerator {
                 }
             }
         }
-        for (int[] code : LEAVING) {
+        for (int[] code : LEAVING_A_MONTH) {
             if (!numbered.contains(code[0])) {
                 throw new IllegalStateException("deletion code " + code[0] + " is not on SASBO's list");
+            }
+            if (code[0] == 2 && code[1] < reasons.size()) {
+                throw new IllegalStateException("code 2 leaves fewer times a month than SASBO keeps reasons under it");
             }
         }
         if (reasons.isEmpty()) {
             throw new IllegalStateException("SASBO's list keeps no reason under code 2");
         }
-        return new Lists(employerOfCode, employerName, groupOf, List.copyOf(reasons));
+        return new Lists(employerOfCode, employerName, groupOf, List.copyOf(reasons), Set.copyOf(core));
     }
 
     /** Every workplace of the resource that reaches an employer group through its table code, in R/A order. */

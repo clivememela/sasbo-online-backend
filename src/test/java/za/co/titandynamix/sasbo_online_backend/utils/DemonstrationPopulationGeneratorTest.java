@@ -217,6 +217,47 @@ class DemonstrationPopulationGeneratorTest {
     }
 
     @Test
+    @DisplayName("in EACH of the three months, leavers under every deletion code and every reason under code 2 -- whichever month a slide shows, no column of the leavers' sheets reads nought")
+    void everyCodeInEveryMonth() throws IOException {
+        List<String> reasons = DemonstrationPopulationGenerator.lists().reasonsUnderTwo();
+        for (int monthsBack = 1; monthsBack <= DemonstrationPopulationGenerator.MONTHS; monthsBack++) {
+            int month = monthsBack;
+            List<DemonstrationPopulation.Change> left = file().past().stream()
+                    .filter(c -> c.reason().equals("DELETION_CODE") && c.monthsBack() == month).toList();
+            Set<Integer> codes = left.stream().map(DemonstrationPopulation.Change::deletionCode).collect(Collectors.toSet());
+            for (int code = 1; code <= 10; code++) {
+                assertThat(codes).as("deletion code %d, %d month(s) back", code, month).contains(code);
+            }
+            assertThat(left.stream().map(DemonstrationPopulation.Change::reasonUnderCode)
+                    .filter(java.util.Objects::nonNull).collect(Collectors.toSet()))
+                    .as("the reasons under code 2, %d month(s) back", month).containsExactlyInAnyOrderElementsOf(reasons);
+        }
+    }
+
+    @Test
+    @DisplayName("in EACH of the three months, a joiner and a leaver at an employer outside the core groups -- 'other' is a column of its own in the new and deleted members")
+    void movementOutsideTheCoreEveryMonth() throws IOException {
+        DemonstrationPopulationGenerator.Lists lists = DemonstrationPopulationGenerator.lists();
+        Map<Integer, String> groupAt = DemonstrationPopulationGenerator.workplaces(lists).stream()
+                .collect(Collectors.toMap(DemonstrationPopulationGenerator.Workplace::raNumber,
+                        DemonstrationPopulationGenerator.Workplace::group));
+        Map<String, DemonstrationPopulation.Member> byNumber = file().members().stream()
+                .collect(Collectors.toMap(DemonstrationPopulation.Member::membershipNumber, Function.identity()));
+        java.util.function.Predicate<DemonstrationPopulation.Member> outside =
+                m -> !lists.coreGroups().contains(groupAt.get(m.workplaceRaNumber()));
+        // Not vacuous: the population stands both inside the core groups and outside them.
+        assertThat(file().members()).anyMatch(outside).anyMatch(outside.negate());
+        for (int monthsBack = 1; monthsBack <= DemonstrationPopulationGenerator.MONTHS; monthsBack++) {
+            int month = monthsBack;
+            assertThat(file().members()).as("a joiner outside the core groups, %d month(s) back", month)
+                    .anyMatch(m -> m.joinsInThePast() && m.joinedMonthsBack() == month && outside.test(m));
+            assertThat(file().past()).as("a leaver outside the core groups, %d month(s) back", month)
+                    .anyMatch(c -> c.reason().equals("DELETION_CODE") && c.monthsBack() == month
+                            && outside.test(byNumber.get(c.membershipNumber())));
+        }
+    }
+
+    @Test
     @DisplayName("the suspended under every code of Stephne's sheet, at least three still suspended each -- none suspended long enough to lapse")
     void everySuspensionCode() throws IOException {
         Map<String, DemonstrationPopulation.Change> last = new HashMap<>();
