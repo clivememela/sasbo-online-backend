@@ -76,8 +76,13 @@ GET /api/provinces
 GET /api/recruiters
 GET /api/recruitment-channels
 POST /api/recruitment-channels
+GET /api/recruitment-channels/member-candidates
+GET /api/recruitment-channels/summary
 DELETE /api/recruitment-channels/{id}
 PUT /api/recruitment-channels/{id}
+GET /api/recruitment-channels/{id}/members
+DELETE /api/recruitment-channels/{id}/members/{memberId}
+PUT /api/recruitment-channels/{id}/members/{memberId}
 GET /api/reference/areas
 GET /api/reference/committee-provinces
 GET /api/reference/committees

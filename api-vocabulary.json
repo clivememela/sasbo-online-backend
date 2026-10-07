@@ -163,5 +163,17 @@
       {"code": "PACK_BUSY", "status": 409},
       {"code": "PACK_NOT_FOUND", "status": 404}
     ]
+  },
+  "reference": {
+    "refusalCodes": [
+      {"code": "BRANCH_NOT_FOUND", "status": 404},
+      {"code": "BRANCH_CODE_TAKEN", "status": 409},
+      {"code": "BANK_UNKNOWN", "status": 422},
+      {"code": "SUBSCRIPTION_BANK_TAKEN", "status": 409},
+      {"code": "CHANNEL_NOT_FOUND", "status": 404},
+      {"code": "MEMBER_NOT_FOUND", "status": 404},
+      {"code": "MEMBER_NOT_IN_CHANNEL", "status": 409},
+      {"code": "REQUEST_INVALID", "status": 400}
+    ]
   }
 }
