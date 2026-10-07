@@ -80,7 +80,12 @@ class AcbPreparationJobIT extends AbstractAcbIT {
         LocalDate last = LocalDate.parse(run.lastDueDate());
         assertThat(first.getDayOfMonth()).isGreaterThanOrEqualTo(20);
         assertThat(run.creationDate()).isNull();
-        assertThat(LocalDate.parse(run.makeBy())).isEqualTo(first.minusDays(3));
+        // Made by three WORKING days before the first debit (Stephne, DOD-16).
+        LocalDate makeBy = LocalDate.parse(run.makeBy());
+        assertThat(makeBy.datesUntil(first)
+                .filter(za.co.titandynamix.sasbo_online_backend.acb.AcbCalendars.ZA_STATUTORY::isBusinessDay).count())
+                .isEqualTo(3);
+        assertThat(za.co.titandynamix.sasbo_online_backend.acb.AcbCalendars.ZA_STATUTORY.isBusinessDay(makeBy)).isTrue();
         assertThat(LocalDate.parse(run.purgeDate()))
                 .isEqualTo(za.co.titandynamix.sasbo_online_backend.acb.AcbCalendars.ZA_STATUTORY
                         .businessDayOnOrBefore(last.plusDays(10)));
