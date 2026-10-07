@@ -365,6 +365,14 @@ public class AcbRunServiceImpl implements AcbRunService {
     }
 
     @Override
+    public Download download(long runId, String actor) {
+        return tx.execute(status -> {
+            AcbFileService.RenderedFile file = files.render(runId, actor);
+            return new Download(file, files.countDownload(runId, actor));
+        });
+    }
+
+    @Override
     public int sweepInterrupted() {
         return job.sweep(AcbTime.instant(clock).minus(preparationCeiling));
     }
@@ -415,6 +423,7 @@ public class AcbRunServiceImpl implements AcbRunService {
 
     private AcbRunDto toDto(AcbRun run, LineTotals counted, List<AcbExclusionSummaryDto> summary,
                             HolidayCalendar calendar) {
+        AcbFileService.FileFacts file = run.getId() == null ? null : files.facts(run.getId()).orElse(null);
         return new AcbRunDto(
                 run.getId(),
                 AcbTime.iso(YearMonth.from(run.getActionMonth())),
@@ -443,7 +452,11 @@ public class AcbRunServiceImpl implements AcbRunService {
                 run.getDeclinedReason(),
                 run.getDeclinedWords(),
                 run.getReplacesRunId(),
-                summary);
+                summary,
+                file == null ? 0 : file.downloads(),
+                file == null ? null : file.lastDownloadedBy(),
+                file == null ? null : AcbTime.iso(file.lastDownloadedAt()),
+                file == null ? null : file.sha256());
     }
 
     private AcbRunSummaryDto summary(AcbRun run, LineTotals counted, HolidayCalendar calendar) {
@@ -482,6 +495,18 @@ public class AcbRunServiceImpl implements AcbRunService {
 
     /** A line for the sheet, with its suggestion and where its letter is. */
     static AcbRunLineDto lineDto(AcbRunLine line, UnpaidDecision suggested, LetterStatus letterStatus) {
+        return lineDto(line, suggested, letterStatus, null, null, null);
+    }
+
+    /**
+     * A line for the sheet, with what its bank code says (V70: may it be re-debited, SASBO's code, provisional) and
+     * the member's unpaid count (DOD-03). {@code rule} is null where the caller did not look the code up.
+     */
+    static AcbRunLineDto lineDto(AcbRunLine line, UnpaidDecision suggested, LetterStatus letterStatus,
+                                 za.co.titandynamix.sasbo_online_backend.enums.ReDebit rule,
+                                 za.co.titandynamix.sasbo_online_backend.entity.acb.AcbUnpaidCode code,
+                                 Integer memberUnpaids) {
+        boolean unpaid = line.getOutcome() == AcbLineOutcome.UNPAID;
         return new AcbRunLineDto(
                 line.getId(),
                 line.getMemberId(),
@@ -503,7 +528,14 @@ public class AcbRunServiceImpl implements AcbRunService {
                 line.getDecision(),
                 line.getOutcome() == AcbLineOutcome.UNPAID && line.getDecision() == null ? suggested : null,
                 line.getPermissionNote(),
-                letterStatus);
+                letterStatus,
+                unpaid ? rule : null,
+                unpaid && code != null ? code.getReDebitSource() : null,
+                unpaid && code != null ? code.getSuspensionCode() : null,
+                unpaid && code != null && code.isProvisional(),
+                memberUnpaids,
+                line.getReDebitWithdrawn(),
+                line.getReturnsBatchId());
     }
 
     /** The last four digits, or nothing at all for a number so short that four would be all of it. */

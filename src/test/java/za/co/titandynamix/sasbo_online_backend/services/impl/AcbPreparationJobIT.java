@@ -307,6 +307,9 @@ class AcbPreparationJobIT extends AbstractAcbIT {
                         && summary.detail().contains("re-debit"));
 
         // The member agrees: the run still holds it over until it is prepared again, and says the permission is in.
+        // Its code is 2, the one a re-debit is allowed for (Stephne, DOD-03).
+        jdbc.update("UPDATE acb_run_lines SET unpaid_code = '2', unpaid_reason = 'NOT_PROVIDED_FOR' WHERE id = ?",
+                augustUnpaid);
         returns.permit(august, augustUnpaid, "Agreed by the Synthetic Member", "system");
         assertThat(returns.heldOver(october.id(), 0, 50).content()).singleElement()
                 .satisfies(held -> assertThat(held.permitted()).as("04.1: the screen says so").isTrue());

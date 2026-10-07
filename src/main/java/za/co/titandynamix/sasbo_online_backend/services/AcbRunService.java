@@ -70,6 +70,16 @@ public interface AcbRunService {
      */
     AcbRunDto recordDeclined(long runId, int version, String actor, AcbDeclineReason reason, String bankWords);
 
+    /** A download of the file for the bank: the file, and how many times it has been downloaded now. */
+    record Download(AcbFileService.RenderedFile file, int downloads) {
+    }
+
+    /**
+     * The file for the bank, for an approved or sent run (DOD-10, DOD-11): made at the first download and kept as the
+     * evidence of what was sent, served byte for byte afterwards -- every download counted and audited.
+     */
+    Download download(long runId, String actor);
+
     /**
      * Fails every run whose preparation has gone quiet for longer than the job's ceiling -- a job
      * killed with its instance. Runs on every read and at startup. Answers how many it failed.

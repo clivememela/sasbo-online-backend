@@ -125,6 +125,15 @@ class ACBControllerTest {
     @MockitoBean
     private AcbRateService rates;
 
+    @MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.AcbCodeService codes;
+
+    @MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.AcbUnpaidCountService unpaidCounts;
+
+    @MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.AcbDebitDayService debitDays;
+
     @Autowired
     private MeterRegistry meters;
 
