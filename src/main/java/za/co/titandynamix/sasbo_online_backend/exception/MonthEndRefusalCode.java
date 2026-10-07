@@ -159,7 +159,62 @@ public enum MonthEndRefusalCode {
      * read before anything was written -- the version on record and when the record was last saved. Nothing was
      * written; the browser keeps the form as typed and offers to read the record again.
      */
-    MEMBER_CHANGED_SINCE(HttpStatus.CONFLICT);
+    MEMBER_CHANGED_SINCE(HttpStatus.CONFLICT),
+
+    // ---------------------------------------------------------------- October build: the files that leave SASBO
+    /** No such recipient of a region's pack here -- or one outside the caller's region, answered as if absent. */
+    PACK_SET_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** A recipient that cannot be saved as sent: a code, a label, a position, an address or an area. Names the field. */
+    PACK_SET_INVALID(HttpStatus.BAD_REQUEST),
+    /** A recipient's code another recipient has. Nothing was saved. */
+    PACK_SET_TAKEN(HttpStatus.CONFLICT),
+    /**
+     * Two active recipients of one region covering one area, or a whole-region recipient beside another: a member would
+     * be in two packs, or a split region's member in none. Names the area and the other recipient.
+     */
+    PACK_SET_OVERLAP(HttpStatus.CONFLICT),
+    /** A setting saved by someone else since the screen read it. Says the version now, by whom and when. */
+    SETTING_CHANGED_SINCE(HttpStatus.CONFLICT),
+    /** No such bank's file here. */
+    BANK_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** A bank's file that cannot be saved as sent: a code, a name, a layout or its table codes. Names the field. */
+    BANK_SETTING_INVALID(HttpStatus.BAD_REQUEST),
+    /** A bank's code another bank has. Nothing was saved. */
+    BANK_TAKEN(HttpStatus.CONFLICT),
+    /** A table code already in another bank's file -- one file a member at most. Names the code and the bank. */
+    TABLE_CODE_TAKEN(HttpStatus.CONFLICT),
+    /** No such provider here. */
+    PROVIDER_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** A recipient, bank or provider that is switched off (Criticare and the holiday benefit are suspended, MEN-35). */
+    RECIPIENT_INACTIVE(HttpStatus.CONFLICT),
+    /**
+     * This server does not serve SASBO's workplaces in full (the workplaces switch is below {@code all}), so nothing can
+     * be placed in a region and no region's pack can be made (MD62).
+     */
+    REGION_PACKS_UNAVAILABLE(HttpStatus.CONFLICT),
+    /** No such region's pack -- or another region's, answered as if absent -- or no such format of it. */
+    REGION_PACK_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /**
+     * A region's pack asked to be e-mailed before it was made: a recipient's result inside the month's sending, and the
+     * whole answer where none of the recipients asked for has a pack yet. Nothing was sent.
+     */
+    PACK_NOT_PRODUCED(HttpStatus.CONFLICT),
+    /** No such bank's or provider's file here. */
+    FILE_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** A bank's or provider's file carries members of every region, so it needs a caller who sees every region. */
+    SCOPE_TOO_NARROW(HttpStatus.FORBIDDEN),
+    /** This server has no mail set up. Nothing was sent; downloading still works. Recorded as refused. */
+    MAIL_NOT_CONFIGURED(HttpStatus.CONFLICT),
+    /** The recipient has no e-mail address on record. Nothing was sent; recorded as refused. */
+    RECIPIENT_HAS_NO_ADDRESS(HttpStatus.CONFLICT),
+    /** The mail server refused the message or could not be reached. Recorded as failed; the log says the class only. */
+    MAIL_FAILED(HttpStatus.BAD_GATEWAY),
+    /** No SFTP server is set up on this server (host, user, key and known host). Nothing was sent; recorded as refused. */
+    SFTP_NOT_CONFIGURED(HttpStatus.CONFLICT),
+    /** A file whose recipient is not sent by SFTP: a bank's file, or a provider's that is downloaded. */
+    SFTP_NOT_FOR_THIS_RECIPIENT(HttpStatus.CONFLICT),
+    /** The SFTP server refused the file or could not be reached. Recorded as failed; the log says the class only. */
+    SFTP_FAILED(HttpStatus.BAD_GATEWAY);
 
     private final HttpStatus status;
 

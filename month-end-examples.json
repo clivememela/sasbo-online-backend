@@ -3108,6 +3108,738 @@
           "monthly"
         ]
       }
+    },
+    "GET /api/month-end/settings" : {
+      "request" : "GET /api/month-end/settings",
+      "status" : 200,
+      "body" : {
+        "sets" : [
+          {
+            "code" : "NORTH",
+            "label" : "Invented North",
+            "regionCode" : "NORTH",
+            "regionName" : "NORTH",
+            "areaLetters" : [ ],
+            "position" : "Regional Secretary",
+            "email" : "regional.secretary.north@example.org",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          },
+          {
+            "code" : "SOUTH",
+            "label" : "Invented South",
+            "regionCode" : "SOUTH",
+            "regionName" : "SOUTH",
+            "areaLetters" : [ ],
+            "position" : "Regional Secretary",
+            "email" : null,
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          }
+        ],
+        "banks" : [
+          {
+            "code" : "INVENTED_BANK",
+            "name" : "Invented Bank",
+            "tableCodes" : [
+              901,
+              902
+            ],
+            "fullList" : true,
+            "layout" : "ABSA_FIXED_WIDTH",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          },
+          {
+            "code" : "INVENTED_INSURER",
+            "name" : "Invented Insurer",
+            "tableCodes" : [
+              903
+            ],
+            "fullList" : false,
+            "layout" : "SHEET",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          }
+        ],
+        "providers" : [
+          {
+            "code" : "CRITICARE",
+            "name" : "Invented suspended benefit",
+            "layout" : "PROVISIONAL_MEMBER_LIST",
+            "provisional" : true,
+            "delivery" : "DOWNLOAD",
+            "active" : false,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          },
+          {
+            "code" : "LAW_CALL",
+            "name" : "Invented legal cover",
+            "layout" : "PROVISIONAL_MEMBER_LIST",
+            "provisional" : true,
+            "delivery" : "SFTP",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          },
+          {
+            "code" : "OM_FUNERAL",
+            "name" : "Invented funeral benefit",
+            "layout" : "OLD_MUTUAL_FUNERAL",
+            "provisional" : true,
+            "delivery" : "DOWNLOAD",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          }
+        ],
+        "mail" : {
+          "configured" : false
+        },
+        "sftp" : {
+          "configured" : false,
+          "state" : "NOT_CONFIGURED"
+        },
+        "layouts" : {
+          "banks" : [
+            "ABSA_FIXED_WIDTH",
+            "SHEET",
+            "CSV"
+          ],
+          "providers" : [
+            "OLD_MUTUAL_FUNERAL",
+            "PROVISIONAL_MEMBER_LIST"
+          ]
+        },
+        "ceilings" : {
+          "sets" : 20,
+          "banks" : 60
+        }
+      }
+    },
+    "POST /api/month-end/settings/recipients" : {
+      "request" : "POST /api/month-end/settings/recipients",
+      "requestBody" : {
+        "code" : "NORTH2",
+        "label" : "Invented North (second set)",
+        "regionCode" : "NORTH",
+        "areaLetters" : [
+          "A"
+        ],
+        "position" : "Regional Secretary",
+        "email" : "regional.secretary.north2@example.org",
+        "active" : false
+      },
+      "status" : 201,
+      "body" : {
+        "code" : "NORTH2",
+        "label" : "Invented North (second set)",
+        "regionCode" : "NORTH",
+        "regionName" : "NORTH",
+        "areaLetters" : [
+          "A"
+        ],
+        "position" : "Regional Secretary",
+        "email" : "regional.secretary.north2@example.org",
+        "active" : false,
+        "version" : 0,
+        "updatedBy" : "system",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "PUT /api/month-end/settings/recipients/NORTH" : {
+      "request" : "PUT /api/month-end/settings/recipients/NORTH",
+      "requestBody" : {
+        "label" : "Invented North",
+        "regionCode" : "NORTH",
+        "areaLetters" : [ ],
+        "position" : "Regional Secretary",
+        "email" : "regional.secretary.north@example.org",
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "code" : "NORTH",
+        "label" : "Invented North",
+        "regionCode" : "NORTH",
+        "regionName" : "NORTH",
+        "areaLetters" : [ ],
+        "position" : "Regional Secretary",
+        "email" : "regional.secretary.north@example.org",
+        "active" : true,
+        "version" : 1,
+        "updatedBy" : "system",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "POST /api/month-end/settings/banks" : {
+      "request" : "POST /api/month-end/settings/banks",
+      "requestBody" : {
+        "code" : "INVENTED_LENDER",
+        "name" : "Invented Lender",
+        "tableCodes" : [
+          904
+        ],
+        "fullList" : false,
+        "layout" : "CSV"
+      },
+      "status" : 201,
+      "body" : {
+        "code" : "INVENTED_LENDER",
+        "name" : "Invented Lender",
+        "tableCodes" : [
+          904
+        ],
+        "fullList" : false,
+        "layout" : "CSV",
+        "active" : true,
+        "version" : 0,
+        "updatedBy" : "system",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "PUT /api/month-end/settings/banks/INVENTED_INSURER" : {
+      "request" : "PUT /api/month-end/settings/banks/INVENTED_INSURER",
+      "requestBody" : {
+        "name" : "Invented Insurer",
+        "tableCodes" : [
+          903
+        ],
+        "fullList" : true,
+        "layout" : "SHEET",
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "code" : "INVENTED_INSURER",
+        "name" : "Invented Insurer",
+        "tableCodes" : [
+          903
+        ],
+        "fullList" : true,
+        "layout" : "SHEET",
+        "active" : true,
+        "version" : 1,
+        "updatedBy" : "system",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "PUT /api/month-end/settings/providers/CRITICARE" : {
+      "request" : "PUT /api/month-end/settings/providers/CRITICARE",
+      "requestBody" : {
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "code" : "CRITICARE",
+        "name" : "Invented suspended benefit",
+        "layout" : "PROVISIONAL_MEMBER_LIST",
+        "provisional" : true,
+        "delivery" : "DOWNLOAD",
+        "active" : true,
+        "version" : 1,
+        "updatedBy" : "system",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "GET /api/month-end/{month}/region-packs" : {
+      "request" : "GET /api/month-end/2026-08/region-packs",
+      "setting" : "PACK_DOWNLOADED",
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "take" : {
+          "takeNumber" : 1,
+          "takenAt" : "2026-09-29T08:00:00Z",
+          "takenBy" : "seed"
+        },
+        "mail" : {
+          "configured" : false
+        },
+        "available" : true,
+        "unplaced" : 1,
+        "uncovered" : {
+          "areas" : [ ],
+          "members" : 0
+        },
+        "sets" : [
+          {
+            "set" : {
+              "code" : "NORTH",
+              "label" : "Invented North",
+              "regionCode" : "NORTH",
+              "regionName" : "NORTH",
+              "areaLetters" : [ ],
+              "position" : "Regional Secretary",
+              "email" : "regional.secretary.north@example.org",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "pack" : {
+              "id" : 1,
+              "month" : "2026-08",
+              "takeNumber" : 1,
+              "setCode" : "NORTH",
+              "setLabel" : "Invented North",
+              "regionCode" : "NORTH",
+              "areaLetters" : [ ],
+              "position" : "Regional Secretary",
+              "producedAt" : "2026-09-29T08:00:00Z",
+              "producedBy" : "system",
+              "counts" : {
+                "joined" : 0,
+                "left" : 0,
+                "suspended" : 0
+              },
+              "files" : [
+                {
+                  "format" : "PDF",
+                  "name" : "sasbo-month-end-2026-08-NORTH.pdf",
+                  "bytes" : 0,
+                  "sha256" : "<sha256 of the file>"
+                },
+                {
+                  "format" : "XLSX",
+                  "name" : "sasbo-month-end-2026-08-NORTH.xlsx",
+                  "bytes" : 0,
+                  "sha256" : "<sha256 of the file>"
+                }
+              ]
+            },
+            "deliveries" : [
+              {
+                "id" : 1,
+                "at" : "2026-09-29T08:00:00Z",
+                "by" : "system",
+                "kind" : "REGION_PACK",
+                "recipientCode" : "NORTH",
+                "recipientName" : "Invented North",
+                "channel" : "DOWNLOAD",
+                "formats" : [
+                  "PDF"
+                ],
+                "address" : null,
+                "outcome" : "SENT",
+                "code" : null,
+                "fileName" : "sasbo-month-end-2026-08-NORTH.pdf",
+                "packId" : 1,
+                "fileId" : null
+              }
+            ]
+          },
+          {
+            "set" : {
+              "code" : "SOUTH",
+              "label" : "Invented South",
+              "regionCode" : "SOUTH",
+              "regionName" : "SOUTH",
+              "areaLetters" : [ ],
+              "position" : "Regional Secretary",
+              "email" : null,
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "pack" : null,
+            "deliveries" : [ ]
+          }
+        ]
+      }
+    },
+    "POST /api/month-end/{month}/region-packs/NORTH" : {
+      "request" : "POST /api/month-end/2026-08/region-packs/NORTH",
+      "status" : 201,
+      "body" : {
+        "id" : 1,
+        "month" : "2026-08",
+        "takeNumber" : 1,
+        "setCode" : "NORTH",
+        "setLabel" : "Invented North",
+        "regionCode" : "NORTH",
+        "areaLetters" : [ ],
+        "position" : "Regional Secretary",
+        "producedAt" : "2026-09-29T08:00:00Z",
+        "producedBy" : "system",
+        "counts" : {
+          "joined" : 0,
+          "left" : 0,
+          "suspended" : 0
+        },
+        "files" : [
+          {
+            "format" : "PDF",
+            "name" : "sasbo-month-end-2026-08-NORTH.pdf",
+            "bytes" : 0,
+            "sha256" : "<sha256 of the file>"
+          },
+          {
+            "format" : "XLSX",
+            "name" : "sasbo-month-end-2026-08-NORTH.xlsx",
+            "bytes" : 0,
+            "sha256" : "<sha256 of the file>"
+          }
+        ]
+      }
+    },
+    "POST /api/month-end/{month}/region-packs/send" : {
+      "request" : "POST /api/month-end/2026-08/region-packs/send",
+      "setting" : "PACK_MADE",
+      "requestBody" : {
+        "formats" : [
+          "PDF"
+        ]
+      },
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "results" : [
+          {
+            "setCode" : "NORTH",
+            "outcome" : "REFUSED",
+            "code" : "MAIL_NOT_CONFIGURED",
+            "message" : "This server has no mail set up, so nothing was sent. Download the pack and e-mail it yourself.",
+            "delivery" : {
+              "id" : 1,
+              "at" : "2026-09-29T08:00:00Z",
+              "by" : "system",
+              "kind" : "REGION_PACK",
+              "recipientCode" : "NORTH",
+              "recipientName" : "Invented North",
+              "channel" : "EMAIL",
+              "formats" : [
+                "PDF"
+              ],
+              "address" : "regional.secretary.north@example.org",
+              "outcome" : "REFUSED",
+              "code" : "MAIL_NOT_CONFIGURED",
+              "fileName" : "sasbo-month-end-2026-08-NORTH.pdf",
+              "packId" : 1,
+              "fileId" : null
+            }
+          },
+          {
+            "setCode" : "SOUTH",
+            "outcome" : "REFUSED",
+            "code" : "PACK_NOT_PRODUCED",
+            "message" : "This recipient's pack has not been made yet. Make it first.",
+            "delivery" : null
+          }
+        ]
+      }
+    },
+    "POST /api/month-end/region-packs/{id}/email" : {
+      "request" : "POST /api/month-end/region-packs/{id}/email",
+      "setting" : "MAIL_ON",
+      "requestBody" : {
+        "formats" : [
+          "PDF",
+          "XLSX"
+        ]
+      },
+      "status" : 200,
+      "body" : {
+        "id" : 1,
+        "at" : "2026-09-29T08:00:00Z",
+        "by" : "system",
+        "kind" : "REGION_PACK",
+        "recipientCode" : "NORTH",
+        "recipientName" : "Invented North",
+        "channel" : "EMAIL",
+        "formats" : [
+          "PDF",
+          "XLSX"
+        ],
+        "address" : "regional.secretary.north@example.org",
+        "outcome" : "SENT",
+        "code" : null,
+        "fileName" : "sasbo-month-end-2026-08-NORTH.pdf, sasbo-month-end-2026-08-NORTH.xlsx",
+        "packId" : 1,
+        "fileId" : null
+      }
+    },
+    "GET /api/month-end/{month}/deliveries" : {
+      "request" : "GET /api/month-end/2026-08/deliveries?page=0&size=10",
+      "setting" : "PACK_DOWNLOADED",
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "page" : 0,
+        "size" : 10,
+        "total" : 1,
+        "items" : [
+          {
+            "id" : 1,
+            "at" : "2026-09-29T08:00:00Z",
+            "by" : "system",
+            "kind" : "REGION_PACK",
+            "recipientCode" : "NORTH",
+            "recipientName" : "Invented North",
+            "channel" : "DOWNLOAD",
+            "formats" : [
+              "PDF"
+            ],
+            "address" : null,
+            "outcome" : "SENT",
+            "code" : null,
+            "fileName" : "sasbo-month-end-2026-08-NORTH.pdf",
+            "packId" : 1,
+            "fileId" : null
+          }
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/files" : {
+      "request" : "GET /api/month-end/2026-08/files",
+      "setting" : "FILE_MADE",
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "take" : {
+          "takeNumber" : 1,
+          "takenAt" : "2026-09-29T08:00:00Z",
+          "takenBy" : "seed"
+        },
+        "sftp" : {
+          "configured" : false,
+          "state" : "NOT_CONFIGURED"
+        },
+        "banks" : [
+          {
+            "bank" : {
+              "code" : "INVENTED_BANK",
+              "name" : "Invented Bank",
+              "tableCodes" : [
+                901,
+                902
+              ],
+              "fullList" : true,
+              "layout" : "ABSA_FIXED_WIDTH",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 0,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [
+              {
+                "id" : 1,
+                "month" : "2026-08",
+                "takeNumber" : 1,
+                "kind" : "BANK",
+                "recipientCode" : "INVENTED_BANK",
+                "recipientName" : "Invented Bank",
+                "layout" : "ABSA_FIXED_WIDTH",
+                "fullList" : true,
+                "fileName" : "INVENTEDBANKFULL_260831.zip",
+                "format" : "ZIP",
+                "protection" : "AES_256_ZIP",
+                "rows" : 0,
+                "newRows" : 0,
+                "deletedRows" : 0,
+                "leftOut" : 0,
+                "bytes" : 0,
+                "sha256" : "<sha256 of the file>",
+                "producedAt" : "2026-09-29T08:00:00Z",
+                "producedBy" : "system",
+                "downloads" : 0,
+                "lastDeliveredAt" : null
+              }
+            ]
+          },
+          {
+            "bank" : {
+              "code" : "INVENTED_INSURER",
+              "name" : "Invented Insurer",
+              "tableCodes" : [
+                903
+              ],
+              "fullList" : false,
+              "layout" : "SHEET",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 0,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [ ]
+          }
+        ],
+        "providers" : [
+          {
+            "provider" : {
+              "code" : "CRITICARE",
+              "name" : "Invented suspended benefit",
+              "layout" : "PROVISIONAL_MEMBER_LIST",
+              "provisional" : true,
+              "delivery" : "DOWNLOAD",
+              "active" : false,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 1,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [ ]
+          },
+          {
+            "provider" : {
+              "code" : "LAW_CALL",
+              "name" : "Invented legal cover",
+              "layout" : "PROVISIONAL_MEMBER_LIST",
+              "provisional" : true,
+              "delivery" : "SFTP",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 1,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [ ]
+          },
+          {
+            "provider" : {
+              "code" : "OM_FUNERAL",
+              "name" : "Invented funeral benefit",
+              "layout" : "OLD_MUTUAL_FUNERAL",
+              "provisional" : true,
+              "delivery" : "DOWNLOAD",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 1,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [ ]
+          }
+        ],
+        "noTableCode" : {
+          "rows" : 0,
+          "newRows" : 0,
+          "deletedRows" : 0
+        }
+      }
+    },
+    "POST /api/month-end/{month}/files/banks/INVENTED_BANK" : {
+      "request" : "POST /api/month-end/2026-08/files/banks/INVENTED_BANK",
+      "status" : 201,
+      "body" : {
+        "file" : {
+          "id" : 1,
+          "month" : "2026-08",
+          "takeNumber" : 1,
+          "kind" : "BANK",
+          "recipientCode" : "INVENTED_BANK",
+          "recipientName" : "Invented Bank",
+          "layout" : "ABSA_FIXED_WIDTH",
+          "fullList" : true,
+          "fileName" : "INVENTEDBANKFULL_260831.zip",
+          "format" : "ZIP",
+          "protection" : "AES_256_ZIP",
+          "rows" : 0,
+          "newRows" : 0,
+          "deletedRows" : 0,
+          "leftOut" : 0,
+          "bytes" : 0,
+          "sha256" : "<sha256 of the file>",
+          "producedAt" : "2026-09-29T08:00:00Z",
+          "producedBy" : "system",
+          "downloads" : 0,
+          "lastDeliveredAt" : null
+        },
+        "password" : "<shown once>",
+        "passwordNote" : "This password is shown once and is not kept. Give it to the bank by another channel -- telephone or SMS -- never in the e-mail that carries the file. Type it exactly as shown, hyphens included. Lost, produce the file again: a new file, with a new password."
+      }
+    },
+    "POST /api/month-end/{month}/files/providers/OM_FUNERAL" : {
+      "request" : "POST /api/month-end/2026-08/files/providers/OM_FUNERAL",
+      "status" : 201,
+      "body" : {
+        "file" : {
+          "id" : 1,
+          "month" : "2026-08",
+          "takeNumber" : 1,
+          "kind" : "PROVIDER",
+          "recipientCode" : "OM_FUNERAL",
+          "recipientName" : "Invented funeral benefit",
+          "layout" : "OLD_MUTUAL_FUNERAL",
+          "fullList" : true,
+          "fileName" : "OMFUNERAL_260831.xlsx",
+          "format" : "XLSX",
+          "protection" : "EXCEL_AES_256",
+          "rows" : 1,
+          "newRows" : 0,
+          "deletedRows" : 0,
+          "leftOut" : 0,
+          "bytes" : 0,
+          "sha256" : "<sha256 of the file>",
+          "producedAt" : "2026-09-29T08:00:00Z",
+          "producedBy" : "system",
+          "downloads" : 0,
+          "lastDeliveredAt" : null
+        },
+        "password" : "<shown once>",
+        "passwordNote" : "This password is shown once and is not kept. Give it to the bank by another channel -- telephone or SMS -- never in the e-mail that carries the file. Type it exactly as shown, hyphens included. Lost, produce the file again: a new file, with a new password."
+      }
+    },
+    "POST /api/month-end/files/{id}/sftp" : {
+      "request" : "POST /api/month-end/files/{id}/sftp",
+      "setting" : "SFTP_ON",
+      "status" : 200,
+      "body" : {
+        "id" : 1,
+        "at" : "2026-09-29T08:00:00Z",
+        "by" : "system",
+        "kind" : "PROVIDER_FILE",
+        "recipientCode" : "LAW_CALL",
+        "recipientName" : "Invented legal cover",
+        "channel" : "SFTP",
+        "formats" : [
+          "ZIP"
+        ],
+        "address" : "sftp.example.org",
+        "outcome" : "SENT",
+        "code" : null,
+        "fileName" : "LAWCALL_260831.zip",
+        "packId" : null,
+        "fileId" : 1
+      }
     }
   },
   "refusals" : {

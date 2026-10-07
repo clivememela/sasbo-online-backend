@@ -81,7 +81,29 @@ class MonthEndRoutesTest {
             // reports-visits review: the batch print's listings, held by the catalogue's REPORTS_PRINT, and its members
             // in one read for the batch.
             Map.entry("GET /api/workplaces/listings", "REPORTS_PRINT"),
-            Map.entry("GET /api/workplaces/members", "MEMBERS_VIEW")
+            Map.entry("GET /api/workplaces/members", "MEMBERS_VIEW"),
+            // monthend-packs: who gets what -- the regions' recipients, the banks' files, the providers (MEN-02, MEN-33,
+            // MEN-35) -- read and changed by a holder of MONTH_END_SEND.
+            Map.entry("GET /api/month-end/settings", "MONTH_END_SEND"),
+            Map.entry("POST /api/month-end/settings/recipients", "MONTH_END_SEND"),
+            Map.entry("PUT /api/month-end/settings/recipients/{code}", "MONTH_END_SEND"),
+            Map.entry("POST /api/month-end/settings/banks", "MONTH_END_SEND"),
+            Map.entry("PUT /api/month-end/settings/banks/{code}", "MONTH_END_SEND"),
+            Map.entry("PUT /api/month-end/settings/providers/{code}", "MONTH_END_SEND"),
+            // monthend-packs: the regions' packs, made, downloaded or e-mailed, and the record of what was sent
+            // (MEN-04, MEN-05, MEN-08).
+            Map.entry("GET /api/month-end/{month}/region-packs", "MONTH_END_SEND"),
+            Map.entry("POST /api/month-end/{month}/region-packs/{set}", "MONTH_END_SEND"),
+            Map.entry("POST /api/month-end/{month}/region-packs/send", "MONTH_END_SEND"),
+            Map.entry("GET /api/month-end/region-packs/{id}/{format}", "MONTH_END_SEND"),
+            Map.entry("POST /api/month-end/region-packs/{id}/email", "MONTH_END_SEND"),
+            Map.entry("GET /api/month-end/{month}/deliveries", "MONTH_END_SEND"),
+            // monthend-packs: the banks' and providers' files, password-protected (MEN-05, MEN-32 to MEN-35).
+            Map.entry("GET /api/month-end/{month}/files", "MONTH_END_SEND"),
+            Map.entry("POST /api/month-end/{month}/files/banks/{code}", "MONTH_END_SEND"),
+            Map.entry("POST /api/month-end/{month}/files/providers/{code}", "MONTH_END_SEND"),
+            Map.entry("GET /api/month-end/files/{id}", "MONTH_END_SEND"),
+            Map.entry("POST /api/month-end/files/{id}/sftp", "MONTH_END_SEND")
     );
 
     /** The permission a {@code @PreAuthorize} expression names: {@code hasAuthority('MONTH_END_TAKE')}. */

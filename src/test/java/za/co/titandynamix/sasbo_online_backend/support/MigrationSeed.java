@@ -242,7 +242,9 @@ public final class MigrationSeed {
             "V69_1__workplace_visit_drafts.sql",
             "V70__dod_rules_as_data.sql",
             "V71__dod_letters.sql",
-            "V72__dod_returns_and_counts.sql");
+            "V72__dod_returns_and_counts.sql",
+            "V77__month_end_recipients.sql",
+            "V78__month_end_files_sent.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

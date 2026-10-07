@@ -58,6 +58,7 @@ public class DataSeeder implements ApplicationRunner {
     private final SignInSeeder signInSeeder;
     private final RecruitmentChannelSeeder recruitmentChannelSeeder;
     private final VisitDraftSeeder visitDraftSeeder;
+    private final MonthEndSendSeeder monthEndSendSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -346,6 +347,9 @@ public class DataSeeder implements ApplicationRunner {
         // SASBO's channels where none is recorded, so the Recruiters screen's figures are not all 0. Caught like the
         // block's own: a fault here must not stop the start, and is logged with its cause.
         seedMonthEnd("the seed members' recruitment channels", this.recruitmentChannelSeeder::seed);
+        // October build: who gets what -- the regions' recipients, the banks' files, the providers -- and the newest taken
+        // month's packs and files, made and delivered; after the takes, which the packs are made from.
+        seedMonthEnd("the files that leave SASBO", this.monthEndSendSeeder::seed);
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).

@@ -68,7 +68,13 @@ class MonthEndGuardsTest {
             // October build, reports-visits: the Location Listing's reads and the visit drafts.
             "WorkplaceListingController", "WorkplaceListingService", "WorkplaceLookupRepository",
             "WorkplaceMemberRepository", "VisitDraftController", "WorkplaceVisitDraftService",
-            "WorkplaceVisitDraftRepository", "VisitDraftSeeder");
+            "WorkplaceVisitDraftRepository", "VisitDraftSeeder",
+            // October build, the files that leave SASBO (monthend-packs).
+            "MonthEndSendSettingsController", "MonthEndRegionPackController", "MonthEndFilesController",
+            "MonthEndSendSettings", "MonthEndRegionPacks", "MonthEndSentFiles", "MonthEndRegionPackWriter",
+            "MonthEndSendSeeding", "MonthEndSendSettingsRepository", "MonthEndListingsRepository",
+            "MonthEndSentRepository", "MonthEndSendSeeder", "MonthEndFileProtection", "MonthEndFileLayouts",
+            "MonthEndPackPdf", "MonthEndSftp", "MonthEndMailer");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 

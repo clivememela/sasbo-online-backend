@@ -84,6 +84,8 @@ class MigrationChainContentTest {
         // and staff_user_scope_codes; V66 user_sessions; V67 audit_events.
         // 62 with the October build's reports-visits: V69_1 adds workplace_visit_drafts.
         // 64 with the debit order stream: V72 adds acb_returns_batches and acb_unpaid_counts (V70 and V71 add none).
+        // 71 with month end packs: V77 adds month_end_pack_sets, month_end_banks, month_end_bank_table_codes and
+        // month_end_providers; V78 month_end_region_packs, month_end_files and month_end_deliveries.
         //
         // 🔑 This class is gated behind P0_DB_URL and so runs in neither ordinary
         // lane, which makes "25" an edit nobody would catch being wrong. The delta
@@ -93,7 +95,7 @@ class MigrationChainContentTest {
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
                 Integer.class))
                 .as("tables in public, including flyway_schema_history")
-                .isEqualTo(64);
+                .isEqualTo(71);
     }
 
     @Test
