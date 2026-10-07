@@ -62,7 +62,11 @@ class MonthEndRoutesTest {
             Map.entry("POST /api/reference/no-deduction-reasons", "REFERENCE_MAINTAIN"),
             Map.entry("PUT /api/reference/no-deduction-reasons/{id}", "REFERENCE_MAINTAIN"),
             // Month end's rules, MEN-31: a table code's core tier -- the Senior Secretariat decides, an administrator sets.
-            Map.entry("PUT /api/reference/table-codes/{code}/core-tier", "REFERENCE_MAINTAIN"));
+            Map.entry("PUT /api/reference/table-codes/{code}/core-tier", "REFERENCE_MAINTAIN"),
+            // Month end's rules, MEN-18: listings that name members. MONTH_END_VIEW is held beside MEMBERS_VIEW --
+            // Stephne, DOD-14: organisers do not see suspensions (OB30) -- which the controller tests prove.
+            Map.entry("GET /api/month-end/suspensions/members", "MEMBERS_VIEW"),
+            Map.entry("GET /api/month-end/suspensions/lapsed", "MEMBERS_VIEW"));
 
     /** The permission a {@code @PreAuthorize} expression names: {@code hasAuthority('MONTH_END_TAKE')}. */
     static final Pattern HAS_AUTHORITY = Pattern.compile("hasAuthority\\('([A-Z_]+)'\\)");

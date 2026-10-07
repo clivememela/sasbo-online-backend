@@ -64,7 +64,8 @@ class MonthEndGuardsTest {
             // core tiers; the suspended and their lapse; the seed that shows them.
             "FreeText", "Penetration",
             "NoDeductionReasonController", "NoDeductionReasons", "NoDeductionReasonRepository",
-            "CoreTierController", "CoreTiers");
+            "CoreTierController", "CoreTiers",
+            "SuspendedMembersController", "SuspendedMembers", "SuspendedMembersRepository", "SuspensionLapse");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
