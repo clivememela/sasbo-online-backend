@@ -928,13 +928,14 @@ class ACBControllerTest {
         DebitDayMoveRequest move = new DebitDayMoveRequest(25, 2);
         when(debitDays.move(3, move, "system")).thenThrow(new AcbRefusal(AcbRefusalCode.MOVE_COUNT_CHANGED,
                 "The bank's members changed since the preview, so nothing was moved.",
-                Map.of("expected", "2", "now", "3")));
+                Map.of("bankId", "3", "expected", "2", "actual", "3")));
         this.mockMvc.perform(post("/api/acb/banks/3/debit-day-move")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(move)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MOVE_COUNT_CHANGED"))
-                .andExpect(jsonPath("$.details.now").value("3"));
+                .andExpect(jsonPath("$.details.expected").value("2"))
+                .andExpect(jsonPath("$.details.actual").value("3"));
     }
 
     @Test
