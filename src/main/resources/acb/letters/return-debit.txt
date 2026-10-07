@@ -1,37 +1,19 @@
-SASBO THE FINANCE UNION · PRIVATE BAG X84 · BRYANSTON · 2021
-TEL : 011 467 0192 · FAX : 011 467 0188
-                                                              Area : {{area}}
+# Your debit order for {{debitMonthYear}} was returned unpaid
 
-{{letterDate}}
+Dear {{salutationName}}
 
-{{memberTitle}} {{memberInitials}} {{memberSurname}}
-{{addressLine1}}
-{{addressLine2}}
-{{addressLine3}}
-{{postalCode}}
+Your bank returned your SASBO subscription debit order for {{debitMonthYear}} unpaid. The reason the bank gave is in
+the table below.
 
-Dear Member
+| Subscription for | {{debitMonthYear}}
+| Amount | {{amount}}
+| Debit date | {{debitDate}}
+| Bank's reason | {{unpaidReason}}
+| Bank account | {{bankName}} {{accountNumber}}
 
-MEMBERSHIP NO: {{membershipNumber}}            ACCOUNT NO :   {{accountNumber}}
-{{bankName}}                                   {{branchLabel}}
+## What you need to do
 
-We wish to advise that a debit in respect of your subscriptions to
-Sasbo for the month of {{debitMonthUpper}} has been returned
-unpaid with the answer : {{unpaidReason}}.
-
-It would be appreciated if you would contact us regarding
-the above action in order to clarify this matter,
-thereby ensuring that we can update our records.
-
-Please bear in mind that in the event of your wanting to cancel your
-membership, in terms of the original application signed, you are
-required to do so in writing.
-
-Your early response would be appreciated.
-
-Yours sincerely
-
-Administration Department
-
-(Registered as a Trade Union in terms of the Labour Relations Act 1995)
-(Geregistreer as Vakbond luidens die Wet op Arbeidsverhoudings 1995)
+- Please contact us so that we can sort this out and update our records. If your banking details have changed,
+please send us your new details.
+- If you meant to cancel your membership, please tell us in writing, as your signed membership application
+requires.

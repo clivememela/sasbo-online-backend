@@ -126,6 +126,11 @@ acb:
     user-branch: ${ACB_FILE_USER_BRANCH:}
     nominated-account: ${ACB_FILE_NOMINATED_ACCOUNT:}
     bank-identifiers: ${ACB_FILE_BANK_IDENTIFIERS:}
+  letters:
+    # The debit order letters come from, and members reply to, the address Stephne named (DOD-34). The mail
+    # server must be allowed to send as it. Sending itself stays off until SASBO agree the letters
+    # (acb.letters.send-enabled, false by default).
+    from: ${ACB_LETTERS_FROM:members@sasbo.org.za}
 
 # THE PRODUCTION MARKER. Set SASBO_ENVIRONMENT=production on the production service, once, the day it
 # is created -- and nowhere else: not on dev.sasbo.online, not in CI, not in the E2E stack. Where it says

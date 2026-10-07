@@ -1,37 +1,16 @@
-SASBO THE FINANCE UNION · PRIVATE BAG X84 · BRYANSTON · 2021
-TEL : 011 467 0192 · FAX : 011 467 0188
-                                                              Area : {{area}}
+# Your SASBO membership has ended
 
-{{letterDate}}
+Dear {{salutationName}}
 
-{{memberTitle}} {{memberInitials}} {{memberSurname}}
-{{addressLine1}}
-{{addressLine2}}
-{{addressLine3}}
-{{postalCode}}
+Your subscription debit order has been returned unpaid three times in a row, most recently for {{debitMonthYear}}.
+As SASBO's constitution provides, your membership has therefore ended.
 
-Dear Member
+| Last debit order returned | {{debitMonthYear}}
+| Amount | {{amount}}
+| Bank's reason | {{unpaidReason}}
 
-MEMBERSHIP NO: {{membershipNumber}}            ACCOUNT NO :   {{accountNumber}}
-{{bankName}}                                   {{branchLabel}}
+## If you would like to join again
 
-We wish to advise that a debit in respect of your subscriptions to
-Sasbo for the month of {{debitMonthUpper}} has been returned
-unpaid with the answer : {{unpaidReason}}.
+You are welcome to join SASBO again at any time, as a new member with a new join date.
 
-It would be appreciated if you would contact us regarding
-the above action in order to clarify this matter,
-thereby ensuring that we can update our records.
-
-Please bear in mind that in the event of your wanting to cancel your
-membership, in terms of the original application signed, you are
-required to do so in writing.
-
-Your early response would be appreciated.
-
-Yours sincerely
-
-Administration Department
-
-(Registered as a Trade Union in terms of the Labour Relations Act 1995)
-(Geregistreer as Vakbond luidens die Wet op Arbeidsverhoudings 1995)
+If you think we have made a mistake, please contact us as soon as possible.

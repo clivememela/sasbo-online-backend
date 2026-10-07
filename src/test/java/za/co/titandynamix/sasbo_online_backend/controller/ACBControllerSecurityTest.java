@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
@@ -67,6 +68,9 @@ class ACBControllerSecurityTest {
 
     @MockitoBean
     private AcbRateService rates;
+
+    @MockitoBean
+    private LetterDocument letters;
 
     @Test
     @DisplayName("approving a run is refused to every caller, with IDENTITY_REQUIRED, and nothing is read")

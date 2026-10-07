@@ -16,6 +16,7 @@ import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRenderer;
+import za.co.titandynamix.sasbo_online_backend.documents.LetterMarkup;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbLetter;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRunLine;
@@ -29,14 +30,20 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbRunLineRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbUnpaidCodeRepository;
 
+import java.io.UnsupportedEncodingException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Set;
 
 /**
- * Emails the union's letters (ACB {@code 03.3}; D23: "it was posted before, now we need it emailed") -- a job,
- * never a request thread, each letter sent once.
+ * Emails the union's debit order letters (ACB {@code 03.3}; D23: "it was posted before, now we need it emailed") --
+ * a job, never a request thread, each letter sent once.
+ *
+ * <h2>From members@sasbo.org.za, under the letter's own subject</h2>
+ * Stephne named the address the letters come from and members reply to (DOD-34); it is the default of
+ * {@code acb.letters.from}, shown as "SASBO Membership Administration" -- a position, never a person (DOD-35). The
+ * e-mail's subject is the letter's subject line, so a member sees what it is about before opening it.
  *
  * <h2>What it sends, and what it never sends</h2>
  * A letter RENDERED for an email address, queued by a named administrator, while sending is switched on
@@ -53,7 +60,8 @@ import java.util.Set;
  * <h2>The letter sent is the letter recorded</h2>
  * The body is never stored -- its SHA-256 and the address are (R-SEC-C). So the sender renders it again from the
  * same line, on the date it was first rendered, and sends it only if the hash matches: a member whose details
- * changed in between is not sent a letter nobody recorded. That letter FAILS, saying why, for an administrator.
+ * changed in between is not sent a letter nobody recorded. That letter FAILS, saying why, for an administrator --
+ * and so does one whose PDF cannot be made (a character no letter font prints): {@code LETTER_NOT_RENDERABLE}.
  *
  * <h2>Once</h2>
  * Each letter is CLAIMED by a conditional update on its attempt count, so two senders never both send it, and it
@@ -73,12 +81,20 @@ public class AcbLetterSender {
     /** The actors whose letters are never sent: the anonymous API, and the seed. */
     static final Set<String> NEVER_SENT_FOR = Set.of(AcbActor.SYSTEM, "seed");
 
-    static final String SUBJECT = "SASBO: your union subscription debit order";
-    static final String ATTACHMENT = "SASBO letter.pdf";
+    /** Where the letters come from and members reply to (Stephne, DOD-34). */
+    static final String DEFAULT_FROM = "members@sasbo.org.za";
+    /** The name shown beside it: a position, never a person (DOD-35). */
+    static final String FROM_NAME = "SASBO Membership Administration";
+    /** The e-mail's subject when a letter has no subject line of its own. */
+    static final String SUBJECT = "A letter from SASBO about your debit order";
+    static final String ATTACHMENT = "SASBO debit order letter.pdf";
     static final String COVER_NOTE = """
-            Please find attached a letter from SASBO about your union subscription debit order.
+            Please find attached a letter from SASBO about your subscription debit order.
 
-            SASBO Administration
+            If you have any questions, reply to this e-mail or call us on (011) 467-0192.
+
+            Membership Administration
+            SASBO, The Finance Union
             """;
 
     private final AcbLetterRepository letters;
@@ -89,14 +105,15 @@ public class AcbLetterSender {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final ObjectProvider<JavaMailSender> mail;
+    private final LetterDocument documents;
     private final boolean enabled;
     private final String from;
 
     public AcbLetterSender(AcbLetterRepository letters, AcbRunLineRepository lines, AcbRunRepository runs,
                            AcbReturnsRepository returns, AcbUnpaidCodeRepository codes, JdbcTemplate jdbc, Clock clock,
-                           ObjectProvider<JavaMailSender> mail,
+                           ObjectProvider<JavaMailSender> mail, LetterDocument documents,
                            @Value("${acb.letters.send-enabled:false}") boolean enabled,
-                           @Value("${mail.from:}") String from) {
+                           @Value("${acb.letters.from:" + DEFAULT_FROM + "}") String from) {
         this.letters = letters;
         this.lines = lines;
         this.runs = runs;
@@ -105,6 +122,7 @@ public class AcbLetterSender {
         this.jdbc = jdbc;
         this.clock = clock;
         this.mail = mail;
+        this.documents = documents;
         this.enabled = enabled;
         this.from = from;
     }
@@ -116,8 +134,8 @@ public class AcbLetterSender {
         }
         JavaMailSender sender = mail.getIfAvailable();
         if (sender == null || from == null || from.isBlank()) {
-            log.warn("ACB letters: sending is switched on, but no mail server or from-address is configured -- "
-                    + "nothing sent");
+            log.warn("Debit order letters: sending is switched on, but no mail server or from-address is configured "
+                    + "-- nothing sent");
             return 0;
         }
         int due = 0;
@@ -136,7 +154,7 @@ public class AcbLetterSender {
         }
         if (due > 0) {
             // One line per run, never one per letter -- and counts only: no address, no name (EH-E).
-            log.info("ACB letters: {} sent, {} failed, of {} due", sent, due - sent, due);
+            log.info("Debit order letters: {} sent, {} failed, of {} due", sent, due - sent, due);
         }
         return sent;
     }
@@ -160,16 +178,26 @@ public class AcbLetterSender {
             fail(letter, "LETTER_CHANGED_SINCE_RENDERED");
             return false;
         }
+        byte[] pdf;
+        try {
+            pdf = documents.render(body);
+        } catch (RuntimeException e) {
+            // A character no letter font prints, above all: FAILED where a person sees it, never retried unseen.
+            fail(letter, "LETTER_NOT_RENDERABLE: " + e.getClass().getSimpleName());
+            return false;
+        }
+        String subject = LetterMarkup.subjectOf(body);
         try {
             MimeMessage message = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(from);
+            helper.setFrom(from, FROM_NAME);
+            helper.setReplyTo(from, FROM_NAME);
             helper.setTo(letter.getAddressSnapshot());
-            helper.setSubject(SUBJECT);
+            helper.setSubject(subject == null ? SUBJECT : subject);
             helper.setText(COVER_NOTE, false);
-            helper.addAttachment(ATTACHMENT, new ByteArrayDataSource(LetterDocument.render(body), "application/pdf"));
+            helper.addAttachment(ATTACHMENT, new ByteArrayDataSource(pdf, "application/pdf"));
             sender.send(message);
-        } catch (MailException | MessagingException e) {
+        } catch (MailException | MessagingException | UnsupportedEncodingException e) {
             fail(letter, e.getClass().getSimpleName());
             return false;
         }

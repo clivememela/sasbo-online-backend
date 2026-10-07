@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
  * the mail server a mock that keeps what it is handed. The job launcher runs inline in tests, so the send an unpaid's
  * recording triggers has happened by the time {@code recordUnpaid} returns.
  */
-@TestPropertySource(properties = {"acb.letters.send-enabled=true", "mail.from=noreply@example.org"})
+@TestPropertySource(properties = {"acb.letters.send-enabled=true"})
 @DisplayName("The letter sender, on PostgreSQL")
 class AcbLetterSenderIT extends AbstractAcbIT {
 
@@ -101,7 +101,10 @@ class AcbLetterSenderIT extends AbstractAcbIT {
 
         assertThat(sent).singleElement().satisfies(message -> {
             assertThat(message.getAllRecipients()).extracting(Object::toString).containsExactly(ADDRESS);
-            assertThat(message.getSubject()).isEqualTo(AcbLetterSender.SUBJECT);
+            // DOD-34: from members@sasbo.org.za, under the letter's own subject line.
+            assertThat(message.getFrom()).extracting(Object::toString)
+                    .containsExactly("SASBO Membership Administration <members@sasbo.org.za>");
+            assertThat(message.getSubject()).isEqualTo("Your debit order for September 2026 was returned unpaid");
             byte[] pdf = attachment(message);
             assertThat(pdf).as("the letter, attached").isNotNull();
             assertThat(new String(pdf, 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
