@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
@@ -357,6 +358,21 @@ public class Member {
     @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    /**
+     * Which save of the record this is (V68): 0 for a member never saved since, one more for every save. An edit sends
+     * back the version it read, and is refused {@code MEMBER_CHANGED_SINCE} where the record has been saved since --
+     * before this, two people editing one member each saved, and the later save silently undid the earlier one.
+     *
+     * <p>Hibernate's own ({@code @Version}): it is compared again at the database by every save, so a save racing
+     * another loses there rather than overwriting it. Bound from a request body for the edit's check only -- the merge
+     * never copies it ({@code MemberMapper.updateFromMember}) and a capture never keeps it. The default is the
+     * schema's on both databases, so a row written by JDBC -- a seed, a test -- starts at 0 too.
+     */
+    @Version
+    @ColumnDefault("0")
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @PrePersist
     protected void onCreate() {

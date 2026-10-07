@@ -93,8 +93,17 @@ class MemberRegisterPlanIT extends AbstractPostgresIT {
     private static SingleConnectionDataSource source;
     private static JdbcTemplate probe;
 
-    /** One statement the register issues, the index of V68 its plan must read (or none named), and its name. */
-    record Case(String name, Statement statement, String index) {
+    /**
+     * One statement the register issues, the indexes of V68 any of which its plan may read (none named: any plan without a
+     * sequential scan), and its name. Most have one answer; where two indexes answer at near the same cost both are
+     * named -- PostgreSQL chooses by statistics ANALYZE samples, and naming one of two would be a coin toss (run
+     * 37541928372 chose members_register_scope for the whole register's branches, an index-only read of it whole).
+     */
+    record Case(String name, Statement statement, Set<String> indexes) {
+        Case(String name, Statement statement, String index) {
+            this(name, statement, Set.of(index));
+        }
+
         @Override
         public String toString() {
             return this.name;
@@ -141,7 +150,7 @@ class MemberRegisterPlanIT extends AbstractPostgresIT {
         cases.add(new Case("a page twenty deep, by surname",
                 MemberRegisterRepository.pageStatement(Filter.NONE, ALL, Order.SURNAME, false, 20, 50),
                 "members_register_surname"));
-        cases.add(new Case("the register's count", MemberRegisterRepository.countStatement(Filter.NONE, ALL), null));
+        cases.add(new Case("the register's count", MemberRegisterRepository.countStatement(Filter.NONE, ALL), Set.of()));
 
         // The search box: each of its branches, a page and its count.
         for (String[] search : List.of(
@@ -186,16 +195,16 @@ class MemberRegisterPlanIT extends AbstractPostgresIT {
 
         // A caller limited to an area, and to a region.
         cases.add(new Case("an area's first page", MemberRegisterRepository.pageStatement(Filter.NONE, AREA,
-                Order.SURNAME, false, 0, 50), null));
-        cases.add(new Case("an area's count", MemberRegisterRepository.countStatement(Filter.NONE, AREA), null));
+                Order.SURNAME, false, 0, 50), Set.of()));
+        cases.add(new Case("an area's count", MemberRegisterRepository.countStatement(Filter.NONE, AREA), Set.of()));
         cases.add(new Case("a region's first page", MemberRegisterRepository.pageStatement(Filter.NONE, REGION,
-                Order.SURNAME, false, 0, 50), null));
-        cases.add(new Case("a region's count", MemberRegisterRepository.countStatement(Filter.NONE, REGION), null));
+                Order.SURNAME, false, 0, 50), Set.of()));
+        cases.add(new Case("a region's count", MemberRegisterRepository.countStatement(Filter.NONE, REGION), Set.of()));
         cases.add(new Case("a region's search", MemberRegisterRepository.pageStatement(q("mq"), REGION,
                 Order.SURNAME, false, 0, 50), "members_search_surname"));
 
         // The figure strip.
-        cases.add(new Case("figures: by status", MemberRegisterRepository.statusCountsStatement(ALL), null));
+        cases.add(new Case("figures: by status", MemberRegisterRepository.statusCountsStatement(ALL), Set.of()));
         cases.add(new Case("figures: a region's by status", MemberRegisterRepository.statusCountsStatement(REGION),
                 "members_register_scope"));
         cases.add(new Case("figures: the month's joiners", MemberRegisterRepository.joinedStatement(ALL,
@@ -205,7 +214,7 @@ class MemberRegisterPlanIT extends AbstractPostgresIT {
         cases.add(new Case("figures: the day's saves", MemberRegisterRepository.updatedStatement(ALL,
                 LocalDateTime.of(2026, 10, 6, 0, 0), LocalDateTime.of(2026, 10, 7, 0, 0)), "members_updated_at"));
         cases.add(new Case("figures: the branches", MemberRegisterRepository.branchesStatement(ALL, 500),
-                "members_register_branch"));
+                Set.of("members_register_branch", "members_register_scope")));
         cases.add(new Case("figures: a region's branches", MemberRegisterRepository.branchesStatement(REGION, 500),
                 "members_register_scope"));
         return cases.stream();
@@ -277,16 +286,16 @@ class MemberRegisterPlanIT extends AbstractPostgresIT {
     @MethodSource("everyStatementTheRegisterIssues")
     @DisplayName("🔒 A10: where an index of V68 is the answer, the plan reads it")
     void thePlanReadsItsIndex(Case asked) {
-        if (asked.index() == null) {
+        if (asked.indexes().isEmpty()) {
             return;
         }
         List<PlanNode> nodes = walk(explain(asked.statement(), false));
 
         assertThat(nodes.stream().map(PlanNode::index).filter(Objects::nonNull).toList())
-                .as("%s: the indexes this plan reads -- %s is not among them; what reads members is %s", asked,
-                        asked.index(), nodes.stream().filter(n -> "members".equals(n.relation()))
+                .as("%s: the indexes this plan reads -- none of %s is among them; what reads members is %s", asked,
+                        asked.indexes(), nodes.stream().filter(n -> "members".equals(n.relation()))
                                 .map(PlanNode::toString).toList())
-                .contains(asked.index());
+                .containsAnyElementsOf(asked.indexes());
     }
 
     @Test

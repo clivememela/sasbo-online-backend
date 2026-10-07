@@ -15,6 +15,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.reference.Committee;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
@@ -87,6 +89,8 @@ class MemberServiceImplTest {
      */
     private static final Map<String, String> SERVICE_MAY_CHANGE = Map.ofEntries(
             Map.entry("id", "cleared before save, so a create cannot overwrite an existing row"),
+            Map.entry("version", "cleared before save (V68): a new member starts at its first save, whatever a "
+                    + "request sent -- which save of a record it is is Hibernate's, not the caller's"),
             Map.entry("createdAt", "set by @PrePersist"),
             Map.entry("updatedAt", "set by @PrePersist"),
             Map.entry("dateOfBirth", "derived from the identity number"),
@@ -159,6 +163,10 @@ class MemberServiceImplTest {
                 this.workplaces, this.trail, this.committeeRepository);
 
         when(this.memberRepository.save(any(Member.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        // An edit is saved and flushed at once (V68): the database compares its version there, and the answer carries
+        // the version the save moved it to.
+        when(this.memberRepository.saveAndFlush(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(this.bankRepository.findByNameIgnoreCase(any())).thenReturn(Optional.empty());
         when(this.unionStructureRepository.findById(any())).thenReturn(Optional.empty());
@@ -393,6 +401,88 @@ class MemberServiceImplTest {
 
         assertThat(this.service.update(99, MemberFixture.aMember())).isEmpty();
         verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+        verify(this.memberRepository, org.mockito.Mockito.never()).saveAndFlush(any(Member.class));
+    }
+
+    // ============================================================
+    // V68 -- TWO PEOPLE EDITING ONE MEMBER. The later save silently undid the earlier one: a member carried
+    // nothing to say which save of the record an edit had read (the manual stream, 7 Oct, Members.jsx:1016-1022).
+    // ============================================================
+
+    @Test
+    @DisplayName("🔴 V68: an edit made on a stale record is refused MEMBER_CHANGED_SINCE -- before anything is merged or written")
+    void aStaleEditIsRefused() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setVersion(5L);
+        existing.setUpdatedAt(java.time.LocalDateTime.of(2026, 10, 7, 9, 41));
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        Member edit = MemberFixture.aMember();
+        edit.setVersion(4L);
+        edit.setPhone("+27 82 000 0010");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.update(4, edit))
+                .isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
+                    assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MEMBER_CHANGED_SINCE);
+                    assertThat(refusal.code().status().value()).isEqualTo(409);
+                    assertThat(refusal.details()).containsEntry("memberId", "4").containsEntry("versionOnRecord", "5")
+                            .containsEntry("savedAt", "2026-10-07T09:41");
+                    assertThat(refusal.getMessage()).contains("saved");
+                });
+        verify(this.memberMapper, org.mockito.Mockito.never()).updateFromMember(any(Member.class), any(Member.class));
+        verify(this.memberRepository, org.mockito.Mockito.never()).saveAndFlush(any(Member.class));
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+        verify(this.trail, org.mockito.Mockito.never()).changed(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("must-pass: an edit naming the version on record is saved -- and one naming none is not checked")
+    void anEditOfTheVersionOnRecordIsSaved() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setVersion(5L);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member current = MemberFixture.aMember();
+        current.setVersion(5L);
+        assertThat(this.service.update(4, current)).isPresent();
+
+        Member unversioned = MemberFixture.aMember();
+        unversioned.setVersion(null);
+        assertThat(this.service.update(4, unversioned)).as("a caller that sends no version is not checked").isPresent();
+        verify(this.memberRepository, org.mockito.Mockito.times(2)).saveAndFlush(existing);
+    }
+
+    @Test
+    @DisplayName("🔴 V68: a save that loses a race at the database is MEMBER_CHANGED_SINCE too -- and records no history")
+    void aRaceLostAtTheDatabaseIsRefused() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setVersion(5L);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        when(this.memberRepository.saveAndFlush(existing)).thenThrow(
+                new org.springframework.orm.ObjectOptimisticLockingFailureException(Member.class, 4));
+        Member edit = MemberFixture.aMember();
+        edit.setVersion(5L);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.update(4, edit))
+                .isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
+                    assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MEMBER_CHANGED_SINCE);
+                    assertThat(refusal.details()).containsEntry("memberId", "4");
+                });
+        verify(this.trail, org.mockito.Mockito.never()).changed(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("🔒 V68: a capture never keeps a version a request sent -- a new member starts at the first save")
+    void aCaptureKeepsNoVersion() {
+        Member incoming = MemberFixture.aMember();
+        incoming.setVersion(7L);
+
+        this.service.create(incoming);
+
+        verify(this.memberRepository).save(this.saved.capture());
+        assertThat(this.saved.getValue().getVersion()).isNull();
     }
 
     // ============================================================
@@ -830,7 +920,7 @@ class MemberServiceImplTest {
         // The property is the validator's, not the mapper's (a bare mock here, as the note above says): the save
         // happens, and the type the member was captured without stays unset rather than being refused or guessed.
         assertThat(this.service.update(4, edit)).isPresent();
-        verify(this.memberRepository).save(existing);
+        verify(this.memberRepository).saveAndFlush(existing);
         assertThat(existing.getAccountType()).isNull();
     }
 

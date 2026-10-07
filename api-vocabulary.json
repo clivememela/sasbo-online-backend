@@ -165,7 +165,8 @@
       {"code": "PACK_BUSY", "status": 409},
       {"code": "PACK_NOT_FOUND", "status": 404},
       {"code": "REGISTER_PAGE_INVALID", "status": 400},
-      {"code": "REGISTER_SORT_UNKNOWN", "status": 400}
+      {"code": "REGISTER_SORT_UNKNOWN", "status": 400},
+      {"code": "MEMBER_CHANGED_SINCE", "status": 409}
     ]
   }
 }

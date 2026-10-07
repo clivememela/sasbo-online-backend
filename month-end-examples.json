@@ -3278,6 +3278,27 @@
           "directions" : "asc,desc"
         }
       }
+    },
+    "MEMBER_CHANGED_SINCE" : {
+      "request" : "PUT /api/members/{id}",
+      "requestBody" : {
+        "version" : 7,
+        "phone" : "+27 60 555 0009"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Someone else saved changes to this member after you opened the record, so your changes were not saved. Reload the record to see theirs, then make your changes again.",
+        "path" : "/api/members/{id}",
+        "code" : "MEMBER_CHANGED_SINCE",
+        "details" : {
+          "memberId" : "1",
+          "versionOnRecord" : "0",
+          "savedAt" : "2026-09-29T08:00"
+        }
+      }
     }
   }
 }

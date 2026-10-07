@@ -239,6 +239,10 @@ class MonthEndExamplesTest {
                 "{\"size\": 500}"));
         provoked.put(MonthEndRefusalCode.REGISTER_SORT_UNKNOWN, new Example("POST", "/api/members/register/search",
                 "{\"sort\": \"identityNumber,asc\"}"));
+        // V68: an edit of the invented member made on a record saved since it was read -- thrown under MemberController
+        // and answered by the global handler, as STATUS_VIA_CHANGE_STATUS is.
+        provoked.put(MonthEndRefusalCode.MEMBER_CHANGED_SINCE, new Example("PUT", "/api/members/{member}",
+                "{\"version\": 7, \"phone\": \"+27 60 555 0009\"}"));
         return provoked;
     }
 
@@ -279,9 +283,10 @@ class MonthEndExamplesTest {
                 + "membership_number = ?)", MEMBER);
         jdbc.update("UPDATE members SET status = 'Active' WHERE membership_number = ?", MEMBER);
         // A10: last saved on the frozen clock's day -- the status example saves the member again at the wall clock's
-        // time, and the register's figures count the saves of today.
-        jdbc.update("UPDATE members SET updated_at = TIMESTAMP '2026-09-29 08:00:00' WHERE membership_number = ?",
-                MEMBER);
+        // time, and the register's figures count the saves of today. V68: and at version 0, whatever an example before
+        // saved, so a stale edit's refusal names the same version on every run.
+        jdbc.update("UPDATE members SET updated_at = TIMESTAMP '2026-09-29 08:00:00', version = 0 "
+                + "WHERE membership_number = ?", MEMBER);
         // No pack before any example: each asks from nothing, and is answered the same on every run.
         jdbc.update("DELETE FROM month_end_packs");
         // A.1: the invented main street's two visits and no other, numbered from one -- the visit an example records is

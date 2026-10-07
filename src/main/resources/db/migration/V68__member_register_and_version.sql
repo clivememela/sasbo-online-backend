@@ -1,5 +1,17 @@
 -- ---------------------------------------------------------------------------------------------
--- The member register, a page at a time (register row A10) -- the indexes its reads use.
+-- The member register, a page at a time (register row A10) -- the indexes its reads use -- and
+-- a member's version, so an edit made on a stale record is refused rather than saved over it.
+--
+-- THE VERSION (members.version)
+-- Two people editing the same member each saved, and the later save silently undid the
+-- earlier one: a member carried nothing to say which save of the record an edit had read. Now
+-- every save moves the version on (Hibernate's @Version), an edit sends back the version it
+-- read, and a record saved since is refused MEMBER_CHANGED_SINCE.
+--
+-- With care for the members already on record: the column is added NOT NULL with a DEFAULT of
+-- 0, which PostgreSQL records once in the catalogue -- no row is rewritten, so it is instant on
+-- 300 members or 550,000 and every existing member reads as never saved since (version 0). The
+-- DEFAULT stays, so a row written by JDBC -- a seeder, an import -- starts at 0 as well.
 --
 -- WHY THEY EXIST
 -- The register was GET /api/members: every member, every field, in one answer. SASBO has about
@@ -37,7 +49,8 @@
 -- Built inside Flyway's transaction (not CONCURRENTLY): they take a SHARE lock -- reads go on,
 -- writes wait -- for as long as each build takes, which is milliseconds on a demonstration
 -- database and seconds on SASBO's. Applied before the legacy import, they are built on rows that
--- are not there yet.
+-- are not there yet. The version comes LAST: adding a column takes an exclusive lock, held to
+-- the commit, and taken last it holds reads up for a moment rather than through every build.
 -- ---------------------------------------------------------------------------------------------
 
 SET LOCAL lock_timeout = '5s';
@@ -69,3 +82,6 @@ CREATE INDEX members_updated_at ON members (updated_at);
 
 -- A caller's region or area: the members of its workplaces, counted by status and by branch.
 CREATE INDEX members_register_scope ON members (workplace_id, status, branch);
+
+-- Which save of the record this is -- last, for the lock (above).
+ALTER TABLE members ADD COLUMN version BIGINT NOT NULL DEFAULT 0;

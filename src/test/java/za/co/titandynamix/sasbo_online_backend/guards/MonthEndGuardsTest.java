@@ -403,11 +403,6 @@ class MonthEndGuardsTest {
                     + "or table code never leaves the server (MD4, MD37)"),
             Map.entry("GET /api/members/{id}/history", "as open as every member read is today (MR-SEC-1); named in B1's "
                     + "list, and refusing from the day sign-in exists"),
-            Map.entry("POST /api/members/register/search", "the register, a page of slim rows: as open as GET "
-                    + "/api/members while sign-in is open, MEMBERS_VIEW for a signed-in caller, and only the caller's "
-                    + "own region or area (contracts/permissions.md)"),
-            Map.entry("GET /api/members/register/overview", "the register's figures and branches: counts over the "
-                    + "caller's own region or area, no member named"),
             Map.entry("GET /api/month-end/months", "which months are taken, when and by whom: no member, no workplace"),
             Map.entry("GET /api/month-end/{month}", "one month's record -- taken or open, when and by whom: no member, "
                     + "no workplace"),
