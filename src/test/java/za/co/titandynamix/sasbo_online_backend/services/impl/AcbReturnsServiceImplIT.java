@@ -553,7 +553,8 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
                 .suggestedDecision()).isEqualTo(UnpaidDecision.RE_PRESENT);
         assertThat(returns.recordUnpaid(run, stopped, new RecordUnpaidRequest("4", "2026-09-28", null), "system")
                 .suggestedDecision()).isEqualTo(UnpaidDecision.SUSPEND);
-        assertThat(returns.recordUnpaid(run, unknown, new RecordUnpaidRequest("30", "2026-09-28", null), "system")
+        // A code the table does not know suggests nothing: nobody has said it may be presented again (Friday item 10).
+        assertThat(returns.recordUnpaid(run, unknown, new RecordUnpaidRequest("99", "2026-09-28", null), "system")
                 .suggestedDecision()).isNull();
         // A suggestion, never a decision: all three are undecided until the administrator decides.
         assertThat(returns.summary(run).undecided()).isEqualTo(3);

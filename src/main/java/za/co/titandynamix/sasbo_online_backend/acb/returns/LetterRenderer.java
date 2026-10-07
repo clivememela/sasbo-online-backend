@@ -238,14 +238,17 @@ public final class LetterRenderer {
         return Character.toUpperCase(out.charAt(0)) + out.substring(1);
     }
 
-    /** {@code value} trimmed, every control character a space: a line break in a surname is a space in the letter. */
+    /**
+     * {@code value} trimmed, every control character -- and the Unicode line and paragraph separators, U+2028 and
+     * U+2029 -- a space: a line break in a surname is a space in the letter.
+     */
     static String clean(String value) {
         if (value == null) {
             return "";
         }
         StringBuilder out = new StringBuilder(value.length());
         value.codePoints().forEach(cp -> out.appendCodePoint(
-                Character.isISOControl(cp) || cp == ' ' || cp == ' ' ? ' ' : cp));
+                Character.isISOControl(cp) || cp == 0x2028 || cp == 0x2029 ? ' ' : cp));
         return out.toString().trim();
     }
 

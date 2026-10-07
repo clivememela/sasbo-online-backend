@@ -63,7 +63,9 @@ final class LetterSenderFixture {
         JavaMailSender server = mock(JavaMailSender.class);
         when(server.createMimeMessage()).thenAnswer(invocation -> new MimeMessage(Session.getInstance(new Properties())));
         when(mail.getIfAvailable()).thenReturn(server);
-        when(jdbc.update(anyString(), any(), any())).thenReturn(1);
+        // The claim and the status updates are update(sql, Object...); a bare any(), any() would pick the
+        // three-argument update(String, Object[], int[]) instead, and the stub would never match.
+        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
         return server;
     }
 
