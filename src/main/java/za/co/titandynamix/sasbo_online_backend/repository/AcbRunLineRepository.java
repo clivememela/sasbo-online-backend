@@ -54,6 +54,11 @@ public interface AcbRunLineRepository extends JpaRepository<AcbRunLine, Long> {
      * <p>"No live run": a line in a cancelled run is released, so the unpaid it re-presented is
      * offered again when the month is prepared again. The partial unique index on
      * {@code re_presents_line_id} counts only unreleased lines, for the same reason.
+     *
+     * <p>Never one withdrawn because the member came back or rejoined (DOD-26, DOD-27, V72), and never one
+     * whose bank code does not allow a re-debit now -- 4 and 30, 31, 32, 34 never, an unknown code not
+     * until it is set (Stephne, DOD-03, DOD-04): the code table is the authority at every preparation, so
+     * a code corrected after a decision is honoured. A line with no code at all predates the codes.
      */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.RePresentationCandidate("
             + "l.id, l.memberId, l.amount, r.actionMonth, "
@@ -62,6 +67,9 @@ public interface AcbRunLineRepository extends JpaRepository<AcbRunLine, Long> {
             + "WHERE l.runId = r.id "
             + "AND l.outcome = :unpaid AND l.decision = :decision "
             + "AND r.status IN :sent AND r.actionMonth < :month "
+            + "AND l.reDebitWithdrawn IS NULL "
+            + "AND (l.unpaidCode IS NULL OR EXISTS (SELECT c FROM AcbUnpaidCode c "
+            + "                                     WHERE c.code = l.unpaidCode AND c.reDebitAllowed = true)) "
             + "AND NOT EXISTS (SELECT x FROM AcbRunLine x "
             + "                WHERE x.rePresentsLineId = l.id AND x.runReleased = false)")
     List<RePresentationCandidate> findRePresentationCandidates(
@@ -92,6 +100,18 @@ public interface AcbRunLineRepository extends JpaRepository<AcbRunLine, Long> {
     @Query("UPDATE AcbRunLine l SET l.outcome = :paid WHERE l.runId = :runId AND l.outcome = :pending")
     int markPending(@Param("runId") Long runId, @Param("pending") AcbLineOutcome pending,
                     @Param("paid") AcbLineOutcome paid);
+
+    /** {@code [id, actionDate]} of a list of lines -- one query, for the re-debits a preparation weighs (DOD-26). */
+    @Query("SELECT l.id, l.actionDate FROM AcbRunLine l WHERE l.id IN :ids")
+    List<Object[]> findActionDates(@Param("ids") Collection<Long> ids);
+
+    /** A run's lines by the file's sequence numbers -- how the bank's returns report names them (DOD-06). */
+    List<AcbRunLine> findByRunIdAndFileSequenceIn(Long runId, Collection<Integer> fileSequences);
+
+    /** {@code [actionDate, lines, unpaid]} for a run -- its debit days, one returns report each (DOD-06). */
+    @Query("SELECT l.actionDate, count(l), sum(CASE WHEN l.outcome = :unpaid THEN 1 ELSE 0 END) "
+            + "FROM AcbRunLine l WHERE l.runId = :runId GROUP BY l.actionDate ORDER BY l.actionDate")
+    List<Object[]> countByActionDate(@Param("runId") Long runId, @Param("unpaid") AcbLineOutcome unpaid);
 
     /** Lines the bank has answered for -- paid or unpaid. A run with any cannot be recorded as declined (F45). */
     long countByRunIdAndOutcomeNot(Long runId, AcbLineOutcome outcome);

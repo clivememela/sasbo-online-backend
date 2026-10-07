@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * the rest (SD3-L) -- a calendar read per member would make the count grow.
  */
 @DataJpaTest
-@Import({AcbPreparationJob.class, AcbAuditTrail.class, AcbHolidayCalendarSource.class,
+@Import({AcbPreparationJob.class, AcbAuditTrail.class, AcbHolidayCalendarSource.class, AcbUnpaidCounter.class,
         AcbPreparationQueryCountTest.Wiring.class})
 @DisplayName("Preparing a run: statements do not grow with the membership")
 class AcbPreparationQueryCountTest {

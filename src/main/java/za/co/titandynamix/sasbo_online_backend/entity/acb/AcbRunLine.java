@@ -12,9 +12,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
+import za.co.titandynamix.sasbo_online_backend.enums.ReDebitWithdrawal;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 
 /**
@@ -108,4 +110,19 @@ public class AcbRunLine {
     /** The member's permission for a further re-debit in one run (D32) -- never logged, never audited (SD3-D). */
     @Column(name = "permission_note", length = 300)
     private String permissionNote;
+
+    /** The returns batch -- one debit day's report -- that recorded this unpaid (DOD-06, V72); null when by line. */
+    @Column(name = "returns_batch_id")
+    private Long returnsBatchId;
+
+    /**
+     * Why a re-debit decided on is never presented: the member came back (DOD-26) or rejoined (DOD-27). The unpaid
+     * stays UNPAID -- what the bank did is never rewritten (V72).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "re_debit_withdrawn", length = 20)
+    private ReDebitWithdrawal reDebitWithdrawn;
+
+    @Column(name = "re_debit_withdrawn_at")
+    private Instant reDebitWithdrawnAt;
 }

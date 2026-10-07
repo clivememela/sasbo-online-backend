@@ -70,6 +70,40 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
                                                             @Param("unpaid") AcbLineOutcome unpaid,
                                                             @Param("from") LocalDate from);
 
+    /**
+     * Every debit from a sent run since {@code from}, of every member the unpaid count has anything to count for: an
+     * unpaid since {@code from}, an opening arrears position (D24), or a count captured by hand since {@code from}
+     * (DOD-28) -- so a member whose captured count is followed by a debit that was paid is seen to start again at
+     * nought (DOD-20). One query, bounded to the window like the report's (SD3-K).
+     */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.PresentationRow("
+            + "l.memberId, l.membershipNumber, l.surname, l.id, l.actionDate, l.outcome) "
+            + "FROM AcbRunLine l, AcbRun r WHERE l.runId = r.id AND r.status IN :sent AND r.actionMonth >= :from "
+            + "AND (l.memberId IN (SELECT u.memberId FROM AcbRunLine u, AcbRun ur "
+            + "                    WHERE u.runId = ur.id AND ur.status IN :sent AND ur.actionMonth >= :from "
+            + "                    AND u.outcome = :unpaid) "
+            + "     OR l.memberId IN (SELECT p.memberId FROM AcbOpeningPosition p) "
+            + "     OR l.memberId IN (SELECT c.memberId FROM AcbUnpaidCount c WHERE c.countedOn >= :from))")
+    List<PresentationRow> findHistoriesToCount(@Param("sent") Collection<AcbRunStatus> sent,
+                                               @Param("unpaid") AcbLineOutcome unpaid,
+                                               @Param("from") LocalDate from);
+
+    /** One member's debits from sent runs since {@code from} -- the same rule, asked of one member (DOD-03). */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.PresentationRow("
+            + "l.memberId, l.membershipNumber, l.surname, l.id, l.actionDate, l.outcome) "
+            + "FROM AcbRunLine l, AcbRun r WHERE l.runId = r.id AND r.status IN :sent AND r.actionMonth >= :from "
+            + "AND l.memberId = :memberId")
+    List<PresentationRow> findHistoryOf(@Param("memberId") Integer memberId,
+                                        @Param("sent") Collection<AcbRunStatus> sent,
+                                        @Param("from") LocalDate from);
+
+    /** One member's opening arrears position, if the switch-over capture names them (D24). */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.OpeningRow("
+            + "p.memberId, p.membershipNumber, m.surname, p.unpaidsStanding, p.lastUnpaidMonth) "
+            + "FROM AcbOpeningPosition p, Member m WHERE m.id = p.memberId AND p.memberId = :memberId")
+    Optional<za.co.titandynamix.sasbo_online_backend.acb.returns.OpeningRow> findOpeningPositionOf(
+            @Param("memberId") Integer memberId);
+
     /** The opening arrears position, with each member's surname -- one query (D24). */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.OpeningRow("
             + "p.memberId, p.membershipNumber, m.surname, p.unpaidsStanding, p.lastUnpaidMonth) "
@@ -85,14 +119,18 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
             + "CASE WHEN u.permissionNote IS NULL THEN false ELSE true END) "
             + "FROM AcbRunLine u, AcbRun ur "
             + "WHERE u.runId = ur.id AND ur.status IN :sent AND ur.actionMonth < :month "
-            + "AND u.outcome = :unpaid AND u.decision = :decision "
+            + "AND u.outcome = :unpaid AND u.decision = :decision AND u.reDebitWithdrawn IS NULL "
+            + "AND (u.unpaidCode IS NULL OR EXISTS (SELECT c FROM AcbUnpaidCode c "
+            + "                                     WHERE c.code = u.unpaidCode AND c.reDebitAllowed = true)) "
             + "AND NOT EXISTS (SELECT x FROM AcbRunLine x WHERE x.rePresentsLineId = u.id AND x.runReleased = false) "
             + "AND EXISTS (SELECT m FROM AcbRunLine m WHERE m.runId = :runId AND m.memberId = u.memberId "
             + "            AND m.runReleased = false) "
             + "ORDER BY u.memberId, ur.actionMonth, u.id",
             countQuery = "SELECT count(u) FROM AcbRunLine u, AcbRun ur "
             + "WHERE u.runId = ur.id AND ur.status IN :sent AND ur.actionMonth < :month "
-            + "AND u.outcome = :unpaid AND u.decision = :decision "
+            + "AND u.outcome = :unpaid AND u.decision = :decision AND u.reDebitWithdrawn IS NULL "
+            + "AND (u.unpaidCode IS NULL OR EXISTS (SELECT c FROM AcbUnpaidCode c "
+            + "                                     WHERE c.code = u.unpaidCode AND c.reDebitAllowed = true)) "
             + "AND NOT EXISTS (SELECT x FROM AcbRunLine x WHERE x.rePresentsLineId = u.id AND x.runReleased = false) "
             + "AND EXISTS (SELECT m FROM AcbRunLine m WHERE m.runId = :runId AND m.memberId = u.memberId "
             + "            AND m.runReleased = false)")
@@ -116,6 +154,12 @@ public interface AcbReturnsRepository extends Repository<AcbRunLine, Long> {
             + "AND rl.runId = :runId AND l.status IN :held")
     Page<HeldLetterRow> findHeldLetters(@Param("runId") Long runId, @Param("held") Collection<LetterStatus> held,
                                         Pageable pageable);
+
+    /** What letters need of a list of members -- one query, for a debit day's returns report (DOD-06). */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient("
+            + "m.id, m.title, m.address, m.personalEmail, m.workEmail, m.preferredEmail, a.name) "
+            + "FROM Member m LEFT JOIN m.area a WHERE m.id IN :memberIds")
+    List<LetterRecipient> findRecipients(@Param("memberIds") Collection<Integer> memberIds);
 
     /** What a letter needs of the member it goes to. */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.returns.LetterRecipient("
