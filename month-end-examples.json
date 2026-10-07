@@ -626,7 +626,7 @@
         "nonMembers" : null,
         "recruited" : null,
         "nonMembersInterviewed" : null,
-        "createdBy" : "system",
+        "createdBy" : "Invented Organiser (organiser)",
         "createdAt" : "2026-09-29T08:00:00Z",
         "updatedAt" : "2026-09-29T08:00:00Z",
         "submittedBy" : null,
@@ -727,7 +727,7 @@
         "createdBy" : "system",
         "createdAt" : "2026-09-28T15:00:00Z",
         "updatedAt" : "2026-09-29T08:00:00Z",
-        "submittedBy" : "system",
+        "submittedBy" : "Invented Organiser (organiser)",
         "submittedAt" : "2026-09-29T08:00:00Z",
         "visitId" : 3,
         "version" : 1
