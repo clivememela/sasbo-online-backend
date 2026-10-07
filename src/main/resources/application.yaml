@@ -126,6 +126,11 @@ acb:
     user-branch: ${ACB_FILE_USER_BRANCH:}
     nominated-account: ${ACB_FILE_NOMINATED_ACCOUNT:}
     bank-identifiers: ${ACB_FILE_BANK_IDENTIFIERS:}
+  letters:
+    # The debit order letters come from, and members reply to, the address Stephne named (DOD-34). The mail
+    # server must be allowed to send as it. Sending itself stays off until SASBO agree the letters
+    # (acb.letters.send-enabled, false by default).
+    from: ${ACB_LETTERS_FROM:members@sasbo.org.za}
 
 # THE PRODUCTION MARKER. Set SASBO_ENVIRONMENT=production on the production service, once, the day it
 # is created -- and nowhere else: not on dev.sasbo.online, not in CI, not in the E2E stack. Where it says
@@ -138,3 +143,8 @@ sasbo:
   # `all`; unset is `none`, and any other word stops the start. Off unless it is set: set it on a hosted stack only
   # on SASBO's word (MM79). The suite's compose sets it for the local run.
   workplaces: ${SASBO_WORKPLACES:}
+  letters:
+    # THE LETTERS' TYPEFACE, one setting (the owner's decision, 6 Oct 2026): TeX Gyre Adventor, the free look of
+    # SASBO's Avant Garde, until a licensed Avant Garde is in hand. A folder of regular.ttf (bold.ttf, italic.ttf
+    # optional), classpath: or file: -- config/fonts/README.md. A font that cannot be used stops the start-up.
+    font: ${SASBO_LETTERS_FONT:classpath:fonts/letters/adventor/}

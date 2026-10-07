@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbActor;
 import za.co.titandynamix.sasbo_online_backend.acb.opening.OpeningPositionSheet;
+import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbBankCodeDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbBanksDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
@@ -119,6 +120,7 @@ public class ACBController {
     private final AcbCodeService codes;
     private final AcbUnpaidCountService unpaidCounts;
     private final AcbDebitDayService debitDays;
+    private final LetterDocument letters;
 
     @GetMapping("/runs")
     public AcbPage<AcbRunSummaryDto> listRuns(@RequestParam(defaultValue = "0") int page,
@@ -370,12 +372,14 @@ public class ACBController {
     }
 
     /**
-     * 03.3 -- a specimen of one of the union's letters, as a PDF on the letterhead, for the letters review
-     * SASBO asked for (question 32 c). Synthetic from the address to the account, so it reads openly, like the
-     * holiday calendar: no member's letter is ever served here.
+     * A preview of one of the debit order letters, as a PDF on the letterhead in the modern layout, for SASBO's
+     * letters review ("show it to us", DOD-33), the screens and the deck. Invented from the name to the account: no
+     * member's letter is ever served here. Behind {@code DOD_PREPARE}, the permission of whoever records the unpaids
+     * the letters go out for (contracts/permissions.md).
      */
-    // No `produces` on the mapping: a template that is not one of the six must still answer the JSON
+    // No `produces` on the mapping: a template that is not one of the letters must still answer the JSON
     // envelope (REQUEST_MALFORMED), and a PDF-only mapping would refuse to write it.
+    @PreAuthorize("hasAuthority('DOD_PREPARE')")
     @GetMapping("/letters/specimen/{template}")
     public ResponseEntity<byte[]> letterSpecimen(
             @PathVariable("template") za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template) {
@@ -383,7 +387,7 @@ public class ACBController {
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "inline; filename=\"specimen-" + template.name().toLowerCase(java.util.Locale.ROOT) + ".pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
-                .body(returns.letterSpecimen(template));
+                .body(letters.specimen(template));
     }
 
     /**

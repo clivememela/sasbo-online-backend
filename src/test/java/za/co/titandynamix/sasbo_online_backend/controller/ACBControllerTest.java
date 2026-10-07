@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
@@ -133,6 +134,9 @@ class ACBControllerTest {
 
     @MockitoBean
     private za.co.titandynamix.sasbo_online_backend.services.AcbDebitDayService debitDays;
+
+    @MockitoBean
+    private LetterDocument letters;
 
     @Autowired
     private MeterRegistry meters;
@@ -636,7 +640,7 @@ class ACBControllerTest {
     @Test
     @DisplayName("03.3 a letter specimen is a PDF, inline, named for its template -- and a template that is not one is malformed")
     void aLetterSpecimenIsAPdf() throws Exception {
-        when(returns.letterSpecimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate.RE_DEBIT))
+        when(letters.specimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate.RE_DEBIT))
                 .thenReturn("%PDF-1.7 specimen".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
 
         this.mockMvc.perform(get("/api/acb/letters/specimen/RE_DEBIT"))

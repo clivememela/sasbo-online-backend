@@ -15,6 +15,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
@@ -85,6 +86,9 @@ class ACBControllerSecurityTest {
 
     @MockitoBean
     private AcbCodeService codes;
+
+    @MockitoBean
+    private LetterDocument letters;
 
     @MockitoBean
     private AcbUnpaidCountService unpaidCounts;

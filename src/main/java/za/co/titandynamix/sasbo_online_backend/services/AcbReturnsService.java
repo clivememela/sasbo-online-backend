@@ -106,13 +106,6 @@ public interface AcbReturnsService {
     AcbTerminationReportDto terminationReport(int page, int size);
 
     /**
-     * 03.3 -- a SPECIMEN of one of the union's three letters, as the member would receive it: a PDF on the
-     * letterhead, filled from a member who does not exist. It is what the letters review SASBO asked for reads
-     * (question 32 c).
-     */
-    byte[] letterSpecimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template);
-
-    /**
      * 03.5 -- terminates a member the termination rule says three unpaid presentations have reached, through
      * {@code MemberService.changeStatus} with the reason {@code SUBS_IN_ARREARS} and never the whole-record
      * update (Q25, Q27, R3-9). Refuses a member the rule does not reach ({@code TERMINATION_NOT_DUE}); a member

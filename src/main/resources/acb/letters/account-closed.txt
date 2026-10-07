@@ -1,35 +1,20 @@
-SASBO THE FINANCE UNION · PRIVATE BAG X84 · BRYANSTON · 2021
-TEL : 011 467 0192 · FAX : 011 467 0188
-                                                              Area : {{area}}
-
-{{letterDate}}
-
-{{memberTitle}} {{memberInitials}} {{memberSurname}}
-{{addressLine1}}
-{{addressLine2}}
-{{addressLine3}}
-{{postalCode}}
+# Your debit order for {{debitMonthYear}} was returned: account closed
 
 Dear {{salutationName}}
 
-RE : YOUR MEMBERSHIP NUMBER : {{membershipNumber}}
+Your bank returned your SASBO subscription debit order for {{debitMonthYear}} unpaid, because the account it is drawn
+on has been closed.
 
-Your SASBO subscription debit order for the month of {{debitMonthUpper}}
-was returned with the notation "ACCOUNT CLOSED".
+| Subscription for | {{debitMonthYear}}
+| Amount | {{amount}}
+| Debit date | {{debitDate}}
+| Bank's reason | {{unpaidReason}}
+| Bank account | {{bankName}} {{accountNumber}}
 
-It would be appreciated if you would advise us if you have left the
-service of the bank, or alternately, supply your new banking details
-in order to retain membership of the union.
+## What you need to do
 
-Due to the fact that the National Council has decided not to represent
-members who are in arrears, it is in your best interest to clarify
-your present situation.
+- If you have left your employer, please let us know.
+- If you have not, please send us your new banking details, so that your membership can continue.
 
-We thank you for your anticipated co-operation.
-
-Yours sincerely
-
-Administration Department
-
-(Registered as a Trade Union in terms of the Labour Relations Act 1995)
-(Geregistreer as Vakbond luidens die Wet op Arbeidsverhoudings 1995)
+SASBO's National Council has decided that the union does not represent members who are in arrears, so please let us
+know as soon as you can.

@@ -1,37 +1,21 @@
-SASBO THE FINANCE UNION · PRIVATE BAG X84 · BRYANSTON · 2021
-TEL : 011 467 0192 · FAX : 011 467 0188
-                                                              Area : {{area}}
+# Your debit order for {{debitMonthYear}} was returned: no authority to debit
 
-{{letterDate}}
+Dear {{salutationName}}
 
-{{memberTitle}} {{memberInitials}} {{memberSurname}}
-{{addressLine1}}
-{{addressLine2}}
-{{addressLine3}}
-{{postalCode}}
+Your bank returned your SASBO subscription debit order for {{debitMonthYear}} unpaid, because it holds no authority
+for SASBO to debit your account.
 
-Dear Member
+| Subscription for | {{debitMonthYear}}
+| Amount | {{amount}}
+| Debit date | {{debitDate}}
+| Bank's reason | {{unpaidReason}}
+| Bank account | {{bankName}} {{accountNumber}}
 
-MEMBERSHIP NO: {{membershipNumber}}            ACCOUNT NO :   {{accountNumber}}
-{{bankName}}                                   {{branchLabel}}
+Under the debit order rules, we cannot present this debit order again, so your subscription for {{debitMonthYear}}
+has not been paid. Until this is sorted out, your membership may be suspended.
 
-We wish to advise that a debit in respect of your subscriptions to
-Sasbo for the month of {{debitMonthUpper}} has been returned
-unpaid with the answer : {{unpaidReason}}.
+## What you need to do
 
-It would be appreciated if you would contact us regarding
-the above action in order to clarify this matter,
-thereby ensuring that we can update our records.
-
-Please bear in mind that in the event of your wanting to cancel your
-membership, in terms of the original application signed, you are
-required to do so in writing.
-
-Your early response would be appreciated.
-
-Yours sincerely
-
-Administration Department
-
-(Registered as a Trade Union in terms of the Labour Relations Act 1995)
-(Geregistreer as Vakbond luidens die Wet op Arbeidsverhoudings 1995)
+- To keep paying your subscription by debit order, please contact us to authorise a new debit order.
+- If you meant to cancel your membership, please tell us in writing, as your signed membership application
+requires.

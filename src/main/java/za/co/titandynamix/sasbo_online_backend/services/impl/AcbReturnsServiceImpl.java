@@ -767,12 +767,6 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     }
 
     @Override
-    public byte[] letterSpecimen(LetterTemplate template) {
-        return za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument.specimen(template,
-                AcbTime.today(clock));
-    }
-
-    @Override
     public AcbMemberStatusDto terminate(Integer memberId, String actor) {
         return terminate(memberId, actor, AcbTime.instant(clock));
     }
