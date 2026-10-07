@@ -23,7 +23,23 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import za.co.titandynamix.sasbo_online_backend.acb.returns.LetterDocument;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbBankCodeDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbBanksDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCodesDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbDebitDayMoveDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbDebitDaysDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsBatchDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbUnpaidCountDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbUnpaidCountsResultDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.CodeAddRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.CodeChangeRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.DebitDayMoveRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberReturnRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.ReturnsBatchRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.SuspendMemberRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.UnpaidCountsRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbExclusionSummaryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
@@ -42,6 +58,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberSearchRequest;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.ReDebit;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterStatus;
@@ -57,6 +74,7 @@ import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
 import za.co.titandynamix.sasbo_online_backend.support.LogCapture;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -64,9 +82,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -589,6 +609,401 @@ class ACBControllerTest {
                 // Q27: one reading, so the report no longer carries the other one's columns.
                 .andExpect(jsonPath("$.members.content[0].retriesOnly").doesNotExist())
                 .andExpect(jsonPath("$.members.content[0].everyUnpaidCounts").doesNotExist());
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The October routes (contracts/dod-api.md v2): each answers through its service, and a body that breaks its own
+    // shape is refused before any service is asked. Who may call each one is ACBControllerSecurityTest's table.
+    // ------------------------------------------------------------------------------------------
+
+    private static AcbBankCodeDto aCode(String bankCode, int version) {
+        return new AcbBankCodeDto(bankCode, UnpaidReason.PAYMENT_STOPPED, "Payment stopped", ReDebit.NO, "SHEET", 16,
+                "Unpaid debit order", false, "As the sheet has it", "SHEET", "system", "2026-10-07T10:00+02:00", version);
+    }
+
+    private static AcbMemberStatusDto aMemberStatus(String status) {
+        return new AcbMemberStatusDto(7, "M-200001", status, "Payment stopped", 16, null, null, null, null, null);
+    }
+
+    @Test
+    @DisplayName("DOD-06: a run's debit days, each with how far its returns report has come back")
+    void aRunsDebitDays() throws Exception {
+        when(returns.debitDays(41L)).thenReturn(new AcbDebitDaysDto(41L, List.of(
+                new AcbDebitDaysDto.Day("2026-10-20", 12, 2, 1), new AcbDebitDaysDto.Day("2026-10-25", 30, 0, 0))));
+
+        this.mockMvc.perform(get("/api/acb/runs/41/debit-days"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.runId").value(41))
+                .andExpect(jsonPath("$.days[0].actionDate").value("2026-10-20"))
+                .andExpect(jsonPath("$.days[0].unpaid").value(2))
+                .andExpect(jsonPath("$.days[1].batches").value(0));
+    }
+
+    @Test
+    @DisplayName("a run id that is not a number is REQUEST_MALFORMED naming it -- the debit days are never read")
+    void aDebitDaysRunIdMustBeANumber() throws Exception {
+        this.mockMvc.perform(get("/api/acb/runs/forty-one/debit-days"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andExpect(jsonPath("$.details.field").value("id"));
+        verifyNoInteractions(returns);
+    }
+
+    @Test
+    @DisplayName("DOD-07: a debit day's returns report goes in whole -- every entry passed through, the batch answered")
+    void aReturnsReportGoesInWhole() throws Exception {
+        ReturnsBatchRequest request = new ReturnsBatchRequest("2026-10-20", "2026-10-23", List.of(
+                new ReturnsBatchRequest.Entry(3L, null, "4", UnpaidDecision.RE_PRESENT),
+                new ReturnsBatchRequest.Entry(null, 17, "2", null)));
+        when(returns.recordReturnsBatch(41L, request, "system")).thenReturn(new AcbReturnsBatchDto(5L, 41L,
+                "2026-10-20", "2026-10-23", "TYPED", 2, 2, 0, 2, "system", "2026-10-23T10:00+02:00", List.of()));
+
+        this.mockMvc.perform(post("/api/acb/runs/41/returns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5))
+                .andExpect(jsonPath("$.actionDate").value("2026-10-20"))
+                .andExpect(jsonPath("$.recorded").value(2))
+                .andExpect(jsonPath("$.lettersQueued").value(2));
+        verify(returns).recordReturnsBatch(41L, request, "system");
+    }
+
+    @Test
+    @DisplayName("a returns report without its debit day or entries, with an entry without a code, or over 1,000 "
+            + "entries is a 400 naming each -- the service is never asked")
+    void aReturnsReportIsShapedAndBounded() throws Exception {
+        this.mockMvc.perform(post("/api/acb/runs/41/returns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.actionDate").exists())
+                .andExpect(jsonPath("$.validationErrors.entries").exists());
+
+        this.mockMvc.perform(post("/api/acb/runs/41/returns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actionDate\": \"2026-10-20\", \"entries\": [{\"lineId\": 3, \"code\": \" \"}]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors['entries[0].code']").exists());
+
+        String tooMany = objectMapper.writeValueAsString(new ReturnsBatchRequest("2026-10-20", null,
+                Collections.nCopies(1001, new ReturnsBatchRequest.Entry(3L, null, "4", null))));
+        this.mockMvc.perform(post("/api/acb/runs/41/returns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tooMany))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.entries").exists());
+        verifyNoInteractions(returns);
+    }
+
+    @Test
+    @DisplayName("a returns report with problems is a 422 RETURNS_BATCH_INVALID with what the service named")
+    void aReturnsReportWithProblemsIsRefused() throws Exception {
+        ReturnsBatchRequest request = new ReturnsBatchRequest("2026-10-20", null,
+                List.of(new ReturnsBatchRequest.Entry(null, 999, "4", null)));
+        when(returns.recordReturnsBatch(41L, request, "system")).thenThrow(new AcbRefusal(
+                AcbRefusalCode.RETURNS_BATCH_INVALID, "1 entry on this report has a problem, so nothing was recorded.",
+                Map.of("problems", "1")));
+
+        this.mockMvc.perform(post("/api/acb/runs/41/returns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("RETURNS_BATCH_INVALID"))
+                .andExpect(jsonPath("$.details.problems").value("1"));
+    }
+
+    @Test
+    @DisplayName("the returns reports typed in for a run are a page; a page that is not a number is malformed")
+    void theReturnsReportsAreAPage() throws Exception {
+        when(returns.returnsBatches(41L, 0, 50)).thenReturn(new AcbPage<>(List.of(new AcbReturnsBatchDto(5L, 41L,
+                "2026-10-20", null, "TYPED", 1, 1, 0, 1, "system", "2026-10-23T10:00+02:00", List.of())), 0, 50, 1, 1));
+
+        this.mockMvc.perform(get("/api/acb/runs/41/returns/batches"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].actionDate").value("2026-10-20"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        this.mockMvc.perform(get("/api/acb/runs/41/returns/batches").param("page", "first"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andExpect(jsonPath("$.details.field").value("page"));
+        verify(returns).returnsBatches(41L, 0, 50);
+        verifyNoMoreInteractions(returns);
+    }
+
+    @Test
+    @DisplayName("DOD-28: counts captured by hand go to the service as one list; the counts on record are a page")
+    void unpaidCountsCapturedByHand() throws Exception {
+        UnpaidCountsRequest request = new UnpaidCountsRequest("Switch-over sheet",
+                List.of(new UnpaidCountsRequest.Entry("M-200001", 2), new UnpaidCountsRequest.Entry("M-200002", 3)));
+        when(unpaidCounts.capture(request, "system")).thenReturn(new AcbUnpaidCountsResultDto(2, 0, "2026-10-07", 1));
+
+        this.mockMvc.perform(put("/api/acb/unpaid-counts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.captured").value(2))
+                .andExpect(jsonPath("$.atThree").value(1));
+        verify(unpaidCounts).capture(request, "system");
+
+        when(unpaidCounts.list(0, 50)).thenReturn(new AcbPage<>(List.of(new AcbUnpaidCountDto(7, "M-200001",
+                "Specimen", 2, "2026-10-07", "Switch-over sheet", "system", "2026-10-07T10:00+02:00")), 0, 50, 1, 1));
+        this.mockMvc.perform(get("/api/acb/unpaid-counts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].membershipNumber").value("M-200001"))
+                .andExpect(jsonPath("$.content[0].unpaidCount").value(2))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("a count list without its source or rows, or over 2,000 rows, is a 400 naming the field -- nothing "
+            + "captured; a list with bad rows is a 422 UNPAID_COUNTS_INVALID")
+    void aCountListIsShapedAndBounded() throws Exception {
+        this.mockMvc.perform(put("/api/acb/unpaid-counts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"entries\": []}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.source").exists())
+                .andExpect(jsonPath("$.validationErrors.entries").exists());
+
+        String tooMany = objectMapper.writeValueAsString(new UnpaidCountsRequest("Switch-over sheet",
+                Collections.nCopies(2001, new UnpaidCountsRequest.Entry("M-200001", 1))));
+        this.mockMvc.perform(put("/api/acb/unpaid-counts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(tooMany))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.entries").exists());
+        verifyNoInteractions(unpaidCounts);
+
+        UnpaidCountsRequest four = new UnpaidCountsRequest("Switch-over sheet",
+                List.of(new UnpaidCountsRequest.Entry("M-200001", 4)));
+        when(unpaidCounts.capture(four, "system")).thenThrow(new AcbRefusal(AcbRefusalCode.UNPAID_COUNTS_INVALID,
+                "1 row on this list has a problem, so nothing was captured.", Map.of("problems", "1")));
+        this.mockMvc.perform(put("/api/acb/unpaid-counts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(four)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("UNPAID_COUNTS_INVALID"));
+    }
+
+    @Test
+    @DisplayName("DOD-01: the codes both ways round; a change carries the version the screen saw; an addition is a 201")
+    void theCodes() throws Exception {
+        when(codes.codes()).thenReturn(new AcbCodesDto(List.of(aCode("4", 1)),
+                List.of(new AcbCodesDto.SuspensionCode(16, "Unpaid debit order", List.of("4")))));
+        this.mockMvc.perform(get("/api/acb/codes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bankCodes[0].bankCode").value("4"))
+                .andExpect(jsonPath("$.bankCodes[0].reDebit").value("NO"))
+                .andExpect(jsonPath("$.suspensionCodes[0].bankCodes[0]").value("4"));
+
+        CodeChangeRequest change = new CodeChangeRequest(1, ReDebit.YES, 16, "Payment stopped", false,
+                "Changed after the returns review");
+        when(codes.change("4", change, "system")).thenReturn(aCode("4", 2));
+        this.mockMvc.perform(put("/api/acb/codes/4")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(change)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2));
+        verify(codes).change("4", change, "system");
+
+        CodeAddRequest addition = new CodeAddRequest("99", UnpaidReason.OTHER, "A code the bank added",
+                ReDebit.UNKNOWN, null, "Seen on a returns report");
+        when(codes.add(addition, "system")).thenReturn(aCode("99", 0));
+        this.mockMvc.perform(post("/api/acb/codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addition)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.bankCode").value("99"));
+        verify(codes).add(addition, "system");
+    }
+
+    @Test
+    @DisplayName("a code change missing its version, rule, wording, flag or note -- or a bank code that is not one to "
+            + "three digits -- is a 400 naming each; the service is never asked")
+    void aCodeChangeNamesWhatIsMissing() throws Exception {
+        this.mockMvc.perform(put("/api/acb/codes/4")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.version").exists())
+                .andExpect(jsonPath("$.validationErrors.reDebit").exists())
+                .andExpect(jsonPath("$.validationErrors.wording").exists())
+                .andExpect(jsonPath("$.validationErrors.provisional").exists())
+                .andExpect(jsonPath("$.validationErrors.note").exists());
+
+        this.mockMvc.perform(post("/api/acb/codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CodeAddRequest("1234", UnpaidReason.OTHER,
+                                "Four digits", ReDebit.UNKNOWN, null, "A note"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.bankCode").exists());
+        verifyNoInteractions(codes);
+    }
+
+    @Test
+    @DisplayName("a code someone changed first is a 409 CODE_VERSION_CONFLICT carrying its version now")
+    void aStaleCodeChangeIsRefused() throws Exception {
+        CodeChangeRequest change = new CodeChangeRequest(1, ReDebit.YES, null, "Payment stopped", true, "A note");
+        when(codes.change("4", change, "system")).thenThrow(new AcbRefusal(AcbRefusalCode.CODE_VERSION_CONFLICT,
+                "Someone changed code 4 first. Open it again and make the change on what is there now.",
+                Map.of("bankCode", "4", "version", "2")));
+
+        this.mockMvc.perform(put("/api/acb/codes/4")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(change)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CODE_VERSION_CONFLICT"))
+                .andExpect(jsonPath("$.details.version").value("2"));
+    }
+
+    @Test
+    @DisplayName("DOD-17: whether a day the bank is closed moves its debits -- the choice passed on; none is a 400")
+    void theBankClosureSetting() throws Exception {
+        when(calendar.setting(false, "system")).thenReturn(
+                new AcbCalendarDto("za-statutory", "2027-12-31", false, 2026, false, List.of()));
+        this.mockMvc.perform(put("/api/acb/calendar/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bankClosuresCount\": false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bankClosuresCount").value(false));
+        verify(calendar).setting(false, "system");
+
+        this.mockMvc.perform(put("/api/acb/calendar/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.bankClosuresCount").exists());
+        verifyNoMoreInteractions(calendar);
+    }
+
+    @Test
+    @DisplayName("DOD-19: the banks counted by day; a move previewed changes nothing, and made, carries the count "
+            + "the preview showed")
+    void aBanksDebitDayMove() throws Exception {
+        when(debitDays.banks()).thenReturn(new AcbBanksDto(List.of(new AcbBanksDto.Bank(3, "Invented Bank", 25, 40,
+                Map.of("20", 2, "25", 38)))));
+        this.mockMvc.perform(get("/api/acb/banks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.banks[0].debitOrderMembers").value(40))
+                .andExpect(jsonPath("$.banks[0].byDay['20']").value(2));
+
+        when(debitDays.preview(3, 25)).thenReturn(new AcbDebitDayMoveDto(3, "Invented Bank", 25, 2, 38,
+                Map.of("20", 2), List.of(), null));
+        this.mockMvc.perform(get("/api/acb/banks/3/debit-day-move").param("day", "25"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.toMove").value(2))
+                .andExpect(jsonPath("$.alreadyOnDay").value(38));
+        verify(debitDays).preview(3, 25);
+
+        DebitDayMoveRequest move = new DebitDayMoveRequest(25, 2);
+        when(debitDays.move(3, move, "system")).thenReturn(new AcbDebitDayMoveDto(3, "Invented Bank", 25, 0, 40,
+                Map.of(), List.of(), 2));
+        this.mockMvc.perform(post("/api/acb/banks/3/debit-day-move")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(move)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.moved").value(2));
+        verify(debitDays).move(3, move, "system");
+    }
+
+    @Test
+    @DisplayName("a move without its day or expected count is a 400 naming both, and a preview without a day is "
+            + "malformed -- nothing is asked; a move the members outran is a 409 MOVE_COUNT_CHANGED")
+    void aMoveNeedsItsDayAndCount() throws Exception {
+        this.mockMvc.perform(post("/api/acb/banks/3/debit-day-move")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.newDay").exists())
+                .andExpect(jsonPath("$.validationErrors.expectedCount").exists());
+
+        this.mockMvc.perform(get("/api/acb/banks/3/debit-day-move"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andExpect(jsonPath("$.details.field").value("day"));
+        verifyNoInteractions(debitDays);
+
+        DebitDayMoveRequest move = new DebitDayMoveRequest(25, 2);
+        when(debitDays.move(3, move, "system")).thenThrow(new AcbRefusal(AcbRefusalCode.MOVE_COUNT_CHANGED,
+                "The bank's members changed since the preview, so nothing was moved.",
+                Map.of("expected", "2", "now", "3")));
+        this.mockMvc.perform(post("/api/acb/banks/3/debit-day-move")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(move)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MOVE_COUNT_CHANGED"))
+                .andExpect(jsonPath("$.details.now").value("3"));
+    }
+
+    @Test
+    @DisplayName("DOD-12, DOD-22, DOD-25, DOD-27: suspending, ending, reactivating and rejoining each answer the "
+            + "member's status -- a body is optional, and passed through when sent")
+    void aMembersStatusChanges() throws Exception {
+        when(returns.suspendMember(41L, 3L, null, "system")).thenReturn(aMemberStatus("Suspended"));
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/suspend-member"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Suspended"))
+                .andExpect(jsonPath("$.suspensionCode").value(16));
+        verify(returns).suspendMember(41L, 3L, null, "system");
+
+        SuspendMemberRequest another = new SuspendMemberRequest(17, "The bank's code names none yet");
+        when(returns.suspendMember(41L, 3L, another, "system")).thenReturn(aMemberStatus("Suspended"));
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/suspend-member")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(another)))
+                .andExpect(status().isOk());
+        verify(returns).suspendMember(41L, 3L, another, "system");
+
+        when(returns.terminate(7, "system")).thenReturn(aMemberStatus("Terminated"));
+        this.mockMvc.perform(post("/api/acb/termination-report/7/terminate"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Terminated"));
+
+        when(returns.reactivate(7, null, "system")).thenReturn(aMemberStatus("Active"));
+        this.mockMvc.perform(post("/api/acb/members/7/reactivate"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Active"));
+
+        MemberReturnRequest rejoining = new MemberReturnRequest("2026-11-01", null);
+        when(returns.rejoin(7, rejoining, "system")).thenReturn(aMemberStatus("Active"));
+        this.mockMvc.perform(post("/api/acb/members/7/rejoin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(rejoining)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.membershipNumber").value("M-200001"));
+        verify(returns).rejoin(7, rejoining, "system");
+    }
+
+    @Test
+    @DisplayName("a note over 500 characters, or a member id that is not a number, is refused before anything "
+            + "changes; rejoining a member whose membership has not ended is a 409 MEMBER_NOT_ENDED")
+    void aMembersStatusChangeIsShaped() throws Exception {
+        String note = "n".repeat(501);
+        this.mockMvc.perform(post("/api/acb/runs/41/lines/3/suspend-member")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new SuspendMemberRequest(16, note))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.note").exists());
+        this.mockMvc.perform(post("/api/acb/members/7/reactivate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new MemberReturnRequest(null, note))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.note").exists());
+        this.mockMvc.perform(post("/api/acb/members/seven/rejoin"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"))
+                .andExpect(jsonPath("$.details.field").value("memberId"));
+        verifyNoInteractions(returns);
+
+        when(returns.rejoin(7, null, "system")).thenThrow(new AcbRefusal(AcbRefusalCode.MEMBER_NOT_ENDED,
+                "Only a member whose membership ended joins again. This member is Active.",
+                Map.of("status", "Active")));
+        this.mockMvc.perform(post("/api/acb/members/7/rejoin"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MEMBER_NOT_ENDED"))
+                .andExpect(jsonPath("$.details.status").value("Active"));
     }
 
     // ------------------------------------------------------------------------------------------
