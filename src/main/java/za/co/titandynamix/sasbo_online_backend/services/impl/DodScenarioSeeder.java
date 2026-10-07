@@ -20,6 +20,9 @@ import za.co.titandynamix.sasbo_online_backend.enums.AcbHolidayKind;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunlessEvent;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbDebitDayService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbUnpaidCountService;
 
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -86,16 +89,16 @@ public class DodScenarioSeeder {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final Clock clock;
-    private final AcbReturnsServiceImpl returns;
-    private final AcbUnpaidCountServiceImpl counts;
-    private final AcbDebitDayServiceImpl debitDays;
+    private final AcbReturnsService returns;
+    private final AcbUnpaidCountService counts;
+    private final AcbDebitDayService debitDays;
     private final AcbCalendarService calendar;
     private final HolidayCalendarSource calendars;
     private final AcbAuditTrail audit;
 
     public DodScenarioSeeder(SasboEnvironment environment, JdbcTemplate jdbc, PlatformTransactionManager transactions,
-                             Clock clock, AcbReturnsServiceImpl returns, AcbUnpaidCountServiceImpl counts,
-                             AcbDebitDayServiceImpl debitDays, AcbCalendarService calendar,
+                             Clock clock, AcbReturnsService returns, AcbUnpaidCountService counts,
+                             AcbDebitDayService debitDays, AcbCalendarService calendar,
                              HolidayCalendarSource calendars, AcbAuditTrail audit) {
         this.environment = environment;
         this.jdbc = jdbc;

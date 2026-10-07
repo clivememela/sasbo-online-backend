@@ -23,4 +23,7 @@ public interface AcbDebitDayService {
      * the same day moves nobody and answers so.
      */
     AcbDebitDayMoveDto move(int bankId, DebitDayMoveRequest request, String actor);
+
+    /** The move dated {@code at} -- for the demonstration seed's past. The route moves now. */
+    AcbDebitDayMoveDto move(int bankId, DebitDayMoveRequest request, String actor, java.time.Instant at);
 }

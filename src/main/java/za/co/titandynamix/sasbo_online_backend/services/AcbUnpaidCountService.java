@@ -20,4 +20,7 @@ public interface AcbUnpaidCountService {
      * list captured twice the same day changes nothing the second time.
      */
     AcbUnpaidCountsResultDto capture(UnpaidCountsRequest request, String actor);
+
+    /** The capture as at {@code at} -- for the demonstration seed's past. The route captures as at now. */
+    AcbUnpaidCountsResultDto capture(UnpaidCountsRequest request, String actor, java.time.Instant at);
 }

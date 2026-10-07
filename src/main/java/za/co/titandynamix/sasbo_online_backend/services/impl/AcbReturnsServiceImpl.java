@@ -781,7 +781,8 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
      * The ending at {@code at} -- the seed's past, or now. A staff member confirms each one (DOD-22); the member gets
      * a short letter (DOD-24), hung on the last unpaid the count holds. Asked again it changes nothing.
      */
-    AcbMemberStatusDto terminate(Integer memberId, String actor, Instant at) {
+    @Override
+    public AcbMemberStatusDto terminate(Integer memberId, String actor, Instant at) {
         return tx.execute(state -> {
             Member current = memberService.findById(memberId).orElseThrow(() -> memberNotFound(memberId));
             AcbUnpaidCounter.Counted counted = counter.of(memberId);
@@ -829,7 +830,9 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     }
 
     /** The suspension at {@code at} -- the seed's past, or now. */
-    AcbMemberStatusDto suspendMember(long runId, long lineId, SuspendMemberRequest request, String actor, Instant at) {
+    @Override
+    public AcbMemberStatusDto suspendMember(long runId, long lineId, SuspendMemberRequest request, String actor,
+                                            Instant at) {
         return tx.execute(state -> {
             AcbRunLine line = requireLine(runId, lineId);
             if (line.getOutcome() != AcbLineOutcome.UNPAID || line.getDecision() != UnpaidDecision.SUSPEND) {
@@ -884,7 +887,8 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     }
 
     /** The reactivation at {@code at} -- the seed's past, or now. */
-    AcbMemberStatusDto reactivate(Integer memberId, MemberReturnRequest request, String actor, Instant at) {
+    @Override
+    public AcbMemberStatusDto reactivate(Integer memberId, MemberReturnRequest request, String actor, Instant at) {
         String note = noteOf(request);
         return tx.execute(state -> {
             Member current = memberService.findById(memberId).orElseThrow(() -> memberNotFound(memberId));

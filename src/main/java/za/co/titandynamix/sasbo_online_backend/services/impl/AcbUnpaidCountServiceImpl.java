@@ -91,7 +91,8 @@ public class AcbUnpaidCountServiceImpl implements AcbUnpaidCountService {
     }
 
     /** The capture as at {@code at} -- the seed's past, or now. */
-    AcbUnpaidCountsResultDto capture(UnpaidCountsRequest request, String actor, Instant at) {
+    @Override
+    public AcbUnpaidCountsResultDto capture(UnpaidCountsRequest request, String actor, Instant at) {
         String source = request.source().trim();
         List<UnpaidCountsRequest.Entry> entries = request.entries();
         List<String> problems = new ArrayList<>();

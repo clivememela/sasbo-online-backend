@@ -127,7 +127,8 @@ public class AcbDebitDayServiceImpl implements AcbDebitDayService {
     }
 
     /** The move at {@code at} -- the seed's past, or now. */
-    AcbDebitDayMoveDto move(int bankId, DebitDayMoveRequest request, String actor, Instant at) {
+    @Override
+    public AcbDebitDayMoveDto move(int bankId, DebitDayMoveRequest request, String actor, Instant at) {
         int day = requireDay(request.newDay());
         return tx.execute(status -> {
             Bank bank = requireBank(bankId);
@@ -172,7 +173,8 @@ public class AcbDebitDayServiceImpl implements AcbDebitDayService {
                             Collectors.counting()))
                     .entrySet().stream().map(e -> e.getKey() + ": " + e.getValue()).collect(Collectors.joining(", "));
             audit.recordRunless(AcbRunlessEvent.DEBIT_DAY_MOVED, bank.name() + ": " + toMove.size()
-                    + " debit-order member(s) moved to the " + day + "th (from " + from + "), and the bank's own day",
+                    + " debit-order member(s) moved to the " + ordinal(day) + " (from " + from
+                    + "), and the bank's own day",
                     actor);
             return answer(bank, day, debtors, toMove.size());
         });
@@ -222,6 +224,17 @@ public class AcbDebitDayServiceImpl implements AcbDebitDayService {
                         }, SubscriptionsStatus.ACTIVE.name(), bankId).stream().findFirst()
                 .orElseThrow(() -> new AcbRefusal(AcbRefusalCode.BANK_NOT_FOUND, "There is no bank " + bankId + ".",
                         Map.of("bankId", String.valueOf(bankId))));
+    }
+
+    /** {@code 27} -> {@code 27th}; {@code 21} -> {@code 21st}; {@code 22} -> {@code 22nd}; {@code 23} -> {@code 23rd}. */
+    static String ordinal(int day) {
+        String suffix = day % 100 >= 11 && day % 100 <= 13 ? "th" : switch (day % 10) {
+            case 1 -> "st";
+            case 2 -> "nd";
+            case 3 -> "rd";
+            default -> "th";
+        };
+        return day + suffix;
     }
 
     private static int requireDay(Integer day) {

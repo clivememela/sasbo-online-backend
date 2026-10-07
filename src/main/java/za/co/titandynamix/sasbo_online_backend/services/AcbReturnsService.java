@@ -152,4 +152,18 @@ public interface AcbReturnsService {
      * record.
      */
     AcbMemberStatusDto suspendMember(long runId, long lineId, SuspendMemberRequest request, String actor);
+
+    /**
+     * The same three changes dated {@code at} rather than now -- for the demonstration seed, whose past is dated in the
+     * month before the clock's. The routes call the undated forms.
+     */
+    za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto terminate(Integer memberId, String actor,
+                                                                                  java.time.Instant at);
+
+    /** {@link #suspendMember(long, long, SuspendMemberRequest, String)}, dated {@code at}. */
+    AcbMemberStatusDto suspendMember(long runId, long lineId, SuspendMemberRequest request, String actor,
+                                     java.time.Instant at);
+
+    /** {@link #reactivate(Integer, MemberReturnRequest, String)}, dated {@code at}. */
+    AcbMemberStatusDto reactivate(Integer memberId, MemberReturnRequest request, String actor, java.time.Instant at);
 }
