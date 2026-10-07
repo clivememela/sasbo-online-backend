@@ -37,7 +37,7 @@ import java.util.stream.IntStream;
  * <h2>A font that cannot be used is refused at start-up, saying why</h2>
  * Never discovered in a member's letter: CFF (PostScript) outlines, which PDFBox cannot embed; a licence flag that
  * forbids embedding or subsetting; and a missing letter of {@link #REQUIRED} -- every accented letter of Latin-1
- * (é, ë, ô, ñ...), so that no South African name prints in two fonts at once.
+ * (é, ë, ô, ñ...), so that the accents most names carry never print in a second font.
  *
  * <h2>A letter the typeface lacks prints from DejaVu Sans</h2>
  * Glyph by glyph ({@value #FALLBACK}): the Tshivenda ḓ, for one, which Adventor does not have. That font is not part of

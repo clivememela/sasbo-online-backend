@@ -26,7 +26,7 @@ setting at a folder on the host, for example `file:/etc/sasbo/fonts/avant-garde/
    `python config/fonts/otf_to_ttf.py AvantGarde-Book.otf regular.ttf` (and `bold.ttf`, `italic.ttf`).
 3. Put the files in a folder named as above, set `sasbo.letters.font` to it, and restart. The start-up refuses a
    font that cannot be used, and says why: CFF outlines, a licence flag that forbids embedding, or a missing accented
-   letter of Latin-1 (é, ë, ô, ñ…: every South African name must print in the house font itself).
+   letter of Latin-1 (é, ë, ô, ñ…: the accents most names carry must print in the house font itself).
 4. Look at a preview: `GET /api/acb/letters/specimen/RE_DEBIT` (needs `DOD_PREPARE`).
 
 A letter the typeface cannot print (the Tshivenda ḓ, for one) prints from DejaVu Sans, glyph by glyph

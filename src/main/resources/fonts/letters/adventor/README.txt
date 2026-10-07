@@ -35,7 +35,8 @@ PROVENANCE (verified 2026-10-07)
                   italic.ttf   6e52a14e249d206e18d4570b8a20d219f0b8dac08a9e91b7258a8b5812f12fec
   (SHA-256 unless marked.)
 
-COVERAGE
-1,199 characters: every Latin-1 and Latin Extended-A letter (Naudé, Zoë, Côté, Muñoz, Ångström). Not covered:
-the Tshivenda letters with a dot below (ḓ, ḽ, ṋ, ṱ) and ŉ -- a letter prints those from DejaVu Sans
-(../dejavu/), glyph by glyph.
+COVERAGE (measured 2026-10-07)
+1,199 characters. Letters: all 62 of Latin-1 (Naudé, Zoë, Côté, Muñoz, Ångström), 124 of the 128 of Latin
+Extended-A (not ĸ, ŉ, Ŧ, ŧ), 51 of 208 of Latin Extended-B, 133 of 256 of Latin Extended Additional (not the
+Tshivenda letters with a dot below, ḓ ḽ ṋ ṱ). A letter prints every one of those gaps from DejaVu Sans (../dejavu/),
+glyph by glyph -- all but four medieval Welsh letters (U+1EFC-U+1EFF), which no letter font has.
