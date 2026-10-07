@@ -13,6 +13,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.MonthEndSentRepository
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndSentRepository.NewDelivery;
 import za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberSeeder;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,7 +30,8 @@ import java.util.Set;
  *
  * <p>DATED BY THE TAKE, as a morning's work after it (SASBO starts at 06:30-07:00, MEN-40): the packs twenty minutes after
  * the month was taken, downloaded five minutes on and e-mailed ten; the banks' and providers' files forty minutes after,
- * downloaded five minutes on -- never the moment the server happened to start.
+ * downloaded five minutes on -- and never later than the clock: a month the seed takes at this start is dated now, and
+ * its packs with it, never in the future.
  */
 @Slf4j
 @Component
@@ -39,13 +41,22 @@ public class MonthEndSendSeeding {
     private final MonthEndSentFiles files;
     private final MonthEndSendSettings settings;
     private final MonthEndSentRepository sent;
+    private final Clock clock;
 
     public MonthEndSendSeeding(MonthEndRegionPacks packs, MonthEndSentFiles files, MonthEndSendSettings settings,
-                               MonthEndSentRepository sent) {
+                               MonthEndSentRepository sent, Clock clock) {
         this.packs = packs;
         this.files = files;
         this.settings = settings;
         this.sent = sent;
+        this.clock = clock;
+    }
+
+    /** {@code delay} after the take -- or now, where that would be later than the clock. */
+    public Instant after(Instant takenAt, Duration delay) {
+        Instant then = takenAt.plus(delay);
+        Instant now = clock.instant();
+        return then.isAfter(now) ? now : then;
     }
 
     static final Duration PACKS_MADE = Duration.ofMinutes(20);
@@ -66,7 +77,7 @@ public class MonthEndSendSeeding {
             }
             try {
                 MonthEndRegionPacks.Produced produced = packs.produce(month, set.code(), false, true,
-                        DemonstrationMemberSeeder.SEED_ACTOR, takenAt.plus(PACKS_MADE));
+                        DemonstrationMemberSeeder.SEED_ACTOR, after(takenAt, PACKS_MADE));
                 if (!produced.created()) {
                     continue;
                 }
@@ -75,16 +86,16 @@ public class MonthEndSendSeeding {
                 LocalDate monthStart = YearMonth.parse(pack.month()).atDay(1);
                 for (MonthEndRegionPackDto.PackFile file : pack.files()) {
                     deliver(pack.id(), null, monthStart, "REGION_PACK", set, "DOWNLOAD", List.of(file.format()), null,
-                            "SENT", null, file.name(), takenAt.plus(PACKS_DOWNLOADED));
+                            "SENT", null, file.name(), after(takenAt, PACKS_DOWNLOADED));
                 }
                 List<String> both = List.of(MonthEndRegionPacks.PDF, MonthEndRegionPacks.XLSX);
                 String names = pack.files().get(0).name() + ", " + pack.files().get(1).name();
                 if (set.code().equals(mailRefusedFor)) {
                     deliver(pack.id(), null, monthStart, "REGION_PACK", set, "EMAIL", both, set.email(), "REFUSED",
-                            MonthEndRefusalCode.MAIL_NOT_CONFIGURED.name(), names, takenAt.plus(PACKS_EMAILED));
+                            MonthEndRefusalCode.MAIL_NOT_CONFIGURED.name(), names, after(takenAt, PACKS_EMAILED));
                 } else if (set.email() != null) {
                     deliver(pack.id(), null, monthStart, "REGION_PACK", set, "EMAIL", both, set.email(), "SENT", null,
-                            names, takenAt.plus(PACKS_EMAILED));
+                            names, after(takenAt, PACKS_EMAILED));
                 }
             } catch (MonthEndRefusal refused) {
                 log.info("Month end: a seeded region pack was not made ({})", refused.code());
@@ -102,11 +113,11 @@ public class MonthEndSendSeeding {
             }
             try {
                 MonthEndFileDto file = files.produceBank(month, bank.code(), DemonstrationMemberSeeder.SEED_ACTOR,
-                        takenAt.plus(FILES_MADE)).file();
+                        after(takenAt, FILES_MADE)).file();
                 made++;
                 deliver(null, file.id(), YearMonth.parse(file.month()).atDay(1), "BANK_FILE", bank.code(), bank.name(),
                         "DOWNLOAD", List.of(file.format()), null, "SENT", null, file.fileName(),
-                        takenAt.plus(FILES_DELIVERED));
+                        after(takenAt, FILES_DELIVERED));
             } catch (MonthEndRefusal refused) {
                 log.info("Month end: a seeded bank file was not made ({})", refused.code());
             }
@@ -117,16 +128,16 @@ public class MonthEndSendSeeding {
             }
             try {
                 MonthEndFileDto file = files.produceProvider(month, provider.code(),
-                        DemonstrationMemberSeeder.SEED_ACTOR, takenAt.plus(FILES_MADE)).file();
+                        DemonstrationMemberSeeder.SEED_ACTOR, after(takenAt, FILES_MADE)).file();
                 made++;
                 LocalDate monthStart = YearMonth.parse(file.month()).atDay(1);
                 if ("SFTP".equals(provider.delivery())) {
                     deliver(null, file.id(), monthStart, "PROVIDER_FILE", provider.code(), provider.name(), "SFTP",
                             List.of(file.format()), null, "REFUSED", MonthEndRefusalCode.SFTP_NOT_CONFIGURED.name(),
-                            file.fileName(), takenAt.plus(FILES_DELIVERED).minusSeconds(60));
+                            file.fileName(), after(takenAt, FILES_DELIVERED.minusMinutes(1)));
                 }
                 deliver(null, file.id(), monthStart, "PROVIDER_FILE", provider.code(), provider.name(), "DOWNLOAD",
-                        List.of(file.format()), null, "SENT", null, file.fileName(), takenAt.plus(FILES_DELIVERED));
+                        List.of(file.format()), null, "SENT", null, file.fileName(), after(takenAt, FILES_DELIVERED));
             } catch (MonthEndRefusal refused) {
                 log.info("Month end: a seeded provider file was not made ({})", refused.code());
             }

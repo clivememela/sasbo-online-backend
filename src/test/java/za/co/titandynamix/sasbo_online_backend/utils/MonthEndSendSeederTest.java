@@ -172,6 +172,21 @@ class MonthEndSendSeederTest {
         assertThat(wrote).isPositive();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM month_end_region_packs WHERE month_start "
                 + ">= DATE '2026-10-01'", Long.class)).as("nothing for October, the open month").isZero();
+        java.time.OffsetDateTime clockNow = java.time.OffsetDateTime.ofInstant(NOW, java.time.ZoneOffset.UTC);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM month_end_region_packs WHERE produced_at > ?", Long.class,
+                clockNow)).as("a pack dated after the clock").isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM month_end_deliveries WHERE delivered_at > ?", Long.class,
+                clockNow)).as("a delivery dated after the clock").isZero();
+    }
+
+    @Test
+    @DisplayName("the deck's world: a month taken at 07:10 on its last working day has its packs made at 07:30 and e-mailed at 07:40 -- and a month taken now, now")
+    void datedByTheTake() {
+        Instant september = Instant.parse("2026-09-30T05:10:00Z");
+
+        assertThat(seeding.after(september, java.time.Duration.ofMinutes(20))).isEqualTo(Instant.parse("2026-09-30T05:30:00Z"));
+        assertThat(seeding.after(september, java.time.Duration.ofMinutes(30))).isEqualTo(Instant.parse("2026-09-30T05:40:00Z"));
+        assertThat(seeding.after(NOW, java.time.Duration.ofMinutes(20))).as("never after the clock").isEqualTo(NOW);
     }
 
     @Test

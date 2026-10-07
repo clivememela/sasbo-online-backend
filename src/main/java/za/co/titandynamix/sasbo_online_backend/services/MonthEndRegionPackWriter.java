@@ -82,6 +82,8 @@ public class MonthEndRegionPackWriter {
             pdf.note("The listings name each member where they work now; the figures and statistics are the month as it "
                     + "was taken.");
 
+            // A note the statistics repeat -- the month's take, rule C -- is printed the first time it is said.
+            Set<String> noted = new HashSet<>();
             for (Map.Entry<String, List<MonthEndStatisticDto>> place : c.places().entrySet()) {
                 pdf.heading("The statistics -- " + placeName(c, place.getKey()));
                 for (MonthEndStatisticDto statistic : place.getValue()) {
@@ -95,7 +97,9 @@ public class MonthEndRegionPackWriter {
                         }
                     }
                     for (String note : statistic.notes()) {
-                        pdf.note(note);
+                        if (noted.add(note)) {
+                            pdf.note(note);
+                        }
                     }
                     pdf.gap(6f);
                 }
@@ -129,8 +133,7 @@ public class MonthEndRegionPackWriter {
                 MonthEndWorkbooks.text(summary.createRow(r++), 0, line, styles.quiet);
             }
             r++;
-            r = table(summary, r, figureColumns(), figureRows(c), styles, false);
-            table(summary, r, figureColumns(), List.of(figureTotal(c)), styles, true);
+            figures(summary, r, c, styles);
 
             listingSheet(book, names, styles, "New members", joinedColumns(),
                     c.joined().stream().map(MonthEndRegionPackWriter::joinedRow).toList());
@@ -156,6 +159,40 @@ public class MonthEndRegionPackWriter {
         int r = table(sheet, 0, columns, rows, styles, false);
         if (rows.isEmpty()) {
             MonthEndWorkbooks.text(sheet.createRow(r), 0, "None this month.", styles.quiet);
+        }
+    }
+
+    /** The month in figures as numbers a spreadsheet can add: an area a row, then the total in bold. */
+    private static void figures(Sheet sheet, int first, Content c, MonthEndWorkbooks.Styles styles) {
+        Row heading = sheet.createRow(first);
+        List<Column> columns = figureColumns();
+        for (int col = 0; col < columns.size(); col++) {
+            MonthEndWorkbooks.text(heading, col, columns.get(col).heading(), styles.header);
+        }
+        int r = first + 1;
+        Map<String, long[]> byArea = sums(c);
+        long[] total = new long[7];
+        for (Map.Entry<String, long[]> area : byArea.entrySet()) {
+            figureRow(sheet.createRow(r++), "Area " + area.getKey(), area.getValue(), styles, false);
+            for (int i = 0; i < total.length; i++) {
+                total[i] += area.getValue()[i];
+            }
+        }
+        figureRow(sheet.createRow(r), "Total", total, styles, true);
+    }
+
+    private static void figureRow(Row row, String label, long[] s, MonthEndWorkbooks.Styles styles, boolean total) {
+        MonthEndWorkbooks.text(row, 0, label, total ? styles.header : null);
+        for (int i = 0; i < s.length; i++) {
+            org.apache.poi.ss.usermodel.Cell cell = row.createCell(i + 1);
+            cell.setCellValue(s[i]);
+            cell.setCellStyle(total ? styles.countTotal : styles.count);
+        }
+        BigDecimal penetration = Penetration.of(s[2], s[6]);
+        if (penetration != null) {
+            org.apache.poi.ss.usermodel.Cell cell = row.createCell(s.length + 1);
+            cell.setCellValue(penetration.doubleValue());
+            cell.setCellStyle(total ? styles.shareTotal : styles.share);
         }
     }
 
@@ -208,6 +245,13 @@ public class MonthEndRegionPackWriter {
 
     /** One row an area of the set, summed over its workplaces' facts. */
     static List<List<String>> figureRows(Content c) {
+        List<List<String>> rows = new ArrayList<>();
+        sums(c).forEach((area, s) -> rows.add(figureCells("Area " + area, s)));
+        return rows;
+    }
+
+    /** Each area's sums -- on record, suspended, paying, joined, left, reinstated, complement -- in the set's order. */
+    static Map<String, long[]> sums(Content c) {
         Map<String, long[]> byArea = new LinkedHashMap<>();
         for (String area : areasOf(c)) {
             byArea.put(area, new long[7]);
@@ -216,9 +260,7 @@ public class MonthEndRegionPackWriter {
             long[] sums = byArea.computeIfAbsent(f.areaLetter() == null ? "?" : f.areaLetter(), k -> new long[7]);
             add(sums, f);
         }
-        List<List<String>> rows = new ArrayList<>();
-        byArea.forEach((area, s) -> rows.add(figureCells("Area " + area, s)));
-        return rows;
+        return byArea;
     }
 
     static List<String> figureTotal(Content c) {
@@ -272,7 +314,7 @@ public class MonthEndRegionPackWriter {
         if (m.codeDetail() != null) {
             reason = reason + " -- " + m.codeDetail();
         }
-        return List.of(nz(m.areaLetter()), nz(m.membershipNumber()), name(m), workplace(m), reason, day(m.changedAt()),
+        return List.of(nz(m.areaLetter()), nz(m.membershipNumber()), name(m), workplace(m), reason, isoDay(m.changedAt()),
                 m.joinDate() == null ? "" : m.joinDate().toString());
     }
 
@@ -285,7 +327,7 @@ public class MonthEndRegionPackWriter {
     static List<String> suspendedRow(MemberLine m) {
         String code = m.code() == null ? (m.codeName() == null ? "No code on record" : m.codeName())
                 : m.code() + " " + nz(m.codeName());
-        return List.of(nz(m.areaLetter()), nz(m.membershipNumber()), name(m), workplace(m), code, day(m.changedAt()),
+        return List.of(nz(m.areaLetter()), nz(m.membershipNumber()), name(m), workplace(m), code, isoDay(m.changedAt()),
                 m.joinDate() == null ? "" : m.joinDate().toString());
     }
 
@@ -345,6 +387,11 @@ public class MonthEndRegionPackWriter {
 
     static String day(Instant instant) {
         return instant == null ? "" : LocalDate.ofInstant(instant, MonthRange.ZONE).format(DAY);
+    }
+
+    /** A listing's date as the listings print a date joined: 2026-09-21, in SASBO's zone. */
+    static String isoDay(Instant instant) {
+        return instant == null ? "" : LocalDate.ofInstant(instant, MonthRange.ZONE).toString();
     }
 
     static String monthName(YearMonth month) {

@@ -138,7 +138,8 @@ public final class MonthEndPackPdf implements Closeable {
         float[] widths = widths(columns);
         float size = columns.size() > 9 ? 7f : BODY;
         ensure(LEADING + 4f);
-        rule(y + LEADING - 8.5f, QUIET);
+        // Above the total's capitals, below the last row's descenders -- never through the total's own text.
+        rule(y + LEADING - 2.5f, QUIET);
         row(columns, widths, row, size, bold);
         y -= 4f;
     }
@@ -179,17 +180,40 @@ public final class MonthEndPackPdf implements Closeable {
 
     // ------------------------------------------------------------------------------------------------ layout
 
+    /** A table's heading row: a heading too wide for its column wraps onto a second line, and only then is cut. */
     private void headingRow(List<Column> columns, float[] widths, float size) {
+        List<List<String>> headings = new ArrayList<>();
+        int lines = 1;
+        for (int c = 0; c < columns.size(); c++) {
+            float room = widths[c] - CELL_GAP;
+            List<String> wrapped = wrap(printable(columns.get(c).heading()), bold, size, room);
+            List<String> shown = new ArrayList<>();
+            for (int l = 0; l < Math.min(2, wrapped.size()); l++) {
+                String line = l == 1 && wrapped.size() > 2 ? String.join(" ", wrapped.subList(1, wrapped.size()))
+                        : wrapped.get(l);
+                shown.add(fit(line, bold, size, room));
+            }
+            headings.add(shown);
+            lines = Math.max(lines, shown.size());
+        }
+        float step = size + 1.5f;
+        if (y - (lines - 1) * step - LEADING < BOTTOM) {
+            newPage();
+        }
         float x = MARGIN;
         for (int c = 0; c < columns.size(); c++) {
-            Column column = columns.get(c);
-            String heading = fit(printable(column.heading()), bold, size, widths[c] - CELL_GAP);
-            float at = column.figures() ? x + widths[c] - CELL_GAP - width(bold, size, heading) : x;
-            write(bold, size, at, heading, INK);
+            List<String> shown = headings.get(c);
+            for (int l = 0; l < shown.size(); l++) {
+                // The last line of every heading sits on the same baseline, just above the rule.
+                float at = y - (lines - shown.size() + l) * step;
+                float left = columns.get(c).figures() ? x + widths[c] - CELL_GAP - width(bold, size, shown.get(l)) : x;
+                writeAt(bold, size, left, at, shown.get(l));
+            }
             x += widths[c];
         }
-        rule(y - 3f, INK);
-        y -= LEADING + 1f;
+        float last = y - (lines - 1) * step;
+        rule(last - 3f, INK);
+        y = last - (LEADING + 1f);
     }
 
     private void row(List<Column> columns, float[] widths, List<String> cells, float size, PDType1Font font) {
@@ -244,6 +268,14 @@ public final class MonthEndPackPdf implements Closeable {
     private void write(PDType1Font font, float size, float x, String text, float[] colour) {
         try {
             text(page, font, size, x, y, text, colour);
+        } catch (IOException unwritable) {
+            throw new UncheckedIOException(unwritable);
+        }
+    }
+
+    private void writeAt(PDType1Font font, float size, float x, float baseline, String text) {
+        try {
+            text(page, font, size, x, baseline, text, INK);
         } catch (IOException unwritable) {
             throw new UncheckedIOException(unwritable);
         }
