@@ -105,7 +105,7 @@ class MonthEndTakeSeederTest {
     }
 
     @Test
-    @DisplayName("MD70: where a demonstration seeder wrote rows, the seed's own past months are taken again -- a month a person took last never")
+    @DisplayName("MD70, MEN-11: where a demonstration seeder wrote rows, the seed's own past months are taken again, saying why -- a month a person took last never")
     void theSeedsOwnMonthsTakenAgain() {
         when(takes.takenMonths()).thenReturn(List.of(
                 new TakenMonth(3, LocalDate.of(2026, 9, 1), "an administrator", Instant.parse("2026-10-01T06:00:00Z"), null),
@@ -114,9 +114,11 @@ class MonthEndTakeSeederTest {
 
         assertThat(seeder("", "all").seed(true)).isEqualTo(2);
 
-        verify(takes).take(YearMonth.of(2026, 7), DemonstrationMemberSeeder.SEED_ACTOR, 1L);
-        verify(takes).take(YearMonth.of(2026, 8), DemonstrationMemberSeeder.SEED_ACTOR, 2L);
-        verify(takes, never()).take(eq(YearMonth.of(2026, 9)), any(), any());
+        verify(takes).take(YearMonth.of(2026, 7), DemonstrationMemberSeeder.SEED_ACTOR, 1L,
+                MonthEndTakeSeeder.TAKEN_AGAIN_BECAUSE);
+        verify(takes).take(YearMonth.of(2026, 8), DemonstrationMemberSeeder.SEED_ACTOR, 2L,
+                MonthEndTakeSeeder.TAKEN_AGAIN_BECAUSE);
+        verify(takes, never()).take(eq(YearMonth.of(2026, 9)), any(), any(), any());
         verify(takes, never()).takeAsAt(any(), any(), any());
     }
 
@@ -130,7 +132,7 @@ class MonthEndTakeSeederTest {
         assertThat(seeder("", "all").seed(false)).as("September only, taken for the first time").isEqualTo(1);
 
         verify(takes).takeAsAt(YearMonth.of(2026, 9), DemonstrationMemberSeeder.SEED_ACTOR, tenPastSeven(2026, 9, 30));
-        verify(takes, never()).take(any(), any(), any());
+        verify(takes, never()).take(any(), any(), any(), any());
     }
 
     @Test
@@ -139,7 +141,7 @@ class MonthEndTakeSeederTest {
         when(takes.takenMonths()).thenReturn(List.of(
                 new TakenMonth(2, LocalDate.of(2026, 8, 1), "seed", Instant.parse("2026-10-01T06:00:00Z"), null),
                 new TakenMonth(1, LocalDate.of(2026, 7, 1), "seed", Instant.parse("2026-10-01T06:00:00Z"), null)));
-        when(takes.take(eq(YearMonth.of(2026, 7)), any(), any()))
+        when(takes.take(eq(YearMonth.of(2026, 7)), any(), any(), any()))
                 .thenThrow(new MonthEndRefusal(MonthEndRefusalCode.MONTH_TAKEN_SINCE, "taken again"));
 
         assertThat(seeder("", "all").seed(true)).as("August taken again, September taken").isEqualTo(2);

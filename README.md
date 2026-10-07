@@ -299,6 +299,38 @@ other environment behaving exactly as it did before — including a teammate who
 including production. This prevents a tracked `.env` value (e.g. `SSL_MODE=prefer`) from quietly
 downgrading a production connection that should be `require`.
 
+### Sign-in (October build)
+
+Staff sign in with a username and password and receive a bearer token (`Authorization: Bearer <token>`), kept by
+the browser in `sessionStorage`. The server stores only the token's SHA-256; a session ends after 30 minutes without a
+request or 12 hours after sign-in, whichever comes first.
+
+| Variable                          | Purpose                                                                                     | Default |
+|-----------------------------------|---------------------------------------------------------------------------------------------|---------|
+| `SASBO_SIGNIN`                    | `open` (every route answers as before; only routes naming a permission need one) or `required` (every `/api` route needs a session, except `POST /api/auth/login`, `GET /api/auth/mode` and `/actuator/health`). Any other word stops the start. | `open` |
+| `SASBO_BOOTSTRAP_ADMIN_USERNAME`  | The first System Administrator's username -- created at a start where there are no users at all, and only when the password below is set too. | unset |
+| `SASBO_BOOTSTRAP_ADMIN_PASSWORD`  | Their password: at least 10 characters, not the username, not a common password. It must be changed at the first sign-in. | unset |
+| `SASBO_SIGNIN_DEMO_USERS`         | `true` seeds one demonstration user per provisional position (below). Never on a hosted stack: the link is public. Ignored under `SASBO_ENVIRONMENT=production`. | `false` |
+| `SASBO_SIGNIN_DEMO_PASSWORD`      | The demonstration users' one password. **There is no default anywhere** -- set it yourself for a local or compose run; with it unset, or breaking the password rules, no demonstration user is seeded and the log says so. | unset |
+
+The demonstration users (local, compose and test use only), each with the password you set in
+`SASBO_SIGNIN_DEMO_PASSWORD`:
+
+| Username                 | Position                   | Scope      |
+|--------------------------|----------------------------|------------|
+| `demo.sysadmin`          | System Administrator       | everything |
+| `demo.headoffice`        | Head Office Administrator  | everything |
+| `demo.cfo`               | Chief Financial Officer    | everything |
+| `demo.secretariat`       | Senior Secretariat         | everything |
+| `demo.regional`          | Regional Secretary         | region DBN |
+| `demo.regionalorganiser` | Regional Organiser         | region DBN |
+| `demo.organiser`         | Organiser                  | area L     |
+| `demo.mso`               | MSO (to be confirmed)      | area W     |
+
+The positions and their roles are provisional (SASBO's own list replaces them as data) and are seeded, when absent,
+in every environment. A role is a set of permissions (`security.Permission`); a user administrator edits them under
+*Maintenance → Users*.
+
 ---
 
 ## Database

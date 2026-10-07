@@ -74,8 +74,8 @@ public class MonthEndTakeSeeder {
     }
 
     /**
-     * Why the seed takes one of its own months again -- the reason a take again carries (04.11). monthend-rules makes
-     * the reason part of the take; until that lands the call below takes it without one.
+     * Why the seed takes one of its own months again -- the reason every take again must give (04.11; Stephne, MEN-11:
+     * "This will help to understand why the file was replaced!"), shown beside the take it replaces.
      */
     public static final String TAKEN_AGAIN_BECAUSE = "Taken again by the seed: demonstration members were added after "
             + "it was first taken.";
@@ -141,11 +141,10 @@ public class MonthEndTakeSeeder {
     }
 
     /**
-     * A new take of {@code month} by the seed, beside the newest it replaces (04.11) -- at the clock's instant, because
-     * it happens now, after the take it replaces. At integration this becomes monthend-rules'
-     * {@code take(month, actor, replaces, reason)} with {@link #TAKEN_AGAIN_BECAUSE}.
+     * A new take of {@code month} by the seed, beside the newest it replaces (04.11), saying why -- at the clock's
+     * instant, because it happens now, after the take it replaces; so it counts the month up to its calendar end.
      */
     private void takeAgain(YearMonth month, TakenMonth newest) {
-        takes.take(month, DemonstrationMemberSeeder.SEED_ACTOR, newest.id());
+        takes.take(month, DemonstrationMemberSeeder.SEED_ACTOR, newest.id(), TAKEN_AGAIN_BECAUSE);
     }
 }

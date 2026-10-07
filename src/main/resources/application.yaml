@@ -1,6 +1,11 @@
 spring:
   application:
     name: sasbo-online-backend
+  # Sign-in (October build): staff sign in through /api/auth with a bearer token; nothing signs in with an in-memory user.
+  # Left on, this auto-configuration made one and wrote its generated password to the log at every start -- and no
+  # password is ever logged (contracts/signin.md). SignInConfigGuardTest holds it off.
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
@@ -138,3 +143,20 @@ sasbo:
   # `all`; unset is `none`, and any other word stops the start. Off unless it is set: set it on a hosted stack only
   # on SASBO's word (MM79). The suite's compose sets it for the local run.
   workplaces: ${SASBO_WORKPLACES:}
+  # SIGN-IN (October build, contracts/signin.md). Each binding is written out, so the variable's name is the one
+  # documented (relaxed binding would otherwise want SASBO_SIGNIN_DEMOUSERS).
+  signin:
+    # `open` (the default) keeps every route answering as it did, and gates only what names a permission; `required`
+    # needs a session for every /api route but signing in, the mode and the health check. Anything else stops the
+    # start. The owner switches it before go-live (6 Oct).
+    mode: ${SASBO_SIGNIN:open}
+    # One demonstration user per provisional position -- only where this is true AND SASBO_SIGNIN_DEMO_PASSWORD is
+    # set, and never under the production marker. No hosted stack sets either: the link is public. The suite's
+    # compose and a local run set both. The password has no default anywhere.
+    demo-users: ${SASBO_SIGNIN_DEMO_USERS:false}
+    demo-password: ${SASBO_SIGNIN_DEMO_PASSWORD:}
+    # The first System Administrator, created at a start where there are no users at all and both are set. Set on a
+    # host by the owner; the password must be changed at the first sign-in.
+    bootstrap-admin:
+      username: ${SASBO_BOOTSTRAP_ADMIN_USERNAME:}
+      password: ${SASBO_BOOTSTRAP_ADMIN_PASSWORD:}

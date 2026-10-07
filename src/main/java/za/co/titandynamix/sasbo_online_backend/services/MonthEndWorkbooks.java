@@ -132,7 +132,8 @@ public class MonthEndWorkbooks {
                                  Styles styles, boolean total) {
         text(line, 0, row.label(), total ? styles.header : null);
         if (row.cells() == null) {
-            text(line, 1, row.fewerThanFive() ? "fewer than 5" : "withheld", styles.quiet);
+            // "Withheld" read to SASBO as "has to be approved" (5 Oct, transcript ¶92): it is a courtesy until sign-in.
+            text(line, 1, row.fewerThanFive() ? "fewer than 5" : "not shown until you sign in", styles.quiet);
             return;
         }
         for (int c = 0; c < columns.size(); c++) {
@@ -193,7 +194,7 @@ public class MonthEndWorkbooks {
                 }
             }
             if (!asked && month.equals(takes.openMonth())) {
-                months.add(figures(month, true, facts.liveFacts(MonthRange.of(month), seeded())));
+                months.add(figures(month, true, facts.liveFacts(takes.counted(month), seeded())));
             }
             return months;
         } finally {

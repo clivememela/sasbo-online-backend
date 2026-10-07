@@ -42,7 +42,7 @@ public enum MonthEndRefusalCode {
      * written, the workplace's complement included.
      */
     VISIT_INVALID(HttpStatus.BAD_REQUEST),
-    /** 02.2: a grouping the figures do not take. The details carry the six they do. */
+    /** 02.2: a grouping the figures do not take. The details carry the ones they do -- seven, with the tier (MEN-31). */
     SUMMARY_GROUPING_UNKNOWN(HttpStatus.BAD_REQUEST),
     /** 02.2: an area or a region that is not on record here. The details name which was asked for. */
     SUMMARY_AREA_UNKNOWN(HttpStatus.BAD_REQUEST),
@@ -82,7 +82,9 @@ public enum MonthEndRefusalCode {
      * 03.4: an edit that would change the member's status. A status is changed with Change status, by SASBO's code
      * ({@code POST /api/members/{id}/status}), and never by an edit (MD13, BR77). The edit is refused whole and nothing
      * is written; the browser keeps the form as typed (ME-2). The details carry the status on record and the route a
-     * status is changed by. The same status sent back unchanged is no change, and is accepted.
+     * status is changed by. The same status sent back unchanged is no change, and is accepted. October build: a capture
+     * in a suspended or a leaving status is refused the same way -- a suspension carries SASBO's code and its reason
+     * (Stephne, MEN-17, MEN-18), which only Change status asks for.
      */
     STATUS_VIA_CHANGE_STATUS(HttpStatus.CONFLICT),
     /** 04.2: a month that has not begun -- after the server's own, in SASBO's zone. The details carry both. */
@@ -110,17 +112,64 @@ public enum MonthEndRefusalCode {
      */
     MONTH_NOT_TAKEN(HttpStatus.NOT_FOUND),
     /**
-     * 04.2: refused to every caller until this system knows who is calling -- as ACB's writes are (MD4): taking a
-     * month freezes its figures for good, and a listing names members. Nothing was done.
-     */
-    IDENTITY_REQUIRED(HttpStatus.FORBIDDEN),
-    /**
      * 04.10: a statistics pack is being prepared for another month, and there is no queue (MR-PERF-11). The details
      * carry the month asked for, the month in hand and its pack. A pack asked for the same month is the one in hand.
      */
     PACK_BUSY(HttpStatus.CONFLICT),
     /** 04.10: no such pack -- or no such workbook of it, or none yet: a pack's files are there once it is READY. */
-    PACK_NOT_FOUND(HttpStatus.NOT_FOUND);
+    PACK_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /**
+     * October build, Stephne MEN-11: a month taken again with no reason -- "This will help to understand why the file
+     * was replaced!". Said before anything else is asked of the take. The details carry the month.
+     */
+    TAKE_REASON_REQUIRED(HttpStatus.BAD_REQUEST),
+    /**
+     * October build: a reason for taking a month again that is longer than 500 characters, or holds a control
+     * character. The details carry the field and the limit -- never the words.
+     */
+    TAKE_REASON_INVALID(HttpStatus.BAD_REQUEST),
+    /**
+     * October build, Stephne MEN-19 -- "Going forward can we avoid capturing duplicates": the person is on record
+     * already -- by identity number, or, where none is held, by passport number or by employee number at the
+     * employer. The sentence and the details name the existing membership number and what matched, never the person;
+     * {@code canReinstate} says the existing member has left, and is reinstated with Change status rather than captured
+     * again (MEN-23: in the same month they keep their membership). Nothing was written.
+     */
+    MEMBER_ALREADY_CAPTURED(HttpStatus.CONFLICT),
+    /**
+     * October build, Stephne MEN-17: a suspension for no payroll deduction -- under a code the reasons stand under --
+     * with neither a reason from the list nor one typed. The details carry the code and the reasons that fit it.
+     */
+    NO_DEDUCTION_REASON_REQUIRED(HttpStatus.BAD_REQUEST),
+    /**
+     * October build: a status change names a reason for no deduction that is not on the list, or is no longer offered.
+     * The details carry the id asked for.
+     */
+    NO_DEDUCTION_REASON_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /**
+     * October build: a reason for no deduction that cannot be kept -- no name, a name past 60 characters or with a
+     * control character, a code SASBO does not have, a place on the list outside 1 to 999, or a list already at its 50.
+     * The details name the field.
+     */
+    NO_DEDUCTION_REASON_INVALID(HttpStatus.BAD_REQUEST),
+    /** October build: another reason has that name already, whatever its case. The details carry the other's id. */
+    NO_DEDUCTION_REASON_TAKEN(HttpStatus.CONFLICT),
+    /** October build: no reason for no deduction has that id. */
+    NO_DEDUCTION_REASON_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /**
+     * October build: the reason was changed by someone else since the screen read it. The details carry who and when;
+     * nothing was changed.
+     */
+    NO_DEDUCTION_REASON_CHANGED_SINCE(HttpStatus.CONFLICT),
+    /**
+     * October build: a page of the suspended members that does not exist. The details carry the page, the size and the
+     * ceiling.
+     */
+    SUSPENDED_PAGE_INVALID(HttpStatus.BAD_REQUEST),
+    /** October build, Stephne MEN-31: a core tier that is not A, B or C. The details carry the ones that are. */
+    CORE_TIER_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /** October build: no table code has that number here. The details carry the number asked for. */
+    TABLE_CODE_UNKNOWN(HttpStatus.NOT_FOUND);
 
     private final HttpStatus status;
 

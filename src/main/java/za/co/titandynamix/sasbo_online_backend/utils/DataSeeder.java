@@ -55,6 +55,8 @@ public class DataSeeder implements ApplicationRunner {
     private final DemonstrationMemberSeeder demonstrationMemberSeeder;
     private final DemonstrationPopulationSeeder demonstrationPopulationSeeder;
     private final MonthEndTakeSeeder monthEndTakeSeeder;
+    private final MonthEndRulesSeeder monthEndRulesSeeder;
+    private final SignInSeeder signInSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -155,6 +157,15 @@ public class DataSeeder implements ApplicationRunner {
                 .findAndAddModules()
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .build();
+
+        // SIGN-IN'S BLOCK (October build), FIRST -- so every seeder after it, any stream's, finds the positions and the
+        // demonstration users it names -- and EACH CALL CAUGHT: a fault here must stop nothing else. The positions and
+        // roles are configuration and are seeded everywhere; the first administrator only while nobody can sign in and
+        // the host names one; the demonstration users only where asked for, never under the production marker (the
+        // seeder checks it itself, so no caller can forget to).
+        seedMonthEnd("the sign-in positions and roles", this.signInSeeder::seedPositionsAndRoles);
+        seedMonthEnd("the first administrator", this.signInSeeder::seedBootstrapAdministrator);
+        seedMonthEnd("the demonstration users", this.signInSeeder::seedDemoUsers);
 
         // 🔒 SYNTHETIC PEOPLE ARE NEVER SEEDED WHERE THE PRODUCTION MARKER IS SET (SD3-A). A brand-new
         // production database is empty at its first boot -- exactly when the table-empty guard below
@@ -329,6 +340,10 @@ public class DataSeeder implements ApplicationRunner {
         demonstration("the seed members' workplaces", this.demonstrationMemberSeeder::place, demonstrationRows);
         // 03.7: their past -- the three months before the clock's, written through the real status change.
         demonstration("the invented members' past", this.demonstrationMemberSeeder::past, demonstrationRows);
+        // October build: month end's rules -- her codes, reasons and tiers where absent; members suspended within
+        // several banks, some lapsed; a rejoin in the same month; a workplace over its complement. Before the take, so
+        // the seed's months are taken with them -- again, where the seed took them before these rows existed (OB27).
+        demonstration("month end's rules", this.monthEndRulesSeeder::seed, demonstrationRows);
         // The October build's population (contracts/demo-population.md): every region's areas, joiners and leavers in
         // each past month, the suspended under every code of Stephne's sheet -- before the take, so it is in it.
         demonstration("the demonstration population", this.demonstrationPopulationSeeder::seed, demonstrationRows);

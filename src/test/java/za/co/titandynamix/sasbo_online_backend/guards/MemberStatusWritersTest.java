@@ -50,7 +50,9 @@ class MemberStatusWritersTest {
             "AcbPreparationJob", 2,
             "AcbReturnsServiceImpl", 5,
             "AcbRunServiceImpl", 2,
-            "SubscriptionSeeder", 1));
+            "SubscriptionSeeder", 1,
+            // Not a member's: the HTTP status of a sign-in refusal, written on the response (October build).
+            "SignInChallenge", 1));
 
     @Test
     @DisplayName("🔒 03.4: every writer of a status in the main sources is named, by class and count -- a member's only in changeStatus and at capture")
