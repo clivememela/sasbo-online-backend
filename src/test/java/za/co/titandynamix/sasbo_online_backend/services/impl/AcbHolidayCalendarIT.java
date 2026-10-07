@@ -44,7 +44,7 @@ class AcbHolidayCalendarIT extends AbstractAcbIT {
     private AcbHolidayRepository holidays;
 
     @Test
-    @DisplayName("🔒 F47: the migrated table IS MigrationSeed.ACB_HOLIDAYS -- every date and name, all statutory -- and known until 2027-12-31")
+    @DisplayName("🔒 F47: the migrated table IS MigrationSeed.ACB_HOLIDAYS -- every date and name, all statutory -- and known until 2028-12-31 (V70)")
     void theTableIsTheOneList() {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT holiday_date, name, source, added_by FROM acb_holidays ORDER BY holiday_date");
@@ -72,12 +72,15 @@ class AcbHolidayCalendarIT extends AbstractAcbIT {
     }
 
     @Test
-    @DisplayName("production reads it: the source loads exactly the tests' calendar, in one statement")
+    @DisplayName("production reads it: the source loads exactly the one list, in one statement")
     void theSourceLoadsTheTable() {
         HolidayCalendar loaded = calendars.load();
         assertThat(loaded.name()).isEqualTo(AcbCalendars.ZA_STATUTORY.name());
-        assertThat(loaded.knownUntil()).isEqualTo(AcbCalendars.ZA_STATUTORY.knownUntil());
-        assertThat(loaded.dates()).containsExactlyElementsOf(AcbCalendars.ZA_STATUTORY.dates());
+        assertThat(loaded.knownUntil()).contains(MigrationSeed.ACB_CALENDAR_KNOWN_UNTIL);
+        assertThat(loaded.dates()).containsExactlyElementsOf(
+                MigrationSeed.ACB_HOLIDAYS.stream().map(MigrationSeed.Holiday::date).toList());
+        // The fixture's calendar is the same list, cut at the fixture's last month.
+        assertThat(loaded.dates()).containsAll(AcbCalendars.ZA_STATUTORY.dates());
     }
 
     @Test

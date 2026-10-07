@@ -13,7 +13,15 @@ import java.util.List;
  */
 public record AcbRatesDto(List<Rate> rates, String januaryNotice) {
 
-    /** One dated rate. {@code effectiveFrom} is the first day of its first month, ISO-8601. */
-    public record Rate(String effectiveFrom, BigDecimal amount, String source) {
+    /**
+     * One dated rate. {@code effectiveFrom} is the first day of its first month, ISO-8601; {@code provisional} says
+     * something about the row is assumed -- R166.65's start, 1 January 2025 (V70).
+     */
+    public record Rate(String effectiveFrom, BigDecimal amount, String source, boolean provisional) {
+
+        /** A rate nothing about which is assumed. */
+        public Rate(String effectiveFrom, BigDecimal amount, String source) {
+            this(effectiveFrom, amount, source, false);
+        }
     }
 }

@@ -33,4 +33,17 @@ public class AcbCalendar {
 
     @Column(name = "known_until", nullable = false)
     private LocalDate knownUntil;
+
+    /**
+     * Whether a day the bank is closed moves the debits on it, as a public holiday does -- DOD-17's open choice
+     * (Friday item 14), TRUE by default (V70). Nullable here only because the fast lane builds the table from this
+     * entity.
+     */
+    @Column(name = "bank_closures_count")
+    private Boolean bankClosuresCount;
+
+    /** The setting, reading the fast lane's missing value as V70's default. */
+    public boolean bankClosuresCountOrDefault() {
+        return !Boolean.FALSE.equals(bankClosuresCount);
+    }
 }
