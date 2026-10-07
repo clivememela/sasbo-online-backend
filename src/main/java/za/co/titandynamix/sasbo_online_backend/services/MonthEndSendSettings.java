@@ -246,11 +246,12 @@ public class MonthEndSendSettings {
                 continue;
             }
             if (other.wholeRegion() || values.areaLetters().isEmpty()) {
-                throw overlap(values.areaLetters().isEmpty() ? "ALL" : values.areaLetters().get(0), other.code());
+                throw overlap(values.areaLetters().isEmpty() ? "ALL" : values.areaLetters().get(0), other,
+                        values.regionCode());
             }
             for (String area : values.areaLetters()) {
                 if (other.areaLetters().contains(area)) {
-                    throw overlap(area, other.code());
+                    throw overlap(area, other, values.regionCode());
                 }
             }
         }
@@ -443,11 +444,12 @@ public class MonthEndSendSettings {
                 + "saved.", MonthEndRefusal.details("code", code));
     }
 
-    private static MonthEndRefusal overlap(String area, String other) {
-        return new MonthEndRefusal(MonthEndRefusalCode.PACK_SET_OVERLAP, "Recipient " + other + " already receives "
-                + ("ALL".equals(area) ? "part of that region" : "area " + area) + ", and a member is in one pack only. "
-                + "Change that recipient first, or switch it off. Nothing was saved.",
-                MonthEndRefusal.details("area", area, "set", other));
+    private static MonthEndRefusal overlap(String area, PackSet other, String region) {
+        String receives = other.wholeRegion() ? "the whole of region " + region
+                : "ALL".equals(area) ? "part of region " + region : "area " + area;
+        return new MonthEndRefusal(MonthEndRefusalCode.PACK_SET_OVERLAP, "Recipient " + other.code() + " already "
+                + "receives " + receives + ", and a member is in one pack only. Change that recipient first, or switch "
+                + "it off. Nothing was saved.", MonthEndRefusal.details("area", area, "set", other.code()));
     }
 
     private static MonthEndRefusal tableCodeTaken(int tableCode, String bank) {
