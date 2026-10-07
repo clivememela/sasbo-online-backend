@@ -30,7 +30,9 @@ import java.util.function.Function;
  * <ol>
  *   <li>The staff number, among the employer's members -- a staff number is the employer's, and means nothing at
  *       another. Where several members share it (Nedbank prints a code its staff have in common), the name on the
- *       line picks the one it fits: by initials and surname, else by the surname alone, the initials then flagged.</li>
+ *       line picks the one it fits: by initials and surname, else by the surname alone, the initials then flagged.
+ *       Where the line's ID number and name are both another member's, two details outweigh one: the line is that
+ *       member's, its employee number flagged (PAY-10's "A combination"; provisional, PAY.md clarification 10).</li>
  *   <li>The ID number, among every member on record.</li>
  *   <li>Initials and surname, among the employer's members, and only where exactly one fits -- preferring, where
  *       several fit, the one member who pays by payroll and has not left.</li>
@@ -169,7 +171,8 @@ public final class PayrollMatcher {
             if (alone != null) {
                 byName++;
                 identified.put(line.lineNumber(), new Identified(alone, PayrollMatchRule.NAME, PayrollConfidence.LOW,
-                        SURNAME_ALONE, false, false, !PayrollNames.fits(line.name(), alone.initials(), alone.surname())));
+                        SURNAME_ALONE, false, false, !PayrollNames.fits(line.name(), alone.initials(), alone.surname()),
+                        false));
                 linesOf.computeIfAbsent(alone.id(), id -> new ArrayList<>()).add(line);
                 matchedMembers.put(alone.id(), alone);
                 continue;
@@ -251,8 +254,9 @@ public final class PayrollMatcher {
 
     // ------------------------------------------------------------------------------------------------ identifying
 
+    /** {@code staffElsewhere}: the line's staff number is another member's, and its ID number and name this one's. */
     private record Identified(Member member, PayrollMatchRule rule, PayrollConfidence confidence, String reason,
-                              boolean staffDiffers, boolean idDiffers, boolean nameDiffers) {
+                              boolean staffDiffers, boolean idDiffers, boolean nameDiffers, boolean staffElsewhere) {
     }
 
     /** The employer's members, indexed by staff number and by surname. */
@@ -385,8 +389,23 @@ public final class PayrollMatcher {
     private static Identified identify(PayrollParser.Line line, Index index, Map<String, Member> byIdNumber) {
         Member member = index.byStaff(line);
         PayrollMatchRule rule = PayrollMatchRule.STAFF_NUMBER;
-        if (member == null && line.idKey() != null) {
-            member = byIdNumber.get(line.idKey());
+        Member byId = line.idKey() == null ? null : byIdNumber.get(line.idKey());
+        boolean staffElsewhere = false;
+        if (member != null && byId != null && byId.id() != member.id()
+                && PayrollNames.fits(line.name(), byId.initials(), byId.surname())
+                && !PayrollNames.fits(line.name(), member.initials(), member.surname())) {
+            // Two of the line's three details -- its ID number and its name -- are another member's than its staff
+            // number: the line is theirs, and the staff number (the employer's own code, re-used or mistyped) is the
+            // detail that is wrong. Left with the staff number's member, the line would mark the wrong member deducted
+            // and put the right one on the employer's ADD list -- a second deduction -- or, where the staff number's
+            // member has left, ask the employer to stop the right one's. PAY-10 ticks "A combination"; which detail
+            // counts most is asked (PAY.md, clarification 10): provisional until it is answered.
+            member = byId;
+            rule = PayrollMatchRule.ID_NUMBER;
+            staffElsewhere = true;
+        }
+        if (member == null && byId != null) {
+            member = byId;
             rule = PayrollMatchRule.ID_NUMBER;
         }
         if (member == null) {
@@ -397,7 +416,8 @@ public final class PayrollMatcher {
             return null;
         }
         boolean staffAgrees = line.staffKey() != null && line.staffKey().equals(member.staffKey());
-        boolean staffDiffers = line.staffKey() != null && member.staffKey() != null && !staffAgrees;
+        // Another member's staff number differs from this member's even where this one has none on record.
+        boolean staffDiffers = staffElsewhere || (line.staffKey() != null && member.staffKey() != null && !staffAgrees);
         boolean idAgrees = line.idKey() != null && line.idKey().equals(member.idKey());
         boolean idDiffers = line.idKey() != null && member.idKey() != null && !idAgrees;
         boolean nameAgrees = !line.name().isEmpty() && PayrollNames.fits(line.name(), member.initials(),
@@ -414,7 +434,7 @@ public final class PayrollMatcher {
             confidence = PayrollConfidence.LOW;
         }
         return new Identified(member, rule, confidence, reason(rule, staffAgrees, idAgrees, nameAgrees, staffDiffers,
-                idDiffers, nameDiffers), staffDiffers, idDiffers, nameDiffers);
+                idDiffers, nameDiffers), staffDiffers, idDiffers, nameDiffers, staffElsewhere);
     }
 
     /** Why a line was matched, in words: the rule, what else agrees, and what differs. */
@@ -460,9 +480,11 @@ public final class PayrollMatcher {
         List<Found> found = new ArrayList<>();
         String at = "Line " + line.lineNumber() + ": ";
         if (who.staffDiffers()) {
-            found.add(found(PayrollDiscrepancyType.EMPLOYEE_NUMBER_DIFFERS, member, line, null, null,
-                    at + "the employee number on the file differs from the one on record (matched by "
-                            + (who.rule() == PayrollMatchRule.ID_NUMBER ? "ID number" : "initials and surname") + ")."));
+            found.add(found(PayrollDiscrepancyType.EMPLOYEE_NUMBER_DIFFERS, member, line, null, null, at
+                    + (who.staffElsewhere() ? "the employee number on the file is another member's on record; the ID "
+                    + "number and the name are this member's."
+                    : "the employee number on the file differs from the one on record (matched by "
+                            + (who.rule() == PayrollMatchRule.ID_NUMBER ? "ID number" : "initials and surname") + ").")));
         }
         if (who.nameDiffers()) {
             found.add(found(PayrollDiscrepancyType.NAME_DIFFERS, member, line, null, null,

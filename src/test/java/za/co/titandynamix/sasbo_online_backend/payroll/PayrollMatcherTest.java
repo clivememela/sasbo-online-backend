@@ -102,6 +102,59 @@ class PayrollMatcherTest {
     }
 
     @Test
+    @DisplayName("Stephne, PAY-10 (\"A combination\"), PAY-19: one member's staff number, another's ID number and name -- "
+            + "the line is the member two details name, the employee number flagged; the other is missing")
+    void aStaffNumberAgainstTheIdNumberAndTheName() {
+        PayrollMatcher.Member a = member(1, "7", "8106145689086", "BK", "Testerson");
+        PayrollMatcher.Member b = member(2, "8", "7503144286081", "RT", "Ledgerwood");
+        PayrollMatcher.Result r = match(List.of(line(4, "7", "7503144286081", "RT", "Ledgerwood", "174.00")),
+                List.of(a, b));
+        PayrollMatcher.LineMatch m = r.matches().get(0);
+        assertThat(m.member().id()).as("the member the ID number and the name are").isEqualTo(2);
+        assertThat(m.rule()).isEqualTo(PayrollMatchRule.ID_NUMBER);
+        assertThat(m.confidence()).isEqualTo(PayrollConfidence.MEDIUM);
+        assertThat(m.reason()).isEqualTo("Matched by the ID number; the name agrees; the employee number differs.");
+        assertThat(types(r)).containsExactly(PayrollDiscrepancyType.EMPLOYEE_NUMBER_DIFFERS,
+                PayrollDiscrepancyType.MISSING_FROM_FILE);
+        assertThat(r.found().get(0).memberId()).isEqualTo(2);
+        assertThat(r.found().get(0).detail()).isEqualTo("Line 4: the employee number on the file is another member's "
+                + "on record; the ID number and the name are this member's.");
+        assertThat(r.found().get(1).memberId()).as("the staff number's member is the one not on the file").isEqualTo(1);
+
+        // The staff number's member has left: nothing asks the employer to stop the line, which is the other member's.
+        PayrollMatcher.Member left = new PayrollMatcher.Member(1, "M-1", "7", "8106145689086", "BK", "Testerson", true,
+                true, false, true, null, null);
+        PayrollMatcher.Result leaver = match(List.of(line(4, "7", "7503144286081", "RT", "Ledgerwood", "174.00")),
+                List.of(left, b));
+        assertThat(leaver.matches().get(0).member().id()).isEqualTo(2);
+        assertThat(types(leaver)).containsExactly(PayrollDiscrepancyType.EMPLOYEE_NUMBER_DIFFERS);
+    }
+
+    @Test
+    @DisplayName("must-pass: one detail against one keeps the staff number's member -- an ID number alone, or a name "
+            + "both fit")
+    void oneDetailAgainstOneKeepsTheStaffNumber() {
+        PayrollMatcher.Member a = member(1, "7", "8106145689086", "BK", "Testerson");
+        PayrollMatcher.Member b = member(2, "8", "7503144286081", "RT", "Ledgerwood");
+        PayrollMatcher.Result nameIsA = match(List.of(line(4, "7", "7503144286081", "BK", "Testerson", "174.00")),
+                List.of(a, b));
+        assertThat(nameIsA.matches().get(0).member().id()).isEqualTo(1);
+        assertThat(nameIsA.matches().get(0).rule()).isEqualTo(PayrollMatchRule.STAFF_NUMBER);
+        assertThat(types(nameIsA)).containsExactly(PayrollDiscrepancyType.DETAILS_DIFFER,
+                PayrollDiscrepancyType.MISSING_FROM_FILE);
+
+        PayrollMatcher.Result nameIsNobodys = match(List.of(line(4, "7", "7503144286081", "Q", "Nobodyelse",
+                "174.00")), List.of(a, b));
+        assertThat(nameIsNobodys.matches().get(0).member().id()).isEqualTo(1);
+        assertThat(nameIsNobodys.matches().get(0).rule()).isEqualTo(PayrollMatchRule.STAFF_NUMBER);
+
+        PayrollMatcher.Member namesake = member(2, "8", "7503144286081", "BK", "Testerson");
+        PayrollMatcher.Result bothFit = match(List.of(line(4, "7", "7503144286081", "BK", "Testerson", "174.00")),
+                List.of(a, namesake));
+        assertThat(bothFit.matches().get(0).member().id()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("Stephne, PAY-19: a name alone whose initial differs is paired by a surname each side holds alone -- "
             + "LOW, and flagged")
     void aNameAloneWithAnInitialThatDiffers() {
