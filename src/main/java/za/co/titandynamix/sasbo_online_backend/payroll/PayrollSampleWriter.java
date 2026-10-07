@@ -149,6 +149,11 @@ public final class PayrollSampleWriter {
             row.createCell(4).setCellValue("Union Fees");
             row.createCell(5).setCellValue(4_400_123);
             row.createCell(6).setCellValue("SASBO UNION FEES");
+            if (line.amountText() != null) {
+                // A line whose amount cannot be read: the total is text, and there is nothing to add up.
+                row.createCell(9).setCellValue(line.amountText());
+                continue;
+            }
             row.createCell(7).setCellValue(0);
             double credit = line.amount() == null ? 0 : -line.amount().doubleValue();
             row.createCell(8).setCellValue(credit);

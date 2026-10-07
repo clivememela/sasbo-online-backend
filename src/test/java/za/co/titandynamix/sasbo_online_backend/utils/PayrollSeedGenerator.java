@@ -45,20 +45,24 @@ public final class PayrollSeedGenerator {
 
     static final List<Plan> PLANS = List.of(
             new Plan("ABSA", List.of("ABSA BANK"), "%08d", 99_010_001, roles(12, "RETRO", "MISSED_THEN_CAUGHT_UP",
-                    "DUPLICATE", "OLD_RATE", "INITIALS", "STAFF_NUMBER", "RESIGNED", "MISSING")),
-            new Plan("CAPITEC", List.of("CAPITEC BANK"), "%05d", 9_101, roles(10, "DUPLICATE_OWED",
-                    "CATCH_UP_ARREARS", "OVER_BY_MONTHS")),
-            new Plan("FNB_WESBANK", List.of("FIRSTRAND BANK", "WESBANK"), "%07d", 910_001, roles(10, "STAFF_BY_ID",
-                    "ID_DIFFERS", "NAME_BY_ID", "ADJUSTMENT_CATCH_UP", "MISSING")),
-            new Plan("STANDARD_BANK", List.of("STANDARD BANK"), "%06d", 991_001, roles(10, "ZERO", "RESIGNED",
-                    "DUPLICATE")),
-            new Plan("GBS", List.of("GBS MUTUAL BANK"), "%06d", 881_001, roles(6)));
+                    "DUPLICATE", "DUPLICATE_OWED", "OLD_RATE", "INITIALS", "STAFF_NUMBER", "RESIGNED", "MISSING")),
+            new Plan("CAPITEC", List.of("CAPITEC BANK"), "%05d", 9_101, roles(10, "DUPLICATE", "DUPLICATE_OWED",
+                    "CATCH_UP_ARREARS", "OVER_BY_MONTHS", "OLD_RATE", "INITIALS", "STAFF_NUMBER", "RESIGNED", "MISSING")),
+            new Plan("FNB_WESBANK", List.of("FIRSTRAND BANK", "WESBANK"), "%07d", 910_001, roles(10, "DUPLICATE",
+                    "DUPLICATE_OWED", "STAFF_BY_ID", "ID_DIFFERS", "NAME_BY_ID", "ADJUSTMENT_CATCH_UP", "OLD_RATE",
+                    "INITIALS", "RESIGNED", "MISSING")),
+            new Plan("STANDARD_BANK", List.of("STANDARD BANK"), "%06d", 991_001, roles(10, "DUPLICATE",
+                    "DUPLICATE_OWED", "CATCH_UP_ARREARS", "ZERO", "OLD_RATE", "INITIALS", "STAFF_NUMBER", "RESIGNED",
+                    "MISSING")),
+            new Plan("GBS", List.of("GBS MUTUAL BANK"), "%06d", 881_001, roles(5, "DUPLICATE", "OLD_RATE", "RESIGNED",
+                    "MISSING")));
 
     /** The people on the files who are no members: employer, role. */
-    static final List<String[]> STRANGERS = List.of(new String[] {"ABSA", "STRANGER"},
+    static final List<String[]> STRANGERS = List.of(new String[] {"ABSA", "STRANGER"}, new String[] {"ABSA", "UNREADABLE"},
             new String[] {"CAPITEC", "STRANGER"}, new String[] {"CAPITEC", "UNREADABLE"},
-            new String[] {"FNB_WESBANK", "STRANGER"}, new String[] {"FNB_WESBANK", "OTHER_ID"},
-            new String[] {"STANDARD_BANK", "STRANGER"});
+            new String[] {"FNB_WESBANK", "STRANGER"}, new String[] {"FNB_WESBANK", "UNREADABLE"},
+            new String[] {"FNB_WESBANK", "OTHER_ID"}, new String[] {"STANDARD_BANK", "STRANGER"},
+            new String[] {"STANDARD_BANK", "UNREADABLE"}, new String[] {"GBS", "STRANGER"});
 
     /** Roles whose member owes a month on the record: what makes a catch-up a catch-up (PAY-25, PAY-26). */
     static final Set<String> OWING = Set.of("DUPLICATE_OWED", "CATCH_UP_ARREARS", "ADJUSTMENT_CATCH_UP");
@@ -86,9 +90,18 @@ public final class PayrollSeedGenerator {
         return roles;
     }
 
+    /**
+     * The areas other seeds stand in -- the demonstration members' L and W, and the demonstration population's
+     * seventeen (contracts/demo-population.md) -- so payroll's members go to workplaces nobody else is placed at, one
+     * or two a workplace, and no workplace goes over its complement.
+     */
+    static final Set<String> AREAS_TAKEN = Set.of("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N",
+            "P", "R", "S", "W", "X");
+
     /** The file's bytes. */
     public static String render() {
         Random random = new Random(SEED);
+        Map<String, List<Integer>> workplaces = workplacesByEmployer();
         Set<String> taken = new HashSet<>();
         for (String file : List.of("data/members.json", "data/debit_order_members.json",
                 "data/demonstration_members.json")) {
@@ -100,6 +113,7 @@ public final class PayrollSeedGenerator {
         for (Plan plan : PLANS) {
             int staff = plan.firstStaff();
             int index = 0;
+            List<Integer> places = workplaces.getOrDefault(plan.employer(), List.of());
             for (String role : plan.roles()) {
                 boolean female = random.nextBoolean();
                 String first = pick(female ? FEMALE : MALE, random)
@@ -111,6 +125,7 @@ public final class PayrollSeedGenerator {
                 Map<String, Object> f = new LinkedHashMap<>();
                 f.put("membershipNumber", String.format(Locale.ROOT, "M-%06d", number));
                 f.put("employer", plan.employer());
+                f.put("workplaceRaNumber", places.isEmpty() ? null : places.get(index % places.size()));
                 f.put("role", role);
                 f.put("employeeNumber", String.format(Locale.ROOT, plan.staffPattern(), staff++));
                 f.put("title", female ? (random.nextBoolean() ? "Ms" : "Mrs") : "Mr");
@@ -169,6 +184,60 @@ public final class PayrollSeedGenerator {
                 + "  \"members\": [\n" + String.join(",\n", members) + "\n  ],\n"
                 + "  \"strangers\": [\n" + String.join(",\n", strangers) + "\n  ]\n"
                 + "}\n";
+    }
+
+    /**
+     * Each employer's workplaces, from SASBO's branch list and lists (the seed resources): those of the SASBO employers
+     * the payroll employer covers, in the areas no other seed uses, largest complement first; then, where there are
+     * none, those elsewhere with a complement of twenty or more.
+     */
+    static Map<String, List<Integer>> workplacesByEmployer() {
+        Map<String, Set<Integer>> codes = new LinkedHashMap<>();
+        JsonNode employers = read("payroll/employers.json").path("employers");
+        JsonNode lists = read("data/sasbo_reference_lists.json").path("lists");
+        for (JsonNode employer : employers) {
+            Set<Integer> ofEmployer = new java.util.TreeSet<>();
+            for (JsonNode name : employer.path("sasboEmployers")) {
+                for (JsonNode list : lists) {
+                    if (list.path("list").asText().equals("employers")) {
+                        for (JsonNode row : list.path("rows")) {
+                            if (row.path("name").asText().equals(name.asText())) {
+                                row.path("tableCodes").forEach(c -> ofEmployer.add(c.asInt()));
+                            }
+                        }
+                    }
+                }
+            }
+            codes.put(employer.path("code").asText(), ofEmployer);
+        }
+        List<JsonNode> all = new ArrayList<>();
+        read("data/sasbo_workplaces.json").path("workplaces").forEach(all::add);
+        Map<String, List<Integer>> places = new LinkedHashMap<>();
+        codes.forEach((employer, tableCodes) -> {
+            java.util.Comparator<JsonNode> largestFirst = java.util.Comparator.<JsonNode>comparingInt(
+                    w -> -w.path("staffComplement").asInt()).thenComparingInt(w -> w.path("raNumber").asInt());
+            List<Integer> free = all.stream().filter(w -> tableCodes.contains(w.path("tableCode").asInt()))
+                    .filter(w -> !AREAS_TAKEN.contains(w.path("area").asText()))
+                    .filter(w -> w.path("staffComplement").asInt() > 0)
+                    .sorted(largestFirst).map(w -> w.path("raNumber").asInt()).toList();
+            List<Integer> chosen = !free.isEmpty() ? free : all.stream()
+                    .filter(w -> tableCodes.contains(w.path("tableCode").asInt()))
+                    .filter(w -> w.path("staffComplement").asInt() >= 20)
+                    .sorted(largestFirst).map(w -> w.path("raNumber").asInt()).toList();
+            places.put(employer, chosen);
+        });
+        return places;
+    }
+
+    private static JsonNode read(String resource) {
+        try (InputStream stream = PayrollSeedGenerator.class.getClassLoader().getResourceAsStream(resource)) {
+            if (stream == null) {
+                throw new IllegalStateException(resource + " is not on the classpath");
+            }
+            return new ObjectMapper().readTree(stream);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static String surname(Random random, Set<String> used) {

@@ -102,6 +102,7 @@ public class PayrollSeeder {
     private final PayrollPayments payments;
     private final NamedParameterJdbcTemplate jdbc;
     private final SasboEnvironment environment;
+    private final za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch workplaceSwitch;
     private final Clock clock;
     private final TransactionTemplate transactions;
 
@@ -109,7 +110,9 @@ public class PayrollSeeder {
                          MemberRepository memberRepository, PayrollDiscrepancyRepository discrepancyRepository,
                          PayrollStore store, PayrollFiles files, PayrollDiscrepancies discrepancies,
                          PayrollQueries queries, PayrollPayments payments, NamedParameterJdbcTemplate jdbc,
-                         SasboEnvironment environment, Clock clock, PlatformTransactionManager transactionManager) {
+                         SasboEnvironment environment,
+                         za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch workplaceSwitch, Clock clock,
+                         PlatformTransactionManager transactionManager) {
         this.employers = employers;
         this.seedMembers = seedMembers;
         this.memberRepository = memberRepository;
@@ -121,6 +124,7 @@ public class PayrollSeeder {
         this.payments = payments;
         this.jdbc = jdbc;
         this.environment = environment;
+        this.workplaceSwitch = workplaceSwitch;
         this.clock = clock;
         this.transactions = new TransactionTemplate(transactionManager);
     }
@@ -214,13 +218,45 @@ public class PayrollSeeder {
 
     // -------------------------------------------------------------------------------------------- the demonstration
 
-    /** @return how many files the demonstration loaded by this call */
+    /**
+     * The demonstration's members, then its files -- as {@code DataSeeder} calls the two, around Month end's takes.
+     *
+     * @return how many files the demonstration loaded by this call
+     */
     public int seedDemonstration() throws IOException {
+        seedMembers();
+        return seedFiles();
+    }
+
+    /**
+     * The seed's invented payroll members, when absent by membership number -- and, where SASBO's workplaces are served
+     * (the switch at all), each placed at a workplace of their employer where they have none, so Month end counts them
+     * where they work. Called before Month end takes the seed's past months, so the months taken hold them.
+     *
+     * @return how many members this call put on record or placed
+     */
+    public int seedMembers() throws IOException {
+        if (environment.isProduction()) {
+            return 0;
+        }
+        List<PayrollSeedMember> rows = readSeedFile().members();
+        int written = putOnRecord(rows);
+        if (workplaceSwitch.staffNumbersServed()) {
+            written += place(rows);
+        }
+        return written;
+    }
+
+    /**
+     * The demonstration's files, for each demonstrated employer with no file of the seed's yet.
+     *
+     * @return how many files this call loaded
+     */
+    public int seedFiles() throws IOException {
         if (environment.isProduction()) {
             return 0;
         }
         PayrollSeedMember.SeedFile file = readSeedFile();
-        seedMembers(file.members());
         int loaded = 0;
         for (String code : DEMONSTRATED) {
             Optional<PayrollEmployer> employer = employers.findByCode(code);
@@ -236,20 +272,48 @@ public class PayrollSeeder {
     }
 
     /** The seed's members, when absent by membership number: one query, then one batch. */
-    private void seedMembers(List<PayrollSeedMember> rows) {
+    private int putOnRecord(List<PayrollSeedMember> rows) {
         Set<String> present = new HashSet<>(seedMembers.findMembershipNumbersIn(
                 rows.stream().map(PayrollSeedMember::membershipNumber).toList()));
         List<Member> missing = rows.stream().filter(row -> !present.contains(row.membershipNumber()))
                 .map(PayrollSeedMember::toMember).toList();
         if (missing.isEmpty()) {
-            return;
+            return 0;
         }
         try {
             transactions.executeWithoutResult(status -> memberRepository.saveAll(missing));
             log.info("Seeded {} payroll demonstration member(s) from {}", missing.size(), SEED_FILE);
+            return missing.size();
         } catch (DataIntegrityViolationException seededMeanwhile) {
             log.info("The payroll demonstration members were put on record by another instance at the same time");
+            return 0;
         }
+    }
+
+    /**
+     * Each seed member with no workplace given the one the file names, where it is on record: one read of who has
+     * none, then one batch. A workplace a person chose is never touched.
+     */
+    private int place(List<PayrollSeedMember> rows) {
+        List<String> unplaced = jdbc.queryForList("SELECT membership_number FROM members WHERE membership_number IN "
+                + "(:numbers) AND workplace_id IS NULL", new MapSqlParameterSource("numbers",
+                rows.stream().map(PayrollSeedMember::membershipNumber).toList()), String.class);
+        if (unplaced.isEmpty()) {
+            return 0;
+        }
+        Set<String> todo = new HashSet<>(unplaced);
+        List<MapSqlParameterSource> batch = rows.stream()
+                .filter(r -> todo.contains(r.membershipNumber()) && r.workplaceRaNumber() != null)
+                .map(r -> new MapSqlParameterSource("number", r.membershipNumber()).addValue("ra", r.workplaceRaNumber()))
+                .toList();
+        if (batch.isEmpty()) {
+            return 0;
+        }
+        int[] placed = jdbc.batchUpdate("UPDATE members SET workplace_id = (SELECT w.id FROM workplaces w "
+                + "WHERE w.ra_number = :ra) WHERE membership_number = :number AND workplace_id IS NULL "
+                + "AND EXISTS (SELECT 1 FROM workplaces w WHERE w.ra_number = :ra)",
+                batch.toArray(new MapSqlParameterSource[0]));
+        return java.util.Arrays.stream(placed).map(n -> Math.max(n, 0)).sum();
     }
 
     private boolean seededAlready(long employerId) {
@@ -281,7 +345,7 @@ public class PayrollSeeder {
         if (employer.getCode().equals("GBS")) {
             List<PayrollTypedEntryRequest.Row> rows = lines.stream().map(l -> new PayrollTypedEntryRequest.Row(null,
                     null, l.initials(), l.surname(), PayrollKeys.money(l.amount()))).toList();
-            // GBS's letter states one amount: for seven members' subscriptions, while it lists six (PAY-09).
+            // GBS's letter states one amount -- here one subscription more than the members it lists (PAY-09).
             BigDecimal stated = rate.multiply(BigDecimal.valueOf(rows.size() + 1L));
             return files.typed(new PayrollTypedEntryRequest(employer.getId(), period.toString(),
                     PayrollKeys.money(stated), rows), SEED_ACTOR).summary();
@@ -323,15 +387,17 @@ public class PayrollSeeder {
                         member.initials(), member.firstNames(), member.surname(), rate, null, null, null));
             }
         }
-        if (monthsBack == 1 && employer.getCode().equals("FNB_WESBANK")) {
-            debitOrderMember().ifPresent(m -> lines.add(line(m, rate)));
+        if (monthsBack == 1) {
+            // A member who pays by debit order, on this month's payroll file (PAY-29).
+            debitOrderMember(employer.getId()).ifPresent(m -> lines.add(line(m, rate)));
         }
         for (PayrollSeedMember.Stranger stranger : seed.strangers()) {
             if (!stranger.employer().equals(employer.getCode())) {
                 continue;
             }
             boolean unreadable = stranger.role().equals("UNREADABLE");
-            boolean both = employer.getCode().equals("ABSA");
+            // Absa's stranger is on both months' files; everything else of the kind is last month's alone.
+            boolean both = employer.getCode().equals("ABSA") && stranger.role().equals("STRANGER");
             if (stranger.role().equals("OTHER_ID") || (monthsBack == 2 && !both)) {
                 continue;
             }
@@ -414,15 +480,19 @@ public class PayrollSeeder {
                         java.sql.Date.valueOf(period.atEndOfMonth())));
     }
 
-    /** A member who pays by debit order, for the payroll file that finds them (PAY-29): the first on record. */
-    private Optional<Map<String, Object>> debitOrderMember() {
+    /**
+     * A member who pays by debit order and whose record names this employer -- found on its payroll file (PAY-29). One
+     * of the debit-order population already on record, so no member is added that a debit order run would read.
+     */
+    private Optional<Map<String, Object>> debitOrderMember(long employerId) {
         List<Map<String, Object>> found = jdbc.queryForList("SELECT m.membership_number, m.employee_number, "
-                + "m.identity_number, m.title, m.initials, m.first_names, m.surname FROM members m "
-                + "WHERE m.payment_type = 'Debit Order' AND m.status = 'Active' AND m.identity_number IS NOT NULL "
-                + "AND m.surname IS NOT NULL AND m.membership_number IS NOT NULL ORDER BY m.membership_number",
-                new MapSqlParameterSource());
-        return found.stream().filter(m -> PayrollKeys.isSaId(PayrollKeys.idKey((String) m.get("identity_number"))))
-                .findFirst();
+                        + "m.identity_number, m.title, m.initials, m.first_names, m.surname FROM members m "
+                        + "WHERE upper(trim(m.bank_name)) IN (SELECT n.name_key FROM payroll_employer_names n "
+                        + "WHERE n.payroll_employer_id = :employer) AND m.payment_type = 'Debit Order' "
+                        + "AND m.status = 'Active' AND m.employee_number IS NOT NULL AND m.surname IS NOT NULL "
+                        + "AND m.surname <> '' ORDER BY m.membership_number",
+                new MapSqlParameterSource("employer", employerId));
+        return found.stream().findFirst();
     }
 
     // ------------------------------------------------------------------------------------- working the month before
@@ -450,13 +520,18 @@ public class PayrollSeeder {
         pay(employer, file, BigDecimal.ZERO);
     }
 
-    /** Last month: Absa pays in full less its fee; Capitec pays one subscription short (PAY-28); the rest not yet. */
+    /**
+     * Last month: each employer pays one subscription short (PAY-28) -- Absa less its 3% fee as well, which the check
+     * expects (PAY-27); GBS the amount its letter states, which is more than its list comes to.
+     */
     private void recordLastMonthsPayment(PayrollEmployer employer, PayrollFileSummaryDto file) {
-        if (employer.getCode().equals("ABSA")) {
-            pay(employer, file, BigDecimal.ZERO);
-        } else if (employer.getCode().equals("CAPITEC")) {
-            pay(employer, file, rateFor(YearMonth.parse(file.file().period())));
+        if (employer.getCode().equals("GBS")) {
+            YearMonth period = YearMonth.parse(file.file().period());
+            payments.record(new PayrollPaymentRequest(employer.getId(), period.toString(),
+                    file.totals().statedTotal(), period.atEndOfMonth().toString(), "EFT GBS " + period), SEED_ACTOR);
+            return;
         }
+        pay(employer, file, rateFor(YearMonth.parse(file.file().period())));
     }
 
     private void pay(PayrollEmployer employer, PayrollFileSummaryDto file, BigDecimal shortBy) {

@@ -64,8 +64,12 @@ public class PayrollFile {
     @Column(name = "sha256", nullable = false, length = 64)
     private String sha256;
 
-    /** No {@code length}: a large one makes Hibernate declare a blob, which the fast lane's H2 refuses. */
-    @Column(name = "content")
+    /**
+     * Declared {@code bytea} -- what V74 creates, and a type H2 takes as a compatible name -- so the fast lane's table
+     * holds a file of up to 10 MB. Left to Hibernate, a byte array is {@code varbinary(255)} there, and a large length
+     * makes it a blob, which H2 refuses in PostgreSQL mode (see {@code AcbRunFile}).
+     */
+    @Column(name = "content", columnDefinition = "bytea")
     private byte[] content;
 
     @Enumerated(EnumType.STRING)

@@ -80,7 +80,7 @@ class GridReaderTest {
             zip.closeEntry();
         }
         byte[] bomb = out.toByteArray();
-        assertThat(bomb.length).as("small on the wire").isLessThan(PayrollLimits.MAX_BYTES);
+        assertThat((long) bomb.length).as("small on the wire").isLessThan(PayrollLimits.MAX_BYTES);
         assertThatThrownBy(() -> GridReader.read(FileSniffer.sniff(bomb), bomb))
                 .isInstanceOfSatisfying(PayrollRefusal.class,
                         refusal -> assertThat(refusal.code()).isEqualTo(PayrollRefusalCode.FILE_UNREADABLE));

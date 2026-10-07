@@ -32,8 +32,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PayrollParserTest {
 
     private static final YearMonth PERIOD = YearMonth.of(2026, 9);
-    private static final Set<String> PRINTS_INITIALS = Set.of("access-bank", "african-bank", "national-housing",
-            "nedbank", "standard-bank");
+    private static final Set<String> PRINTS_INITIALS = Set.of("access-bank", "african-bank", "bankserv", "national-housing",
+            "nedbank", "sbv", "standard-bank");
     private static final Set<String> PRINTS_ID = Set.of("access-bank", "fnb-wesbank", "metropolitan-health",
             "national-housing");
     private static final Set<String> PRINTS_PERIOD = Set.of("absa", "nedbank");

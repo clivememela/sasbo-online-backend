@@ -10,13 +10,15 @@ import java.util.List;
  * One invented member of {@code data/payroll_members.json}, as the file states it -- a seed DTO, never the entity
  * (the debit-order seed's lesson, F65: the components ARE the file's keys and the reader refuses one it does not
  * know). {@code employer} is the payroll employer's code and {@code role} what the demonstration does with the member
- * on that employer's files ({@code PayrollSeeder}); neither is stored on the member.
+ * on that employer's files ({@code PayrollSeeder}); neither is stored on the member. {@code workplaceRaNumber} is the
+ * workplace of that employer the member stands at, where SASBO's workplaces are on record (the switch at all).
  *
  * <p>🔒 Invented people only; {@code toString()} names the membership number alone.
  */
 public record PayrollSeedMember(
         String membershipNumber,
         String employer,
+        Integer workplaceRaNumber,
         String role,
         String employeeNumber,
         String title,

@@ -18,7 +18,7 @@
      "sasboEmployers": ["GBS MUTUAL BANK"], "names": ["GBS", "GBS MUTUAL BANK"]},
     {"code": "FNB_WESBANK", "name": "FNB & Wesbank", "delivery": "EMAIL", "readable": true, "layout": "fnb-wesbank", "adminFeePercent": "0.00",
      "sasboEmployers": ["FIRSTRAND BANK LIMITED (FNB)", "WESBANK"],
-     "names": ["FNB", "FIRST NATIONAL BANK", "FIRSTRAND", "FIRSTRAND BANK", "FIRSTRAND BANK LIMITED", "FIRSTRAND BANK LIMITED (FNB)", "FIRSTRAND BANK DEPARTMENT", "FIRSTRAND BANK DEPARTMENTS", "FIRSTRAND LIMITED", "WESBANK"]},
+     "names": ["FNB", "FIRST NATIONAL BANK", "FIRST NATIONAL BANK (FNB)", "FIRSTRAND", "FIRSTRAND BANK", "FIRSTRAND BANK LIMITED", "FIRSTRAND BANK LIMITED (FNB)", "FIRSTRAND BANK DEPARTMENT", "FIRSTRAND BANK DEPARTMENTS", "FIRSTRAND LIMITED", "WESBANK"]},
     {"code": "LANDBANK", "name": "Land Bank", "delivery": "EMAIL", "readable": true, "layout": "landbank", "adminFeePercent": "0.00",
      "sasboEmployers": ["LANDBANK OF SA (PTY) LTD"], "names": ["LANDBANK", "LAND BANK", "LANDBANK OF SA (PTY) LTD"]},
     {"code": "NATIONAL_HOUSING", "name": "National Housing", "delivery": "EMAIL", "readable": true, "layout": "national-housing", "adminFeePercent": "0.00",
