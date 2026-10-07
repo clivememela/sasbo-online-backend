@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.repository;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.representative.Representative;
@@ -51,6 +52,50 @@ public interface MemberRepository extends JpaRepository<Member, Integer> {
     // Alternate lookup utility to double check active status configurations
     @Query("SELECT m FROM Member m WHERE m.isRepresentative = true AND m.status = 'ACTIVE'")
     List<Member> findAllActiveRepresentatives();
+
+    /**
+     * A member a capture would duplicate (October build, Stephne MEN-19): enough to name the record, never the person.
+     * The aliases are one word each, as both databases fold an unquoted alias's case.
+     */
+    interface CapturedAlready {
+        Integer getId();
+
+        String getNumber();
+
+        String getStatus();
+    }
+
+    /** MEN-19: the member holding this identity number -- the same person, whatever their status (V26's index). */
+    @Query(value = "SELECT m.id AS id, m.membership_number AS number, m.status AS status FROM members m "
+            + "WHERE m.identity_number = :identity ORDER BY m.id LIMIT 1", nativeQuery = true)
+    Optional<CapturedAlready> findCapturedByIdentityNumber(@Param("identity")
+                                                           String identity);
+
+    /**
+     * MEN-19: a member with no identity number holding this passport number, case and spaces aside -- the predicate is
+     * V79's {@code members_passport_unique}, word for word, so the index answers it.
+     */
+    @Query(value = "SELECT m.id AS id, m.membership_number AS number, m.status AS status FROM members m "
+            + "WHERE upper(trim(m.passport_number)) = upper(trim(:passport)) "
+            + "AND (m.identity_number IS NULL OR m.identity_number = '') "
+            + "AND m.passport_number IS NOT NULL AND trim(m.passport_number) <> '' ORDER BY m.id LIMIT 1",
+            nativeQuery = true)
+    Optional<CapturedAlready> findCapturedByPassportNumber(@Param("passport")
+                                                           String passport);
+
+    /**
+     * MEN-19: a member with no identity number holding this employee number at the same "Bank Where Employed", case
+     * and spaces aside -- V79's {@code members_employee_at_employer_unique}, word for word.
+     */
+    @Query(value = "SELECT m.id AS id, m.membership_number AS number, m.status AS status FROM members m "
+            + "WHERE lower(trim(m.bank_name)) = lower(trim(:employer)) "
+            + "AND upper(trim(m.employee_number)) = upper(trim(:employee)) "
+            + "AND (m.identity_number IS NULL OR m.identity_number = '') "
+            + "AND m.employee_number IS NOT NULL AND trim(m.employee_number) <> '' "
+            + "AND m.bank_name IS NOT NULL AND trim(m.bank_name) <> '' ORDER BY m.id LIMIT 1", nativeQuery = true)
+    Optional<CapturedAlready> findCapturedByEmployeeNumber(
+            @Param("employer") String employer,
+            @Param("employee") String employee);
 
     /**
      * Month end 03.1: the member, LOCKED for a status change until the transaction ends -- so that of two changes

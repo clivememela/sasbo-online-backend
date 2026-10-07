@@ -46,10 +46,23 @@ public interface MemberService {
      * @param note             the administrator's words, at most 500 characters, never logged
      * @param actor            who -- {@code system} until sign-in (PA-12)
      * @param at               when -- the injected clock's instant
+     * @param noDeductionReasonId October build, MEN-17: the reason for no payroll deduction a suspension was given,
+     *                         from the list; {@code null} for none
+     * @param undoesSince      October build, MEN-23: a reinstatement out of a leaving status UNDOES the member's
+     *                         latest leaving where that leaving is at or after this instant -- the cut-off of the newest
+     *                         month taken -- so both count as neither; {@code null} never undoes
      */
     record StatusChange(String toStatus, String expectedStatus,
                         za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason reason, Long deletionCodeId,
-                        Long suspensionCodeId, String note, String actor, java.time.Instant at) {
+                        Long suspensionCodeId, String note, String actor, java.time.Instant at,
+                        Long noDeductionReasonId, java.time.Instant undoesSince) {
+
+        /** A change with no reason for no deduction, which undoes nothing. */
+        public StatusChange(String toStatus, String expectedStatus,
+                            za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason reason, Long deletionCodeId,
+                            Long suspensionCodeId, String note, String actor, java.time.Instant at) {
+            this(toStatus, expectedStatus, reason, deletionCodeId, suspensionCodeId, note, actor, at, null, null);
+        }
     }
 
     /**

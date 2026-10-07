@@ -54,7 +54,7 @@ class MemberStatusControllerTest {
     void theBodyBinds() throws Exception {
         when(statuses.change(eq(7), any())).thenReturn(new MemberStatusAnswer(7, "M-900001", "Resigned",
                 new MemberStatusAnswer.Change(1, "Active", "Resigned", "DELETION_CODE", 2, "Resigned Society", null,
-                        null, null, null, "system", "2026-09-29T08:00:00Z")));
+                        null, null, null, "system", "2026-09-29T08:00:00Z", null, null, null)));
         ArgumentCaptor<MemberStatusRequest> request = ArgumentCaptor.forClass(MemberStatusRequest.class);
 
         mockMvc.perform(post("/api/members/7/status").contentType(MediaType.APPLICATION_JSON)
