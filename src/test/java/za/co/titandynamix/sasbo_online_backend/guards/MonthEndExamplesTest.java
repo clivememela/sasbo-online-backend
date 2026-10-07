@@ -34,6 +34,7 @@ import za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.WorkplaceSeeder;
 import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
 import za.co.titandynamix.sasbo_online_backend.security.ScopedPrincipal;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
@@ -140,6 +141,15 @@ class MonthEndExamplesTest {
             return new Example(method, path, body, false, false, false, authorities, areas, setup);
         }
 
+        /**
+         * October build review: asked by a caller who is NOT signed in, as open mode's anonymous caller is -- for a
+         * route held by {@code isAnonymous() or hasAuthority(...)}, which this class, asking with the filters off,
+         * would otherwise ask with no caller at all. An empty {@code authorities} is that caller.
+         */
+        static Example anonymously(String method, String path, String body) {
+            return new Example(method, path, body, false, false, false, "", null, null);
+        }
+
         String key() {
             return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}").replace("{pack}", "{id}")
                     .replace("{workplace}", "{id}").replace("{draft}", "{id}")
@@ -190,12 +200,18 @@ class MonthEndExamplesTest {
         // A.1: the invented main street's visits -- one of SASBO's own months and one captured here, newest first -- and
         // a visit recorded, the complement it found the one on record, so no other answer moves.
         routes.add(new Example("GET", "/api/workplaces/{workplace}/visits", null));
-        routes.add(new Example("POST", "/api/workplaces/{workplace}/visits", "{\"visitedOn\": \"2026-09-10\", "
+        routes.add(Example.anonymously("POST", "/api/workplaces/{workplace}/visits", "{\"visitedOn\": \"2026-09-10\", "
                 + "\"organiser\": \"INVENTED ORGANISER\", \"complementFound\": 40, \"membershipFound\": 12}"));
         // October build: the organisers' batch print -- two invented workplaces and a number that is none -- and the
         // members at the invented main street, the invented member placed there for the example and taken back after.
-        routes.add(new Example("GET", "/api/workplaces/listings?raNumbers=900001,900003,900099", null));
+        routes.add(Example.anonymously("GET", "/api/workplaces/listings?raNumbers=900001,900003,900099", null));
         routes.add(Example.signedIn("GET", "/api/workplaces/{workplace}/members", null, "MEMBERS_VIEW", null,
+                List.of("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = 900001), "
+                        + "employee_number = 'INV00042', cell_tel = '+27 60 555 0002' WHERE membership_number = '"
+                        + MEMBER + "'")));
+        // October build review: the members of a batch's branches in one read -- the invented main street, its member
+        // placed there for the example, and a number that is no workplace.
+        routes.add(Example.signedIn("GET", "/api/workplaces/members?ids={workplace},999999", null, "MEMBERS_VIEW", null,
                 List.of("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = 900001), "
                         + "employee_number = 'INV00042', cell_tel = '+27 60 555 0002' WHERE membership_number = '"
                         + MEMBER + "'")));
@@ -262,7 +278,7 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.WORKPLACE_UNKNOWN, new Example("PUT", "/api/members/{member}",
                 "{\"workplaceId\": 999999}"));
         // A.1: a visit with no day.
-        provoked.put(MonthEndRefusalCode.VISIT_INVALID, new Example("POST", "/api/workplaces/{workplace}/visits",
+        provoked.put(MonthEndRefusalCode.VISIT_INVALID, Example.anonymously("POST", "/api/workplaces/{workplace}/visits",
                 "{\"complementFound\": 40}"));
         // 03.4: thrown there too -- an edit that would change the status, which Change status alone changes (BR77).
         provoked.put(MonthEndRefusalCode.STATUS_VIA_CHANGE_STATUS, new Example("PUT", "/api/members/{member}",
@@ -294,7 +310,7 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.PACK_NOT_FOUND, new Example("GET", "/api/month-end/packs/999999", null));
         // October build: the batch print's numbers, one not a number; the members at a branch outside the caller's
         // area; and the visit drafts' three -- none of mine, saved since, and submitted already.
-        provoked.put(MonthEndRefusalCode.RA_NUMBERS_INVALID, new Example("GET", "/api/workplaces/listings?raNumbers=12A",
+        provoked.put(MonthEndRefusalCode.RA_NUMBERS_INVALID, Example.anonymously("GET", "/api/workplaces/listings?raNumbers=12A",
                 null));
         provoked.put(MonthEndRefusalCode.WORKPLACE_OUT_OF_SCOPE, Example.signedIn("GET",
                 "/api/workplaces/{workplace}/members", null, "MEMBERS_VIEW", "B", null));
@@ -439,9 +455,11 @@ class MonthEndExamplesTest {
                 : CallerScope.areas(Set.of(example.areas().split(",")));
         SecurityContext previous = SecurityContextHolder.getContext();
         SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(new UsernamePasswordAuthenticationToken(
-                new SignedInOrganiser("organiser", "Invented Organiser", scope), null,
-                AuthorityUtils.commaSeparatedStringToAuthorityList(example.authorities())));
+        context.setAuthentication(example.authorities().isEmpty()
+                ? new AnonymousAuthenticationToken("month-end-examples", "anonymousUser",
+                        AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"))
+                : new UsernamePasswordAuthenticationToken(new SignedInOrganiser("organiser", "Invented Organiser", scope),
+                        null, AuthorityUtils.commaSeparatedStringToAuthorityList(example.authorities())));
         SecurityContextHolder.setContext(context);
         try {
             if (example.setup() == null) {

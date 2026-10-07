@@ -41,6 +41,14 @@ public class WorkplaceLookupRepository {
                 .stream().findFirst();
     }
 
+    /** The workplaces of the ids asked for, and where each is -- a batch print's branches, in ONE statement. */
+    public java.util.List<Place> byIds(java.util.Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return java.util.List.of();
+        }
+        return jdbc.query(SELECT + " WHERE w.id IN (:ids)", new MapSqlParameterSource("ids", ids), (rs, n) -> place(rs));
+    }
+
     public Optional<Place> byRaNumber(int raNumber) {
         return jdbc.query(SELECT + " WHERE w.ra_number = :number", new MapSqlParameterSource("number", raNumber),
                 (rs, n) -> place(rs)).stream().findFirst();

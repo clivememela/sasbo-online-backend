@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.config.MonthEndApi;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceListingsDto;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceMemberPageDto;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceMembersDto;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceListingService;
 
 import java.util.List;
@@ -31,11 +32,24 @@ public class WorkplaceListingController {
 
     /**
      * The workplaces whose R/A numbers are named -- {@code ?raNumbers=900001,900002}, fifty at most -- in the order
-     * named, and the numbers that are none.
+     * named, and the numbers that are none. Held by {@code REPORTS_PRINT} -- the catalogue's "organisers' reports, batch
+     * print, location listings" -- and answered, as every route that worked before sign-in does, to a caller who is not
+     * signed in while sign-in is open (contracts/signin.md).
      */
+    @PreAuthorize("isAnonymous() or hasAuthority('REPORTS_PRINT')")
     @GetMapping("/listings")
     public WorkplaceListingsDto listings(@RequestParam(required = false) List<String> raNumbers) {
         return listings.listings(raNumbers);
+    }
+
+    /**
+     * The members at each branch of a batch print, in one answer -- {@code ?ids=1,2,3}, the workplaces' ids the listings
+     * answered, fifty at most -- as far as the caller's scope reaches. A listing that names members: {@code MEMBERS_VIEW}.
+     */
+    @PreAuthorize("hasAuthority('MEMBERS_VIEW')")
+    @GetMapping("/members")
+    public WorkplaceMembersDto membersOf(@RequestParam(required = false) List<String> ids) {
+        return listings.membersOf(ids);
     }
 
     /** A page of the members on record at a workplace, as far as the caller's scope reaches. */

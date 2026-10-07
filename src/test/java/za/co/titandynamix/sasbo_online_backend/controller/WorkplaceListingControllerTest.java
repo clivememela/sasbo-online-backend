@@ -13,6 +13,7 @@ import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceListingsDto;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceMemberPageDto;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceMembersDto;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
@@ -68,6 +69,58 @@ class WorkplaceListingControllerTest {
                 .andExpect(status().isOk());
 
         verify(listings, org.mockito.Mockito.times(2)).listings(List.of("900001", "900002"));
+    }
+
+    @Test
+    @WithMockUser(authorities = "REPORTS_PRINT")
+    @DisplayName("🔒 review: the batch print is held by REPORTS_PRINT -- its holder is answered")
+    void theBatchAnswersReportsPrint() throws Exception {
+        when(listings.listings(List.of("900001"))).thenReturn(new WorkplaceListingsDto(List.of(900001), List.of(),
+                List.of(900001), "ALL", null));
+
+        mockMvc.perform(get("/api/workplaces/listings").param("raNumbers", "900001")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(authorities = "MEMBERS_VIEW")
+    @DisplayName("🔒 review: a signed-in user without REPORTS_PRINT is refused 403 -- and nothing is looked up")
+    void aSignedInUserWithoutReportsPrintIsRefused() throws Exception {
+        mockMvc.perform(get("/api/workplaces/listings").param("raNumbers", "900001")).andExpect(status().isForbidden());
+
+        verifyNoInteractions(listings);
+    }
+
+    @Test
+    @WithMockUser(authorities = "MEMBERS_VIEW")
+    @DisplayName("🔒 review: the members of a batch's branches in one read -- MEMBERS_VIEW, the ids reaching the service as sent")
+    void theBatchsMembersInOneRead() throws Exception {
+        when(listings.membersOf(List.of("1", "2"))).thenReturn(new WorkplaceMembersDto(List.of(
+                new WorkplaceMembersDto.Branch(1, false, PAGE.members(), 1),
+                new WorkplaceMembersDto.Branch(2, true, List.of(), 0)), List.of(), 500));
+
+        mockMvc.perform(get("/api/workplaces/members").param("ids", "1,2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.branches[0].members[0].employeeNumber").value("****0042"))
+                .andExpect(jsonPath("$.branches[1].outOfScope").value(true))
+                .andExpect(jsonPath("$.perBranch").value(500));
+    }
+
+    @Test
+    @WithMockUser(authorities = "REPORTS_PRINT")
+    @DisplayName("🔒 the batch's members: a user without MEMBERS_VIEW is refused 403, and nothing is read")
+    void theBatchsMembersAreHeld() throws Exception {
+        mockMvc.perform(get("/api/workplaces/members").param("ids", "1,2")).andExpect(status().isForbidden());
+
+        verifyNoInteractions(listings);
+    }
+
+    @Test
+    @WithAnonymousUser
+    @DisplayName("🔒 the batch's members: nobody signed in is refused -- not a 2xx, and not a 500")
+    void theBatchsMembersRefuseAnAnonymousCaller() throws Exception {
+        mockMvc.perform(get("/api/workplaces/members").param("ids", "1")).andExpect(status().is4xxClientError());
+
+        verifyNoInteractions(listings);
     }
 
     @Test

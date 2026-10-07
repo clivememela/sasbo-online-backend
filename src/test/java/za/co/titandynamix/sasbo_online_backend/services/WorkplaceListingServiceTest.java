@@ -11,6 +11,7 @@ import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceDto;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceListingsDto;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceMemberPageDto;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceMembersDto;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplacePageDto;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
@@ -295,6 +296,59 @@ class WorkplaceListingServiceTest {
         when(members.page(1L, CallerScope.all(), 4, 50)).thenReturn(new WorkplaceMemberRepository.Slice(
                 Collections.emptyList(), 0));
         assertCode(() -> service.members(1L, 4, null), MonthEndRefusalCode.WORKPLACE_PAGE_INVALID);
+    }
+
+    // ------------------------------------------------------------------------------------------- the batch's members
+
+    @Test
+    @DisplayName("🔒 review: one read for the batch's members -- the branches in the order asked, one outside the caller's area marked and never asked for, an unknown id said, each branch's total beside it")
+    void theBatchsMembersInOneRead() {
+        when(places.byIds(List.of(3L, 1L, 9L))).thenReturn(List.of(
+                new WorkplaceLookupRepository.Place(1, 900001, "INVENTED MAIN STREET", "A", "NORTH"),
+                new WorkplaceLookupRepository.Place(3, 900003, "INVENTED HARBOUR", "B", "SOUTH")));
+        CallerScope areaA = CallerScope.areas(Set.of("A"));
+        signedInAs(areaA);
+        when(members.forWorkplaces(List.of(1L), areaA, WorkplaceListingService.MEMBERS_PER_BRANCH)).thenReturn(List.of(
+                new WorkplaceMemberRepository.BranchRow(1, member(11, "Active", "0042"), 3),
+                new WorkplaceMemberRepository.BranchRow(1, member(12, "Suspended", ""), 3)));
+
+        WorkplaceMembersDto answer = service.membersOf(List.of("3", "1", "9", "1"));
+
+        assertThat(answer.branches()).extracting(WorkplaceMembersDto.Branch::workplaceId).containsExactly(3L, 1L);
+        assertThat(answer.branches().get(0).outOfScope()).isTrue();
+        assertThat(answer.branches().get(0).members()).isEmpty();
+        assertThat(answer.branches().get(1).members()).extracting(WorkplaceMemberPageDto.Member::employeeNumber)
+                .containsExactly("****0042", "****");
+        assertThat(answer.branches().get(1).totalElements()).isEqualTo(3);
+        assertThat(answer.unknown()).containsExactly(9L);
+        assertThat(answer.perBranch()).isEqualTo(500);
+        verify(members).forWorkplaces(List.of(1L), areaA, 500);
+    }
+
+    @Test
+    @DisplayName("the batch's ids: none, more than fifty, or one that is not a workplace's number is REQUEST_MALFORMED at ids -- nothing read")
+    void theBatchsIdsRead() {
+        List<String> fiftyOne = IntStream.rangeClosed(1, 51).mapToObj(String::valueOf).toList();
+        for (List<String> ids : List.of(List.<String>of(), fiftyOne, List.of("1", "abc"), List.of("0"))) {
+            assertThatThrownBy(() -> service.membersOf(ids)).isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
+                assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.REQUEST_MALFORMED);
+                assertThat(refusal.details()).containsEntry("field", "ids");
+            });
+        }
+        assertThatThrownBy(() -> service.membersOf(null)).isInstanceOf(MonthEndRefusal.class);
+        verifyNoInteractions(places, members);
+    }
+
+    @Test
+    @DisplayName("MD62: where no workplace is served here, every id is unknown and nothing is read")
+    void theBatchsMembersWithNoneServed() {
+        when(workplaceSwitch.workplacesOnRecord()).thenReturn(false);
+
+        WorkplaceMembersDto answer = service.membersOf(List.of("1", "2"));
+
+        assertThat(answer.branches()).isEmpty();
+        assertThat(answer.unknown()).containsExactly(1L, 2L);
+        verifyNoInteractions(places, members);
     }
 
     private static void assertRefused(Runnable call, String reason) {

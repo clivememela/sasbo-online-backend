@@ -98,6 +98,55 @@ public class WorkplaceMemberRepository {
         return new Slice(rows, total[0]);
     }
 
+    /** One member of a batch's branch, with the branch it stands at and how many members that branch has in all. */
+    public record BranchRow(long workplaceId, Row member, long branchTotal) {
+    }
+
+    /**
+     * The members on record at each of the workplaces asked for -- a batch print's branches, in ONE statement (October
+     * build review: one read for the batch, not one a branch) -- {@code perBranch} at most a branch, each branch in a
+     * listing's order, numbered within it by a window, with the branch's whole count beside each row. Scoped in SQL by the
+     * same fragment as a page of one branch, and masked in the database the same way.
+     */
+    public List<BranchRow> forWorkplaces(java.util.Collection<Long> workplaceIds, CallerScope scope, int perBranch) {
+        if (workplaceIds.isEmpty()) {
+            return List.of();
+        }
+        MapSqlParameterSource args = new MapSqlParameterSource("workplaces", workplaceIds)
+                .addValue("leaving", MemberStatuses.ofKind(MemberStatusKind.LEAVING))
+                .addValue("perBranch", perBranch);
+        String sql = """
+                SELECT * FROM (
+                  SELECT m.workplace_id, m.id, m.membership_number, m.title, m.initials, m.surname, m.status, m.join_date,
+                    CASE WHEN COALESCE(TRIM(m.employee_number), '') = '' THEN NULL
+                         WHEN LENGTH(TRIM(m.employee_number)) <= 4 THEN ''
+                         ELSE RIGHT(TRIM(m.employee_number), 4) END AS employee_tail,
+                    m.monthly_subscription_numeric,
+                    CASE WHEN COALESCE(TRIM(m.personal_email), '') <> '' OR COALESCE(TRIM(m.work_email), '') <> ''
+                         THEN TRUE ELSE FALSE END AS has_email,
+                    CASE WHEN COALESCE(TRIM(m.cell_tel), '') <> '' THEN TRUE ELSE FALSE END AS has_cell,
+                    CASE WHEN COALESCE(TRIM(m.identity_number), '') <> '' OR COALESCE(TRIM(m.passport_number), '') <> ''
+                         THEN TRUE ELSE FALSE END AS has_identity,
+                    COUNT(*) OVER (PARTITION BY m.workplace_id) AS branch_total,
+                    ROW_NUMBER() OVER (PARTITION BY m.workplace_id
+                      ORDER BY m.surname, m.initials, m.membership_number, m.id) AS n
+                  FROM members m
+                  JOIN workplaces w ON w.id = m.workplace_id
+                  JOIN sasbo_areas a ON a.id = w.area_id
+                  LEFT JOIN sasbo_regions r ON r.id = a.region_id
+                  WHERE m.workplace_id IN (:workplaces) AND m.status NOT IN (:leaving)
+                """ + scoped(scope, args) + """
+                ) listed WHERE n <= :perBranch ORDER BY workplace_id, n
+                """;
+        return jdbc.query(sql, args, (rs, i) -> new BranchRow(rs.getLong("workplace_id"),
+                new Row(rs.getInt("id"), rs.getString("membership_number"), rs.getString("title"),
+                        rs.getString("initials"), rs.getString("surname"), rs.getString("status"),
+                        rs.getDate("join_date"), rs.getString("employee_tail"),
+                        rs.getBigDecimal("monthly_subscription_numeric"), rs.getBoolean("has_email"),
+                        rs.getBoolean("has_cell"), rs.getBoolean("has_identity")),
+                rs.getLong("branch_total")));
+    }
+
     /**
      * The caller's scope as a fragment of the statement: nothing for a scope of everything; the workplace's area, or
      * its area's region, among the caller's codes otherwise. Every value is bound -- the fragment is fixed text.

@@ -65,7 +65,14 @@ class MonthEndRoutesTest {
             Map.entry("POST /api/workplaces/visit-drafts", "VISITS_CAPTURE"),
             Map.entry("GET /api/workplaces/visit-drafts/{id}", "VISITS_CAPTURE"),
             Map.entry("PUT /api/workplaces/visit-drafts/{id}", "VISITS_CAPTURE"),
-            Map.entry("POST /api/workplaces/visit-drafts/{id}/submit", "VISITS_CAPTURE")
+            Map.entry("POST /api/workplaces/visit-drafts/{id}/submit", "VISITS_CAPTURE"),
+            Map.entry("DELETE /api/workplaces/visit-drafts/{id}", "VISITS_CAPTURE"),
+            // reports-visits review: the direct visit route, held as the drafts are -- it writes the same complement.
+            Map.entry("POST /api/workplaces/{id}/visits", "VISITS_CAPTURE"),
+            // reports-visits review: the batch print's listings, held by the catalogue's REPORTS_PRINT, and its members
+            // in one read for the batch.
+            Map.entry("GET /api/workplaces/listings", "REPORTS_PRINT"),
+            Map.entry("GET /api/workplaces/members", "MEMBERS_VIEW")
     );
 
     /** The permission a {@code @PreAuthorize} expression names: {@code hasAuthority('MONTH_END_TAKE')}. */

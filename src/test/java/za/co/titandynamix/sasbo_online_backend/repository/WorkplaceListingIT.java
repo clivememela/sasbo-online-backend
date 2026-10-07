@@ -13,6 +13,8 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceListingsDto;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceMemberPageDto;
+import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceMembersDto;
 import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
 import za.co.titandynamix.sasbo_online_backend.security.ScopedPrincipal;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceListingService;
@@ -143,6 +145,36 @@ class WorkplaceListingIT extends AbstractSwitchedOnIT {
         assertThat(members.page(branch, CallerScope.areas(Set.of("W")), 0, 50).rows()).isEmpty();
         assertThat(members.page(branch, CallerScope.areas(Set.of("L")), 0, 50).rows()).hasSize(3);
         assertThat(members.page(branch, CallerScope.all(), 1, 2).rows()).as("a page past the first").hasSize(1);
+    }
+
+    @Test
+    @DisplayName("🔒 review: the members of a batch's branches in ONE read -- two statements for every branch, scoped in SQL, capped a branch with the branch's whole count beside")
+    void theBatchsMembersInTwoStatements() {
+        Long elsewhere = jdbc.queryForObject("SELECT w.id FROM workplaces w JOIN sasbo_areas a ON a.id = w.area_id "
+                + "WHERE a.letter = 'W' ORDER BY w.ra_number LIMIT 1", Long.class);
+        DataSource counted = ConnectionStatements.wrap(dataSource);
+        NamedParameterJdbcTemplate countedJdbc = new NamedParameterJdbcTemplate(counted);
+        WorkplaceListingService batch = new WorkplaceListingService(new WorkplaceRepository(countedJdbc),
+                new WorkplaceVisitRepository(counted), new WorkplaceLookupRepository(countedJdbc),
+                new WorkplaceMemberRepository(countedJdbc), workplacePages, workplaceSwitch);
+
+        WorkplaceMembersDto[] answer = new WorkplaceMembersDto[1];
+        long statements = ConnectionStatements.during(() -> answer[0] = batch.membersOf(
+                List.of(String.valueOf(branch), String.valueOf(elsewhere))));
+
+        assertThat(statements).as("the branches once, their members once -- never a statement a branch").isEqualTo(2);
+        assertThat(answer[0].branches()).extracting(WorkplaceMembersDto.Branch::workplaceId)
+                .containsExactly(branch, elsewhere);
+        assertThat(answer[0].branches().get(0).members()).extracting(WorkplaceMemberPageDto.Member::surname)
+                .containsExactly("INVENTED-A", "INVENTED-B", "INVENTED-C");
+        assertThat(answer[0].branches().get(1).totalElements()).isEqualTo(1L);
+
+        assertThat(members.forWorkplaces(List.of(branch, elsewhere), CallerScope.areas(Set.of("L")), 500))
+                .as("the statement itself keeps a caller of area L to area L's branch")
+                .allSatisfy(row -> assertThat(row.workplaceId()).isEqualTo(branch)).hasSize(3);
+        assertThat(members.forWorkplaces(List.of(branch), CallerScope.all(), 2))
+                .as("capped a branch, the branch's whole count beside each row")
+                .allSatisfy(row -> assertThat(row.branchTotal()).isEqualTo(3L)).hasSize(2);
     }
 
     @Test
