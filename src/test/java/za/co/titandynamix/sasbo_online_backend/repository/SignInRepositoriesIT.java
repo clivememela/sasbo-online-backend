@@ -159,15 +159,25 @@ class SignInRepositoriesIT extends AbstractWritingIT {
     }
 
     @Test
-    @DisplayName("a new password: the hash, the temporary flag, the lock lifted")
+    @DisplayName("a new password -- an administrator's reset -- sets the hash and the temporary flag, and lets a locked user in early")
     void aNewPassword() {
         StaffUser first = theFirstAdministrator();
+        Instant until = Instant.now().plus(Duration.ofMinutes(15)).truncatedTo(ChronoUnit.MICROS);
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            for (int i = 0; i < 5; i++) {
+                users.countFailure(first.getId());
+            }
+            users.lockIfReached(first.getId(), 5, until);
+        });
+        assertThat(users.lockedUntil(first.getId())).as("locked first").isEqualTo(until);
         String hash = encoder.encode("an-invented-settled-phrase");
         new TransactionTemplate(transactions).executeWithoutResult(status ->
-                users.setPassword(first.getId(), hash, false, Instant.now(), "test"));
+                users.setPassword(first.getId(), hash, true, Instant.now(), "test"));
         StaffUser after = users.findWithAccess(first.getId()).orElseThrow();
         assertThat(after.getPasswordHash()).isEqualTo(hash);
-        assertThat(after.isMustChangePassword()).isFalse();
+        assertThat(after.isMustChangePassword()).isTrue();
+        assertThat(after.getLockedUntil()).as("the lock lifted").isNull();
+        assertThat(after.getFailedAttempts()).isZero();
     }
 
     @Test

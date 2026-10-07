@@ -1,6 +1,11 @@
 spring:
   application:
     name: sasbo-online-backend
+  # Sign-in (October build): staff sign in through /api/auth with a bearer token; nothing signs in with an in-memory user.
+  # Left on, this auto-configuration made one and wrote its generated password to the log at every start -- and no
+  # password is ever logged (contracts/signin.md). SignInConfigGuardTest holds it off.
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
