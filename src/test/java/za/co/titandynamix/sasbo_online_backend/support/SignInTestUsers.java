@@ -1,5 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.support;
 
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import za.co.titandynamix.sasbo_online_backend.security.BearerAuthentication;
 import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
@@ -16,12 +18,39 @@ import java.util.Set;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 
 /**
- * Signed-in callers for tests -- invented people, named for what they are -- and the two ways a request carries one:
- * a bearer token through the real filter ({@link #bearer}), or the authentication itself ({@link #signedIn}).
+ * Signed-in callers for tests -- invented people, named for what they are -- and the three ways a request carries one:
+ * a bearer token through the real filter ({@link #bearer}), the authentication itself ({@link #signedIn}), or, in a
+ * slice that runs without the filters, the caller set on the thread for the call ({@link #actingAs}).
+ *
+ * <p>⚠️ Their ids are made up. On PostgreSQL a caller whose action is written to the record of who did what must be a
+ * staff user on record -- {@code audit_events.user_id} is a foreign key -- so build that caller with a real user's id.
  */
 public final class SignInTestUsers {
 
     private SignInTestUsers() {
+    }
+
+    /** A call that may throw, as a {@code MockMvc} perform does. */
+    @FunctionalInterface
+    public interface Call<T> {
+        T call() throws Exception;
+    }
+
+    /**
+     * Runs {@code call} with {@code user} as the caller on this thread -- what the token filter would have set -- and
+     * puts back whoever was there. For a slice that runs without the filters, where {@code AcbActor} must still name
+     * the person, or method security must still find a caller.
+     */
+    public static <T> T actingAs(SignedInUser user, Call<T> call) throws Exception {
+        SecurityContext before = SecurityContextHolder.getContext();
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new BearerAuthentication(user));
+        SecurityContextHolder.setContext(context);
+        try {
+            return call.call();
+        } finally {
+            SecurityContextHolder.setContext(before);
+        }
     }
 
     /** A user holding {@code permissions}, seeing {@code scope}, with a settled password. */

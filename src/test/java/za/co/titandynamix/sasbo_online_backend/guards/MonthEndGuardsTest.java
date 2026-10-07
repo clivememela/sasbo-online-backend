@@ -59,7 +59,7 @@ class MonthEndGuardsTest {
             "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
             "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController", "MonthEndPacks",
             "MonthEndPackController", "MonthEndPackRepository", "MonthEndWorkbooks", "MonthEndPackLauncher",
-            "MonthEndPackConfig", "SpreadsheetText");
+            "MonthEndPackConfig", "SpreadsheetText", "MonthEndListings", "MonthEndListingRepository");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 

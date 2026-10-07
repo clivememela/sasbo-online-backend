@@ -159,7 +159,6 @@
       {"code": "MONTH_TAKEN_SINCE", "status": 409},
       {"code": "MONTH_NOT_READY", "status": 409},
       {"code": "MONTH_NOT_TAKEN", "status": 404},
-      {"code": "IDENTITY_REQUIRED", "status": 403},
       {"code": "PACK_BUSY", "status": 409},
       {"code": "PACK_NOT_FOUND", "status": 404}
     ]

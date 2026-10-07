@@ -652,6 +652,29 @@
         ]
       }
     },
+    "GET /api/month-end/{month}/listings/new-members" : {
+      "request" : "GET /api/month-end/2026-08/listings/new-members",
+      "status" : 200,
+      "body" : {
+        "listing" : "new-members",
+        "title" : "The month's new members",
+        "legacy" : "Print Member Roll (No Adding) -- the members enrolled",
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "scope" : "ALL",
+        "area" : null,
+        "region" : null,
+        "content" : [ ],
+        "page" : 0,
+        "size" : 50,
+        "totalElements" : 0,
+        "totalPages" : 0,
+        "notes" : [
+          "A member is new in the month their Date Joined falls in, whatever their status now.",
+          "Read from the members as they stand now: a member captured or changed after the month was taken can differ from the month's figures."
+        ]
+      }
+    },
     "GET /api/month-end/{month}" : {
       "request" : "GET /api/month-end/2026-08",
       "status" : 200,
@@ -3146,21 +3169,6 @@
         "details" : {
           "month" : "2026-07",
           "open" : "2026-09"
-        }
-      }
-    },
-    "IDENTITY_REQUIRED" : {
-      "request" : "POST /api/month-end/2026-07/take",
-      "status" : 403,
-      "body" : {
-        "timestamp" : "2026-09-29T08:00:00",
-        "status" : 403,
-        "error" : "Forbidden",
-        "message" : "Taking a month freezes its figures for good, so it waits until administrators sign in to this system. Nothing has been taken.",
-        "path" : "/api/month-end/2026-07/take",
-        "code" : "IDENTITY_REQUIRED",
-        "details" : {
-          "month" : "2026-07"
         }
       }
     },
