@@ -371,10 +371,14 @@ public final class DemonstrationPopulationGenerator {
         }
 
         // 4. The members, area by area, workplace by workplace in R/A order, numbered downwards.
+        // Clear of every other seed file's identity numbers: V26 holds one member to a number, so a clash would refuse
+        // the whole batch at a start.
         Set<String> identities = new HashSet<>();
-        identities.addAll(DemonstrationMemberGenerator.identityNumbersIn("data/members.json"));
-        identities.addAll(DemonstrationMemberGenerator.identityNumbersIn(DebitOrderMemberSeeder.SEED_FILE));
-        identities.addAll(DemonstrationMemberGenerator.identityNumbersIn(DemonstrationMemberSeeder.SEED_FILE));
+        for (String seedFile : SeedMemberNumbers.SEED_FILES) {
+            if (!seedFile.equals(DemonstrationPopulationSeeder.SEED_FILE)) {
+                identities.addAll(DemonstrationMemberGenerator.identityNumbersIn(seedFile));
+            }
+        }
         List<Chosen> chosen = new ArrayList<>();
         List<Person> members = new ArrayList<>();
         Map<String, List<Person>> peopleOf = new LinkedHashMap<>();

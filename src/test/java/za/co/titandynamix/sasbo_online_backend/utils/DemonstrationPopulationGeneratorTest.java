@@ -149,14 +149,16 @@ class DemonstrationPopulationGeneratorTest {
     }
 
     @Test
-    @DisplayName("🔒 MR-SEC-15: every identity number distinct across all four seed files, each passing the capture screen's check")
+    @DisplayName("🔒 MR-SEC-15, V26: every identity number distinct across every seed file, each passing the capture screen's check")
     void identityNumbersDistinctAndValid() throws IOException {
+        // Every file that puts members on record -- SeedMemberNumbers' list, so a new seed file is in it by being seeded.
+        assertThat(SeedMemberNumbers.SEED_FILES).contains(DemonstrationPopulationSeeder.SEED_FILE);
         List<String> identities = new ArrayList<>();
-        identities.addAll(DemonstrationMemberGenerator.identityNumbersIn("data/members.json"));
-        identities.addAll(DemonstrationMemberGenerator.identityNumbersIn(DebitOrderMemberSeeder.SEED_FILE));
-        identities.addAll(DemonstrationMemberGenerator.identityNumbersIn(DemonstrationMemberSeeder.SEED_FILE));
-        identities.addAll(file().members().stream().map(DemonstrationPopulation.Member::identityNumber).toList());
-        assertThat(identities).doesNotHaveDuplicates();
+        for (String seedFile : SeedMemberNumbers.SEED_FILES) {
+            identities.addAll(DemonstrationMemberGenerator.identityNumbersIn(seedFile));
+        }
+        assertThat(identities).as("identity numbers on record, one member each (V26) -- counted, never printed")
+                .hasSize(new HashSet<>(identities).size());
         assertThat(file().members()).allSatisfy(m -> {
             assertThat(m.identityNumber()).matches("\\d{13}");
             assertThat(DebitOrderSeedGenerator.luhnCheckDigit(m.identityNumber().substring(0, 12)))
