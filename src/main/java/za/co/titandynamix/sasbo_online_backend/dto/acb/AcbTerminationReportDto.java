@@ -26,6 +26,9 @@ public record AcbTerminationReportDto(
      * @param unpaidMonths     the months of the streak's unpaids, oldest first
      * @param openingUnpaids   unpaids brought from the old system by the opening position (D24)
      * @param status           the member's status now -- "Terminated" once the report's word has been acted on (03.5)
+     * @param thirdUnpaidOn    the day the count reached three; null below three (DOD-23 asks which date an ending
+     *                         carries -- the screen shows this beside the day it is confirmed)
+     * @param capturedUnpaids  the count captured by hand that the streak starts from (DOD-28); null when none
      */
     public record Candidate(
             Integer memberId,
@@ -36,6 +39,15 @@ public record AcbTerminationReportDto(
             int twelveMonthTotal,
             List<String> unpaidMonths,
             int openingUnpaids,
-            String status) {
+            String status,
+            String thirdUnpaidOn,
+            Integer capturedUnpaids) {
+
+        /** A member with no third unpaid's date and no captured count. */
+        public Candidate(Integer memberId, String membershipNumber, String surname, int unpaidCount, boolean terminate,
+                         int twelveMonthTotal, List<String> unpaidMonths, int openingUnpaids, String status) {
+            this(memberId, membershipNumber, surname, unpaidCount, terminate, twelveMonthTotal, unpaidMonths,
+                    openingUnpaids, status, null, null);
+        }
     }
 }

@@ -34,7 +34,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * JDBC batches.
  */
 @DataJpaTest
-@Import({AcbReturnsServiceImpl.class, AcbAuditTrail.class, AcbTerminationReportQueryCountTest.Wiring.class})
+@Import({AcbReturnsServiceImpl.class, AcbAuditTrail.class, AcbUnpaidCounter.class,
+        AcbTerminationReportQueryCountTest.Wiring.class})
 @DisplayName("The termination report: statements do not grow with the ledger (R3-17)")
 class AcbTerminationReportQueryCountTest {
 
@@ -67,6 +68,10 @@ class AcbTerminationReportQueryCountTest {
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private za.co.titandynamix.sasbo_online_backend.acb.AcbJobLauncher launcher;
+
+    // SASBO's suspension codes, which only a suspension reads.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.repository.SasboReferenceRepository reference;
 
     /** Thirty-six months: October 2023 to September 2026. */
     private static final YearMonth FIRST = YearMonth.of(2023, 10);
