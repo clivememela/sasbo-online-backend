@@ -263,8 +263,9 @@ class MemberSummaryPlanIT extends AbstractPostgresIT {
             assertThat(named.queryForObject("SELECT count(*) FROM members WHERE join_date >= :firstDay"
                     + " AND join_date < :firstDayOfNext", args, Long.class))
                     .as("%s: members joined in it", month).isPositive();
-            assertThat(named.queryForObject("SELECT count(*) FROM member_status_changes WHERE changed_at >= :start"
-                    + " AND changed_at < :next", args, Long.class))
+            // The calendar month's instants: the statement works out the window it counts from them (MEN-14).
+            assertThat(named.queryForObject("SELECT count(*) FROM member_status_changes WHERE changed_at >= :calStart"
+                    + " AND changed_at < :calNext", args, Long.class))
                     .as("%s: status changes in it", month).isPositive();
         }
     }

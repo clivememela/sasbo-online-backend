@@ -3378,24 +3378,64 @@
     },
     "GET /api/month-end/suspensions/members" : {
       "request" : "GET /api/month-end/suspensions/members",
-      "status" : 500,
+      "status" : 200,
       "body" : {
-        "timestamp" : "2026-09-29T08:00:00",
-        "status" : 500,
-        "error" : "Internal Server Error",
-        "message" : "Something went wrong on our side. Quote reference 87a895b2 if you report this.",
-        "path" : "/api/month-end/suspensions/members"
+        "asAt" : "2026-09-29",
+        "lapseMonths" : 3,
+        "page" : 0,
+        "size" : 50,
+        "total" : 1,
+        "totalPages" : 1,
+        "lapsed" : 1,
+        "undated" : 0,
+        "items" : [
+          {
+            "memberId" : 2,
+            "membershipNumber" : "M-900002",
+            "name" : "I Suspended",
+            "bank" : "INVENTED BANK",
+            "workplace" : null,
+            "area" : null,
+            "paymentType" : "Payroll",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "noDeductionReason" : "Unpaid leave",
+            "suspendedOn" : "2026-06-02",
+            "lapsesOn" : "2026-09-02",
+            "lapsed" : true
+          }
+        ]
       }
     },
     "GET /api/month-end/suspensions/lapsed" : {
       "request" : "GET /api/month-end/suspensions/lapsed",
-      "status" : 500,
+      "status" : 200,
       "body" : {
-        "timestamp" : "2026-09-29T08:00:00",
-        "status" : 500,
-        "error" : "Internal Server Error",
-        "message" : "Something went wrong on our side. Quote reference 69b61f62 if you report this.",
-        "path" : "/api/month-end/suspensions/lapsed"
+        "asAt" : "2026-09-29",
+        "lapseMonths" : 3,
+        "page" : 0,
+        "size" : 50,
+        "total" : 1,
+        "totalPages" : 1,
+        "lapsed" : 1,
+        "undated" : 0,
+        "items" : [
+          {
+            "memberId" : 2,
+            "membershipNumber" : "M-900002",
+            "name" : "I Suspended",
+            "bank" : "INVENTED BANK",
+            "workplace" : null,
+            "area" : null,
+            "paymentType" : "Payroll",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "noDeductionReason" : "Unpaid leave",
+            "suspendedOn" : "2026-06-02",
+            "lapsesOn" : "2026-09-02",
+            "lapsed" : true
+          }
+        ]
       }
     }
   },

@@ -380,12 +380,16 @@ class MonthEndSeedTest {
     @Test
     @DisplayName("the per-row lesson of JobGradeSeeder: a row the database lacks reaches it, and the rest are left as they are")
     void aMissingRowReachesTheDatabase() {
+        // Every code on record before -- the list's, and those month end's rules insert where absent (12, 21, the
+        // debit order codes): the one deleted comes back, and the rest are as they were.
+        List<Integer> before = jdbc.queryForList("SELECT code FROM suspension_codes ORDER BY code", Integer.class);
+        assertThat(before).contains(11, 13, 19);
         jdbc.update("DELETE FROM suspension_codes WHERE code = 19");
 
         lists.seed();
 
         assertThat(jdbc.queryForList("SELECT code FROM suspension_codes ORDER BY code", Integer.class))
-                .containsExactly(11, 13, 19);
+                .containsExactlyElementsOf(before);
     }
 
     @Test

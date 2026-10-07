@@ -589,6 +589,21 @@ class MonthEndExamplesTest {
     }
 
     @Test
+    @DisplayName("🔒 every golden answer is an answer -- a route that fails is a defect, never gold: the suspended lists' 500 was recorded here once")
+    void everyAnswerIsAnAnswer() throws IOException {
+        JsonNode answers = objectMapper.readTree(ApiSurface.readCommittedNormalised(FILE)).path("answers");
+        List<String> failed = new ArrayList<>();
+        answers.fields().forEachRemaining(entry -> {
+            int status = entry.getValue().path("status").asInt();
+            if (status < 200 || status >= 300) {
+                failed.add(entry.getKey() + " answered " + status);
+            }
+        });
+        assertThat(answers.size()).as("the answers read: a scan of none passes").isGreaterThanOrEqualTo(30);
+        assertThat(failed).as("answers that are not a success: the client's handlers would serve the failure").isEmpty();
+    }
+
+    @Test
     @DisplayName("MV-33, ME-12: every refusal of the arc is provoked through its route, and answers its own code and status -- the identity sentence nowhere")
     void everyRefusalIsProvoked() throws Exception {
         assertThat(REFUSALS.keySet())

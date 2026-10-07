@@ -99,7 +99,8 @@ public class SuspendedMembersRepository {
     public static String from(Ask ask) {
         String suspended = MemberStatuses.ofKind(MemberStatusKind.SUSPENDED).stream()
                 .map(status -> "'" + status.replace("'", "''") + "'").collect(Collectors.joining(", "));
-        StringBuilder sql = new StringBuilder("""
+        // A text block keeps no leading space, and the statement's head ends on a column name: the space is said.
+        StringBuilder sql = new StringBuilder(" " + """
                  FROM members m
                  LEFT JOIN workplaces w ON w.id = m.workplace_id
                  LEFT JOIN table_codes t ON t.id = w.table_code_id
