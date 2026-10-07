@@ -634,6 +634,50 @@
         }
       }
     },
+    "POST /api/members/register/search" : {
+      "request" : "POST /api/members/register/search",
+      "requestBody" : {
+        "q" : "exa",
+        "size" : 25
+      },
+      "status" : 200,
+      "body" : {
+        "content" : [
+          {
+            "id" : 1,
+            "membershipNumber" : "M-900001",
+            "employeeNumber" : null,
+            "title" : null,
+            "initials" : null,
+            "surname" : "Example",
+            "firstNames" : "Invented",
+            "bankName" : null,
+            "branch" : null,
+            "status" : "Active"
+          }
+        ],
+        "page" : 0,
+        "size" : 25,
+        "totalElements" : 1,
+        "totalPages" : 1,
+        "sort" : "surname,asc"
+      }
+    },
+    "GET /api/members/register/overview" : {
+      "request" : "GET /api/members/register/overview",
+      "status" : 200,
+      "body" : {
+        "total" : 1,
+        "active" : 1,
+        "pending" : 0,
+        "suspended" : 0,
+        "newThisMonth" : 0,
+        "newDebitOrders" : 0,
+        "updatedToday" : 1,
+        "branches" : [ ],
+        "asOf" : "2026-09-29"
+      }
+    },
     "GET /api/month-end/months" : {
       "request" : "GET /api/month-end/months",
       "status" : 200,
@@ -3201,6 +3245,66 @@
         "code" : "PACK_NOT_FOUND",
         "details" : {
           "pack" : "999999"
+        }
+      }
+    },
+    "REGISTER_PAGE_INVALID" : {
+      "request" : "POST /api/members/register/search",
+      "requestBody" : {
+        "size" : 500
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That page of the register cannot be shown. A page holds from 1 to 100 members.",
+        "path" : "/api/members/register/search",
+        "code" : "REGISTER_PAGE_INVALID",
+        "details" : {
+          "page" : "0",
+          "size" : "500",
+          "maxSize" : "100"
+        }
+      }
+    },
+    "REGISTER_SORT_UNKNOWN" : {
+      "request" : "POST /api/members/register/search",
+      "requestBody" : {
+        "sort" : "identityNumber,asc"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "The register cannot be put in that order. It can be sorted by membership number, member, bank, branch or status.",
+        "path" : "/api/members/register/search",
+        "code" : "REGISTER_SORT_UNKNOWN",
+        "details" : {
+          "sorts" : "surname,membershipNumber,bank,branch,status",
+          "directions" : "asc,desc"
+        }
+      }
+    },
+    "MEMBER_CHANGED_SINCE" : {
+      "request" : "PUT /api/members/{id}",
+      "requestBody" : {
+        "version" : 7,
+        "phone" : "+27 60 555 0009"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Someone else saved changes to this member after you opened the record, so your changes were not saved. Reload the record to see theirs, then make your changes again.",
+        "path" : "/api/members/{id}",
+        "code" : "MEMBER_CHANGED_SINCE",
+        "details" : {
+          "memberId" : "1",
+          "versionOnRecord" : "0",
+          "savedAt" : "2026-09-29T08:00"
         }
       }
     }

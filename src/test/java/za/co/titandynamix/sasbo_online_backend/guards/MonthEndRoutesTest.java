@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
@@ -13,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import org.springframework.security.access.prepost.PreAuthorize;
 import za.co.titandynamix.sasbo_online_backend.security.Permission;
 import za.co.titandynamix.sasbo_online_backend.config.MonthEndApi;
+import za.co.titandynamix.sasbo_online_backend.security.Permission;
 
 import java.util.Arrays;
 import java.util.List;
@@ -41,7 +43,7 @@ class MonthEndRoutesTest {
     /** Where the arc's routes live. A route here in a controller that is not the arc's is the finding. */
     static final Pattern ARC_ROUTE = Pattern.compile(
             "^(/api/reference/.*|/api/workplaces(/.*)?|/api/month-end(/.*)?|/api/members/summary"
-                    + "|/api/members/\\{[^}]+}/status|/api/members/\\{[^}]+}/history)$");
+                    + "|/api/members/\\{[^}]+}/status|/api/members/\\{[^}]+}/history|/api/members/register/.*)$");
 
     /**
      * The arc's routes that refuse every caller until sign-in exists (MD4), each named by the unit that adds it. None
@@ -60,7 +62,11 @@ class MonthEndRoutesTest {
             // 04.2, 04.11: taking a month, and taking it again -- by the same position (Stephne, MEN-10); sign-in.
             Map.entry("POST /api/month-end/{month}/take", "MONTH_END_TAKE"),
             // 04.3, 04.7, 04.8: a listing names members, within the caller's scope; sign-in.
-            Map.entry("GET /api/month-end/{month}/listings/{listing}", "MEMBERS_VIEW")
+            Map.entry("GET /api/month-end/{month}/listings/{listing}", "MEMBERS_VIEW"),
+            // Register row A10: the register a page at a time, and its figures -- MEMBERS_VIEW for a signed-in caller,
+            // only the caller's own region or area; isAnonymous() admits anyone while sign-in is open (OB8).
+            Map.entry("POST /api/members/register/search", "MEMBERS_VIEW"),
+            Map.entry("GET /api/members/register/overview", "MEMBERS_VIEW")
     );
 
     /** The permission a {@code @PreAuthorize} expression names: {@code hasAuthority('MONTH_END_TAKE')}. */
@@ -177,6 +183,7 @@ class MonthEndRoutesTest {
     void theAddressPredicateCanFail() {
         assertThat(ARC_ROUTE.matcher("/api/reference/regions").matches()).isTrue();
         assertThat(ARC_ROUTE.matcher("/api/members/{id}/status").matches()).isTrue();
+        assertThat(ARC_ROUTE.matcher("/api/members/register/search").matches()).isTrue();
         assertThat(ARC_ROUTE.matcher("/api/members/{id}").matches()).isFalse();
         assertThat(ARC_ROUTE.matcher("/api/members").matches()).isFalse();
         assertThat(ARC_ROUTE.matcher("/api/workplacesX").matches()).isFalse();

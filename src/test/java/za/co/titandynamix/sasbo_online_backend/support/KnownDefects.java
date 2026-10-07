@@ -60,14 +60,9 @@ public final class KnownDefects {
                     + "written, silently. This test asserts every multi-write method is "
                     + "transactional and names the ones that are not.";
 
-    /**
-     * Nothing paginates. Every list endpoint returns the whole table, so the
-     * response grows with the database and the first symptom is a timeout.
-     */
-    public static final String COLLECTION_ENDPOINTS_ARE_UNBOUNDED =
-            "KNOWN DEFECT: no list endpoint paginates or caps its result, so each returns the "
-                    + "whole table and the response grows with the data. This test asserts a "
-                    + "bound exists, and fails until one does.";
+    // COLLECTION_ENDPOINTS_ARE_UNBOUNDED was here (register row A10): its test,
+    // UnboundedCollectionTest.everyCollectionEndpointIsBounded, runs since the register
+    // reads a page -- every endpoint it finds still unbounded is named there with its reason.
 
     /**
      * {@code handleValidationFailures} casts every element of

@@ -134,6 +134,7 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
         stored.setLastMonthBalance(new BigDecimal("20.00"));
         stored.setJoinDate(java.time.LocalDate.of(2020, 1, 31));
         stored.setMembershipNumber("M-1");
+        stored.setVersion(3L);
         return stored;
     }
 
@@ -149,6 +150,7 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
         submitted.setLastMonthBalance(new BigDecimal("777777"));
         submitted.setJoinDate(java.time.LocalDate.of(1999, 12, 31));
         submitted.setMembershipNumber("M-HIJACKED");
+        submitted.setVersion(99L);
         submitted.setStatus("Inactive");
         submitted.setSurname("Submitted");
 
@@ -169,6 +171,9 @@ class MemberMapperTest extends AbstractMapperContractTest<Member, MemberDto> {
         assertThat(target.getMembershipNumber())
                 .as("server-allocated, and there is no DELETE on this API")
                 .isEqualTo("M-1");
+        assertThat(target.getVersion())
+                .as("V68: which save of the record this is is Hibernate's, compared and never copied from a request")
+                .isEqualTo(3L);
 
         // 🔑 The two non-vacuity halves. Without them every assertion above is
         // satisfied by a merge that copies NOTHING.

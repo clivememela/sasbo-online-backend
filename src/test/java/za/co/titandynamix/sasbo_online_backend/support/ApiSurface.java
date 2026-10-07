@@ -32,6 +32,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.SignInRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
 import za.co.titandynamix.sasbo_online_backend.security.Permission;
 import za.co.titandynamix.sasbo_online_backend.security.SignInMode;
+import za.co.titandynamix.sasbo_online_backend.services.MemberRegisterService;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
 import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
 import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
@@ -301,6 +302,8 @@ public final class ApiSurface {
                     "seedFailures": [%s],
                     "workplacePageMaxSize": %d,
                     "searchMaxLength": %d,
+                    "registerPageMaxSize": %d,
+                    "registerSorts": [%s],
                     "summaryGroupings": [%s],
                     "summaryTimeoutSeconds": %d,
                     "summaryAtOnce": %d,
@@ -323,6 +326,8 @@ public final class ApiSurface {
                     ]
                   }""".formatted(names(WorkplaceSwitch.Mode.values()), names(ListEmptyReason.values()),
                 names(SeedFailure.values()), WorkplaceService.MAX_PAGE_SIZE, WorkplaceService.MAX_SEARCH_LENGTH,
+                MemberRegisterService.MAX_PAGE_SIZE,
+                MemberRegisterService.SORTS.stream().map(ApiSurface::quote).collect(Collectors.joining(", ")),
                 Arrays.stream(SummaryGrouping.values()).map(g -> quote(g.wire())).collect(Collectors.joining(", ")),
                 MemberSummaryRepository.TIMEOUT_SECONDS, SummaryGate.AT_ONCE,
                 memberStatuses(), names(MemberStatusReason.values()), seededCodes("deletionCodes"),

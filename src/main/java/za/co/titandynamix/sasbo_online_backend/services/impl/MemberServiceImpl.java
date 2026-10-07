@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
@@ -162,6 +163,8 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Member create(Member member) {
         member.setId(null);
+        // V68: a new member starts at its first save; a version a request sent is not the caller's to set.
+        member.setVersion(null);
         // Month end 01.3, FIRST: a workplace not on record is refused before anything is resolved or written (ME-12).
         this.workplaces.resolve(member.getWorkplaceId(), member);
         resolveStructureAndRole(member);
@@ -216,6 +219,9 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
+            // V68, FIRST: an edit made on a record somebody has saved since is refused, before anything is merged or
+            // written -- the later of two edits silently undid the earlier one.
+            refuseAStaleEdit(existing, updated);
             // Month end 03.4, before ANYTHING is merged or written: an edit never changes the status (ME-2).
             refuseAChangeOfStatus(existing, updated);
             // 03.5, before ANYTHING changes the member: the history's picture of them as they were.
@@ -261,10 +267,40 @@ public class MemberServiceImpl implements MemberService {
             MemberValidator.validateSeats(existing, legacyShopSteward, legacyBec);
             MemberValidator.validateBecRoles(existing);
             MemberValidator.validateCosatuPositions(existing, previousCosatuPositions);
-            Member saved = this.memberRepository.save(existing);
+            // V68: flushed here, not at the commit -- so the database compares the version now, a save that lost a race
+            // to another is told so before its history is written, and the answer carries the version this one wrote.
+            Member saved;
+            try {
+                saved = this.memberRepository.saveAndFlush(existing);
+            } catch (ObjectOptimisticLockingFailureException lostTheRace) {
+                throw changedSince(existing.getId(), Map.of("memberId", String.valueOf(existing.getId())));
+            }
             this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
             return saved;
         });
+    }
+
+    /**
+     * V68: an edit names the version of the record it read; one made on a record saved since is refused WHOLE, before
+     * anything is merged or written, with the version on record and when it was saved. An edit that names no version is
+     * not checked -- a caller that never read one -- and the database still compares the version at the save.
+     *
+     * @throws MonthEndRefusal {@code MEMBER_CHANGED_SINCE} -- nothing written
+     */
+    private static void refuseAStaleEdit(Member existing, Member updated) {
+        Long read = updated.getVersion();
+        if (read != null && !read.equals(existing.getVersion())) {
+            throw changedSince(existing.getId(), MonthEndRefusal.details(
+                    "memberId", String.valueOf(existing.getId()),
+                    "versionOnRecord", String.valueOf(existing.getVersion()),
+                    "savedAt", existing.getUpdatedAt() == null ? null : existing.getUpdatedAt().toString()));
+        }
+    }
+
+    private static MonthEndRefusal changedSince(Integer id, Map<String, String> details) {
+        return new MonthEndRefusal(MonthEndRefusalCode.MEMBER_CHANGED_SINCE,
+                "Someone else saved changes to this member after you opened the record, so your changes were not "
+                        + "saved. Reload the record to see theirs, then make your changes again.", details);
     }
 
     /**

@@ -97,6 +97,8 @@
     "seedFailures": ["UNREADABLE", "REFUSED", "INTERRUPTED", "UNKNOWN"],
     "workplacePageMaxSize": 200,
     "searchMaxLength": 100,
+    "registerPageMaxSize": 100,
+    "registerSorts": ["surname", "membershipNumber", "bank", "branch", "status"],
     "summaryGroupings": ["group", "employer", "tableCode", "area", "region", "committee"],
     "summaryTimeoutSeconds": 4,
     "summaryAtOnce": 2,
@@ -160,7 +162,10 @@
       {"code": "MONTH_NOT_READY", "status": 409},
       {"code": "MONTH_NOT_TAKEN", "status": 404},
       {"code": "PACK_BUSY", "status": 409},
-      {"code": "PACK_NOT_FOUND", "status": 404}
+      {"code": "PACK_NOT_FOUND", "status": 404},
+      {"code": "REGISTER_PAGE_INVALID", "status": 400},
+      {"code": "REGISTER_SORT_UNKNOWN", "status": 400},
+      {"code": "MEMBER_CHANGED_SINCE", "status": 409}
     ]
   },
   "auth": {

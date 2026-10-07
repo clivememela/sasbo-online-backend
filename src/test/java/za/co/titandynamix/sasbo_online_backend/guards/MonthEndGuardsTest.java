@@ -59,7 +59,10 @@ class MonthEndGuardsTest {
             "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
             "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController", "MonthEndPacks",
             "MonthEndPackController", "MonthEndPackRepository", "MonthEndWorkbooks", "MonthEndPackLauncher",
-            "MonthEndPackConfig", "SpreadsheetText", "MonthEndListings", "MonthEndListingRepository");
+            "MonthEndPackConfig", "SpreadsheetText", "MonthEndListings", "MonthEndListingRepository",
+            // Register row A10: the register a page at a time, under the arc's handler and guards.
+            "MemberRegisterController", "MemberRegisterService", "MemberRegisterServiceImpl", "MemberRegisterRepository",
+            "MemberRegisterQuery", "MemberRegisterPageDto", "MemberRegisterOverviewDto");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 

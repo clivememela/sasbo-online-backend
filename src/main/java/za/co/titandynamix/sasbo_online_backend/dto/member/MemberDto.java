@@ -155,6 +155,9 @@ public class MemberDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    /** Which save of the record this is (V68): what an edit sends back, so a record saved since is not overwritten. */
+    private Long version;
+
     private String userId;
 
     // ─── SASBO structures (V29, CM-05) ───

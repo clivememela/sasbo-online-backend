@@ -115,7 +115,24 @@ public enum MonthEndRefusalCode {
      */
     PACK_BUSY(HttpStatus.CONFLICT),
     /** 04.10: no such pack -- or no such workbook of it, or none yet: a pack's files are there once it is READY. */
-    PACK_NOT_FOUND(HttpStatus.NOT_FOUND);
+    PACK_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /**
+     * Register row A10: a page of the member register that cannot be asked for -- below nought, or a size outside one to
+     * a hundred. The details carry the page, the size and the ceiling. A page past the last is not refused: the last
+     * page is answered, and says so.
+     */
+    REGISTER_PAGE_INVALID(HttpStatus.BAD_REQUEST),
+    /** Register row A10: an order the register is not read in. The details carry the orders and directions it takes. */
+    REGISTER_SORT_UNKNOWN(HttpStatus.BAD_REQUEST),
+    /**
+     * An edit made on a stale view of a member's record: somebody saved the record after this edit read it -- the
+     * {@code version} the edit names is not the version on record, or a save racing this one won at the database.
+     * Without it the later save silently undid the earlier one. Thrown under {@code MemberController} and answered by
+     * the global handler, as {@code STATUS_VIA_CHANGE_STATUS} is. The details carry the member's id, and -- where it was
+     * read before anything was written -- the version on record and when the record was last saved. Nothing was
+     * written; the browser keeps the form as typed and offers to read the record again.
+     */
+    MEMBER_CHANGED_SINCE(HttpStatus.CONFLICT);
 
     private final HttpStatus status;
 

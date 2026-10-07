@@ -63,6 +63,8 @@ GET /api/members
 POST /api/members
 GET /api/members/metadata/payment-types
 GET /api/members/metadata/welcome-letter
+GET /api/members/register/overview
+POST /api/members/register/search
 GET /api/members/structures
 GET /api/members/structures/tree
 GET /api/members/summary
