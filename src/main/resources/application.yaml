@@ -138,3 +138,8 @@ sasbo:
   # `all`; unset is `none`, and any other word stops the start. Off unless it is set: set it on a hosted stack only
   # on SASBO's word (MM79). The suite's compose sets it for the local run.
   workplaces: ${SASBO_WORKPLACES:}
+  letters:
+    # THE LETTERS' TYPEFACE, one setting (the owner's decision, 6 Oct 2026): TeX Gyre Adventor, the free look of
+    # SASBO's Avant Garde, until a licensed Avant Garde is in hand. A folder of regular.ttf (bold.ttf, italic.ttf
+    # optional), classpath: or file: -- config/fonts/README.md. A font that cannot be used stops the start-up.
+    font: ${SASBO_LETTERS_FONT:classpath:fonts/letters/adventor/}
