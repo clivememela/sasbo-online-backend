@@ -147,6 +147,12 @@ public class MigrationRowRepository {
      * already a member's. Each marks every row it concerns -- both rows of a pair: which of two is the member is SASBO's
      * to say (MIG-19, MIG-20) -- and never a row already moved, nor twice.
      *
+     * <p>Each asks one index a row: is there another row of the batch with this key (V80's batch indexes), or a member
+     * with it (V26's identity index, whose predicate the probe states, so the index can answer it). Never a grouping of
+     * the whole batch: the check runs straight after a whole file was staged and rewritten, before PostgreSQL holds
+     * statistics for it, and a plan that grouped the batch again for every row held a 100,000-row check past the lane's
+     * 30-second statement limit (run 37619788336). A probe is one index read a row, whatever join the planner picks.
+     *
      * @param movableOnly only rows that would still move -- the re-check a move makes for members captured since
      * @return the rows marked, by the code they were marked with
      */
@@ -156,18 +162,19 @@ public class MigrationRowRepository {
         String unlinked = " AND NOT EXISTS (SELECT 1 FROM migration_member_links k WHERE k.row_id = migration_rows.id)";
         if (!movableOnly) {
             marked.put(RuleCode.ID_NUMBER_DUPLICATE_IN_BATCH, mark(batchId, RuleCode.ID_NUMBER_DUPLICATE_IN_BATCH,
-                    "identityNumber", " AND identity_key IN (SELECT d.identity_key FROM migration_rows d"
-                            + " WHERE d.batch_id = :batch AND d.identity_key IS NOT NULL"
-                            + " GROUP BY d.identity_key HAVING COUNT(*) > 1)"));
+                    "identityNumber", " AND identity_key IS NOT NULL AND EXISTS (SELECT 1 FROM migration_rows d"
+                            + " WHERE d.batch_id = :batch AND d.identity_key = migration_rows.identity_key"
+                            + " AND d.identity_key IS NOT NULL AND d.id <> migration_rows.id)"));
             marked.put(RuleCode.MEMBERSHIP_NUMBER_DUPLICATE_IN_BATCH, mark(batchId,
                     RuleCode.MEMBERSHIP_NUMBER_DUPLICATE_IN_BATCH, "membershipNumber",
-                    " AND membership_key IN (SELECT d.membership_key FROM migration_rows d"
-                            + " WHERE d.batch_id = :batch AND d.membership_key IS NOT NULL"
-                            + " GROUP BY d.membership_key HAVING COUNT(*) > 1)"));
+                    " AND membership_key IS NOT NULL AND EXISTS (SELECT 1 FROM migration_rows d"
+                            + " WHERE d.batch_id = :batch AND d.membership_key = migration_rows.membership_key"
+                            + " AND d.membership_key IS NOT NULL AND d.id <> migration_rows.id)"));
         }
         marked.put(RuleCode.ID_NUMBER_ALREADY_MEMBER, mark(batchId, RuleCode.ID_NUMBER_ALREADY_MEMBER, "identityNumber",
                 scope + unlinked + " AND identity_key IS NOT NULL AND EXISTS (SELECT 1 FROM members m"
-                        + " WHERE m.identity_number = migration_rows.identity_key)"));
+                        + " WHERE m.identity_number = migration_rows.identity_key"
+                        + " AND m.identity_number IS NOT NULL AND m.identity_number <> '')"));
         marked.put(RuleCode.MEMBERSHIP_NUMBER_ALREADY_USED, mark(batchId, RuleCode.MEMBERSHIP_NUMBER_ALREADY_USED,
                 "membershipNumber", scope + unlinked + " AND membership_key IS NOT NULL AND EXISTS (SELECT 1 FROM members m"
                         + " WHERE m.membership_number = migration_rows.membership_key)"));
