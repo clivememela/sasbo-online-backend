@@ -58,7 +58,9 @@ class MonthEndRoutesTest {
      */
     static final Map<String, String> HELD_BY_PERMISSION = Map.ofEntries(
             // Each stream adds its own routes here, one entry a route, with the unit or answer that adds it.
-    );
+            // Month end's rules, MEN-17: the reasons for no payroll deduction, kept by whoever maintains SASBO's lists.
+            Map.entry("POST /api/reference/no-deduction-reasons", "REFERENCE_MAINTAIN"),
+            Map.entry("PUT /api/reference/no-deduction-reasons/{id}", "REFERENCE_MAINTAIN"));
 
     /** The permission a {@code @PreAuthorize} expression names: {@code hasAuthority('MONTH_END_TAKE')}. */
     static final Pattern HAS_AUTHORITY = Pattern.compile("hasAuthority\\('([A-Z_]+)'\\)");
