@@ -59,7 +59,13 @@ class MonthEndGuardsTest {
             "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
             "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController", "MonthEndPacks",
             "MonthEndPackController", "MonthEndPackRepository", "MonthEndWorkbooks", "MonthEndPackLauncher",
-            "MonthEndPackConfig", "SpreadsheetText");
+            "MonthEndPackConfig", "SpreadsheetText",
+            // October build, the files that leave SASBO (monthend-packs).
+            "MonthEndSendSettingsController", "MonthEndRegionPackController", "MonthEndFilesController",
+            "MonthEndSendSettings", "MonthEndRegionPacks", "MonthEndSentFiles", "MonthEndRegionPackWriter",
+            "MonthEndSendSeeding", "MonthEndSendSettingsRepository", "MonthEndListingsRepository",
+            "MonthEndSentRepository", "MonthEndSendSeeder", "MonthEndFileProtection", "MonthEndFileLayouts",
+            "MonthEndPackPdf", "MonthEndSftp", "MonthEndMailer");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
