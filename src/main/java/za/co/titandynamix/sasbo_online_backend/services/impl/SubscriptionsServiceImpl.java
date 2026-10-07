@@ -6,12 +6,15 @@ import org.springframework.transaction.annotation.Transactional;
 import za.co.titandynamix.sasbo_online_backend.dto.subscription.SubscriptionsDto;
 import za.co.titandynamix.sasbo_online_backend.entity.subscription.Subscriptions;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.Bank;
+import za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusal;
+import za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.mapper.SubscriptionsMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.SubscriptionsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.BankRepository;
 import za.co.titandynamix.sasbo_online_backend.services.SubscriptionsService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -37,7 +40,17 @@ public class SubscriptionsServiceImpl implements SubscriptionsService {
                 .map(this.subscriptionsMapper::toDto);
     }
 
+    /**
+     * A new row for a bank. ⚠️ A name that matches no bank is still saved with none -- register row A5, pinned by
+     * {@code anUnmatchableBankNameIsAnError}, and not this change's to settle.
+     *
+     * <p>A bank that already has its row is refused (A23's route, once the browser reached it): every reader takes a
+     * bank's row as THE row -- capture takes the first, and a debit order run refuses a bank with two
+     * ({@code BANK_SUBSCRIPTION_AMBIGUOUS}) -- so a second one would stop the bank's next run. A transaction, so the
+     * check and the write are one unit.
+     */
     @Override
+    @Transactional
     public SubscriptionsDto create(SubscriptionsDto dto) {
         Subscriptions subscription = this.subscriptionsMapper.toEntity(dto);
         if (dto.bankName() != null) {
@@ -46,10 +59,21 @@ public class SubscriptionsServiceImpl implements SubscriptionsService {
                 .or(() -> this.bankRepository.findAll().stream()
                         .filter(b -> b.getName().toLowerCase().contains(q) || q.contains(b.getName().toLowerCase()))
                         .findFirst())
-                .ifPresent(subscription::setBank);
+                .ifPresent(bank -> {
+                    refuseASecondRow(bank);
+                    subscription.setBank(bank);
+                });
         }
         Subscriptions saved = this.subscriptionRepository.save(subscription);
         return this.subscriptionsMapper.toDto(saved);
+    }
+
+    private void refuseASecondRow(Bank bank) {
+        if (bank.getId() != null && this.subscriptionRepository.existsByBank_Id(bank.getId())) {
+            throw new ReferenceRefusal(ReferenceRefusalCode.SUBSCRIPTION_BANK_TAKEN,
+                    bank.getName() + " already has its subscription row. Change that row instead of adding another.",
+                    Map.of("bankName", bank.getName()));
+        }
     }
 
     /**

@@ -204,5 +204,17 @@
       {"code": "TOO_MANY", "status": 409},
       {"code": "RECORD_CONFLICT", "status": 409}
     ]
+  },
+  "reference": {
+    "refusalCodes": [
+      {"code": "BRANCH_NOT_FOUND", "status": 404},
+      {"code": "BRANCH_CODE_TAKEN", "status": 409},
+      {"code": "BANK_UNKNOWN", "status": 422},
+      {"code": "SUBSCRIPTION_BANK_TAKEN", "status": 409},
+      {"code": "CHANNEL_NOT_FOUND", "status": 404},
+      {"code": "MEMBER_NOT_FOUND", "status": 404},
+      {"code": "MEMBER_NOT_IN_CHANNEL", "status": 409},
+      {"code": "REQUEST_INVALID", "status": 400}
+    ]
   }
 }

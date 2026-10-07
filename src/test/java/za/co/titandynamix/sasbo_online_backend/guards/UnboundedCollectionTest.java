@@ -78,6 +78,9 @@ class UnboundedCollectionTest {
             "representative roles seeded by V16; ceiling 6, asserted by the migration seed",
             "RecruitmentChannelController",
             "recruitment channels -- reference data; ceiling ~20",
+            "RecruitmentChannelMembersController",
+            "one row per recruitment channel (RC15) -- the members are counted in SQL, never listed here; ceiling ~20. "
+                    + "Its member lists are paged (ChannelMembersPageDto) or capped (MemberCandidatesDto, 50)",
             "DeletionCodeController",
             "deletion reason codes -- reference data; ceiling ~40",
             "JobGradeController",

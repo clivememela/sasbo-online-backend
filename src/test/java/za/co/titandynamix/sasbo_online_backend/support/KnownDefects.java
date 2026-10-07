@@ -322,14 +322,4 @@ public final class KnownDefects {
                     + "a member whose name holds one (a Tshivenda letter, say) reads '?' in place of it "
                     + "-- silently, since 848db29 substitutes rather than throws. This test asserts the "
                     + "name is written as spelled.";
-
-    /**
-     * {@code MemberServiceImpl.applyBankDebitDay} replaces the member's debit day with
-     * the bank's subscription day whenever the bank's day is inside 20-31 -- on create,
-     * update and updateBanking -- so a day the administrator chose is lost without a
-     * word. SASBO, 2026-09-21 (Q42): the day must be flexible. Register row A67.
-     */
-    public static final String MEMBER_DEBIT_DAY_OVERWRITTEN_BY_THE_BANKS =
-            "KNOWN DEFECT: a member's chosen debit day is replaced by the bank's subscription day "
-                    + "whenever the bank's day is in range. This test asserts the member's choice stands.";
 }

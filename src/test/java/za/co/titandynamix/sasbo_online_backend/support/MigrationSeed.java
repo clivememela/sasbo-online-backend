@@ -210,7 +210,8 @@ public final class MigrationSeed {
             "V65__sign_in_users.sql",
             "V66__user_sessions.sql",
             "V67__audit_events.sql",
-            "V68__member_register_and_version.sql");
+            "V68__member_register_and_version.sql",
+            "V69__members_recruitment_channel_index.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

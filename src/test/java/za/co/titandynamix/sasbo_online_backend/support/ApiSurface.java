@@ -28,6 +28,7 @@ import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
 import za.co.titandynamix.sasbo_online_backend.enums.ListEmptyReason;
 import za.co.titandynamix.sasbo_online_backend.enums.SeedFailure;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.exception.SignInRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
 import za.co.titandynamix.sasbo_online_backend.security.Permission;
@@ -343,6 +344,12 @@ public final class ApiSurface {
                   }""".formatted(
                 Arrays.stream(SignInMode.values()).map(m -> quote(m.word())).collect(Collectors.joining(", ")),
                 names(CallerScope.Type.values()), names(Permission.values()), signInRefusalCodes()));
+        sections.put("reference", """
+                {
+                    "refusalCodes": [
+                %s
+                    ]
+                  }""".formatted(referenceRefusalCodes()));
         return sections.entrySet().stream()
                 .map(section -> "  " + quote(section.getKey()) + ": " + section.getValue())
                 .collect(Collectors.joining(",\n", "{\n", "\n}\n"));
@@ -354,6 +361,16 @@ public final class ApiSurface {
      */
     private static String signInRefusalCodes() {
         return Arrays.stream(SignInRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
+    }
+
+    /**
+     * The reference lists' refusal codes -- branches, subscription rows, recruitment channels and their members -- with
+     * the status each answers, read off the enum the server throws (the October build, A29 / A23 / RC15).
+     */
+    private static String referenceRefusalCodes() {
+        return Arrays.stream(ReferenceRefusalCode.values())
                 .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
                 .collect(Collectors.joining(",\n"));
     }

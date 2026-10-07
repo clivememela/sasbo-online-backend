@@ -285,6 +285,28 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * A refused change to a reference list -- a branch, a subscription row, a recruitment channel: its own status, its
+     * stable {@code code}, and the facts it is about, in the envelope ACB's and month end's refusals answer with.
+     * Registered here rather than in a scoped advice, so the routes that throw it answer every OTHER failure exactly
+     * as they did (a malformed body there is still register A63's, untouched).
+     */
+    @ExceptionHandler(ReferenceRefusal.class)
+    public ResponseEntity<ApiErrorResponse> handleReferenceRefusal(ReferenceRefusal ex, HttpServletRequest request) {
+        HttpStatus status = ex.code().status();
+        ApiErrorResponse response = new ApiErrorResponse(
+                LocalDateTime.now(ZoneId.of("UTC")),
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null,
+                ex.code().name(),
+                ex.details().isEmpty() ? null : ex.details()
+        );
+        return ResponseEntity.status(status).body(response);
+    }
+
+    /**
      * Two writers raced for one versioned record and this one lost: a 409, never a 500.
      *
      * <p>ACB translates its own races into {@code RUN_VERSION_CONFLICT} with the run's current state

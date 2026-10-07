@@ -55,6 +55,7 @@ public class DataSeeder implements ApplicationRunner {
     private final DemonstrationMemberSeeder demonstrationMemberSeeder;
     private final MonthEndTakeSeeder monthEndTakeSeeder;
     private final SignInSeeder signInSeeder;
+    private final RecruitmentChannelSeeder recruitmentChannelSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -336,6 +337,10 @@ public class DataSeeder implements ApplicationRunner {
         // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
         // are on record (MD54).
         seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);
+        // RC15: every seeded member -- the invented ones included, so after the block above -- recruited through one of
+        // SASBO's channels where none is recorded, so the Recruiters screen's figures are not all 0. Caught like the
+        // block's own: a fault here must not stop the start, and is logged with its cause.
+        seedMonthEnd("the seed members' recruitment channels", this.recruitmentChannelSeeder::seed);
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).
