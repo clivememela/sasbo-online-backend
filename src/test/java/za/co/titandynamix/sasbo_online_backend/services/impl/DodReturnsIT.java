@@ -3,32 +3,24 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbBankCodeDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsBatchDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbRunLineDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbTerminationReportDto;
-import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbUnpaidCountsResultDto;
-import za.co.titandynamix.sasbo_online_backend.dto.acb.CodeAddRequest;
-import za.co.titandynamix.sasbo_online_backend.dto.acb.CodeChangeRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberReturnRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.RecordUnpaidRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.ReturnsBatchRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.SuspendMemberRequest;
-import za.co.titandynamix.sasbo_online_backend.dto.acb.UnpaidCountsRequest;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
 import za.co.titandynamix.sasbo_online_backend.enums.ReDebit;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
-import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.AcbRunFixture;
-import za.co.titandynamix.sasbo_online_backend.services.AcbCodeService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
-import za.co.titandynamix.sasbo_online_backend.services.AcbUnpaidCountService;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractAcbIT;
 
 import java.math.BigDecimal;
@@ -42,13 +34,16 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 /**
  * Stephne's debit order rules of 6 October 2026, on PostgreSQL: the returns as one report per debit day, the re-debit
- * refused by code and at three, the run that leaves a member at three out, an ending confirmed with its letter, a
- * member's return, the counts captured by hand, and the codes as data. Each test names her answer.
+ * refused by code and at three, the run that leaves a member at three out, an ending confirmed with its letter, and a
+ * member's return. Each test names her answer. The counts captured by hand are {@link AcbUnpaidCountServiceImplIT}'s,
+ * the codes as data {@link AcbCodeServiceImplIT}'s, and a bank's move to a new debit day
+ * {@link AcbDebitDayServiceImplIT}'s.
  */
 @DisplayName("Debit Order Deductions, Stephne's rules (DOD-03 to DOD-28), on PostgreSQL")
 class DodReturnsIT extends AbstractAcbIT {
 
     private static final BigDecimal RATE = new BigDecimal("174.00");
+    private static final LocalDate JUNE = LocalDate.of(2026, 6, 1);
     private static final LocalDate JULY = LocalDate.of(2026, 7, 1);
     private static final LocalDate AUGUST = LocalDate.of(2026, 8, 1);
     private static final LocalDate SEPTEMBER = LocalDate.of(2026, 9, 1);
@@ -58,9 +53,7 @@ class DodReturnsIT extends AbstractAcbIT {
     @Autowired
     private AcbRunService runs;
     @Autowired
-    private AcbUnpaidCountService counts;
-    @Autowired
-    private AcbCodeService codes;
+    private za.co.titandynamix.sasbo_online_backend.repository.AcbReturnsBatchRepository batches;
     @Autowired
     private AcbUnpaidCounter counter;
 
@@ -133,6 +126,10 @@ class DodReturnsIT extends AbstractAcbIT {
         assertThat(again.lettersQueued()).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_letters", Long.class)).as("no second letter").isEqualTo(2L);
         assertThat(returns.returnsBatches(september, 0, 50).totalElements()).isEqualTo(2);
+        assertThat(batches.findByRunIdOrderByActionDateDescIdDesc(september,
+                org.springframework.data.domain.PageRequest.of(0, 10)).getContent())
+                .extracting(za.co.titandynamix.sasbo_online_backend.entity.acb.AcbReturnsBatch::getRecorded)
+                .as("newest first: the retry recorded nothing, the first report three").containsExactly(0, 3);
         assertThat(returns.debitDays(september).days()).singleElement().satisfies(day -> {
             assertThat(day.actionDate()).isEqualTo("2026-09-25");
             assertThat(day.lines()).isEqualTo(3);
@@ -361,7 +358,12 @@ class DodReturnsIT extends AbstractAcbIT {
     @DisplayName("Stephne, DOD-27: \"Yes, freely\" -- a member whose membership ended rejoins with a new join date, and "
             + "starts again at nought")
     void aMemberRejoinsFreely() {
-        int m = atThree();
+        int m = fixture();
+        // All three unpaids before the day they rejoin: June, July and August, each debited on the 25th.
+        unpaidLine(insertRun(JUNE, "CLOSED", FROZEN, "system"), m, "2", "RE_PRESENT");
+        unpaidLine(insertRun(JULY, "CLOSED", FROZEN, "system"), m, "2", "RE_PRESENT");
+        unpaidLine(insertRun(AUGUST, "CLOSED", FROZEN, "system"), m, "2", "SUSPEND");
+        assertThat(counter.of(m).count().unpaids()).as("at three when the ending is confirmed").isEqualTo(3);
         returns.terminate(m, "administrator");
 
         AcbMemberStatusDto rejoined = returns.rejoin(m, new MemberReturnRequest("2026-09-18", null), "administrator");
@@ -397,85 +399,6 @@ class DodReturnsIT extends AbstractAcbIT {
                 "administrator");
         assertThat(chosen.status()).isEqualTo("Suspended");
         assertThat(chosen.suspensionCode()).isEqualTo(13);
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // Counts captured by hand (DOD-28)
-    // ------------------------------------------------------------------------------------------
-
-    @Test
-    @DisplayName("Stephne, DOD-28: counts captured by hand -- on the report at once, the same list twice changes nothing, "
-            + "and a list with problems is refused by row with nothing written")
-    void countsCapturedByHand() {
-        int m = fixture();
-        String first = AcbRunFixture.membershipNumber(m);
-        String second = AcbRunFixture.membershipNumber(m + 1);
-        UnpaidCountsRequest list = new UnpaidCountsRequest("Re-debit list, September", List.of(
-                new UnpaidCountsRequest.Entry(first, 2), new UnpaidCountsRequest.Entry(second, 3)));
-
-        AcbUnpaidCountsResultDto captured = counts.capture(list, "administrator");
-        assertThat(captured.captured()).isEqualTo(2);
-        assertThat(captured.atThree()).isEqualTo(1);
-        assertThat(captured.countedOn()).isEqualTo("2026-09-18");
-        AcbTerminationReportDto report = returns.terminationReport(0, 50);
-        assertThat(report.members().content()).extracting(AcbTerminationReportDto.Candidate::memberId,
-                        AcbTerminationReportDto.Candidate::unpaidCount, AcbTerminationReportDto.Candidate::terminate)
-                .containsExactlyInAnyOrder(org.assertj.core.groups.Tuple.tuple(m + 1, 3, true),
-                        org.assertj.core.groups.Tuple.tuple(m, 2, false));
-
-        AcbUnpaidCountsResultDto again = counts.capture(list, "administrator");
-        assertThat(again.captured()).isZero();
-        assertThat(again.unchanged()).isEqualTo(2);
-
-        AcbRefusal refused = refusal(() -> counts.capture(new UnpaidCountsRequest("Re-debit list", List.of(
-                new UnpaidCountsRequest.Entry("F-999999", 1),
-                new UnpaidCountsRequest.Entry(first, 4),
-                new UnpaidCountsRequest.Entry(second, 1),
-                new UnpaidCountsRequest.Entry(second, 1))), "administrator"));
-        assertThat(refused.code()).isEqualTo(AcbRefusalCode.UNPAID_COUNTS_INVALID);
-        assertThat(refused.details().get("problems")).isEqualTo("2");
-        assertThat(String.join(" ", refused.details().values())).doesNotContain("F-999999")
-                .as("a problem never echoes what was typed");
-        assertThat(jdbc.queryForObject("SELECT unpaid_count FROM acb_unpaid_counts WHERE member_id = ?", Integer.class,
-                m + 1)).as("nothing of the refused list was written").isEqualTo(3);
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // The codes as data (V70)
-    // ------------------------------------------------------------------------------------------
-
-    @Test
-    @DisplayName("the codes as data: the day SASBO says code 6 may be re-debited it is, and of two administrators "
-            + "changing it the second is told")
-    void theCodesAreData() {
-        int m = fixture();
-        long september = insertRun(SEPTEMBER, "SUBMITTED", FROZEN, "system");
-        long line = insertLine(september, m, null, "PENDING", null, RATE);
-        AcbBankCodeDto six = codes.codes().bankCodes().stream().filter(c -> c.bankCode().equals("6")).findFirst()
-                .orElseThrow();
-        assertThat(six.reDebit()).isEqualTo(ReDebit.UNKNOWN);
-        assertThat(six.provisional()).isTrue();
-        assertThat(six.suspensionCode()).isEqualTo(13);
-
-        AcbBankCodeDto changed = codes.change("6", new CodeChangeRequest(six.version(), ReDebit.YES, 13, "Debit returned",
-                false, "SASBO, the clarifications meeting"), "cfo");
-        assertThat(changed.reDebit()).isEqualTo(ReDebit.YES);
-        assertThat(changed.version()).isEqualTo(six.version() + 1);
-        assertThat(refusal(() -> codes.change("6", new CodeChangeRequest(six.version(), ReDebit.NO, 13, "Debit returned",
-                false, "a second administrator"), "cfo")).code()).isEqualTo(AcbRefusalCode.CODE_VERSION_CONFLICT);
-
-        assertThat(returns.recordUnpaid(september, line, new RecordUnpaidRequest("6", "2026-09-28",
-                UnpaidDecision.RE_PRESENT), "administrator").decision()).isEqualTo(UnpaidDecision.RE_PRESENT);
-
-        AcbBankCodeDto added = codes.add(new CodeAddRequest("8", UnpaidReason.OTHER, "Other", ReDebit.UNKNOWN, null,
-                "the bank's full list"), "cfo");
-        assertThat(added.provisional()).isTrue();
-        assertThat(refusal(() -> codes.add(new CodeAddRequest("8", UnpaidReason.OTHER, "Other", ReDebit.UNKNOWN, null,
-                "again"), "cfo")).code()).isEqualTo(AcbRefusalCode.CODE_ALREADY_LISTED);
-        assertThat(refusal(() -> codes.change("6", new CodeChangeRequest(changed.version(), ReDebit.YES, 77,
-                "Debit returned", false, "no such code"), "cfo")).code()).isEqualTo(AcbRefusalCode.SUSPENSION_CODE_UNKNOWN);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_audit_events WHERE kind IN ('CODE_CHANGED', 'CODE_ADDED')",
-                Long.class)).isEqualTo(2L);
     }
 
     @Test
