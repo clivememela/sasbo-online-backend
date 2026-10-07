@@ -114,6 +114,22 @@ class BankBranchServiceImplTest {
     }
 
     @Test
+    @DisplayName("🔴 an edit that names a bank not on record is BANK_UNKNOWN, and the branch stays with its bank")
+    void anEditNamingAnUnknownBankIsRefused() {
+        BankBranch stored = storedBranch(4);
+        BankBranchDto dto = edit("632005");
+        dto.setBankName("Absa Bnak");
+
+        assertThatThrownBy(() -> this.service.updateFromDto(4, dto))
+                .isInstanceOf(ReferenceRefusal.class)
+                .satisfies(thrown -> assertThat(((ReferenceRefusal) thrown).code())
+                        .isEqualTo(ReferenceRefusalCode.BANK_UNKNOWN));
+        verify(this.bankService, never()).save(any(Bank.class));
+        verify(this.bankBranchRepository, never()).save(any(BankBranch.class));
+        assertThat(stored.getBank()).isSameAs(this.absa);
+    }
+
+    @Test
     @DisplayName("the must-pass: a branch keeping its own code saves, and a save naming no address keeps the stored one")
     void aBranchKeepingItsOwnCodeSavesAndKeepsItsAddress() {
         BankBranch stored = storedBranch(4);

@@ -48,9 +48,13 @@ public class SubscriptionsController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    /**
+     * A changed row is held to the same rules as a new one. 🔴 The screen sent an emptied debit day as {@code null},
+     * which the primitive took as 0 and saved: the bank's ACB day read "NaN" on the screen and 0 on record.
+     */
     @PreAuthorize("hasAuthority('SUBSCRIPTIONS_MAINTAIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<SubscriptionsDto> update(@PathVariable Long id, @RequestBody SubscriptionsDto dto) {
+    public ResponseEntity<SubscriptionsDto> update(@PathVariable Long id, @Valid @RequestBody SubscriptionsDto dto) {
         return this.subscriptionsService.update(id, dto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

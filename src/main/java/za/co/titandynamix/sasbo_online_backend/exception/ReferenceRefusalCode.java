@@ -13,6 +13,8 @@ public enum ReferenceRefusalCode {
     BRANCH_NOT_FOUND(HttpStatus.NOT_FOUND),
     /** Another branch of the same bank already has this branch code ({@code bank_branches}' unique key). */
     BRANCH_CODE_TAKEN(HttpStatus.CONFLICT),
+    /** A branch names a bank that is not on record; a branch is never the way a bank is created. */
+    BANK_UNKNOWN(HttpStatus.UNPROCESSABLE_ENTITY),
     /** The bank already has its subscription row; that row is changed, not added to. */
     SUBSCRIPTION_BANK_TAKEN(HttpStatus.CONFLICT);
 

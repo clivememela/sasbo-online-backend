@@ -40,18 +40,11 @@ public class BankBranchServiceImpl implements BankBranchService {
         return this.bankBranchRepository.save(branch);
     }
 
-    /**
-     * A transaction: a bank named for the first time is created with its first branch, both or neither.
-     */
+    /** A new branch, of a bank already on record (see {@link #bankNamed}). */
     @Override
     @Transactional
     public BankBranch createFromDto(BankBranchDto dto) {
-        Bank bank = this.bankService.findByNameIgnoreCase(dto.getBankName()).orElseGet(() -> {
-            Bank b = new Bank();
-            b.setName(dto.getBankName());
-            b.setUniversalBranchCode("");
-            return this.bankService.save(b);
-        });
+        Bank bank = bankNamed(dto.getBankName());
         refuseATakenCode(bank, dto.getBranchCode(), null);
 
         BankBranch branch = new BankBranch();
@@ -95,12 +88,7 @@ public class BankBranchServiceImpl implements BankBranchService {
                 .orElseThrow(() -> new ReferenceRefusal(ReferenceRefusalCode.BRANCH_NOT_FOUND,
                         "That branch is no longer on record. Reload the branch list, then try again.",
                         Map.of("branchId", String.valueOf(id))));
-        Bank bank = this.bankService.findByNameIgnoreCase(dto.getBankName()).orElseGet(() -> {
-            Bank b = new Bank();
-            b.setName(dto.getBankName());
-            b.setUniversalBranchCode("");
-            return this.bankService.save(b);
-        });
+        Bank bank = bankNamed(dto.getBankName());
         refuseATakenCode(bank, dto.getBranchCode(), id);
         branch.setBank(bank);
         branch.setBankAbbreviation(dto.getBankAbbreviation());
@@ -125,6 +113,21 @@ public class BankBranchServiceImpl implements BankBranchService {
         branch.setBranchStaffComplement(dto.getBranchStaffComplement());
         branch.setBranchMemberComplement(dto.getBranchMemberComplement());
         return this.bankBranchRepository.save(branch);
+    }
+
+    /**
+     * The bank on record with this name, or a refusal in words: a branch belongs to a bank that is already there.
+     *
+     * <p>🔴 A bank name that matched none used to CREATE a bank, silently, with a blank universal code -- so a typo in
+     * Bank Name ("Absa Bnak") added a bank to every bank list in the application, and moved the branch onto it. The
+     * received name is not repeated in the refusal: the dialog still shows what was typed.
+     */
+    private Bank bankNamed(String name) {
+        String wanted = name == null ? "" : name.trim();
+        return this.bankService.findByNameIgnoreCase(wanted).orElseThrow(() -> new ReferenceRefusal(
+                ReferenceRefusalCode.BANK_UNKNOWN,
+                "There is no bank of that name on record. Check the spelling against the bank list: a branch is added "
+                        + "to a bank that is already there."));
     }
 
     /**

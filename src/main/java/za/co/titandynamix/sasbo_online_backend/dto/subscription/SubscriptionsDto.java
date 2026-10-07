@@ -14,7 +14,8 @@ import java.time.LocalDateTime;
 
 /**
  * A bank's subscription row. The constraints bind where a route asks for them ({@code @Valid}): a new row (A23 --
- * once the browser posted here instead of to the recruitment channels, the route had to refuse a row it cannot use).
+ * once the browser posted here instead of to the recruitment channels, the route had to refuse a row it cannot use)
+ * and a changed one (an emptied debit day arrives as {@code null}, which the primitive takes as 0, refused here).
  */
 public record SubscriptionsDto(
         Long id,

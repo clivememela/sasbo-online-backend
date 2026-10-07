@@ -292,24 +292,35 @@ class ReferenceServicesTest {
         }
 
         @Test
-        @DisplayName("creates the bank when the name matches none, with a blank universal code")
-        void createsAMissingBank() {
-            // Worth pinning: the created bank gets universalBranchCode = "", not
-            // null. That is what keeps the NOT NULL column satisfied, and it is
-            // the kind of detail a refactor silently changes into a constraint
-            // violation at import time.
+        @DisplayName("🔴 refuses a bank name that matches none -- BANK_UNKNOWN -- and creates no bank and no branch")
+        void refusesAnUnknownBank() {
+            // Until the October build this CREATED the bank, with a blank universal code, and the test above this
+            // one's place pinned that as intended. So a typo in Bank Name ("Absa Bnak") added a bank to every bank
+            // list in the application (the manual's reading of every screen, 6 Oct). A branch now belongs to a bank
+            // already on record, or is refused in words.
             when(this.bankService.findByNameIgnoreCase("Newbank")).thenReturn(Optional.empty());
-            when(this.bankService.save(any(Bank.class)))
-                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service().createFromDto(dtoNamed("Newbank")))
+                    .isInstanceOf(za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusal.class)
+                    .hasMessage("There is no bank of that name on record. Check the spelling against the bank list: "
+                            + "a branch is added to a bank that is already there.");
+            verify(this.bankService, never()).save(any(Bank.class));
+            verify(this.bankBranchRepository, never()).save(any(BankBranch.class));
+        }
+
+        @Test
+        @DisplayName("finds the bank whatever the case and the space around its name")
+        void findsTheBankTrimmed() {
+            Bank absa = BankFixture.withId(1, "Absa");
+            when(this.bankService.findByNameIgnoreCase("Absa")).thenReturn(Optional.of(absa));
             when(this.bankBranchRepository.save(any(BankBranch.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            service().createFromDto(dtoNamed("Newbank"));
+            service().createFromDto(dtoNamed("  Absa "));
 
-            ArgumentCaptor<Bank> created = ArgumentCaptor.forClass(Bank.class);
-            verify(this.bankService).save(created.capture());
-            assertThat(created.getValue().getName()).isEqualTo("Newbank");
-            assertThat(created.getValue().getUniversalBranchCode()).isEmpty();
+            ArgumentCaptor<BankBranch> saved = ArgumentCaptor.forClass(BankBranch.class);
+            verify(this.bankBranchRepository).save(saved.capture());
+            assertThat(saved.getValue().getBank()).isSameAs(absa);
         }
 
         @Test
