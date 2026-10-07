@@ -54,6 +54,7 @@ public class DataSeeder implements ApplicationRunner {
     private final WorkplaceVisitSeeder workplaceVisitSeeder;
     private final DemonstrationMemberSeeder demonstrationMemberSeeder;
     private final MonthEndTakeSeeder monthEndTakeSeeder;
+    private final PayrollSeeder payrollSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -326,6 +327,11 @@ public class DataSeeder implements ApplicationRunner {
         // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
         // are on record (MD54).
         seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);
+
+        // Payroll (October build): the employers -- reference data, everywhere -- then the demonstration's members and
+        // files, built from whoever is on record by now, so after the invented members above; never under the marker.
+        seedMonthEnd("the payroll employers", this.payrollSeeder::seedEmployers);
+        seedMonthEnd("the payroll demonstration", () -> seedQuietly(this.payrollSeeder::seedDemonstration));
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).

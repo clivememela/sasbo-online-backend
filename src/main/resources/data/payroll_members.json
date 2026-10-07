@@ -1,0 +1,8 @@
+{
+  "generator": "PayrollSeedGenerator, in the server's test sources. Regenerate with ./gradlew generateApiSurface -- never edit by hand",
+  "seed": 20261007,
+  "members": [
+  ],
+  "strangers": [
+  ]
+}

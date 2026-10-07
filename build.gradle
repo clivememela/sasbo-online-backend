@@ -248,6 +248,9 @@ tasks.register('generateApiSurface', Test) {
 		// data/demonstration_members.json: the invented members who stand at SASBO's workplaces (01.4), generated
 		// with a fixed random seed from the workplaces and nine proportions, and checked byte for byte (BR69).
 		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberGeneratorTest'
+		// data/payroll_members.json: the payroll demonstration's invented members and the strangers on its files
+		// (October build), generated with a fixed random seed and checked byte for byte.
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.PayrollSeedGeneratorTest'
 	}
 
 	systemProperty 'apiSurface.write', 'true'
