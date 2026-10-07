@@ -113,6 +113,9 @@ public class MemberTrail {
         f.put("isCosatuRegional", Member::getIsCosatuRegional);
         f.put("cosatuPositions", Member::getCosatuPositions);
         f.put("remarks", Member::getRemarks);
+        // RC15: the Recruiters screen changes a member's recruitment channel through its own route now -- recorded, by
+        // the channel's name, as the record shows it (Recruiter Type).
+        f.put("recruitedHow", m -> m.getRecruitmentChannel() == null ? null : m.getRecruitmentChannel().getName());
         return f;
     }
 

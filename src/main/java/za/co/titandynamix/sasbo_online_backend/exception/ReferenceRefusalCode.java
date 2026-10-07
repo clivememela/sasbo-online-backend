@@ -16,7 +16,15 @@ public enum ReferenceRefusalCode {
     /** A branch names a bank that is not on record; a branch is never the way a bank is created. */
     BANK_UNKNOWN(HttpStatus.UNPROCESSABLE_ENTITY),
     /** The bank already has its subscription row; that row is changed, not added to. */
-    SUBSCRIPTION_BANK_TAKEN(HttpStatus.CONFLICT);
+    SUBSCRIPTION_BANK_TAKEN(HttpStatus.CONFLICT),
+    /** No recruitment channel has this id: removed since the list was loaded, or never there. */
+    CHANNEL_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** No member with this id is on record within the caller's region or area. */
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** The member was recruited through a different channel from the one named: the screen's view is stale. */
+    MEMBER_NOT_IN_CHANNEL(HttpStatus.CONFLICT),
+    /** A page, a page size or a search the routes do not take; the details name the field. */
+    REQUEST_INVALID(HttpStatus.BAD_REQUEST);
 
     private final HttpStatus status;
 

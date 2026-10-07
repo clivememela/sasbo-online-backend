@@ -28,6 +28,7 @@ import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
 import za.co.titandynamix.sasbo_online_backend.enums.ListEmptyReason;
 import za.co.titandynamix.sasbo_online_backend.enums.SeedFailure;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
 import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
 import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
@@ -303,6 +304,11 @@ public final class ApiSurface {
                     "refusalCodes": [
                 %s
                     ]
+                  },
+                  "reference": {
+                    "refusalCodes": [
+                %s
+                    ]
                   }
                 }
                 """.formatted(regenerateCommand(), types, accountTypeNames(),
@@ -321,7 +327,18 @@ public final class ApiSurface {
                 MemberSummaryRepository.TIMEOUT_SECONDS, SummaryGate.AT_ONCE,
                 memberStatuses(), names(MemberStatusReason.values()), seededCodes("deletionCodes"),
                 seededCodes("suspensionCodes"),
-                monthEndRefusalCodes());
+                monthEndRefusalCodes(),
+                referenceRefusalCodes());
+    }
+
+    /**
+     * The reference lists' refusal codes -- branches, subscription rows, recruitment channels and their members -- with
+     * the status each answers, read off the enum the server throws (the October build, A29 / A23 / RC15).
+     */
+    private static String referenceRefusalCodes() {
+        return Arrays.stream(ReferenceRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
     }
 
     /**
