@@ -24,3 +24,8 @@ acb:
 month-end:
   packs:
     synchronous: true
+
+# Payroll's retention job off in every test lane: no job runs beside a test. Its own tests call it directly.
+payroll:
+  retention:
+    enabled: false
