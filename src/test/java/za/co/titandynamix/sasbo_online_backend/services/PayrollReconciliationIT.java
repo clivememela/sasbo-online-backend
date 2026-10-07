@@ -267,15 +267,15 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
         assertThat(summary.totals().expectedPayment()).as("the fixtures' Absa total less 3%").isEqualTo("4043.59");
         assertThat(summary.totals().paymentStatus()).isEqualTo("NOT_RECORDED");
 
-        payments.record(new PayrollPaymentRequest(employer, "2026-09", "3869.59", "2026-09-30", "EFT 1"), "an IT");
+        payments.record(new PayrollPaymentRequest(employer, "2026-09", "3869.59", "2026-09-15", "EFT 1"), "an IT");
         assertThat(files.summary(file).totals().paymentStatus()).isEqualTo("SHORT");
         PayrollDiscrepancyDto payment = discrepancies.ofFile(file, "PAYMENT_DIFFERS", null, 0, 10).content().get(0);
         assertThat(payment.detail()).isEqualTo("R3869.59 received; R4043.59 expected after the employer's 3% fee: "
                 + "R174.00 short.");
 
-        assertThat(payments.record(new PayrollPaymentRequest(employer, "2026-09", "3869.59", "2026-09-30", "EFT 1"),
+        assertThat(payments.record(new PayrollPaymentRequest(employer, "2026-09", "3869.59", "2026-09-15", "EFT 1"),
                 "an IT").alreadyRecorded()).as("a double click records it once").isTrue();
-        payments.record(new PayrollPaymentRequest(employer, "2026-09", "174.00", "2026-09-30", "EFT 2"), "an IT");
+        payments.record(new PayrollPaymentRequest(employer, "2026-09", "174.00", "2026-09-15", "EFT 2"), "an IT");
         assertThat(files.summary(file).totals().paymentStatus()).isEqualTo("EXACT");
         PayrollDiscrepancyDto made = discrepancies.get(payment.id());
         assertThat(made.status()).isEqualTo("RESOLVED");
