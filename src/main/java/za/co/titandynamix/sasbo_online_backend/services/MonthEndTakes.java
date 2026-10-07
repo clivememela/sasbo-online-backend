@@ -205,11 +205,28 @@ public class MonthEndTakes {
      *                         index refused it
      */
     public TakenMonth take(YearMonth month, String actor, Long replaces) {
+        return taking(month, actor, replaces, clock.instant());
+    }
+
+    /**
+     * The seed's first take of a past month, dated as SASBO takes a month -- {@code at} is the instant the record
+     * carries, 07:10 on the month's last working day ({@code MonthEndTakeSeeder}); the facts are the month as it stood
+     * at its end (rule S), whenever they are worked out. Never later than the clock's instant: a take is not dated in
+     * the future.
+     */
+    public TakenMonth takeAsAt(YearMonth month, String actor, Instant at) {
+        if (at.isAfter(clock.instant())) {
+            throw new IllegalArgumentException("a take is never dated after the clock's instant");
+        }
+        return taking(month, actor, null, at);
+    }
+
+    private TakenMonth taking(YearMonth month, String actor, Long replaces, Instant at) {
         requireBegun(month);
         refuseIfNotReady();
         TakenMonth replaced = replaces == null ? null : replacing(month, replaces);
         MonthRange range = MonthRange.of(month);
-        Instant now = clock.instant();
+        Instant now = at;
         Collection<String> seeded = environment.isProduction() ? List.of() : seedNumbers.all();
         try {
             return tx.execute(status -> {

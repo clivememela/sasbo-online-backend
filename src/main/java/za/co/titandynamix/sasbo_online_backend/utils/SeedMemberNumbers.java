@@ -28,7 +28,7 @@ public class SeedMemberNumbers {
 
     /** The seed files that put members on record. */
     static final String[] SEED_FILES = {"data/members.json", DebitOrderMemberSeeder.SEED_FILE,
-            DemonstrationMemberSeeder.SEED_FILE};
+            DemonstrationMemberSeeder.SEED_FILE, DemonstrationPopulationSeeder.SEED_FILE};
 
     private final Set<String> numbers;
 

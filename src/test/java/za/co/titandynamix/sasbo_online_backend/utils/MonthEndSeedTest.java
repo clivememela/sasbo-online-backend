@@ -121,6 +121,38 @@ class MonthEndSeedTest {
         return n == null ? 0 : n;
     }
 
+    /** The suspension codes the resource lists, as it states them. */
+    private static List<Integer> resourceCodes() throws IOException {
+        List<Integer> codes = new java.util.ArrayList<>();
+        for (JsonNode list : resource(ReferenceListSeeder.RESOURCE).path("lists")) {
+            if (list.path("list").asText().equals("suspensionCodes")) {
+                list.path("rows").forEach(row -> codes.add(row.path("code").asInt()));
+            }
+        }
+        return codes;
+    }
+
+    /** The codes of Stephne's sheet the October demonstration population puts on record where they are absent. */
+    private static List<Integer> populationCodes() throws IOException {
+        return DemonstrationPopulationSeeder.readSeedFile().suspensionCodes().stream()
+                .map(DemonstrationPopulation.Code::code).toList();
+    }
+
+    /** The codes on record that the resource lists, in order -- the list's own rows, whatever else is beside them. */
+    private List<Integer> resourceCodesOnRecord() throws IOException {
+        List<Integer> listed = resourceCodes();
+        return jdbc.queryForList("SELECT code FROM suspension_codes ORDER BY code", Integer.class).stream()
+                .filter(listed::contains).toList();
+    }
+
+    /** Puts back the population's codes a test removed with the list's -- as a start that found them absent would. */
+    private void restorePopulationCodes() throws IOException {
+        for (DemonstrationPopulation.Code code : DemonstrationPopulationSeeder.readSeedFile().suspensionCodes()) {
+            jdbc.update("INSERT INTO suspension_codes (code, name) SELECT ?, ? WHERE NOT EXISTS "
+                    + "(SELECT 1 FROM suspension_codes WHERE code = ?)", code.code(), code.name(), code.code());
+        }
+    }
+
     @Test
     @DisplayName("every list is on a fresh demonstration database, as many rows as the resource states, each marked as printed and unconfirmed (MD28)")
     void everyListIsThere() throws IOException {
@@ -133,7 +165,14 @@ class MonthEndSeedTest {
         assertThat(rows("SELECT count(*) FROM table_codes")).isEqualTo(stated.get("tableCodes"));
         assertThat(rows("SELECT count(*) FROM committee_provinces")).isEqualTo(stated.get("committeeProvinces"));
         assertThat(rows("SELECT count(*) FROM committees")).isEqualTo(stated.get("committees"));
-        assertThat(rows("SELECT count(*) FROM suspension_codes")).isEqualTo(stated.get("suspensionCodes"));
+        // The resource's codes, each on record; any other code on record is one of Stephne's sheet that the October
+        // demonstration population brings (DemonstrationPopulationSeeder) -- never a code from nowhere.
+        assertThat(resourceCodesOnRecord()).hasSize(stated.get("suspensionCodes").intValue());
+        List<Integer> resource = resourceCodes();
+        List<Integer> population = populationCodes();
+        assertThat(jdbc.queryForList("SELECT code FROM suspension_codes", Integer.class))
+                .allSatisfy(code -> assertThat(resource.contains(code) || population.contains(code))
+                        .as("suspension code %d is the resource's or the population's", code).isTrue());
         assertThat(rows("SELECT count(*) FROM deletion_codes WHERE sasbo_code IS NOT NULL OR parent_id IS NOT NULL"))
                 .isEqualTo(stated.get("deletionCodes"));
         assertThat(jdbc.queryForList("SELECT list_key FROM reference_lists WHERE outcome = 'SEEDED' "
@@ -190,23 +229,25 @@ class MonthEndSeedTest {
     }
 
     @Test
-    @DisplayName("MD53, MV-45: the switch at all puts the invented members on record -- the 160, the 150 and the file's own, and nobody else")
+    @DisplayName("MD53, MV-45: the switch at all puts the invented members on record -- the 160, the 150, the file's own and the October population, and nobody else")
     void theSwitchPutsTheInventedMembersOnRecord() throws IOException {
         long original;
         try (InputStream stream = new ClassPathResource("data/members.json").getInputStream()) {
             original = DataSeeder.readSeedMembers(stream).size();
         }
         assertThat(members.count()).isEqualTo(original + DebitOrderMemberSeeder.readSeedFile().members().size()
-                + DemonstrationMemberSeeder.readSeedFile().count());
+                + DemonstrationMemberSeeder.readSeedFile().count() + DemonstrationPopulationSeeder.readSeedFile().count());
     }
 
     @Test
-    @DisplayName("MD35, MR-ROB-32: every member of the seed stands where the file says -- the invented, and the 310 by their placements")
+    @DisplayName("MD35, MR-ROB-32: every member of the seed stands where the files say -- the invented, the 310 by their placements, and the October population")
     void everyMemberStandsWhereTheFileSays() throws IOException {
         DemonstrationMember.SeedFile file = DemonstrationMemberSeeder.readSeedFile();
         Map<String, Integer> expected = new HashMap<>();
         file.members().forEach(m -> expected.put(m.membershipNumber(), m.workplaceRaNumber()));
         file.placements().forEach(p -> expected.put(p.membershipNumber(), p.workplaceRaNumber()));
+        DemonstrationPopulationSeeder.readSeedFile().members()
+                .forEach(m -> expected.put(m.membershipNumber(), m.workplaceRaNumber()));
 
         assertThat(standing()).isEqualTo(expected);
         assertThat(rows("SELECT count(*) FROM members WHERE workplace_id IS NULL"))
@@ -301,7 +342,10 @@ class MonthEndSeedTest {
                     row.put("suspension_code_id", rs.getObject("suspension_code_id"));
                     row.put("changed_at", rs.getObject("changed_at", java.time.OffsetDateTime.class).toInstant());
                     return row;
-                }, DemonstrationMemberSeeder.SEED_ACTOR);
+                }, DemonstrationMemberSeeder.SEED_ACTOR).stream()
+                // This file's members: the October population writes its own past, by the same actor, tested beside it.
+                .filter(row -> past.stream().anyMatch(c -> c.membershipNumber().equals(row.get("membership_number"))))
+                .toList();
 
         assertThat(written).hasSize(past.size());
         for (Map<String, Object> row : written) {
@@ -372,13 +416,12 @@ class MonthEndSeedTest {
 
     @Test
     @DisplayName("the per-row lesson of JobGradeSeeder: a row the database lacks reaches it, and the rest are left as they are")
-    void aMissingRowReachesTheDatabase() {
+    void aMissingRowReachesTheDatabase() throws IOException {
         jdbc.update("DELETE FROM suspension_codes WHERE code = 19");
 
         lists.seed();
 
-        assertThat(jdbc.queryForList("SELECT code FROM suspension_codes ORDER BY code", Integer.class))
-                .containsExactly(11, 13, 19);
+        assertThat(resourceCodesOnRecord()).containsExactlyElementsOf(resourceCodes().stream().sorted().toList());
     }
 
     @Test
@@ -431,7 +474,9 @@ class MonthEndSeedTest {
         } finally {
             lists.seed();
         }
-        assertThat(rows("SELECT count(*) FROM suspension_codes")).isEqualTo(3);
+        assertThat(rows("SELECT count(*) FROM suspension_codes")).as("the list's own rows, and nothing else, after it")
+                .isEqualTo(resourceCodes().size());
+        restorePopulationCodes();
         assertThat(jdbc.queryForObject("SELECT outcome FROM reference_lists WHERE list_key = 'suspensionCodes'",
                 String.class)).isEqualTo("SEEDED");
     }
@@ -445,13 +490,14 @@ class MonthEndSeedTest {
                 ((ObjectNode) list.path("rows").get(0)).remove("name");
             }
         }
+        long before = rows("SELECT count(*) FROM suspension_codes");
         try {
             lists.seed(broken);
 
             assertThat(jdbc.queryForMap("SELECT outcome, failure FROM reference_lists WHERE list_key = 'suspensionCodes'"))
                     .containsEntry("OUTCOME", "FAILED")
                     .containsEntry("FAILURE", "UNREADABLE");
-            assertThat(rows("SELECT count(*) FROM suspension_codes")).as("nothing of it was removed").isEqualTo(3);
+            assertThat(rows("SELECT count(*) FROM suspension_codes")).as("nothing of it was removed").isEqualTo(before);
         } finally {
             lists.seed();
         }
@@ -477,10 +523,10 @@ class MonthEndSeedTest {
         second.join(60_000);
         lists.beforeWrite(null);
 
-        assertThat(jdbc.queryForList("SELECT code FROM suspension_codes ORDER BY code", Integer.class))
-                .containsExactly(11, 13, 19);
+        assertThat(resourceCodesOnRecord()).containsExactlyElementsOf(resourceCodes().stream().sorted().toList());
         assertThat(jdbc.queryForObject("SELECT outcome FROM reference_lists WHERE list_key = 'suspensionCodes'",
                 String.class)).isEqualTo("SEEDED");
+        restorePopulationCodes();
     }
 
     @Test
