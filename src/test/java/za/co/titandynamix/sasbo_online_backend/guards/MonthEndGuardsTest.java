@@ -63,7 +63,8 @@ class MonthEndGuardsTest {
             // October build, month end's rules: free text and the penetration flag; the reasons for no deduction; the
             // core tiers; the suspended and their lapse; the seed that shows them.
             "FreeText", "Penetration",
-            "NoDeductionReasonController", "NoDeductionReasons", "NoDeductionReasonRepository");
+            "NoDeductionReasonController", "NoDeductionReasons", "NoDeductionReasonRepository",
+            "CoreTierController", "CoreTiers");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -394,6 +395,8 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/deletion-codes", "a list of SASBO's deletion codes, by their numbers"),
             Map.entry("GET /api/reference/no-deduction-reasons", "a list of the reasons for no payroll deduction: words "
                     + "and SASBO's codes, and nobody (MEN-17)"),
+            Map.entry("GET /api/reference/core-tiers", "SASBO's core tiers and the table codes standing in each: "
+                    + "organisations and codes (MEN-31)"),
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
             Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
             Map.entry("GET /api/workplaces/{id}/visits", "a workplace's visits: the day and the complement found; who "
