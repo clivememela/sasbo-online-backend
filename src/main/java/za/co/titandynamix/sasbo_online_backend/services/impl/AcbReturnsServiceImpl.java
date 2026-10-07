@@ -384,10 +384,12 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
         org.springframework.data.domain.Page<AcbRunLine> found = reason == null
                 ? returns.findUnpaids(runId, AcbLineOutcome.UNPAID, request)
                 : returns.findUnpaidsFor(runId, AcbLineOutcome.UNPAID, reason.name(), request);
-        // Where each line's letter is -- one query for the page, never one per line.
+        // Where each line's letter is -- one query for the page, never one per line. The unpaid's own letter: an
+        // ending letter on the same line (DOD-24, V71) is the member's, not the unpaid's.
         Map<Long, LetterStatus> letterOf = new HashMap<>();
         if (!found.isEmpty()) {
-            letters.findByLineIdIn(found.getContent().stream().map(AcbRunLine::getId).toList())
+            letters.findByLineIdIn(found.getContent().stream().map(AcbRunLine::getId).toList()).stream()
+                    .filter(letter -> letter.getTemplate() != LetterTemplate.MEMBERSHIP_ENDED)
                     .forEach(letter -> letterOf.put(letter.getLineId(), letter.getStatus()));
         }
         return AcbPage.of(found, line -> AcbRunServiceImpl.lineDto(line, suggestions.get(line.getUnpaidCode()),
@@ -556,7 +558,7 @@ public class AcbReturnsServiceImpl implements AcbReturnsService {
     /** Queues the reason's letter and renders it now if the member can be emailed. */
     private void queueLetter(AcbRun run, AcbRunLine line, UnpaidReason reason, String wording, String actor) {
         LetterTemplate template = reason.letter();
-        if (template == null || letters.findByLineId(line.getId()).isPresent()) {
+        if (template == null || letters.findByLineIdAndTemplate(line.getId(), template).isPresent()) {
             return;
         }
         Instant now = AcbTime.instant(clock);

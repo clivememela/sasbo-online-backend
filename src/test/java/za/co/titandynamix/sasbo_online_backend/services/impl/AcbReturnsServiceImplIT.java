@@ -115,7 +115,7 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         AcbLetter letter = letters.findByLineId(line).orElseThrow();
         assertThat(letter.getStatus()).isEqualTo(LetterStatus.QUEUED);
         assertThat(letter.getStatusReason()).isEqualTo("NO_EMAIL");
-        assertThat(letter.getTemplate()).isEqualTo(LetterTemplate.RETURN_DEBIT);
+        assertThat(letter.getTemplate()).isEqualTo(LetterTemplate.PAYMENT_STOPPED);
         assertThat(returns.summary(run).lettersByStatus()).containsEntry("QUEUED", 1);
     }
 

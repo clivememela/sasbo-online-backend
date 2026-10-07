@@ -53,8 +53,12 @@ public final class LetterDocument {
     static String wordingOf(LetterTemplate template) {
         return switch (template) {
             case RE_DEBIT -> UnpaidReason.NOT_PROVIDED_FOR.wording();
-            case RETURN_DEBIT -> UnpaidReason.PAYMENT_STOPPED.wording();
+            case RETURN_DEBIT -> UnpaidReason.ACCOUNT_FROZEN.wording();
             case ACCOUNT_CLOSED -> UnpaidReason.ACCOUNT_CLOSED.wording();
+            case PAYMENT_STOPPED -> UnpaidReason.PAYMENT_STOPPED.wording();
+            case NO_AUTHORITY -> UnpaidReason.NO_AUTHORITY_TO_DEBIT.wording();
+            // The third unpaid is most often a debit not provided for.
+            case MEMBERSHIP_ENDED -> UnpaidReason.NOT_PROVIDED_FOR.wording();
         };
     }
 

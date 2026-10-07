@@ -122,14 +122,17 @@ class LetterRendererTest {
     }
 
     @Test
-    @DisplayName("each reason names the letter it sends -- and the inferred codes send none yet")
+    @DisplayName("each reason names the letter it sends -- the letters review's table (October build); a deceased "
+            + "account holder and an unknown code get none")
     void reasonsToLetters() {
         assertThat(UnpaidReason.NOT_PROVIDED_FOR.letter()).isEqualTo(LetterTemplate.RE_DEBIT);
-        assertThat(UnpaidReason.PAYMENT_STOPPED.letter()).isEqualTo(LetterTemplate.RETURN_DEBIT);
+        assertThat(UnpaidReason.PAYMENT_STOPPED.letter()).isEqualTo(LetterTemplate.PAYMENT_STOPPED);
         assertThat(UnpaidReason.ACCOUNT_FROZEN.letter()).isEqualTo(LetterTemplate.RETURN_DEBIT);
         assertThat(UnpaidReason.INVALID_ACCOUNT_NUMBER.letter()).isEqualTo(LetterTemplate.RETURN_DEBIT);
         assertThat(UnpaidReason.ACCOUNT_CLOSED.letter()).isEqualTo(LetterTemplate.ACCOUNT_CLOSED);
-        assertThat(UnpaidReason.NO_AUTHORITY_TO_DEBIT.letter()).isNull();
+        assertThat(UnpaidReason.NO_AUTHORITY_TO_DEBIT.letter()).isEqualTo(LetterTemplate.NO_AUTHORITY);
+        assertThat(UnpaidReason.AUTHORISATION_CANCELLED.letter()).isEqualTo(LetterTemplate.NO_AUTHORITY);
+        assertThat(UnpaidReason.ACCOUNT_HOLDER_DECEASED.letter()).isNull();
         assertThat(UnpaidReason.OTHER.letter()).isNull();
     }
 }
