@@ -243,8 +243,8 @@ public class PayrollStore {
     }
 
     /**
-     * A year on (PAY-39): the file's bytes and lines deleted, its discrepancies and their outcomes kept. One
-     * transaction, the caller's.
+     * A year on (PAY-39): the file's bytes and lines deleted, and the protected query lists produced from it; its
+     * discrepancies, their outcomes and the record that a list was produced kept. One transaction, the caller's.
      *
      * @return how many lines were deleted
      */
@@ -253,7 +253,15 @@ public class PayrollStore {
         jdbc.update("UPDATE payroll_files SET content = NULL, status = 'PURGED', purged_at = :at, "
                         + "version = version + 1 WHERE id = :file AND status <> 'PURGED'",
                 new MapSqlParameterSource("file", fileId).addValue("at", Timestamp.from(at)));
+        jdbc.update("UPDATE payroll_query_files SET content = NULL, purged_at = :at WHERE file_id = :file "
+                        + "AND content IS NOT NULL", new MapSqlParameterSource("file", fileId).addValue("at", Timestamp.from(at)));
         return rows;
+    }
+
+    /** A produced query list downloaded once more: counted in the statement, so two at once count two. */
+    public int countDownload(long queryFileId, Instant at) {
+        return jdbc.update("UPDATE payroll_query_files SET downloads = downloads + 1, last_downloaded_at = :at "
+                + "WHERE id = :id", new MapSqlParameterSource("id", queryFileId).addValue("at", Timestamp.from(at)));
     }
 
     // ------------------------------------------------------------------------------------------- discrepancies

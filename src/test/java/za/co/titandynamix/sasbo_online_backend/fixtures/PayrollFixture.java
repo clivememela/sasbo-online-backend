@@ -58,7 +58,7 @@ public final class PayrollFixture {
         return new PayrollQueryDto(2, 12, ABSA, "2026-08", "system", "2026-09-15T09:00:00Z",
                 new PayrollQueryDto.Counts(1, 2, 0), List.of(new PayrollQueryDto.Line("ADD", 71, "MISSING_FROM_FILE",
                 null, null, "R.T. Tallyburn", "M-095020", null, "174.00",
-                "A member of SASBO not deducted this month: please deduct the subscription.")));
+                "A member of SASBO not deducted this month: please deduct the subscription.")), List.of());
     }
 
     /** A signed-in caller limited to one region, as the sign-in filter would put one on the request. */

@@ -110,13 +110,18 @@ class ReportWritersTest {
     }
 
     @Test
-    @DisplayName("🔒 the employer's list, protected: the workbook opens with the password and only with it")
+    @DisplayName("🔒 the employer's list, protected: Excel's AES-256 with SHA-512; the workbook opens with the password alone")
     void aProtectedWorkbook() throws Exception {
-        byte[] locked = ProtectedFiles.workbook(ReportXlsx.write(document(2)), "Correct horse 9");
+        String password = ProtectedFiles.newPassword();
+        byte[] locked = ProtectedFiles.workbook(ReportXlsx.write(document(2)), password);
         try (POIFSFileSystem fs = new POIFSFileSystem(new ByteArrayInputStream(locked))) {
-            Decryptor decryptor = new EncryptionInfo(fs).getDecryptor();
+            EncryptionInfo info = new EncryptionInfo(fs);
+            assertThat(info.getHeader().getCipherAlgorithm()).isEqualTo(org.apache.poi.poifs.crypt.CipherAlgorithm.aes256);
+            assertThat(info.getHeader().getHashAlgorithm()).isEqualTo(org.apache.poi.poifs.crypt.HashAlgorithm.sha512);
+            assertThat(info.getVerifier().getSpinCount()).isEqualTo(100_000);
+            Decryptor decryptor = info.getDecryptor();
             assertThat(decryptor.verifyPassword("wrong password")).isFalse();
-            assertThat(decryptor.verifyPassword("Correct horse 9")).isTrue();
+            assertThat(decryptor.verifyPassword(password)).isTrue();
             try (InputStream data = decryptor.getDataStream(fs); XSSFWorkbook workbook = new XSSFWorkbook(data)) {
                 assertThat(workbook.getSheetName(1)).isEqualTo("Discrepancies");
             }
@@ -124,13 +129,30 @@ class ReportWritersTest {
     }
 
     @Test
-    @DisplayName("🔒 the employer's list, protected: the PDF opens with the password and not without")
+    @DisplayName("🔒 the employer's list, protected: the PDF is AES-256 and opens with the password and not without")
     void aProtectedPdf() throws IOException {
-        byte[] locked = ProtectedFiles.pdf(ReportPdf.write(document(2)), "Correct horse 9");
+        String password = ProtectedFiles.newPassword();
+        byte[] locked = ProtectedFiles.pdf(ReportPdf.write(document(2)), password);
         assertThatThrownBy(() -> Loader.loadPDF(locked).close()).isInstanceOf(InvalidPasswordException.class);
-        try (PDDocument pdf = Loader.loadPDF(locked, "Correct horse 9")) {
+        try (PDDocument pdf = Loader.loadPDF(locked, password)) {
             assertThat(pdf.isEncrypted()).isTrue();
+            assertThat(pdf.getEncryption().getLength()).isEqualTo(256);
             assertThat(new PDFTextStripper().getText(pdf)).contains("Payroll discrepancies");
         }
+    }
+
+    @Test
+    @DisplayName("🔒 the system's password: sixteen capitals and digits without look-alikes, in four groups, new every time")
+    void theSystemsPassword() {
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            String password = ProtectedFiles.newPassword();
+            assertThat(password).matches("[A-HJKMNP-Z2-9]{4}(-[A-HJKMNP-Z2-9]{4}){3}");
+            assertThat(password).doesNotContainPattern("[ILO01]");
+            seen.add(password);
+        }
+        assertThat(seen).as("about 79 bits: no two alike").hasSize(200);
+        assertThat(ProtectedFiles.ALPHABET).hasSize(31);
+        assertThat(ProtectedFiles.PASSWORD_NOTE).contains("shown once").contains("another channel");
     }
 }

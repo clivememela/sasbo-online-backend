@@ -24,7 +24,6 @@ import za.co.titandynamix.sasbo_online_backend.acb.AcbLogging;
 import za.co.titandynamix.sasbo_online_backend.config.PayrollApi;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollNoteRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollPaymentRequest;
-import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryDownloadRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollResolveRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollSettingsRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollTypedEntryRequest;
@@ -106,9 +105,6 @@ public class PayrollExceptionHandler {
             refusal = new PayrollRefusal(PayrollRefusalCode.TYPED_ROWS_INVALID,
                     "Some typed rows could not be taken. Each row needs an amount and a staff number, an ID number "
                             + "or a surname.", typedRowDetail(field));
-        } else if (target instanceof PayrollQueryDownloadRequest && "password".equals(field)) {
-            refusal = new PayrollRefusal(PayrollRefusalCode.PASSWORD_INVALID,
-                    "Choose a password of 8 to 64 characters for the employer's list.");
         } else if (target instanceof PayrollSettingsRequest) {
             refusal = new PayrollRefusal(PayrollRefusalCode.SETTINGS_INVALID,
                     "The settings could not be saved. The fee is a percentage from 0 to 99.99.", detail(field));

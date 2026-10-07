@@ -94,6 +94,9 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
     private za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryRepository queryRepository;
 
     @Autowired
+    private za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryFileRepository queryFileRepository;
+
+    @Autowired
     private za.co.titandynamix.sasbo_online_backend.repository.PayrollPaymentRepository paymentRepository;
 
     @Autowired
@@ -282,7 +285,7 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
     // ---------------------------------------------------------------------------------------------------- queries
 
     @Test
-    @DisplayName("Stephne, PAY-21: a query lists what the employer is to add, delete or correct; raised once per discrepancy")
+    @DisplayName("Stephne, PAY-21: a query lists what to add, delete or correct, raised once; it leaves under a password shown once")
     void queries() throws Exception {
         PayrollItSupport.seedManifest(jdbc, PayrollItSupport.manifest("standard-bank"), "STANDARD BANK");
         long employer = employerRepository.findByCode("STANDARD_BANK").orElseThrow().getId();
@@ -299,10 +302,46 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
         assertThatThrownBy(() -> queries.raise(file, "an IT")).isInstanceOfSatisfying(PayrollRefusal.class,
                 r -> assertThat(r.code()).isEqualTo(PayrollRefusalCode.NOTHING_TO_QUERY));
 
-        PayrollReports.Report locked = queries.download(query.id(), "xlsx", "Correct horse 9", "an IT");
-        assertThat(locked.fileName()).isEqualTo("Payroll queries - Standard Bank - September 2026.xlsx");
-        assertThat(za.co.titandynamix.sasbo_online_backend.payroll.FileSniffer.sniff(locked.bytes()).name())
-                .as("an encrypted workbook").isEqualTo("XLS");
+        // The list leaves SASBO as a protected file, under a password the system generated and shows once (POPIA).
+        PayrollQueries.Produced produced = queries.produce(query.id(), "xlsx", "an IT");
+        String password = produced.password();
+        assertThat(password).matches("[A-HJKMNP-Z2-9]{4}(-[A-HJKMNP-Z2-9]{4}){3}");
+        assertThat(produced.file().fileName()).isEqualTo("Payroll queries - Standard Bank - September 2026.xlsx");
+        assertThat(produced.file().protection()).isEqualTo("EXCEL_AES_256");
+        assertThat(produced.file().downloads()).isZero();
+        PayrollReports.Report sent = queries.fileContent(produced.file().id(), "an IT");
+        assertThat(sent.bytes()).hasSize(produced.file().bytes());
+        try (var container = new org.apache.poi.poifs.filesystem.POIFSFileSystem(
+                new java.io.ByteArrayInputStream(sent.bytes()))) {
+            var info = new org.apache.poi.poifs.crypt.EncryptionInfo(container);
+            assertThat(info.getHeader().getCipherAlgorithm())
+                    .isEqualTo(org.apache.poi.poifs.crypt.CipherAlgorithm.aes256);
+            var decryptor = org.apache.poi.poifs.crypt.Decryptor.getInstance(info);
+            assertThat(decryptor.verifyPassword("WRONG-PASS-WORD-HERE")).isFalse();
+            assertThat(decryptor.verifyPassword(password)).isTrue();
+            try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(decryptor.getDataStream(container))) {
+                assertThat(workbook.getNumberOfSheets()).isPositive();
+            }
+        }
+        // 🔒 Kept nowhere: not with the file, not in the record of what was done.
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_events WHERE summary LIKE ?", Integer.class,
+                "%" + password + "%")).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_query_files WHERE file_name LIKE ? OR "
+                + "produced_by LIKE ?", Integer.class, "%" + password + "%", "%" + password + "%")).isZero();
+        assertThat(produced.toString()).doesNotContain(password);
+        assertThat(queryFileRepository.findAllByQueryIdOrderByProducedAtDescIdDesc(query.id()))
+                .singleElement().satisfies(f -> assertThat(f.getDownloads()).isEqualTo(1));
+        assertThat(queries.get(query.id()).files()).singleElement()
+                .satisfies(f -> assertThat(f.lastDownloadedAt()).isNotNull());
+        PayrollQueries.Produced again = queries.produce(query.id(), "pdf", "an IT");
+        assertThat(again.password()).as("a new password a file").isNotEqualTo(password);
+        assertThat(again.file().protection()).isEqualTo("PDF_AES_256");
+        assertThat(eventRepository.findAllByFileIdOrderByOccurredAtAscIdAsc(file)).extracting(e -> e.getKind().name())
+                .contains("QUERY_FILE_PRODUCED", "QUERY_FILE_DOWNLOADED");
+        // The file as it arrived, downloaded: recorded too.
+        assertThat(files.content(file, "an IT").bytes()).isEqualTo(PayrollItSupport.resource("standard-bank.xlsx"));
+        assertThat(eventRepository.findAllByFileIdOrderByOccurredAtAscIdAsc(file)).extracting(e -> e.getKind().name())
+                .contains("FILE_DOWNLOADED");
     }
 
     // ---------------------------------------------------------------------------------------------------- reports
@@ -339,13 +378,14 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
     // -------------------------------------------------------------------------------------------- one year's keep
 
     @Test
-    @DisplayName("Stephne, PAY-39: a year on, the file and its lines are deleted; its discrepancies and outcomes stay")
+    @DisplayName("Stephne, PAY-39: a year on, the file, its lines and its query lists go; its discrepancies and outcomes stay")
     void oneYear() {
         PayrollItSupport.seedManifest(jdbc, PayrollItSupport.manifest("standard-bank"), "STANDARD BANK");
         long employer = employerRepository.findByCode("STANDARD_BANK").orElseThrow().getId();
         long file = files.upload(employer, "2026-09", "sb.xlsx", PayrollItSupport.resource("standard-bank.xlsx"), false,
                 null, "an IT").summary().file().id();
         int found = jdbc.queryForObject("SELECT count(*) FROM payroll_discrepancies WHERE file_id = ?", Integer.class, file);
+        long listFile = queries.produce(queries.raise(file, "an IT").id(), "pdf", "an IT").file().id();
         jdbc.update("UPDATE payroll_files SET retain_until = DATE '2026-09-14' WHERE id = ?", file);
 
         assertThat(retention.purgeDue()).isEqualTo(1);
@@ -366,6 +406,12 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
                 r -> assertThat(r.code()).isEqualTo(PayrollRefusalCode.FILE_PURGED));
         assertThat(files.summary(file).counts().rowsRead()).as("the summary still says what was read")
                 .isEqualTo(25);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_query_files WHERE id = ? AND content IS NULL "
+                + "AND purged_at IS NOT NULL", Integer.class, listFile)).as("the list produced from it goes too").isEqualTo(1);
+        assertThat(queries.get(jdbc.queryForObject("SELECT query_id FROM payroll_query_files WHERE id = ?", Long.class,
+                listFile)).files()).singleElement().satisfies(f -> assertThat(f.purged()).isTrue());
+        assertThatThrownBy(() -> queries.fileContent(listFile, "an IT")).isInstanceOfSatisfying(PayrollRefusal.class,
+                r -> assertThat(r.code()).isEqualTo(PayrollRefusalCode.FILE_PURGED));
         assertThat(retention.purgeDue()).as("nothing twice").isZero();
     }
 

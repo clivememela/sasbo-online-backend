@@ -1,6 +1,7 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,10 +17,12 @@ import za.co.titandynamix.sasbo_online_backend.config.PayrollApi;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollDiscrepancyDto;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollNoteRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollPage;
-import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryDownloadRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollProducedFileDto;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryDto;
+import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryFileRequest;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollResolveRequest;
 import za.co.titandynamix.sasbo_online_backend.payroll.PayrollAccess;
+import za.co.titandynamix.sasbo_online_backend.payroll.ProtectedFiles;
 import za.co.titandynamix.sasbo_online_backend.services.PayrollDiscrepancies;
 import za.co.titandynamix.sasbo_online_backend.services.PayrollQueries;
 
@@ -78,14 +81,28 @@ public class PayrollDiscrepancyController {
         return queries.get(id);
     }
 
-    /** The employer's list, protected by the password the administrator chooses -- it leaves SASBO (POPIA). */
+    /**
+     * The employer's list produced as a protected file -- it leaves SASBO (POPIA) -- under a password the system
+     * generates for this file alone: in this answer only, which no cache may keep; never stored, never logged. Whoever
+     * produced it gives the password to the employer by another channel. A lost password is a file produced again.
+     */
     @PreAuthorize(PayrollController.WRITE)
-    @PostMapping("/queries/{id}/download")
-    public ResponseEntity<byte[]> download(@PathVariable("id") long id,
-                                           @Valid @RequestBody PayrollQueryDownloadRequest request) {
+    @PostMapping("/queries/{id}/files")
+    public ResponseEntity<PayrollProducedFileDto> produce(@PathVariable("id") long id,
+                                                          @RequestBody(required = false) PayrollQueryFileRequest request) {
         PayrollAccess.headOffice();
-        return PayrollController.download(queries.download(id, request.format(), request.password(),
-                AcbActor.current()));
+        PayrollQueries.Produced produced = queries.produce(id, request == null ? null : request.format(),
+                AcbActor.current());
+        return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(new PayrollProducedFileDto(produced.file(), produced.password(), ProtectedFiles.PASSWORD_NOTE));
+    }
+
+    /** A produced list's encrypted bytes, to send to the employer -- each download counted and recorded. */
+    @PreAuthorize(PayrollController.WRITE)
+    @GetMapping("/query-files/{id}")
+    public ResponseEntity<byte[]> queryFile(@PathVariable("id") long id) {
+        PayrollAccess.headOffice();
+        return PayrollController.download(queries.fileContent(id, AcbActor.current()));
     }
 
     /** Every discrepancy across every file, filtered; by default the ones still to be resolved. */

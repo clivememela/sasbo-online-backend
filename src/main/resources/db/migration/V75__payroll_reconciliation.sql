@@ -65,6 +65,37 @@ CREATE TABLE payroll_queries (
 
 CREATE INDEX payroll_queries_file ON payroll_queries (file_id, raised_at);
 
+-- A query list as it leaves SASBO for the employer (POPIA): protected by a password the SYSTEM generates for this one
+-- file, shown once to whoever produced it, who gives it to the employer by another channel -- the one rule for every
+-- file the system lets SASBO send out, month end's bank files included. 🔒 content is the ENCRYPTED file, and the
+-- password is in no column of any table: a lost password is a file produced again. The content goes with the payroll
+-- file's own a year after loading (PAY-39); the row stays, saying a list was produced.
+CREATE TABLE payroll_query_files (
+    id                 BIGSERIAL    PRIMARY KEY,
+    query_id           BIGINT       NOT NULL CONSTRAINT payroll_query_files_query_fk REFERENCES payroll_queries (id),
+    file_id            BIGINT       NOT NULL CONSTRAINT payroll_query_files_file_fk REFERENCES payroll_files (id),
+    format             VARCHAR(4)   NOT NULL,
+    protection         VARCHAR(20)  NOT NULL,
+    file_name          VARCHAR(200) NOT NULL,
+    content            BYTEA,
+    size_bytes         INTEGER      NOT NULL,
+    sha256             VARCHAR(64)  NOT NULL,
+    produced_at        TIMESTAMPTZ  NOT NULL,
+    produced_by        VARCHAR(100) NOT NULL,
+    downloads          INTEGER      NOT NULL DEFAULT 0,
+    last_downloaded_at TIMESTAMPTZ,
+    purged_at          TIMESTAMPTZ,
+    CONSTRAINT payroll_query_files_format_known CHECK (format IN ('XLSX', 'PDF')),
+    CONSTRAINT payroll_query_files_protection_known CHECK (protection IN ('EXCEL_AES_256', 'PDF_AES_256')),
+    CONSTRAINT payroll_query_files_size_positive CHECK (size_bytes > 0),
+    CONSTRAINT payroll_query_files_sha256_shape CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT payroll_query_files_downloads_counted CHECK (downloads >= 0),
+    CONSTRAINT payroll_query_files_purged_means_no_content CHECK ((purged_at IS NULL) = (content IS NOT NULL))
+);
+
+CREATE INDEX payroll_query_files_query ON payroll_query_files (query_id, produced_at);
+CREATE INDEX payroll_query_files_file ON payroll_query_files (file_id);
+
 CREATE TABLE payroll_discrepancies (
     id                  BIGSERIAL     PRIMARY KEY,
     file_id             BIGINT        NOT NULL CONSTRAINT payroll_discrepancies_file_fk REFERENCES payroll_files (id),

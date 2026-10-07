@@ -4,11 +4,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryDto;
+import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryFileDto;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollDiscrepancy;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollFile;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollQuery;
+import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollQueryFile;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollDiscrepancyStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollEventKind;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollFileProtection;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollFileStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollQueryAction;
 import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusal;
@@ -16,6 +19,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.payroll.ProtectedFiles;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollDiscrepancyRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryFileRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollReads;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollStore;
@@ -29,8 +33,9 @@ import java.util.Map;
 /**
  * The queries sent back to an employer -- "We send them the discrepancy queries - To add or delete." (Stephne,
  * PAY-21; PAY-22). Raising a query takes every open discrepancy of the file that asks the employer for something and
- * is on no query yet, and marks each QUERIED; it stays open until resolved (PAY-20). The list the employer receives is
- * downloaded protected by a password the administrator chooses -- it leaves SASBO (POPIA).
+ * is on no query yet, and marks each QUERIED; it stays open until resolved (PAY-20). The list the employer receives
+ * leaves SASBO as a protected file (POPIA) under the one rule for every file SASBO sends out: a password the SYSTEM
+ * generates for that file, shown once to whoever produced it, kept nowhere ({@link ProtectedFiles}).
  */
 @Service
 public class PayrollQueries {
@@ -38,6 +43,7 @@ public class PayrollQueries {
     private final PayrollFileRepository files;
     private final PayrollDiscrepancyRepository discrepancies;
     private final PayrollQueryRepository queries;
+    private final PayrollQueryFileRepository queryFiles;
     private final PayrollReads reads;
     private final PayrollStore store;
     private final PayrollReports reports;
@@ -46,12 +52,14 @@ public class PayrollQueries {
     private final TransactionTemplate transactions;
 
     public PayrollQueries(PayrollFileRepository files, PayrollDiscrepancyRepository discrepancies,
-                          PayrollQueryRepository queries, PayrollReads reads, PayrollStore store,
+                          PayrollQueryRepository queries, PayrollQueryFileRepository queryFiles,
+                          PayrollReads reads, PayrollStore store,
                           PayrollReports reports, PayrollAudit audit, Clock clock,
                           PlatformTransactionManager transactionManager) {
         this.files = files;
         this.discrepancies = discrepancies;
         this.queries = queries;
+        this.queryFiles = queryFiles;
         this.reads = reads;
         this.store = store;
         this.reports = reports;
@@ -124,19 +132,67 @@ public class PayrollQueries {
                 "No such query."));
     }
 
-    /** The employer's list, protected by the administrator's password. 🔒 The password is used once, here. */
-    public PayrollReports.Report download(long id, String format, String password, String actor) {
-        PayrollReports.Format chosen = PayrollReports.format(format);
-        if (password == null || password.length() < 8 || password.length() > 64) {
-            throw new PayrollRefusal(PayrollRefusalCode.PASSWORD_INVALID, "Choose a password of 8 to 64 characters "
-                    + "for the employer's list.");
+    /** What producing a protected list answers: the file, and its password -- shown once, kept nowhere. */
+    public record Produced(PayrollQueryFileDto file, String password) {
+
+        @Override
+        public String toString() {
+            return "Produced[file=" + (file == null ? null : file.id()) + ", password withheld]";
         }
-        PayrollQueryDto query = get(id);
+    }
+
+    /**
+     * The employer's list as a protected file, under a password generated for this file alone: the ENCRYPTED file kept,
+     * to be downloaded and sent; the password returned here once and kept nowhere -- not in the database, not in a log,
+     * not in the record of what was done. A lost password is a file produced again.
+     */
+    public Produced produce(long queryId, String format, String actor) {
+        PayrollReports.Format chosen = PayrollReports.format(format);
+        PayrollQueryDto query = get(queryId);
+        PayrollFile file = files.findById(query.fileId()).orElseThrow(PayrollFiles::notFound);
+        if (file.getStatus() == PayrollFileStatus.PURGED) {
+            throw PayrollFiles.purged();
+        }
         PayrollReports.Report plain = reports.queryList(query, chosen);
+        String password = ProtectedFiles.newPassword();
         byte[] locked = chosen == PayrollReports.Format.XLSX ? ProtectedFiles.workbook(plain.bytes(), password)
                 : ProtectedFiles.pdf(plain.bytes(), password);
-        transactions.executeWithoutResult(status -> audit.record(PayrollEventKind.QUERY_DOWNLOADED, query.fileId(),
-                null, "Query " + id + " downloaded as " + chosen.extension() + ", protected by a password", actor));
-        return new PayrollReports.Report(plain.fileName(), plain.mediaType(), locked);
+        Long id = transactions.execute(status -> {
+            PayrollQueryFile produced = new PayrollQueryFile();
+            produced.setQueryId(queryId);
+            produced.setFileId(query.fileId());
+            produced.setFormat(chosen.name());
+            produced.setProtection(chosen == PayrollReports.Format.XLSX ? PayrollFileProtection.EXCEL_AES_256
+                    : PayrollFileProtection.PDF_AES_256);
+            produced.setFileName(plain.fileName());
+            produced.setContent(locked);
+            produced.setSizeBytes(locked.length);
+            produced.setSha256(PayrollFiles.sha256(locked));
+            produced.setProducedAt(clock.instant());
+            produced.setProducedBy(actor);
+            produced.setDownloads(0);
+            produced = queryFiles.saveAndFlush(produced);
+            audit.record(PayrollEventKind.QUERY_FILE_PRODUCED, query.fileId(), null, "Query " + queryId
+                    + "'s list produced as " + chosen.extension() + " (file " + produced.getId()
+                    + "), protected by a password shown once", actor);
+            return produced.getId();
+        });
+        return new Produced(reads.queryFile(id).orElseThrow(), password);
+    }
+
+    /** A produced list's encrypted bytes, as produced -- each download counted and recorded. */
+    public PayrollReports.Report fileContent(long queryFileId, String actor) {
+        return transactions.execute(status -> {
+            PayrollQueryFile produced = queryFiles.findById(queryFileId).orElseThrow(() -> new PayrollRefusal(
+                    PayrollRefusalCode.QUERY_FILE_NOT_FOUND, "No such query list file."));
+            if (produced.getContent() == null) {
+                throw PayrollFiles.purged();
+            }
+            store.countDownload(queryFileId, clock.instant());
+            audit.record(PayrollEventKind.QUERY_FILE_DOWNLOADED, produced.getFileId(), null, "Query list file "
+                    + queryFileId + " downloaded", actor);
+            PayrollReports.Format format = PayrollReports.Format.valueOf(produced.getFormat());
+            return new PayrollReports.Report(produced.getFileName(), format.mediaType(), produced.getContent());
+        });
     }
 }

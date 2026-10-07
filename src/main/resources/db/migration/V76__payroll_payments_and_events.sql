@@ -43,8 +43,8 @@ CREATE TABLE payroll_events (
     -- 🔒 Written by the application from counts and codes: never a staff number, an ID number or a name.
     summary        VARCHAR(500) NOT NULL,
     CONSTRAINT payroll_events_kind_known CHECK (kind IN ('FILE_LOADED', 'FILE_RECONCILED', 'FILE_SUPERSEDED',
-        'FILE_PURGED', 'QUERY_RAISED', 'QUERY_DOWNLOADED', 'NOTE_ADDED', 'DISCREPANCY_RESOLVED', 'PAYMENT_RECORDED',
-        'SETTINGS_CHANGED', 'SEEDED'))
+        'FILE_PURGED', 'FILE_DOWNLOADED', 'QUERY_RAISED', 'QUERY_FILE_PRODUCED', 'QUERY_FILE_DOWNLOADED', 'NOTE_ADDED',
+        'DISCREPANCY_RESOLVED', 'PAYMENT_RECORDED', 'SETTINGS_CHANGED', 'SEEDED'))
 );
 
 CREATE INDEX payroll_events_file ON payroll_events (file_id, occurred_at);

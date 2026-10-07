@@ -67,8 +67,8 @@ public enum PayrollRefusalCode {
     NOTHING_TO_QUERY(HttpStatus.CONFLICT),
     /** No such query. */
     QUERY_NOT_FOUND(HttpStatus.NOT_FOUND),
-    /** A download password outside the rules: 8 to 64 characters. */
-    PASSWORD_INVALID(HttpStatus.BAD_REQUEST),
+    /** No such protected query list file. */
+    QUERY_FILE_NOT_FOUND(HttpStatus.NOT_FOUND),
     /** A report format other than xlsx or pdf. */
     REPORT_FORMAT_UNKNOWN(HttpStatus.BAD_REQUEST),
     /** A payment that cannot be recorded. The details name the field. */

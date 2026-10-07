@@ -65,6 +65,8 @@ class PayrollServicesTest {
     private final PayrollDiscrepancyRepository discrepancyRepository = mock(PayrollDiscrepancyRepository.class);
     private final PayrollDiscrepancyNoteRepository noteRepository = mock(PayrollDiscrepancyNoteRepository.class);
     private final PayrollQueryRepository queryRepository = mock(PayrollQueryRepository.class);
+    private final za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryFileRepository queryFileRepository =
+            mock(za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryFileRepository.class);
     private final PayrollPaymentRepository paymentRepository = mock(PayrollPaymentRepository.class);
     private final PayrollReads reads = mock(PayrollReads.class);
     private final PayrollStore store = mock(PayrollStore.class);
@@ -90,8 +92,8 @@ class PayrollServicesTest {
         discrepancies = new PayrollDiscrepancies(discrepancyRepository, noteRepository, reads, store, audit, CLOCK,
                 transactions);
         reports = new PayrollReports(files, reads, CLOCK);
-        queries = new PayrollQueries(fileRepository, discrepancyRepository, queryRepository, reads, store, reports,
-                audit, CLOCK, transactions);
+        queries = new PayrollQueries(fileRepository, discrepancyRepository, queryRepository, queryFileRepository, reads,
+                store, reports, audit, CLOCK, transactions);
         payments = new PayrollPayments(employers, paymentRepository, fileRepository, reconciler, store, reads, audit,
                 CLOCK, transactions);
         retention = new PayrollRetention(fileRepository, store, audit, CLOCK, transactions);
@@ -237,13 +239,19 @@ class PayrollServicesTest {
     }
 
     @Test
-    @DisplayName("the employer's list downloads only as xlsx or pdf, under a password of 8 to 64 characters")
+    @DisplayName("the employer's list is produced only as xlsx or pdf, for a query on record; a file not on record is refused")
     void queryChecks() {
-        assertThat(code(() -> queries.download(2, "xlsx", "short", "t"))).isEqualTo(PayrollRefusalCode.PASSWORD_INVALID);
-        assertThat(code(() -> queries.download(2, "docx", "long enough", "t")))
-                .isEqualTo(PayrollRefusalCode.REPORT_FORMAT_UNKNOWN);
+        assertThat(code(() -> queries.produce(2, "docx", "t"))).isEqualTo(PayrollRefusalCode.REPORT_FORMAT_UNKNOWN);
         when(reads.query(anyLong())).thenReturn(Optional.empty());
-        assertThat(code(() -> queries.download(2, "pdf", "long enough", "t"))).isEqualTo(PayrollRefusalCode.QUERY_NOT_FOUND);
+        assertThat(code(() -> queries.produce(2, "pdf", "t"))).isEqualTo(PayrollRefusalCode.QUERY_NOT_FOUND);
+        when(queryFileRepository.findById(9L)).thenReturn(Optional.empty());
+        assertThat(code(() -> queries.fileContent(9, "t"))).isEqualTo(PayrollRefusalCode.QUERY_FILE_NOT_FOUND);
+        za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollQueryFile purged =
+                new za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollQueryFile();
+        purged.setFileId(3L);
+        when(queryFileRepository.findById(10L)).thenReturn(Optional.of(purged));
+        assertThat(code(() -> queries.fileContent(10, "t"))).isEqualTo(PayrollRefusalCode.FILE_PURGED);
+        assertThat(new PayrollQueries.Produced(null, "K7MW-Q3ZR-T8XH-N4CP").toString()).doesNotContain("K7MW");
         assertThat(PayrollReports.format(null)).isEqualTo(PayrollReports.Format.XLSX);
         assertThat(PayrollReports.format("PDF")).isEqualTo(PayrollReports.Format.PDF);
     }

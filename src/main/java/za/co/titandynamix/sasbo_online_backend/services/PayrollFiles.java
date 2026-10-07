@@ -388,13 +388,19 @@ public class PayrollFiles {
     /** The lines a file's page can show. */
     public enum RowFilter { ALL, MATCHED, NOT_MATCHED, UNREADABLE }
 
-    /** The file as it arrived, for an administrator to open (PAY-32: one place where they can all reach the files). */
-    public Content content(long id) {
-        PayrollFile file = files.findById(id).orElseThrow(PayrollFiles::notFound);
-        if (file.getContent() == null) {
-            throw purged();
-        }
-        return new Content(file.getOriginalName(), file.getFormat(), file.getContent());
+    /**
+     * The file as it arrived, for an administrator to open (PAY-32: one place where they can all reach the files). It
+     * carries every line's details unmasked, so each download is recorded: who, when, which file -- never its content.
+     */
+    public Content content(long id, String actor) {
+        return transactions.execute(status -> {
+            PayrollFile file = files.findById(id).orElseThrow(PayrollFiles::notFound);
+            if (file.getContent() == null) {
+                throw purged();
+            }
+            audit.record(PayrollEventKind.FILE_DOWNLOADED, id, null, "File " + id + " downloaded as it arrived", actor);
+            return new Content(file.getOriginalName(), file.getFormat(), file.getContent());
+        });
     }
 
     // ---------------------------------------------------------------------------------------------------- helpers

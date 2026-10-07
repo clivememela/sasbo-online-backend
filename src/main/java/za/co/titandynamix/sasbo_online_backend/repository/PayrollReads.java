@@ -9,6 +9,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollFileDto;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollPage;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollPaymentDto;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryDto;
+import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryFileDto;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollRowDto;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollDiscrepancyStatus;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollDiscrepancyType;
@@ -401,7 +402,7 @@ public class PayrollReads {
                         rs.getLong("payroll_employer_id"), rs.getString("code"), rs.getString("name")),
                         YearMonth.from(rs.getDate("period").toLocalDate()).toString(), rs.getString("raised_by"),
                         instant(rs, "raised_at").toString(), new PayrollQueryDto.Counts(rs.getInt("add_count"),
-                        rs.getInt("delete_count"), rs.getInt("correct_count")), List.of()));
+                        rs.getInt("delete_count"), rs.getInt("correct_count")), List.of(), List.of()));
         if (found.isEmpty()) {
             return Optional.empty();
         }
@@ -410,7 +411,31 @@ public class PayrollReads {
                         + " WHERE d.query_id = :id ORDER BY " + TYPE_ORDER + ", d.line_number NULLS LAST, d.id",
                 new MapSqlParameterSource("id", id), (rs, row) -> queryLine(partial(rs)));
         return Optional.of(new PayrollQueryDto(query.id(), query.fileId(), query.employer(), query.period(),
-                query.raisedBy(), query.raisedAt(), query.counts(), lines));
+                query.raisedBy(), query.raisedAt(), query.counts(), lines, queryFiles(id)));
+    }
+
+    /** The protected files produced from a query list, newest first -- what they are, never a password. */
+    public List<PayrollQueryFileDto> queryFiles(long queryId) {
+        return jdbc.query(QUERY_FILE_SELECT + " WHERE f.query_id = :id ORDER BY f.produced_at DESC, f.id DESC",
+                new MapSqlParameterSource("id", queryId), (rs, row) -> queryFile(rs));
+    }
+
+    /** One produced file, by id. */
+    public Optional<PayrollQueryFileDto> queryFile(long id) {
+        return jdbc.query(QUERY_FILE_SELECT + " WHERE f.id = :id", new MapSqlParameterSource("id", id),
+                (rs, row) -> queryFile(rs)).stream().findFirst();
+    }
+
+    private static final String QUERY_FILE_SELECT = "SELECT f.id, f.query_id, f.format, f.protection, f.file_name, "
+            + "f.size_bytes, f.sha256, f.produced_at, f.produced_by, f.downloads, f.last_downloaded_at, f.purged_at "
+            + "FROM payroll_query_files f";
+
+    private static PayrollQueryFileDto queryFile(ResultSet rs) throws SQLException {
+        java.time.Instant downloaded = instant(rs, "last_downloaded_at");
+        return new PayrollQueryFileDto(rs.getLong("id"), rs.getLong("query_id"), rs.getString("format"),
+                rs.getString("protection"), rs.getString("file_name"), rs.getInt("size_bytes"), rs.getString("sha256"),
+                instant(rs, "produced_at").toString(), rs.getString("produced_by"), rs.getInt("downloads"),
+                downloaded == null ? null : downloaded.toString(), rs.getTimestamp("purged_at") != null);
     }
 
     private static PayrollQueryDto.Line queryLine(PartialDiscrepancy d) {

@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollPage;
+import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryFileDto;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.PayrollExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusal;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -45,7 +45,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Payroll's discrepancies and queries, through the application's REAL security configuration: the worklist across
  * files, a discrepancy with its notes, notes added and resolutions recorded on the version read (PAY-20), the queries
- * raised with the employer and downloaded under a password (PAY-21) -- and the refusals of each.
+ * raised with the employer and produced as a protected file under a password the system generates and shows once
+ * (PAY-21) -- and the refusals of each.
  */
 @WebMvcTest(PayrollDiscrepancyController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, PayrollExceptionHandler.class, JacksonConfig.class})
@@ -147,20 +148,49 @@ class PayrollDiscrepancyControllerTest {
 
     @Test
     @WithMockUser(authorities = "PAYROLL_PROCESS")
-    @DisplayName("🔒 the employer's list downloads under a password of 8 to 64 characters, never echoed")
-    void downloadingAQuery() throws Exception {
-        when(queries.download(eq(2L), eq("xlsx"), eq("Correct horse 9"), anyString())).thenReturn(
-                new PayrollReports.Report("Payroll queries - Absa - August 2026.xlsx",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[] {1, 2, 3}));
-        mockMvc.perform(post("/api/payroll/queries/2/download").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"format\": \"xlsx\", \"password\": \"Correct horse 9\"}"))
+    @DisplayName("🔒 the employer's list is produced under a password the system generates: in the 201 answer only, never cached")
+    void producingAQueryList() throws Exception {
+        PayrollQueryFileDto produced = new PayrollQueryFileDto(5, 2, "XLSX", "EXCEL_AES_256",
+                "Payroll queries - Absa - August 2026.xlsx", 5120, "a".repeat(64), "2026-09-28T08:15:00Z", "system", 0,
+                null, false);
+        when(queries.produce(eq(2L), eq("xlsx"), anyString()))
+                .thenReturn(new PayrollQueries.Produced(produced, "K7MW-Q3ZR-T8XH-N4CP"));
+        mockMvc.perform(post("/api/payroll/queries/2/files").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"format\": \"xlsx\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.file.id").value(5))
+                .andExpect(jsonPath("$.file.queryId").value(2))
+                .andExpect(jsonPath("$.file.protection").value("EXCEL_AES_256"))
+                .andExpect(jsonPath("$.file.bytes").value(5120))
+                .andExpect(jsonPath("$.password").value("K7MW-Q3ZR-T8XH-N4CP"))
+                .andExpect(jsonPath("$.passwordNote").value(containsString("shown once")));
+
+        when(queries.fileContent(eq(5L), anyString())).thenReturn(new PayrollReports.Report(
+                "Payroll queries - Absa - August 2026.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[] {1, 2, 3}));
+        mockMvc.perform(get("/api/payroll/query-files/5"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", containsString("Payroll queries")));
-        mockMvc.perform(post("/api/payroll/queries/2/download").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"format\": \"xlsx\", \"password\": \"short7!\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("PASSWORD_INVALID"))
-                .andExpect(content().string(not(containsString("short7!"))));
+                .andExpect(header().string("Content-Disposition", containsString("Payroll queries")))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().bytes(new byte[] {1, 2, 3}));
+
+        when(queries.fileContent(eq(6L), anyString())).thenThrow(new PayrollRefusal(
+                PayrollRefusalCode.QUERY_FILE_NOT_FOUND, "No such query list file."));
+        mockMvc.perform(get("/api/payroll/query-files/6"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("QUERY_FILE_NOT_FOUND"));
+    }
+
+    @Test
+    @WithMockUser(authorities = "PAYROLL_VIEW")
+    @DisplayName("🔒 PAYROLL_VIEW alone neither produces a list that leaves SASBO nor downloads one")
+    void viewingDoesNotSendAnythingOut() throws Exception {
+        mockMvc.perform(post("/api/payroll/queries/2/files").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"format\": \"xlsx\"}")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/payroll/query-files/5")).andExpect(status().isForbidden());
+        verify(queries, never()).produce(anyLong(), any(), any());
+        verify(queries, never()).fileContent(anyLong(), any());
     }
 
     @Test

@@ -144,6 +144,29 @@ class PayrollControllerTest {
                 .andExpect(header().string("Content-Disposition", containsString("Payroll reconciliation")));
     }
 
+    @Test
+    @WithMockUser(authorities = "PAYROLL_PROCESS")
+    @DisplayName("🔒 the file as it arrived (PAY-32): PAYROLL_PROCESS downloads it, each time recorded; PAYROLL_VIEW does not")
+    void theFileAsItArrived() throws Exception {
+        when(files.content(eq(12L), anyString())).thenReturn(new PayrollFiles.Content("Absa payroll August 2026.xlsx",
+                za.co.titandynamix.sasbo_online_backend.enums.PayrollFormat.XLSX, new byte[] {'P', 'K', 3, 4}));
+        mockMvc.perform(get("/api/payroll/files/12/content"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string("Content-Disposition", containsString("Absa payroll August 2026.xlsx")))
+                .andExpect(header().string("Cache-Control", "no-store"));
+        verify(files).content(eq(12L), anyString());
+    }
+
+    @Test
+    @WithMockUser(authorities = "PAYROLL_VIEW")
+    @DisplayName("🔒 PAYROLL_VIEW reads the summary and the masked lines, never the unmasked file as it arrived")
+    void viewingDoesNotDownloadTheFile() throws Exception {
+        mockMvc.perform(get("/api/payroll/files/12/content")).andExpect(status().isForbidden());
+        verify(files, never()).content(anyLong(), any());
+    }
+
     // ------------------------------------------------------------------------------------------------- writing
 
     @Test

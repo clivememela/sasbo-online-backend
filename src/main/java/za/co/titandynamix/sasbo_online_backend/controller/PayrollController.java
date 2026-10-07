@@ -150,12 +150,15 @@ public class PayrollController {
         return files.rows(id, show, page, size);
     }
 
-    /** The file as it arrived -- the one place administrators reach every employer's file (PAY-32). */
-    @PreAuthorize(READ)
+    /**
+     * The file as it arrived -- the one place administrators reach every employer's file (PAY-32). Its lines are
+     * unmasked, so only a holder of PAYROLL_PROCESS downloads it, and each download is recorded.
+     */
+    @PreAuthorize(WRITE)
     @GetMapping("/files/{id}/content")
     public ResponseEntity<byte[]> content(@PathVariable("id") long id) {
         PayrollAccess.headOffice();
-        PayrollFiles.Content content = files.content(id);
+        PayrollFiles.Content content = files.content(id, AcbActor.current());
         MediaType type = switch (content.format()) {
             case XLSX -> MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             case XLS -> MediaType.parseMediaType("application/vnd.ms-excel");
