@@ -19,8 +19,11 @@ public final class PayrollKeys {
     private static final Pattern NOT_ALPHANUMERIC = Pattern.compile("[^A-Z0-9]");
     private static final Pattern DIGITS = Pattern.compile("\\d+");
     private static final Pattern THIRTEEN_DIGITS = Pattern.compile("\\d{13}");
-    /** Up to twelve places: a formula's cached result can carry a binary fraction's tail ({@code 174.00000000000003}). */
-    private static final Pattern AMOUNT = Pattern.compile("-?\\d{1,9}(\\.\\d{1,12})?");
+    /**
+     * Up to twenty places: a formula's cached result carries a binary fraction's tail ({@code 174.00000000000003} is
+     * fourteen), and a double prints up to seventeen significant digits. Rounded to cents after.
+     */
+    private static final Pattern AMOUNT = Pattern.compile("-?\\d{1,9}(\\.\\d{1,20})?");
     private static final Pattern YEAR_MONTH_DIGITS = Pattern.compile("(\\d{4})(\\d{2})");
 
     private PayrollKeys() {
