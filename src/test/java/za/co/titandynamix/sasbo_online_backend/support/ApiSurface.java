@@ -46,6 +46,8 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
@@ -240,29 +242,37 @@ public final class ApiSurface {
                 .map(ApiSurface::quote)
                 .collect(Collectors.joining(", "));
 
-        return """
+        // October build (integration): the vocabulary is a MAP OF SECTIONS, one entry a section in a fixed order, so a
+        // stream adds one entry instead of a placeholder in a shared template and an argument at a shared tail -- a
+        // union of those in the wrong order still compiled and put one section's JSON in another's slot. The output is
+        // byte for byte what the single template made; ApiSurfaceSnapshotTest holds it.
+        Map<String, String> sections = new LinkedHashMap<>();
+        sections.put("_generated", "\"%s -- do not edit by hand\"".formatted(regenerateCommand()));
+        sections.put("paymentTypes", "[\n%s\n  ]".formatted(types));
+        sections.put("accountTypes", "[%s]".formatted(accountTypeNames()));
+        sections.put("memberStructures", """
                 {
-                  "_generated": "%s -- do not edit by hand",
-                  "paymentTypes": [
-                %s
-                  ],
-                  "accountTypes": [%s],
-                  "memberStructures": {
                     "becStructures": [%s],
                     "becExecutivePositions": [%s],
                     "cosatuPositions": [%s]
-                  },
-                  "errorEnvelopeKeys": [%s],
-                  "jobGradeMatching": {
+                  }""".formatted(
+                displayNames(BecStructure.values(), BecStructure::getDisplayName),
+                displayNames(BecExecutivePosition.values(), BecExecutivePosition::getDisplayName),
+                displayNames(CosatuPosition.values(), CosatuPosition::getDisplayName)));
+        sections.put("errorEnvelopeKeys", "[%s]".formatted(keys));
+        sections.put("jobGradeMatching", """
+                {
                     "outcomes": [%s],
                     "cases": [
                 %s
                     ]
-                  },
-                  "welcomeLetter": {
+                  }""".formatted(jobGradeOutcomeNames(), jobGradeMatchingCases()));
+        sections.put("welcomeLetter", """
+                {
                     "outcomes": [%s]
-                  },
-                  "acb": {
+                  }""".formatted(names(WelcomeLetterOutcome.values())));
+        sections.put("acb", """
+                {
                     "runStatuses": [%s],
                     "lineOutcomes": [%s],
                     "unpaidDecisions": [%s],
@@ -276,8 +286,12 @@ public final class ApiSurface {
                     "refusalCodes": [
                 %s
                     ]
-                  },
-                  "monthEnd": {
+                  }""".formatted(names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
+                names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
+                names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),
+                acbRefusalCodes()));
+        sections.put("monthEnd", """
+                {
                     "workplaceSwitch": [%s],
                     "listEmptyReasons": [%s],
                     "seedFailures": [%s],
@@ -303,25 +317,15 @@ public final class ApiSurface {
                     "refusalCodes": [
                 %s
                     ]
-                  }
-                }
-                """.formatted(regenerateCommand(), types, accountTypeNames(),
-                displayNames(BecStructure.values(), BecStructure::getDisplayName),
-                displayNames(BecExecutivePosition.values(), BecExecutivePosition::getDisplayName),
-                displayNames(CosatuPosition.values(), CosatuPosition::getDisplayName),
-                keys, jobGradeOutcomeNames(),
-                jobGradeMatchingCases(), names(WelcomeLetterOutcome.values()),
-                names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
-                names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
-                names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),
-                acbRefusalCodes(),
-                names(WorkplaceSwitch.Mode.values()), names(ListEmptyReason.values()), names(SeedFailure.values()),
-                WorkplaceService.MAX_PAGE_SIZE, WorkplaceService.MAX_SEARCH_LENGTH,
+                  }""".formatted(names(WorkplaceSwitch.Mode.values()), names(ListEmptyReason.values()),
+                names(SeedFailure.values()), WorkplaceService.MAX_PAGE_SIZE, WorkplaceService.MAX_SEARCH_LENGTH,
                 Arrays.stream(SummaryGrouping.values()).map(g -> quote(g.wire())).collect(Collectors.joining(", ")),
                 MemberSummaryRepository.TIMEOUT_SECONDS, SummaryGate.AT_ONCE,
                 memberStatuses(), names(MemberStatusReason.values()), seededCodes("deletionCodes"),
-                seededCodes("suspensionCodes"),
-                monthEndRefusalCodes());
+                seededCodes("suspensionCodes"), monthEndRefusalCodes()));
+        return sections.entrySet().stream()
+                .map(section -> "  " + quote(section.getKey()) + ": " + section.getValue())
+                .collect(Collectors.joining(",\n", "{\n", "\n}\n"));
     }
 
     /**
