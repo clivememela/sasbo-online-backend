@@ -107,6 +107,18 @@ class MonthEndSeedTest {
         }
     }
 
+    /** The suspension codes the lists' resource holds, comma-separated -- the list's own, whatever else is on record. */
+    private static String listsOwnCodes() throws IOException {
+        List<String> codes = new java.util.ArrayList<>();
+        for (JsonNode list : resource(ReferenceListSeeder.RESOURCE).path("lists")) {
+            if (list.path("list").asText().equals("suspensionCodes")) {
+                list.path("rows").forEach(row -> codes.add(String.valueOf(row.path("code").asInt())));
+            }
+        }
+        assertThat(codes).as("the resource's codes").isNotEmpty();
+        return String.join(", ", codes);
+    }
+
     /** Each list's size, as the resource states it. */
     private static Map<String, Long> statedSizes() throws IOException {
         Map<String, Long> sizes = new LinkedHashMap<>();
@@ -133,7 +145,10 @@ class MonthEndSeedTest {
         assertThat(rows("SELECT count(*) FROM table_codes")).isEqualTo(stated.get("tableCodes"));
         assertThat(rows("SELECT count(*) FROM committee_provinces")).isEqualTo(stated.get("committeeProvinces"));
         assertThat(rows("SELECT count(*) FROM committees")).isEqualTo(stated.get("committees"));
-        assertThat(rows("SELECT count(*) FROM suspension_codes")).isEqualTo(stated.get("suspensionCodes"));
+        // Month end's rules insert the codes their seed needs where absent (12, 21 and the debit order codes), and a test
+        // here may have emptied the table since the start: the list's own rows are the resource's, every one.
+        assertThat(rows("SELECT count(*) FROM suspension_codes WHERE code IN (" + listsOwnCodes() + ")"))
+                .isEqualTo(stated.get("suspensionCodes"));
         assertThat(rows("SELECT count(*) FROM deletion_codes WHERE sasbo_code IS NOT NULL OR parent_id IS NOT NULL"))
                 .isEqualTo(stated.get("deletionCodes"));
         assertThat(jdbc.queryForList("SELECT list_key FROM reference_lists WHERE outcome = 'SEEDED' "
@@ -456,13 +471,15 @@ class MonthEndSeedTest {
                 ((ObjectNode) list.path("rows").get(0)).remove("name");
             }
         }
+        // Counted before, not named: month end's rules may have added codes to the list since the start.
+        long before = rows("SELECT count(*) FROM suspension_codes");
         try {
             lists.seed(broken);
 
             assertThat(jdbc.queryForMap("SELECT outcome, failure FROM reference_lists WHERE list_key = 'suspensionCodes'"))
                     .containsEntry("OUTCOME", "FAILED")
                     .containsEntry("FAILURE", "UNREADABLE");
-            assertThat(rows("SELECT count(*) FROM suspension_codes")).as("nothing of it was removed").isEqualTo(3);
+            assertThat(rows("SELECT count(*) FROM suspension_codes")).as("nothing of it was removed").isEqualTo(before);
         } finally {
             lists.seed();
         }
