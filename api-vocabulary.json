@@ -171,6 +171,7 @@
       {"code": "REQUEST_MALFORMED", "status": 400},
       {"code": "VALIDATION_FAILED", "status": 400},
       {"code": "SIGN_IN_FAILED", "status": 401},
+      {"code": "SIGN_IN_THROTTLED", "status": 429},
       {"code": "ACCOUNT_LOCKED", "status": 423},
       {"code": "ACCOUNT_INACTIVE", "status": 403},
       {"code": "SIGN_IN_REQUIRED", "status": 401},

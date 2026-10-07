@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -115,6 +116,24 @@ class AuthControllerTest extends AbstractSignInSliceTest {
                     .andExpect(jsonPath("$.code").value(refusal.getKey().name()))
                     .andExpect(jsonPath("$.message").value("No."));
         }
+    }
+
+    /**
+     * 🔒 THE LOGIN THROTTLE COMES FIRST (the sign-in review, 7 Oct): past its limit the route answers 429
+     * SIGN_IN_THROTTLED, saying when to come back in Retry-After too -- and no password is checked at all.
+     */
+    @Test
+    @DisplayName("🔒 POST /login past the throttle: 429 SIGN_IN_THROTTLED with Retry-After -- and the service is never asked")
+    void aThrottledLoginChecksNothing() throws Exception {
+        doThrow(new SignInRefusal(SignInRefusalCode.SIGN_IN_THROTTLED, "Too many sign-ins in a short time. Wait a "
+                + "minute, then try again.", Map.of("retryAfterSeconds", "42"))).when(throttle).admit(anyString());
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(json(new LoginRequest("invented.organiser", "an invented passphrase"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "42"))
+                .andExpect(jsonPath("$.code").value("SIGN_IN_THROTTLED"))
+                .andExpect(jsonPath("$.details.retryAfterSeconds").value("42"));
+        verifyNoInteractions(signIn);
     }
 
     // ------------------------------------------------------------------------------------------------ logout

@@ -15,9 +15,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Staff who sign in (V65). The counters a sign-in moves -- failed attempts, the lock, the last sign-in -- are written by
- * bulk statements, never through the entity: they are atomic under parallel guessing, and they leave {@code version}
- * alone, so a failed sign-in never makes an administrator's open edit of the user stale.
+ * Staff who sign in (V65). The counters a sign-in moves -- the attempts reserved, the lock, the last sign-in -- are
+ * written by bulk statements, never through the entity: they are atomic under parallel guessing, and they leave
+ * {@code version} alone, so a failed sign-in never makes an administrator's open edit of the user stale.
  */
 public interface StaffUserRepository extends JpaRepository<StaffUser, Long>, JpaSpecificationExecutor<StaffUser> {
 
@@ -53,15 +53,38 @@ public interface StaffUserRepository extends JpaRepository<StaffUser, Long>, Jpa
 
     boolean existsByUsername(String username);
 
-    /** One more failed attempt, counted in the database: two guesses at once are two. */
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update StaffUser u set u.failedAttempts = u.failedAttempts + 1 where u.id = :id")
-    int countFailure(@Param("id") long id);
+    /**
+     * Whether an active holder of the fixed role (every permission) with scope ALL exists -- the one user who can manage
+     * every user. None means the database was edited by hand, and the bootstrap restores one (break-glass).
+     */
+    @Query("""
+            select case when count(u) > 0 then true else false end from StaffUser u
+            where u.active = true and u.role.fixed = true and u.scopeType = 'ALL'""")
+    boolean existsActiveFullAdministrator();
 
-    /** Locks the user until {@code until} where the failures have reached {@code limit}, starting the count again. */
+    /**
+     * RESERVES one sign-in attempt BEFORE its password is checked -- one statement, so twenty guesses at once are counted
+     * one after the other and only the first {@code limit} are ever judged (the sign-in review, 7 Oct: the count used to
+     * follow the check, and every guess already past the first read was judged). Refused -- 0 rows -- while the account is
+     * locked; a lock that has run out starts the count again. The attempt that reaches {@code limit} locks the account
+     * until {@code until} AT ONCE, before its own password is checked, so no guess slips in beside it; a right password
+     * then lifts it ({@link #signedIn}, {@link #forgiveAttempts}). A lock always ends: no row is left counted with no lock
+     * to run out. The SET expressions read the row as it was, as SQL has them do.
+     */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update StaffUser u set u.lockedUntil = :until, u.failedAttempts = 0 where u.id = :id and u.failedAttempts >= :limit")
-    int lockIfReached(@Param("id") long id, @Param("limit") int limit, @Param("until") Instant until);
+    @Query("""
+            update StaffUser u set
+              u.failedAttempts = (case when u.lockedUntil is null then u.failedAttempts else 0 end) + 1,
+              u.lockedUntil = case when (case when u.lockedUntil is null then u.failedAttempts else 0 end) + 1 >= :limit
+                                   then :until else null end
+            where u.id = :id and (u.lockedUntil is null or u.lockedUntil <= :now)""")
+    int reserveAttempt(@Param("id") long id, @Param("limit") int limit, @Param("now") Instant now,
+                       @Param("until") Instant until);
+
+    /** A right password: the attempts reserved before it are forgotten, and a lock its own attempt set is lifted. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update StaffUser u set u.failedAttempts = 0, u.lockedUntil = null where u.id = :id")
+    int forgiveAttempts(@Param("id") long id);
 
     /** Until when the user is locked; {@code null} when they are not. */
     @Query("select u.lockedUntil from StaffUser u where u.id = :id")
