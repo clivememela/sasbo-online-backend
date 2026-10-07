@@ -158,23 +158,45 @@ class MonthEndControllerTest {
         when(facts.taken(LocalDate.of(2026, 7, 1))).thenReturn(Optional.empty());
         when(facts.workplacesOnRecord()).thenReturn(5L);
 
-        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json").content("{\"replaces\": 2}"))
+        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json")
+                        .content("{\"replaces\": 2, \"reason\": \"Invented: corrected the workplaces\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MONTH_TAKEN_SINCE"))
                 .andExpect(jsonPath("$.details.takeId").value("3"))
                 .andExpect(jsonPath("$.details.takenBy").value("seed"));
-        mockMvc.perform(post("/api/month-end/2026-07/take").contentType("application/json").content("{\"replaces\": 3}"))
+        mockMvc.perform(post("/api/month-end/2026-07/take").contentType("application/json")
+                        .content("{\"replaces\": 3, \"reason\": \"Invented: corrected the workplaces\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("MONTH_NOT_TAKEN"));
         // The arc's own refusal, by its code's status -- this slice runs no security filter, and asserts none (the
         // security-slice guard): the 403 is IDENTITY_REQUIRED's, which the code beside it proves.
-        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json").content("{\"replaces\": 3}"))
+        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json")
+                        .content("{\"replaces\": 3, \"reason\": \"Invented: corrected the workplaces\"}"))
                 .andExpect(status().is(za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode
                         .IDENTITY_REQUIRED.status().value()))
                 .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
         mockMvc.perform(get("/api/month-end/2026-08"))
                 .andExpect(jsonPath("$.takeId").value(3))
                 .andExpect(jsonPath("$.firstTakenAt").doesNotExist());
+        verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("🔒 MEN-11: a take again with no reason is TAKE_REASON_REQUIRED, and one past 500 characters TAKE_REASON_INVALID -- said before the take that is not the newest, before anything is written")
+    void aTakeAgainSaysWhy() throws Exception {
+        when(facts.taken(LocalDate.of(2026, 8, 1))).thenReturn(Optional.of(AUGUST));
+        when(facts.workplacesOnRecord()).thenReturn(5L);
+
+        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json").content("{\"replaces\": 2}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TAKE_REASON_REQUIRED"))
+                .andExpect(jsonPath("$.details.month").value("2026-08"));
+        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json")
+                        .content("{\"replaces\": 3, \"reason\": \"" + "x".repeat(501) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TAKE_REASON_INVALID"))
+                .andExpect(jsonPath("$.details.field").value("reason"))
+                .andExpect(jsonPath("$.details.limit").value("500"));
         verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
     }
 }

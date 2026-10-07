@@ -18,7 +18,10 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.TestSecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -56,7 +59,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 /**
  * THE GOLDEN ANSWERS (month end, MD48, MV-32): {@value #FILE_NAME} -- a real answer for each route of the arc and an
@@ -469,9 +471,14 @@ class MonthEndExamplesTest {
         if (!held(example.method(), path)) {
             return asked(example, built);
         }
+        // The filters are off here (addFilters = false), so no request post-processor reaches method security: the
+        // caller is put in this thread's security context, which the request runs on, and taken out after.
+        SecurityContext caller = SecurityContextHolder.createEmptyContext();
+        caller.setAuthentication(UsernamePasswordAuthenticationToken.authenticated("examples", null,
+                Arrays.stream(Permission.values()).map(p -> new SimpleGrantedAuthority(p.name())).toList()));
+        TestSecurityContextHolder.setContext(caller);
         try {
-            return asked(example, built.with(user("examples").authorities(Arrays.stream(Permission.values())
-                    .map(p -> new SimpleGrantedAuthority(p.name())).toList())));
+            return asked(example, built);
         } finally {
             TestSecurityContextHolder.clearContext();
         }
