@@ -85,6 +85,12 @@ class WorkplaceVisitDraftServiceTest {
         SecurityContextHolder.clearContext();
     }
 
+    /**
+     * Who the record names as having saved or submitted: sign-in's actor ({@code AcbActor.current()}),
+     * "&lt;display name&gt; (&lt;username&gt;)", for the caller {@link #signedInAs} puts in place.
+     */
+    private static final String ACTOR = "Invented Organiser (invented.organiser)";
+
     private static void signedInAs(String username, CallerScope scope) {
         ScopedPrincipal principal = new ScopedPrincipal() {
             @Override
@@ -131,7 +137,7 @@ class WorkplaceVisitDraftServiceTest {
 
         verify(drafts).insert(eq(7L), eq(new WorkplaceVisitDraftRepository.Fields(LocalDate.of(2026, 9, 10),
                 LocalTime.of(9, 0), LocalTime.of(10, 30), "INVENTED ORGANISER", 43, 12, 3, 2, 4)),
-                eq("invented.organiser"), eq("system"), eq(CLOCK.instant()));
+                eq("invented.organiser"), eq(ACTOR), eq(CLOCK.instant()));
         assertThat(saved.status()).isEqualTo("DRAFT");
     }
 
@@ -141,7 +147,7 @@ class WorkplaceVisitDraftServiceTest {
         service.create(new VisitDraftRequest(900001, null, null, null, null, null, null, null, null, null, null));
 
         verify(drafts).insert(eq(7L), eq(new WorkplaceVisitDraftRepository.Fields(null, null, null, null, null, null,
-                null, null, null)), eq("invented.organiser"), eq("system"), any());
+                null, null, null)), eq("invented.organiser"), eq(ACTOR), any());
     }
 
     @Test
@@ -239,14 +245,14 @@ class WorkplaceVisitDraftServiceTest {
     void submitting() {
         when(drafts.lock(5L, "invented.organiser")).thenReturn(Optional.of(head("DRAFT", 2)));
         when(drafts.one(5L, "invented.organiser")).thenReturn(Optional.of(draft("DRAFT", "2026-09-10", 2)));
-        when(drafts.submitted(5L, "invented.organiser", 2, 99L, "system", CLOCK.instant())).thenReturn(true);
+        when(drafts.submitted(5L, "invented.organiser", 2, 99L, ACTOR, CLOCK.instant())).thenReturn(true);
 
         service.submit(5L, new VisitDraftSubmitRequest(2));
 
         verify(visitRows).setComplement(7L, 43);
         verify(visitRows).insert(eq(7L), any(), eq(LocalDate.of(2026, 9, 10)), eq(LocalTime.of(9, 0)),
                 eq(LocalTime.of(10, 30)), eq(40), any());
-        verify(drafts).submitted(5L, "invented.organiser", 2, 99L, "system", CLOCK.instant());
+        verify(drafts).submitted(5L, "invented.organiser", 2, 99L, ACTOR, CLOCK.instant());
     }
 
     @Test
