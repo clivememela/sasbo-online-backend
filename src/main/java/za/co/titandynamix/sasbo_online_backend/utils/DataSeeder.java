@@ -49,6 +49,7 @@ public class DataSeeder implements ApplicationRunner {
     private final SeedMemberRepository seedMembers;
     private final SasboEnvironment environment;
     private final AcbHistorySeeder acbHistorySeeder;
+    private final za.co.titandynamix.sasbo_online_backend.services.impl.DodScenarioSeeder dodScenarioSeeder;
     private final ReferenceListSeeder referenceListSeeder;
     private final WorkplaceSeeder workplaceSeeder;
     private final WorkplaceVisitSeeder workplaceVisitSeeder;
@@ -336,6 +337,14 @@ public class DataSeeder implements ApplicationRunner {
             this.acbHistorySeeder.seed();
         } catch (RuntimeException seedingFailed) {
             log.error("The A.C.B. history could not be seeded; the application starts without it",
+                    AcbLogging.scrubbed(seedingFailed));
+        }
+        // The Debit Order Deductions demonstration (Stephne's answers, 6 October 2026): AFTER the history it works on,
+        // all or nothing in one transaction, never in production. Caught like the history: a demo must start.
+        try {
+            this.dodScenarioSeeder.seed();
+        } catch (RuntimeException seedingFailed) {
+            log.error("The Debit Order demonstration could not be seeded; the application starts without it",
                     AcbLogging.scrubbed(seedingFailed));
         }
     }

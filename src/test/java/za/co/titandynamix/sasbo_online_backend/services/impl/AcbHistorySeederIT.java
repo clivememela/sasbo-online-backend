@@ -112,7 +112,7 @@ class AcbHistorySeederIT extends AbstractAcbIT {
     }
 
     @Test
-    @DisplayName("August's unpaids: present again for most, suspend for two, an unknown code, one undecided -- and it cannot close")
+    @DisplayName("August's unpaids: present again for four, suspend for three -- an unknown code among them, never re-debited -- one undecided, and it cannot close")
     void augustHasItsUnpaids() {
         seeder.seed();
         long august = runId("2026-08");
@@ -120,7 +120,7 @@ class AcbHistorySeederIT extends AbstractAcbIT {
         assertThat(unpaids).hasSize(8);
         Map<String, Long> decisions = unpaids.stream().collect(Collectors.groupingBy(
                 l -> l.decision() == null ? "UNDECIDED" : l.decision().name(), Collectors.counting()));
-        assertThat(decisions).containsEntry("RE_PRESENT", 5L).containsEntry("SUSPEND", 2L).containsEntry("UNDECIDED", 1L);
+        assertThat(decisions).containsEntry("RE_PRESENT", 4L).containsEntry("SUSPEND", 3L).containsEntry("UNDECIDED", 1L);
         assertThat(unpaids).extracting(AcbRunLineDto::unpaidCode).contains("2", "4", AcbHistorySeeder.UNKNOWN_CODE);
         assertThat(unpaids).filteredOn(l -> AcbHistorySeeder.UNKNOWN_CODE.equals(l.unpaidCode()))
                 .extracting(AcbRunLineDto::unpaidReason).containsExactly("OTHER");
@@ -151,7 +151,7 @@ class AcbHistorySeederIT extends AbstractAcbIT {
         List<Long> presentAgain = returns.unpaids(august, null, 0, 50).content().stream()
                 .filter(l -> l.decision() != null && l.decision().name().equals("RE_PRESENT"))
                 .map(AcbRunLineDto::id).sorted().toList();
-        assertThat(presentAgain).hasSize(5);
+        assertThat(presentAgain).hasSize(4);
 
         AcbRunDto september = service.prepare("2026-09", "system");
         List<Long> secondLines = service.lines(september.id(), 0, 200).content().stream()

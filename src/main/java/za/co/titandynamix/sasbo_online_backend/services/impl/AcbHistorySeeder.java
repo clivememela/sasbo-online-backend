@@ -21,18 +21,14 @@ import za.co.titandynamix.sasbo_online_backend.repository.AcbRateRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbRunRepository;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
-import za.co.titandynamix.sasbo_online_backend.utils.DebitOrderMemberSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.SeedDebitOrderMember;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -79,7 +75,7 @@ import java.util.TreeMap;
 public class AcbHistorySeeder {
 
     /** The actor on every audit row the seeded history carries. */
-    static final String ACTOR = "seed";
+    static final String ACTOR = SeededHistory.ACTOR;
 
     /** A code the unpaid-code table does not know: recorded as OTHER, with no letter. */
     static final String UNKNOWN_CODE = "99";
@@ -214,8 +210,7 @@ public class AcbHistorySeeder {
      * AFTER the clock -- with its letter "sent" in the future.
      */
     static LocalDate notedOn(LocalDate actionDate, YearMonth month) {
-        LocalDate twoDaysLater = actionDate.plusDays(2);
-        return twoDaysLater.isAfter(month.atEndOfMonth()) ? month.atEndOfMonth() : twoDaysLater;
+        return SeededHistory.notedOn(actionDate, month);
     }
 
     /**
@@ -324,11 +319,7 @@ public class AcbHistorySeeder {
     }
 
     private static List<SeedDebitOrderMember> seedMembers() {
-        try {
-            return DebitOrderMemberSeeder.readSeedFile().members();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return SeededHistory.seedMembers();
     }
 
     // ------------------------------------------------------------------------------------------
@@ -341,24 +332,19 @@ public class AcbHistorySeeder {
 
     /**
      * The two months' unpaids. The earlier (closed) month: four decided, one of them the member who
-     * comes back again. The later (returned) month: eight -- present-again for most, suspend for two, a
-     * code the table does not know, one undecided (so a month that cannot close can be shown), one to
+     * comes back again. The later (returned) month: eight -- present-again for most, suspend for three
+     * (one of them a code the table does not know, which is never re-debited), one undecided (so a month
+     * that cannot close can be shown), one to
      * a member with no address (so a held letter can be shown), and that member again: unpaid in both
      * months, one away from the termination report's three.
      */
     record Plan(List<Unpaid> earlier, List<Unpaid> later) {
 
         static Plan of(List<SeedDebitOrderMember> members) {
-            List<String> withAddress = new ArrayList<>();
-            List<String> withoutAddress = new ArrayList<>();
-            for (SeedDebitOrderMember m : members) {
-                if (!"QUALIFIES".equals(m.expectedOutcome())) {
-                    continue;
-                }
-                (m.personalEmail() == null ? withoutAddress : withAddress).add(m.membershipNumber());
-            }
-            withAddress.sort(null);
-            withoutAddress.sort(null);
+            // The same rule the Debit Order demonstration reads (SeededHistory), so both name the same members.
+            SeededHistory.Population population = SeededHistory.Population.of(members);
+            List<String> withAddress = population.withAddress();
+            List<String> withoutAddress = population.withoutAddress();
             if (withAddress.size() < 60 || withoutAddress.isEmpty()) {
                 throw new IllegalStateException("the debit-order seed is too small for the seeded history: "
                         + withAddress.size() + " members with an address, " + withoutAddress.size() + " without");
@@ -376,7 +362,8 @@ public class AcbHistorySeeder {
                     new Unpaid(withAddress.get(44), "2", UnpaidDecision.RE_PRESENT),
                     new Unpaid(withAddress.get(48), "4", UnpaidDecision.SUSPEND),
                     new Unpaid(withAddress.get(52), "4", UnpaidDecision.SUSPEND),
-                    new Unpaid(withAddress.get(56), UNKNOWN_CODE, UnpaidDecision.RE_PRESENT),
+                    // A code nobody has ruled on is never presented again (Stephne, DOD-03; Friday item 10).
+                    new Unpaid(withAddress.get(56), UNKNOWN_CODE, UnpaidDecision.SUSPEND),
                     new Unpaid(withAddress.get(59), "2", null),
                     new Unpaid(withoutAddress.get(0), "2", UnpaidDecision.RE_PRESENT));
             Set<String> distinct = new HashSet<>();
