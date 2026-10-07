@@ -52,9 +52,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties =
         "spring.datasource.url=jdbc:h2:mem:recruitment-channels;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
-@Import(RecruitmentChannelMembersTest.CountedAtTheConnection.class)
+@Import(RecruitmentChannelMembersServiceImplTest.CountedAtTheConnection.class)
 @DisplayName("RC15 -- the Recruiters screen's figures and lists, worked out by the server")
-class RecruitmentChannelMembersTest {
+class RecruitmentChannelMembersServiceImplTest {
 
     @TestConfiguration
     static class CountedAtTheConnection {
@@ -84,7 +84,7 @@ class RecruitmentChannelMembersTest {
 
     @BeforeAll
     static void readTheFixture() throws Exception {
-        try (InputStream in = RecruitmentChannelMembersTest.class
+        try (InputStream in = RecruitmentChannelMembersServiceImplTest.class
                 .getResourceAsStream("/fixtures/recruitment-channel-fixture.json")) {
             assertThat(in).as("the shared fixture is on the classpath").isNotNull();
             fixture = new ObjectMapper().readTree(in);
