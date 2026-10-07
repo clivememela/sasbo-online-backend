@@ -391,8 +391,6 @@ class MonthEndStatisticsTest {
                     assertThat(r.code()).isEqualTo(MonthEndRefusalCode.REQUEST_MALFORMED);
                     assertThat(r.details()).containsEntry("field", "region");
                 });
-        assertThat(MonthEndStatistics.listingRefused("new-members").code())
-                .isEqualTo(MonthEndRefusalCode.IDENTITY_REQUIRED);
     }
 
     @Test

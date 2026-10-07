@@ -30,8 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * {@code /api/month-end/{month}/...} (month end 04.3 to 04.8): each statistic's route reaches its statistic with the
  * month, the area and the region as sent, and answers its sheets -- a cell with no meaning written as {@code null}; a
- * refusal of the service's answers its code. That a listing refuses every caller is a claim about who may call, and is
- * {@code MonthEndStatisticsControllerSecurityTest}'s.
+ * refusal of the service's answers its code. Who may read a listing is {@code MonthEndStatisticsControllerSecurityTest}'s.
  */
 @WebMvcTest(MonthEndStatisticsController.class)
 @Import({GlobalExceptionHandler.class, MonthEndExceptionHandler.class, JacksonConfig.class})
@@ -44,6 +43,10 @@ class MonthEndStatisticsControllerTest {
 
     @MockitoBean
     private MonthEndStatistics statistics;
+
+    /** The listings are a service of their own (sign-in); this slice reaches the statistics only. */
+    @MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.MonthEndListings listings;
 
     private static MonthEndStatisticDto answer(String statistic) {
         MonthEndStatisticDto.Row row = new MonthEndStatisticDto.Row("A", "A - INVENTED NORTH", MonthEndStatisticDto.Row.ROW,

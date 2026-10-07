@@ -45,8 +45,8 @@ import java.util.regex.Pattern;
  *       of a month whose run was early would be -- held at the table (MM73);</li>
  *   <li>the instant is the injected clock's (BR40), and the take writes no sheet: every sheet is read from the facts.</li>
  * </ul>
- * The route that asks for a take refuses every caller until sign-in exists ({@code IDENTITY_REQUIRED}, as ACB's writes
- * do); until then the seed is the one caller, taking the demonstration's three past months.
+ * The route that asks for a take is held by {@code MONTH_END_TAKE} (October build); the seed takes the demonstration's
+ * three past months.
  */
 @Service
 public class MonthEndTakes {

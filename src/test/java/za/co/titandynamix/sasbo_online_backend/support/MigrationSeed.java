@@ -216,6 +216,9 @@ public final class MigrationSeed {
             "V62__workplace_visits.sql",
             "V63__member_memnet.sql",
             "V64__month_end_taken_again.sql",
+            "V65__sign_in_users.sql",
+            "V66__user_sessions.sql",
+            "V67__audit_events.sql",
             // October build, month end's rules: the reasons for no deduction, a person once, the cut-off, the tiers.
             "V79__month_end_rules.sql");
 

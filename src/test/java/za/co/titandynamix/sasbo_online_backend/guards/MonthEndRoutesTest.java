@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
+import za.co.titandynamix.sasbo_online_backend.security.Permission;
 import za.co.titandynamix.sasbo_online_backend.config.MonthEndApi;
 import za.co.titandynamix.sasbo_online_backend.security.Permission;
 
@@ -43,12 +45,11 @@ class MonthEndRoutesTest {
             "^(/api/reference/.*|/api/workplaces(/.*)?|/api/month-end(/.*)?|/api/members/summary"
                     + "|/api/members/\\{[^}]+}/status|/api/members/\\{[^}]+}/history)$");
 
-    /** The arc's routes that refuse every caller until sign-in exists (MD4), each named by the unit that adds it. */
-    static final Set<String> REFUSING = Set.of(
-            // 04.2: taking a month freezes its figures for good (MD4); proved refusing by MonthEndControllerTest.
-            "POST /api/month-end/{month}/take",
-            // 04.3, 04.7, 04.8: a listing names members; proved refusing by MonthEndStatisticsControllerSecurityTest.
-            "GET /api/month-end/{month}/listings/{listing}");
+    /**
+     * The arc's routes that refuse every caller until sign-in exists (MD4), each named by the unit that adds it. None
+     * since the October build: the take (04.2, 04.11) and the listings (04.3, 04.7, 04.8) are held by a permission.
+     */
+    static final Set<String> REFUSING = Set.of();
 
     /**
      * The arc's routes HELD BY A PERMISSION (October build, contracts/permissions.md), as "METHOD path" to the permission
@@ -58,6 +59,10 @@ class MonthEndRoutesTest {
      */
     static final Map<String, String> HELD_BY_PERMISSION = Map.ofEntries(
             // Each stream adds its own routes here, one entry a route, with the unit or answer that adds it.
+            // 04.2, 04.11: taking a month, and taking it again -- by the same position (Stephne, MEN-10); sign-in.
+            Map.entry("POST /api/month-end/{month}/take", "MONTH_END_TAKE"),
+            // 04.3, 04.7, 04.8: a listing names members, within the caller's scope; sign-in.
+            Map.entry("GET /api/month-end/{month}/listings/{listing}", "MEMBERS_VIEW"),
             // Month end's rules, MEN-17: the reasons for no payroll deduction, kept by whoever maintains SASBO's lists.
             Map.entry("POST /api/reference/no-deduction-reasons", "REFERENCE_MAINTAIN"),
             Map.entry("PUT /api/reference/no-deduction-reasons/{id}", "REFERENCE_MAINTAIN"),

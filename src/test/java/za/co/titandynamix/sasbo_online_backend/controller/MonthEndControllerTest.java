@@ -19,6 +19,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndExceptionHandle
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository.TakenMonth;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
+import za.co.titandynamix.sasbo_online_backend.support.SignInTestUsers;
 import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
 
 import java.time.Clock;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,8 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * {@code /api/month-end} (month end 04.2) -- the controller over the real {@link MonthEndTakes}, the database's
  * answers stood in for: which months are taken, one month's record, and what the take says of a month before it
- * refuses -- without ever writing. That it then refuses every caller is a claim about who may call, and is
- * {@code MonthEndControllerSecurityTest}'s, under the application's real security configuration.
+ * writes. The take is held by MONTH_END_TAKE; this slice runs without the filters, so each take is asked by a caller
+ * set on the thread ({@code SignInTestUsers.actingAs}). Who may call is {@code MonthEndControllerSecurityTest}'s.
  */
 @WebMvcTest(MonthEndController.class)
 @Import({MonthEndTakes.class, MonthEndControllerTest.MidSeptember.class, GlobalExceptionHandler.class,
@@ -73,6 +75,14 @@ class MonthEndControllerTest {
 
     @MockitoBean
     private PlatformTransactionManager transactions;
+
+    @MockitoBean
+    private za.co.titandynamix.sasbo_online_backend.services.AuditTrail audit;
+
+    /** Who takes the months here: a head-office administrator holding the permission. */
+    private static final za.co.titandynamix.sasbo_online_backend.security.SignedInUser TAKER = SignInTestUsers.user(
+            "invented.headoffice", za.co.titandynamix.sasbo_online_backend.security.CallerScope.all(),
+            za.co.titandynamix.sasbo_online_backend.security.Permission.MONTH_END_TAKE);
 
     private static final TakenMonth AUGUST = new TakenMonth(3, LocalDate.of(2026, 8, 1), "seed",
             Instant.parse("2026-09-01T06:00:00Z"), Instant.parse("2026-06-01T08:00:00Z"));
@@ -122,21 +132,21 @@ class MonthEndControllerTest {
                 .andExpect(jsonPath("$.details.field").value("month"))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("PLANTEDMONTH"))));
-        mockMvc.perform(post("/api/month-end/2026-13/take"))
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-13/take")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"));
     }
 
     @Test
-    @DisplayName("before it refuses, the take says what it knows: not begun, taken already and by whom, nothing to freeze")
+    @DisplayName("before it writes, the take says what it knows: not begun, taken already and by whom, nothing to freeze")
     void theTakeSaysWhatItKnows() throws Exception {
-        mockMvc.perform(post("/api/month-end/2026-10/take"))
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-10/take")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("MONTH_NOT_BEGUN"))
                 .andExpect(jsonPath("$.details.current").value("2026-09"));
 
         when(facts.taken(LocalDate.of(2026, 8, 1))).thenReturn(Optional.of(AUGUST));
-        mockMvc.perform(post("/api/month-end/2026-08/take"))
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MONTH_ALREADY_TAKEN"))
                 .andExpect(jsonPath("$.details.takenBy").value("seed"))
@@ -144,7 +154,7 @@ class MonthEndControllerTest {
 
         when(facts.taken(LocalDate.of(2026, 7, 1))).thenReturn(Optional.empty());
         when(facts.workplacesOnRecord()).thenReturn(0L);
-        mockMvc.perform(post("/api/month-end/2026-07/take"))
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-07/take")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MONTH_NOT_READY"))
                 .andExpect(jsonPath("$.details.missing").value("workplaces"));
@@ -152,51 +162,61 @@ class MonthEndControllerTest {
     }
 
     @Test
-    @DisplayName("🔒 04.11: a take again says what it knows before it refuses -- a take that is not the newest, a month never taken -- then waits for sign-in")
+    @DisplayName("🔒 04.11: a take again says what it knows first -- a take that is not the newest, a month never taken -- then is made")
     void aTakeAgainSaysWhatItKnows() throws Exception {
         when(facts.taken(LocalDate.of(2026, 8, 1))).thenReturn(Optional.of(AUGUST));
         when(facts.taken(LocalDate.of(2026, 7, 1))).thenReturn(Optional.empty());
         when(facts.workplacesOnRecord()).thenReturn(5L);
 
-        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json")
-                        .content("{\"replaces\": 2, \"reason\": \"Invented: corrected the workplaces\"}"))
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
+                        .contentType("application/json").content("{\"replaces\": 2, \"reason\": \"" + REASON + "\"}")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MONTH_TAKEN_SINCE"))
                 .andExpect(jsonPath("$.details.takeId").value("3"))
                 .andExpect(jsonPath("$.details.takenBy").value("seed"));
-        mockMvc.perform(post("/api/month-end/2026-07/take").contentType("application/json")
-                        .content("{\"replaces\": 3, \"reason\": \"Invented: corrected the workplaces\"}"))
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-07/take")
+                        .contentType("application/json").content("{\"replaces\": 3, \"reason\": \"" + REASON + "\"}")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("MONTH_NOT_TAKEN"));
-        // The arc's own refusal, by its code's status -- this slice runs no security filter, and asserts none (the
-        // security-slice guard): the 403 is IDENTITY_REQUIRED's, which the code beside it proves.
-        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json")
-                        .content("{\"replaces\": 3, \"reason\": \"Invented: corrected the workplaces\"}"))
-                .andExpect(status().is(za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode
-                        .IDENTITY_REQUIRED.status().value()))
-                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"));
-        mockMvc.perform(get("/api/month-end/2026-08"))
-                .andExpect(jsonPath("$.takeId").value(3))
-                .andExpect(jsonPath("$.firstTakenAt").doesNotExist());
         verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
+        // Naming the newest take, and saying why (MEN-11), the take again is made -- the month's record, by the person
+        // taking it (MEN-10: any holder of the permission, not only who took it first), with the reason beside it. Who
+        // may call is MonthEndControllerSecurityTest's.
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
+                        .contentType("application/json").content("{\"replaces\": 3, \"reason\": \"" + REASON + "\"}")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.takeId").value(3));
+        verify(facts).insertMonth(eq(LocalDate.of(2026, 8, 1)), eq("Invented invented.headoffice (invented.headoffice)"),
+                any(), eq(AUGUST), eq(REASON), any());
+        verify(audit).record(eq("MONTH_END_TAKEN_AGAIN"), eq("MONTH_END"), eq("2026-08"), any());
     }
 
+    /** Why a month is taken again, as an administrator would type it. */
+    private static final String REASON = "Invented: corrected the workplaces";
+
     @Test
-    @DisplayName("🔒 MEN-11: a take again with no reason is TAKE_REASON_REQUIRED, and one past 500 characters TAKE_REASON_INVALID -- said before the take that is not the newest, before anything is written")
+    @DisplayName("🔒 MEN-11: a take again with no reason is TAKE_REASON_REQUIRED, and one past 500 characters TAKE_REASON_INVALID -- said first, before the take that is not the newest and the month taken already, and nothing is written")
     void aTakeAgainSaysWhy() throws Exception {
         when(facts.taken(LocalDate.of(2026, 8, 1))).thenReturn(Optional.of(AUGUST));
         when(facts.workplacesOnRecord()).thenReturn(5L);
 
-        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json").content("{\"replaces\": 2}"))
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
+                        .contentType("application/json").content("{\"replaces\": 2}")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("TAKE_REASON_REQUIRED"))
                 .andExpect(jsonPath("$.details.month").value("2026-08"));
-        mockMvc.perform(post("/api/month-end/2026-08/take").contentType("application/json")
-                        .content("{\"replaces\": 3, \"reason\": \"" + "x".repeat(501) + "\"}"))
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
+                        .contentType("application/json")
+                        .content("{\"replaces\": 3, \"reason\": \"" + "x".repeat(501) + "\"}")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("TAKE_REASON_INVALID"))
                 .andExpect(jsonPath("$.details.field").value("reason"))
                 .andExpect(jsonPath("$.details.limit").value("500"));
+        // A first take may give a reason; one that is not ordinary text is said before the month taken already is.
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
+                        .contentType("application/json").content("{\"reason\": \"Invented\\u0007bell\"}")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TAKE_REASON_INVALID"));
         verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
     }
 }

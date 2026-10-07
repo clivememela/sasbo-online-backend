@@ -66,7 +66,8 @@ import java.util.stream.Collectors;
  *   <li>bounded as the figures are: a query timeout, and at most {@value SummaryGate#AT_ONCE} at once -- a third is
  *       {@code SUMMARY_UNAVAILABLE} at once (MD47, MD63).</li>
  * </ul>
- * A statistic is counts, and an open read. A LISTING names members, and refuses until sign-in exists.
+ * A statistic is counts, and an open read. A LISTING names members, and is {@link MonthEndListings}' -- held by
+ * {@code MEMBERS_VIEW} since sign-in.
  */
 @Service
 public class MonthEndStatistics {
@@ -537,13 +538,6 @@ public class MonthEndStatistics {
 
     /** How long a job waits for a place at the gate. */
     static final java.time.Duration JOB_WAIT = java.time.Duration.ofMinutes(2);
-
-    /** 04.3, 04.7, 04.8: a listing names members, and refuses every caller until sign-in exists -- before anything is read. */
-    public static MonthEndRefusal listingRefused(String listing) {
-        return new MonthEndRefusal(MonthEndRefusalCode.IDENTITY_REQUIRED, "A listing names members, so it waits until "
-                + "administrators sign in to this system. The statistics beside it are counts, and are open.",
-                MonthEndRefusal.details("listing", MonthEndRefusal.echo(listing)));
-    }
 
     // ================================================================================================ what is read
 

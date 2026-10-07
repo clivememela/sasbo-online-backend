@@ -59,7 +59,7 @@ class MonthEndGuardsTest {
             "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
             "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController", "MonthEndPacks",
             "MonthEndPackController", "MonthEndPackRepository", "MonthEndWorkbooks", "MonthEndPackLauncher",
-            "MonthEndPackConfig", "SpreadsheetText",
+            "MonthEndPackConfig", "SpreadsheetText", "MonthEndListings", "MonthEndListingRepository",
             // October build, month end's rules: free text and the penetration flag; the reasons for no deduction; the
             // core tiers; the suspended and their lapse; the seed that shows them.
             "FreeText", "Penetration",

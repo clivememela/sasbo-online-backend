@@ -18,11 +18,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.test.context.TestSecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -32,9 +27,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
 import za.co.titandynamix.sasbo_online_backend.security.Permission;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
 import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
+import za.co.titandynamix.sasbo_online_backend.support.SignInTestUsers;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.WorkplaceSeeder;
@@ -47,7 +44,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -162,6 +158,8 @@ class MonthEndExamplesTest {
         // 04.2: the months taken -- the invented August, taken as the seed takes a month, at the frozen clock -- and
         // that month's record.
         routes.add(new Example("GET", "/api/month-end/months", null));
+        // 04.3 (sign-in): a listing of the invented August -- held by MEMBERS_VIEW, asked by a caller who holds it.
+        routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/listings/new-members", null));
         routes.add(new Example("GET", "/api/month-end/" + TAKEN, null));
         // 04.3 to 04.8: each statistic of the invented August, read from what was frozen.
         for (String statistic : List.of("new-and-deleted", "membership", "leavers", "branches", "recruitment",
@@ -235,7 +233,7 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.SUMMARY_UNAVAILABLE, new Example("GET", "/api/members/summary", null, true));
         provoked.put(MonthEndRefusalCode.HISTORY_PAGE_INVALID, new Example("GET", "/api/members/{member}/history?page=99",
                 null));
-        // 04.2: the take says what it knows of the month, then refuses every caller -- and a past month not taken.
+        // 04.2: the take says what it knows of the month before it writes -- and a past month not taken.
         String take = "/api/month-end/%s/take";
         provoked.put(MonthEndRefusalCode.MONTH_NOT_BEGUN, new Example("POST", take.formatted("2026-10"), null));
         provoked.put(MonthEndRefusalCode.MONTH_ALREADY_TAKEN, new Example("POST", take.formatted(TAKEN), null));
@@ -277,7 +275,6 @@ class MonthEndExamplesTest {
                 "{\"tier\": \"A\"}"));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_READY, new Example("POST", take.formatted("2026-07"), null, false,
                 true));
-        provoked.put(MonthEndRefusalCode.IDENTITY_REQUIRED, new Example("POST", take.formatted("2026-07"), null));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_TAKEN, new Example("GET", "/api/month-end/2026-07", null));
         // 04.10: a pack asked for while another month's is in hand -- there is no queue -- and a pack that is not there.
         provoked.put(MonthEndRefusalCode.PACK_BUSY, new Example("POST", "/api/month-end/" + TAKEN + "/pack", null, false,
@@ -467,24 +464,18 @@ class MonthEndExamplesTest {
             case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             default -> get(path);
         };
-        TestSecurityContextHolder.clearContext();
         if (!held(example.method(), path)) {
-            return asked(example, built);
+            return ask(example, built);
         }
-        // The filters are off here (addFilters = false), so no request post-processor reaches method security: the
-        // caller is put in this thread's security context, which the request runs on, and taken out after.
-        SecurityContext caller = SecurityContextHolder.createEmptyContext();
-        caller.setAuthentication(UsernamePasswordAuthenticationToken.authenticated("examples", null,
-                Arrays.stream(Permission.values()).map(p -> new SimpleGrantedAuthority(p.name())).toList()));
-        TestSecurityContextHolder.setContext(caller);
-        try {
-            return asked(example, built);
-        } finally {
-            TestSecurityContextHolder.clearContext();
-        }
+        // A route held by a permission (October build) is asked by a caller holding every permission -- this class runs
+        // without the filters, so the caller is set on the thread, as the filters would have set it. An open route is
+        // asked by nobody, as anyone may ask it.
+        return SignInTestUsers.actingAs(SignInTestUsers.user("demo.headoffice", CallerScope.all(), Permission.values()),
+                () -> ask(example, built));
     }
 
-    private MvcResult asked(Example example, MockHttpServletRequestBuilder request) throws Exception {
+    /** Asks {@code request} as {@code example} says: in a rolled-back transaction, with the gate held, or plainly. */
+    private MvcResult ask(Example example, MockHttpServletRequestBuilder request) throws Exception {
         if (example.packInHand()) {
             // Asked in a transaction holding July's pack in preparation, and rolled back.
             return new TransactionTemplate(transactions).execute(status -> {
