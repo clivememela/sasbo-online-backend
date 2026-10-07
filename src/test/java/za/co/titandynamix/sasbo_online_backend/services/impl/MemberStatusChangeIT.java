@@ -55,8 +55,9 @@ class MemberStatusChangeIT extends AbstractWritingIT {
         List<String> outcomes = Collections.synchronizedList(new ArrayList<>());
         Thread resign = new Thread(() -> change(go, outcomes, new MemberStatusRequest("Resigned", "Active",
                 "DELETION_CODE", 2, null, null, null)), "month-end-resign");
+        // Code 11 is one the reasons for no payroll deduction stand under (V79, MEN-17): a typed reason goes with it.
         Thread suspend = new Thread(() -> change(go, outcomes, new MemberStatusRequest("Suspended", "Active",
-                "SUSPENSION_CODE", null, 11, null, null)), "month-end-suspend");
+                "SUSPENSION_CODE", null, 11, "Invented: not on the payroll this month", null)), "month-end-suspend");
         resign.start();
         suspend.start();
         go.countDown();
