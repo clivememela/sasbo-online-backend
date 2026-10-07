@@ -144,7 +144,8 @@ public class MigrationBatches {
                 throw translate(refused);
             }
             if (!(failed instanceof MigrationRefusal)) {
-                log.error("Migration batch {} could not be read; nothing kept", id, AcbLogging.scrubbed(failed));
+                log.error("Migration batch {} could not be read; nothing kept (SQL state {})", id,
+                        AcbLogging.sqlState(failed), AcbLogging.scrubbed(failed));
             }
             throw failed;
         }

@@ -33,6 +33,27 @@ public final class AcbLogging {
         return copy;
     }
 
+    /** What a SQL state is: two characters of class, three of subclass, letters and digits -- a code, never data. */
+    private static final java.util.regex.Pattern SQL_STATE = java.util.regex.Pattern.compile("[0-9A-Z]{5}");
+
+    /**
+     * The SQL state of the first database refusal among {@code failure} and its causes, or {@code "none"}: "57014", a
+     * statement cancelled at its time limit; "23505", a unique index. What KIND of refusal it was, which the scrubbed
+     * copy cannot say once its message is gone -- and nothing of whose row: only a string of the standard's five
+     * characters is given back, anything else as {@code "none"}.
+     */
+    public static String sqlState(Throwable failure) {
+        Throwable at = failure;
+        for (int depth = 0; at != null && depth < 10; depth++) {
+            if (at instanceof java.sql.SQLException refused) {
+                String state = refused.getSQLState();
+                return state != null && SQL_STATE.matcher(state).matches() ? state : "none";
+            }
+            at = at.getCause() == at ? null : at.getCause();
+        }
+        return "none";
+    }
+
     /** Stands in for a failure whose message may not be logged. Its message is the class name. */
     private static final class Scrubbed extends RuntimeException {
 

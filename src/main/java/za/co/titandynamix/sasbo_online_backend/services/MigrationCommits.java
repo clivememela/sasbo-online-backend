@@ -124,7 +124,8 @@ public class MigrationCommits {
         try {
             move(id, actor, chunkSize, observer);
         } catch (RuntimeException failed) {
-            log.error("Migration batch {}: the move failed", id, AcbLogging.scrubbed(failed));
+            log.error("Migration batch {}: the move failed (SQL state {})", id, AcbLogging.sqlState(failed),
+                    AcbLogging.scrubbed(failed));
             batches.failJob(id, COMMIT_FAILED, clock.instant());
         }
     }
@@ -289,7 +290,8 @@ public class MigrationCommits {
             log.warn("Migration batch {}: the undo stopped, a member is referred to elsewhere", id);
             batches.failJob(id, CHANGED_DURING, clock.instant());
         } catch (RuntimeException failed) {
-            log.error("Migration batch {}: the undo failed", id, AcbLogging.scrubbed(failed));
+            log.error("Migration batch {}: the undo failed (SQL state {})", id, AcbLogging.sqlState(failed),
+                    AcbLogging.scrubbed(failed));
             batches.failJob(id, ROLLBACK_FAILED, clock.instant());
         }
     }

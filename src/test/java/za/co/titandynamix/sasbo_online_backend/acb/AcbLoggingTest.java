@@ -41,6 +41,25 @@ class AcbLoggingTest {
         assertThat(print(failure)).contains(SYNTHETIC_ACCOUNT);
     }
 
+    @Test
+    @DisplayName("the SQL state of the database's refusal, read through its wrappers -- the kind of refusal, which the scrubbed copy loses")
+    void theSqlStateIsNamed() {
+        java.sql.SQLException timedOut = new java.sql.SQLException("canceling statement ... " + SYNTHETIC_ACCOUNT, "57014");
+        RuntimeException failure = new RuntimeException("wrapped", new IllegalStateException("translated", timedOut));
+
+        assertThat(AcbLogging.sqlState(failure)).isEqualTo("57014");
+        assertThat(AcbLogging.sqlState(timedOut)).isEqualTo("57014");
+    }
+
+    @Test
+    @DisplayName("🔒 only the standard's five characters are given back: no refusal, no state, or anything else is 'none'")
+    void anythingElseIsNone() {
+        assertThat(AcbLogging.sqlState(new IllegalStateException(SYNTHETIC_ACCOUNT))).isEqualTo("none");
+        assertThat(AcbLogging.sqlState(new java.sql.SQLException("no state"))).isEqualTo("none");
+        assertThat(AcbLogging.sqlState(new java.sql.SQLException("a driver's own", SYNTHETIC_ACCOUNT))).isEqualTo("none");
+        assertThat(AcbLogging.sqlState(new java.sql.SQLException("lower case", "57p01"))).isEqualTo("none");
+    }
+
     private static String print(Throwable t) {
         StringWriter out = new StringWriter();
         t.printStackTrace(new PrintWriter(out));

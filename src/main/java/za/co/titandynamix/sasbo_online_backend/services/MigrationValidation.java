@@ -124,7 +124,8 @@ public class MigrationValidation {
         try {
             check(id, actor);
         } catch (RuntimeException failed) {
-            log.error("Migration batch {}: the check failed", id, AcbLogging.scrubbed(failed));
+            log.error("Migration batch {}: the check failed (SQL state {})", id, AcbLogging.sqlState(failed),
+                    AcbLogging.scrubbed(failed));
             batches.failJob(id, FAILED, clock.instant());
             batches.toDraft(id);
         }
