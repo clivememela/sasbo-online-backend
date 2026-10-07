@@ -16,10 +16,13 @@ import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
 import za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbCodeService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbDebitDayService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbOpeningPositionService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRateService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbReturnsService;
 import za.co.titandynamix.sasbo_online_backend.services.AcbRunService;
+import za.co.titandynamix.sasbo_online_backend.services.AcbUnpaidCountService;
 
 import java.nio.charset.StandardCharsets;
 
@@ -57,6 +60,15 @@ class AcbLetterPreviewSecurityTest {
 
     @MockitoBean
     private AcbRateService rates;
+
+    @MockitoBean
+    private AcbCodeService codes;
+
+    @MockitoBean
+    private AcbUnpaidCountService unpaidCounts;
+
+    @MockitoBean
+    private AcbDebitDayService debitDays;
 
     @MockitoBean
     private LetterDocument letters;
