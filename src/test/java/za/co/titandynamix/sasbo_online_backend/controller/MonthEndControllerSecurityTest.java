@@ -13,6 +13,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthDto;
 import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthsDto;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndExceptionHandler;
+import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository.TakenMonth;
 import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
 import za.co.titandynamix.sasbo_online_backend.security.Permission;
 import za.co.titandynamix.sasbo_online_backend.security.SignedInUser;
@@ -22,11 +23,13 @@ import za.co.titandynamix.sasbo_online_backend.support.SignInTestUsers;
 
 import java.time.YearMonth;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,6 +62,14 @@ class MonthEndControllerSecurityTest {
     @MockitoBean
     private AuditTrail audit;
 
+    /** The (mock) take runs the line in the record inside itself, as the real one does in its own transaction. */
+    private void runsTheLineInTheTake() {
+        doAnswer(call -> {
+            call.<Consumer<TakenMonth>>getArgument(3).accept(null);
+            return null;
+        }).when(takes).take(any(), any(), any(), any());
+    }
+
     @Test
     @DisplayName("🔒 nobody signed in is 401 SIGN_IN_REQUIRED, and nothing is taken")
     void nobodySignedInTakesNothing() throws Exception {
@@ -66,6 +77,7 @@ class MonthEndControllerSecurityTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("SIGN_IN_REQUIRED"));
         verify(takes, never()).take(any(), any(), any());
+        verify(takes, never()).take(any(), any(), any(), any());
     }
 
     @Test
@@ -77,6 +89,7 @@ class MonthEndControllerSecurityTest {
                 .andExpect(jsonPath("$.code").value("PERMISSION_REQUIRED"))
                 .andExpect(jsonPath("$.permission").value("MONTH_END_TAKE"));
         verify(takes, never()).take(any(), any(), any());
+        verify(takes, never()).take(any(), any(), any(), any());
     }
 
     @Test
@@ -84,12 +97,14 @@ class MonthEndControllerSecurityTest {
     void theHolderTakesTheMonth() throws Exception {
         when(takes.month("2026-08")).thenReturn(YearMonth.of(2026, 8));
         when(takes.record("2026-08")).thenReturn(TAKEN);
+        runsTheLineInTheTake();
 
         mockMvc.perform(post("/api/month-end/2026-08/take").with(SignInTestUsers.signedIn(TAKER)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("TAKEN"))
                 .andExpect(jsonPath("$.takenBy").value("Invented invented.headoffice (invented.headoffice)"));
-        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.headoffice (invented.headoffice)"), isNull());
+        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.headoffice (invented.headoffice)"), isNull(),
+                any());
         verify(audit).record(eq("MONTH_END_TAKEN"), eq("MONTH_END"), eq("2026-08"), anyString());
     }
 
@@ -99,11 +114,13 @@ class MonthEndControllerSecurityTest {
         SignedInUser colleague = SignInTestUsers.user("invented.colleague", CallerScope.all(), Permission.MONTH_END_TAKE);
         when(takes.month("2026-08")).thenReturn(YearMonth.of(2026, 8));
         when(takes.record("2026-08")).thenReturn(TAKEN);
+        runsTheLineInTheTake();
 
         mockMvc.perform(post("/api/month-end/2026-08/take").with(SignInTestUsers.signedIn(colleague))
                         .contentType("application/json").content("{\"replaces\": 3}"))
                 .andExpect(status().isOk());
-        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.colleague (invented.colleague)"), eq(3L));
+        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.colleague (invented.colleague)"), eq(3L),
+                any());
         verify(audit).record(eq("MONTH_END_TAKEN_AGAIN"), eq("MONTH_END"), eq("2026-08"), anyString());
     }
 
