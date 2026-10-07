@@ -546,7 +546,14 @@ class MonthEndExamplesTest {
         entry.put("request", example.method() + " " + example.path().replace("{member}", "{id}")
                 .replace("{pack}", "{id}").replace("{reasonId}", "{id}"));
         if (example.body() != null) {
-            entry.set("requestBody", objectMapper.readTree(example.body()));
+            JsonNode asked = objectMapper.readTree(example.body());
+            // A capture's identity number is a valid South African one -- MemberFixture's, check digit and all -- and the
+            // client refuses one in any committed file (POPIA, noCommittedMemberData): the file says one was sent, never
+            // its digits.
+            if (asked instanceof ObjectNode fields && fields.has("identityNumber")) {
+                fields.put("identityNumber", "<an invented identity number>");
+            }
+            entry.set("requestBody", asked);
         }
         entry.put("status", result.getResponse().getStatus());
         entry.set("body", body(result));
@@ -586,6 +593,47 @@ class MonthEndExamplesTest {
                         + "stale they answer as this server no longer does. Regenerate: %s, and copy it to the client",
                         FILE_NAME, ApiSurface.regenerateCommand())
                 .isEqualTo(live);
+    }
+
+    @Test
+    @DisplayName("🔒 POPIA: the golden answers carry no South African identity number -- the client refuses one in any committed file")
+    void theExamplesCarryNoIdentityNumber() throws IOException {
+        java.util.regex.Matcher thirteen = java.util.regex.Pattern.compile("\\d{13}")
+                .matcher(ApiSurface.readCommittedNormalised(FILE));
+        int found = 0;
+        while (thirteen.find()) {
+            found += isSaIdNumber(thirteen.group()) ? 1 : 0;
+        }
+        assertThat(found).as("identity numbers in %s -- counted, never printed", FILE_NAME).isZero();
+    }
+
+    @Test
+    @DisplayName("canary: the identity number check knows an invented identity number from any other thirteen digits")
+    void theIdentityNumberCheckCanFail() {
+        assertThat(isSaIdNumber(MemberFixture.syntheticIdFor(900))).isTrue();
+        assertThat(isSaIdNumber("1234567890123")).isFalse();
+        assertThat(isSaIdNumber("9013010000080")).as("month 13").isFalse();
+    }
+
+    /** As the client's guard reads one: a day of the year in its first six digits, and Luhn's check digit last. */
+    static boolean isSaIdNumber(String digits) {
+        int month = Integer.parseInt(digits.substring(2, 4));
+        int day = Integer.parseInt(digits.substring(4, 6));
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+            return false;
+        }
+        int sum = 0;
+        for (int i = 0; i < 13; i++) {
+            int n = digits.charAt(i) - '0';
+            if ((13 - i) % 2 == 0) {
+                n *= 2;
+                if (n > 9) {
+                    n -= 9;
+                }
+            }
+            sum += n;
+        }
+        return sum % 10 == 0;
     }
 
     @Test
