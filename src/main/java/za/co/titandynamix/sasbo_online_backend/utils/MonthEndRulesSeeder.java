@@ -84,7 +84,7 @@ public class MonthEndRulesSeeder {
         codes.put(18, "INSUFFICIENT FUNDS");
         codes.put(19, "INVALID ACCOUNT");
         codes.put(21, "SICK LEAVE");
-        codes.put(30, "NO AUTHORITY TO DEBIT");
+        codes.put(30, "NO AUTHORITY TO DEBIT ACCOUNT");
         return codes;
     }
 
