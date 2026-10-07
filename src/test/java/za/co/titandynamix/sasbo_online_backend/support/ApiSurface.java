@@ -35,6 +35,17 @@ import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepositor
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 import za.co.titandynamix.sasbo_online_backend.utils.ReferenceListSeeder;
+import za.co.titandynamix.sasbo_online_backend.config.MigrationProperties;
+import za.co.titandynamix.sasbo_online_backend.exception.MigrationRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.legacy.mapping.MemberField;
+import za.co.titandynamix.sasbo_online_backend.legacy.mapping.Transform;
+import za.co.titandynamix.sasbo_online_backend.legacy.read.SourceFormat;
+import za.co.titandynamix.sasbo_online_backend.legacy.reconcile.Dimension;
+import za.co.titandynamix.sasbo_online_backend.legacy.reconcile.Measure;
+import za.co.titandynamix.sasbo_online_backend.legacy.rules.Outcome;
+import za.co.titandynamix.sasbo_online_backend.legacy.rules.RuleCode;
+import za.co.titandynamix.sasbo_online_backend.repository.MigrationBatchRepository;
+import za.co.titandynamix.sasbo_online_backend.services.MigrationBatches;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -303,6 +314,27 @@ public final class ApiSurface {
                     "refusalCodes": [
                 %s
                     ]
+                  },
+                  "migration": {
+                    "batchStatuses": [%s],
+                    "jobKinds": [%s],
+                    "rowOutcomes": [%s],
+                    "sourceFormats": [%s],
+                    "memberFields": [%s],
+                    "transforms": [%s],
+                    "measures": [%s],
+                    "dimensions": [
+                %s
+                    ],
+                    "uploadMaxBytes": %d,
+                    "maxRows": %d,
+                    "pageMaxSize": %d,
+                    "ruleCodes": [
+                %s
+                    ],
+                    "refusalCodes": [
+                %s
+                    ]
                   }
                 }
                 """.formatted(regenerateCommand(), types, accountTypeNames(),
@@ -321,7 +353,49 @@ public final class ApiSurface {
                 MemberSummaryRepository.TIMEOUT_SECONDS, SummaryGate.AT_ONCE,
                 memberStatuses(), names(MemberStatusReason.values()), seededCodes("deletionCodes"),
                 seededCodes("suspensionCodes"),
-                monthEndRefusalCodes());
+                monthEndRefusalCodes(),
+                quoted(List.of(MigrationBatchRepository.RECEIVING, MigrationBatchRepository.DRAFT,
+                        MigrationBatchRepository.VALIDATED, MigrationBatchRepository.COMMITTING,
+                        MigrationBatchRepository.COMMITTED, MigrationBatchRepository.ROLLING_BACK,
+                        MigrationBatchRepository.ROLLED_BACK)),
+                quoted(List.of(MigrationBatchRepository.VALIDATE, MigrationBatchRepository.COMMIT,
+                        MigrationBatchRepository.ROLLBACK)),
+                names(Outcome.values()), names(SourceFormat.values()),
+                quoted(Arrays.stream(MemberField.values()).map(MemberField::wire).toList()),
+                quoted(Arrays.stream(Transform.values()).map(Transform::wire).toList()),
+                names(Measure.values()), migrationDimensions(),
+                MigrationProperties.defaults().uploadMaxBytes(), MigrationProperties.defaults().maxRows(),
+                MigrationBatches.MAX_PAGE_SIZE, migrationRuleCodes(), migrationRefusalCodes());
+    }
+
+    private static String quoted(List<String> values) {
+        return values.stream().map(ApiSurface::quote).collect(Collectors.joining(", "));
+    }
+
+    /**
+     * The data migration's dimensions, each with the measures a figure of it may count -- read off the enum the
+     * reconciliation compares by, never typed out.
+     */
+    private static String migrationDimensions() {
+        return Arrays.stream(Dimension.values())
+                .map(d -> "      {\"name\": %s, \"measures\": [%s]}".formatted(quote(d.name()),
+                        names(d.measures().toArray(new Measure[0]))))
+                .collect(Collectors.joining(",\n"));
+    }
+
+    /** Every rule a migrated row is put through, with its default severity and whether SASBO may make it a warning. */
+    private static String migrationRuleCodes() {
+        return Arrays.stream(RuleCode.values())
+                .map(c -> "      {\"code\": %s, \"severity\": %s, \"downgradable\": %s}".formatted(quote(c.name()),
+                        quote(c.severity().name()), c.downgradable()))
+                .collect(Collectors.joining(",\n"));
+    }
+
+    /** The data migration's refusal codes, each with the status it answers -- read off the enum the routes throw. */
+    private static String migrationRefusalCodes() {
+        return Arrays.stream(MigrationRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
     }
 
     /**
