@@ -217,10 +217,14 @@ public class PayrollController {
     }
 
     static ResponseEntity<byte[]> download(String name, MediaType type, byte[] bytes) {
+        // A plain name where it is plain ASCII, as the reports' are; RFC 6266's filename* only where it is not -- given
+        // a charset, Spring writes even an ASCII name into filename as an RFC 2047 word ("=?UTF-8?Q?...").
+        ContentDisposition disposition = StandardCharsets.US_ASCII.newEncoder().canEncode(name)
+                ? ContentDisposition.attachment().filename(name).build()
+                : ContentDisposition.attachment().filename(name, StandardCharsets.UTF_8).build();
         return ResponseEntity.ok()
                 .contentType(type)
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment().filename(name, StandardCharsets.UTF_8).build().toString())
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(bytes);
     }

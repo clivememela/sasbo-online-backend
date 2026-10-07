@@ -154,9 +154,18 @@ class PayrollControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type",
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .andExpect(header().string("Content-Disposition", containsString("Absa payroll August 2026.xlsx")))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"Absa payroll August 2026.xlsx\""))
                 .andExpect(header().string("Cache-Control", "no-store"));
         verify(files).content(eq(12L), anyString());
+
+        // A name that is not plain ASCII travels as RFC 6266's filename* too, which the client reads first.
+        when(files.content(eq(13L), anyString())).thenReturn(new PayrollFiles.Content("Février payroll.xlsx",
+                za.co.titandynamix.sasbo_online_backend.enums.PayrollFormat.XLSX, new byte[] {'P', 'K', 3, 4}));
+        mockMvc.perform(get("/api/payroll/files/13/content"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition",
+                        containsString("filename*=UTF-8''F%C3%A9vrier%20payroll.xlsx")));
     }
 
     @Test
