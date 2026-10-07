@@ -65,7 +65,8 @@ class MonthEndGuardsTest {
             "FreeText", "Penetration",
             "NoDeductionReasonController", "NoDeductionReasons", "NoDeductionReasonRepository",
             "CoreTierController", "CoreTiers",
-            "SuspendedMembersController", "SuspendedMembers", "SuspendedMembersRepository", "SuspensionLapse");
+            "SuspendedMembersController", "SuspendedMembers", "SuspendedMembersRepository", "SuspensionLapse",
+            "MonthEndRulesSeeder");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
