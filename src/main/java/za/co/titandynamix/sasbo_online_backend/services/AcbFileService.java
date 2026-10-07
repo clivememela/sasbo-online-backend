@@ -22,6 +22,19 @@ public interface AcbFileService {
     /** Whether the run has a stored file -- recording its submission requires one. */
     boolean hasRendered(long runId);
 
+    /** What a run's stored file says of itself: its hash, and how often it has been downloaded (DOD-11, V72). */
+    record FileFacts(String sha256, int downloads, String lastDownloadedBy, java.time.Instant lastDownloadedAt) {
+    }
+
+    /** The run's stored file's facts, or empty before it is made. */
+    java.util.Optional<FileFacts> facts(long runId);
+
+    /**
+     * Counts one download of the run's stored file and audits it, in the caller's transaction: "The CFO only"
+     * downloads it (DOD-11), and a second download is never silent. Answers the count.
+     */
+    int countDownload(long runId, String actor);
+
     /**
      * Drops the bytes of every file whose purge date has passed; the hash, counts and value stay.
      *

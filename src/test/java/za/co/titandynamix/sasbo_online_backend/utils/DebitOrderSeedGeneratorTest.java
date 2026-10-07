@@ -108,12 +108,22 @@ class DebitOrderSeedGeneratorTest {
                 .containsExactlyInAnyOrderElementsOf(DebitOrderSeedGenerator.DUE_DATES);
     }
 
+    /**
+     * The listed reasons a member's own record cannot give, because they come from the member's debits: three unpaids
+     * (Stephne, DOD-03). The generated file holds records, so it cannot carry one; the Debit Order demonstration seeds
+     * the history that does, and {@code DodScenarioSeederIT} asserts a seeded run lists it.
+     */
+    static final Set<AcbExclusionReason> FROM_THE_HISTORY = Set.of(AcbExclusionReason.UNPAID_LIMIT_REACHED);
+
     @Test
-    @DisplayName("every listed exclusion reason has a member behind it, and Nedbank's are the ones SASBO does not collect")
+    @DisplayName("every listed exclusion reason a member's record gives has a member behind it, and Nedbank's are the ones "
+            + "SASBO does not collect")
     void everyListedReasonIsSeeded() throws IOException {
         List<SeedDebitOrderMember> members = read();
         Set<String> outcomes = members.stream().map(SeedDebitOrderMember::expectedOutcome).collect(Collectors.toSet());
+        assertThat(FROM_THE_HISTORY).allSatisfy(reason -> assertThat(reason.listed()).isTrue());
         Set<String> listed = Arrays.stream(AcbExclusionReason.values()).filter(AcbExclusionReason::listed)
+                .filter(reason -> !FROM_THE_HISTORY.contains(reason))
                 .map(Enum::name).collect(Collectors.toSet());
         assertThat(listed).isNotEmpty();
         assertThat(outcomes).containsAll(listed);

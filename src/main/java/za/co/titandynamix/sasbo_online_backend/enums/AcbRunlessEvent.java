@@ -22,5 +22,23 @@ public enum AcbRunlessEvent {
     /** The opening arrears position captured at switch-over ({@code 03.0}). */
     OPENING_POSITION_CAPTURED,
     /** The seeded ACB history finished writing -- written last, so a crash between months shows ({@code 03.8}). */
-    SEED_COMPLETE
+    SEED_COMPLETE,
+    /** A bank's return code changed -- its re-debit rule, SASBO's code, its wording or provisional mark (V70). */
+    CODE_CHANGED,
+    /** A bank's return code added to the table (V70). */
+    CODE_ADDED,
+    /** Whether bank closures count as non-working days, changed (DOD-17, V70). */
+    CALENDAR_SETTING_CHANGED,
+    /** A bank's debit-order members moved to a new debit day in one step (DOD-19). */
+    DEBIT_DAY_MOVED,
+    /** Members' unpaid counts captured by hand (DOD-28). */
+    UNPAID_COUNTS_CAPTURED,
+    /** A membership ended after the third unpaid, confirmed by a staff member (DOD-22). */
+    MEMBER_ENDED,
+    /** A suspended member made active again: only the current month is collected (DOD-26). */
+    MEMBER_REACTIVATED,
+    /** A member whose membership ended joined again, with a new join date (DOD-27). */
+    MEMBER_REJOINED,
+    /** The Debit Order Deductions demonstration finished writing -- written last, in the same transaction. */
+    DOD_SEED_COMPLETE
 }

@@ -1,0 +1,17 @@
+@date {{letterDate}}
+@to {{memberName}}
+@to {{addressLine1}}
+@to {{addressLine2}}
+@to {{addressLine3}}
+@to {{postalCode}}
+@ref Membership number | {{membershipNumber}}
+
+{{body}}
+
+If you have any questions, please e-mail us at members@sasbo.org.za or call (011) 467-0192, and quote your
+membership number, {{membershipNumber}}.
+
+Yours sincerely
+
+@sign Membership Administration
+@sign SASBO, The Finance Union

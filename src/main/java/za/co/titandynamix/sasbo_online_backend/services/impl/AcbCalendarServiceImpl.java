@@ -11,6 +11,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbCalendar;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbHoliday;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbHolidayKind;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbHolidaySource;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunlessEvent;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
@@ -73,7 +74,8 @@ public class AcbCalendarServiceImpl implements AcbCalendarService {
     }
 
     @Override
-    public AcbHolidayDto add(String date, String name, String actor) {
+    public AcbHolidayDto add(String date, String name, AcbHolidayKind kind, String actor) {
+        AcbHolidayKind what = kind == null ? AcbHolidayKind.PUBLIC_HOLIDAY : kind;
         LocalDate day = parseDate(date);
         String named = name == null ? "" : name.trim();
         if (named.isEmpty() || named.length() > 100) {
@@ -85,12 +87,13 @@ public class AcbCalendarServiceImpl implements AcbCalendarService {
                 holidays.findById(day).ifPresent(listed -> {
                     throw alreadyListed(listed.getHolidayDate(), listed.getName(), listed.getSource().name());
                 });
-                jdbc.update("INSERT INTO acb_holidays (holiday_date, name, source, added_by, added_at) "
-                                + "VALUES (?, ?, ?, ?, ?)",
+                jdbc.update("INSERT INTO acb_holidays (holiday_date, name, source, added_by, added_at, kind) "
+                                + "VALUES (?, ?, ?, ?, ?, ?)",
                         day, named, AcbHolidaySource.ADDED.name(), actor,
-                        OffsetDateTime.ofInstant(AcbTime.instant(clock), ZoneOffset.UTC));
-                audit.recordRunless(AcbRunlessEvent.HOLIDAY_ADDED, "added " + day + " (" + named + ")", actor);
-                return new AcbHolidayDto(day.toString(), named, AcbHolidaySource.ADDED.name());
+                        OffsetDateTime.ofInstant(AcbTime.instant(clock), ZoneOffset.UTC), what.name());
+                audit.recordRunless(AcbRunlessEvent.HOLIDAY_ADDED, "added " + day + " (" + named + ", "
+                        + (what == AcbHolidayKind.BANK_CLOSED ? "the bank closed" : "a public holiday") + ")", actor);
+                return new AcbHolidayDto(day.toString(), named, AcbHolidaySource.ADDED.name(), what.name());
             });
         } catch (DataIntegrityViolationException lostTheRace) {
             // Another administrator added the same day between the check and the insert. The
@@ -143,6 +146,26 @@ public class AcbCalendarServiceImpl implements AcbCalendarService {
         return calendar(until.getYear());
     }
 
+    @Override
+    public AcbCalendarDto setting(boolean bankClosuresCount, String actor) {
+        tx.executeWithoutResult(status -> {
+            List<Boolean> before = jdbc.queryForList("SELECT bank_closures_count FROM acb_calendar WHERE id = ? FOR UPDATE",
+                    Boolean.class, AcbCalendar.THE_ROW);
+            if (before.isEmpty()) {
+                throw new AcbRefusal(AcbRefusalCode.HOLIDAYS_NOT_KNOWN, "No holiday calendar is on record to change.",
+                        Map.of());
+            }
+            if (!Objects.equals(before.get(0), bankClosuresCount)) {
+                jdbc.update("UPDATE acb_calendar SET bank_closures_count = ? WHERE id = ?", bankClosuresCount,
+                        AcbCalendar.THE_ROW);
+                audit.recordRunless(AcbRunlessEvent.CALENDAR_SETTING_CHANGED, bankClosuresCount
+                        ? "days the bank is closed now move the debits on them, as public holidays do"
+                        : "only public holidays move debits now; days the bank is closed do not", actor);
+            }
+        });
+        return calendar(null);
+    }
+
     /**
      * 🧪 Whether the screen should say when the calendar ends: from {@value #NOTICE_DAYS} days before
      * its known-until -- and always once it has passed, or when there is none. {@code today} is an
@@ -157,11 +180,13 @@ public class AcbCalendarServiceImpl implements AcbCalendarService {
     private AcbCalendarDto dto(AcbCalendar row, int year) {
         List<AcbHolidayDto> listed = holidays.findByHolidayDateBetweenOrderByHolidayDate(
                         LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31)).stream()
-                .map(h -> new AcbHolidayDto(h.getHolidayDate().toString(), h.getName(), h.getSource().name()))
+                .map(h -> new AcbHolidayDto(h.getHolidayDate().toString(), h.getName(), h.getSource().name(),
+                        h.kindOrDefault().name()))
                 .toList();
         LocalDate knownUntil = row == null ? null : row.getKnownUntil();
         return new AcbCalendarDto(row == null ? HolidayCalendarSource.NONE : row.getName(),
-                AcbTime.iso(knownUntil), endingSoon(knownUntil, AcbTime.today(clock)), year, listed);
+                AcbTime.iso(knownUntil), endingSoon(knownUntil, AcbTime.today(clock)), year,
+                row == null || row.bankClosuresCountOrDefault(), listed);
     }
 
     private static AcbRefusal alreadyListed(LocalDate day, String name, String source) {

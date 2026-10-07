@@ -33,28 +33,39 @@ public final class MigrationSeed {
     public static final int RECRUITERS = 33;
 
     /**
-     * {@code acb_rates} is V41's seed: the one flat rate the July 2026 bureau file charged. A run
-     * cannot be priced without it, so it is restored after every reset like the other seeds.
+     * {@code acb_rates}: V41's R174.00 from January 2026, and V70's R166.65 from January 2025 -- provisional, its
+     * start assumed. A run cannot be priced without one, so they are restored after every reset like the other seeds.
      */
-    public static final int ACB_RATES = 1;
+    public static final int ACB_RATES = 2;
 
     /**
-     * {@code acb_unpaid_codes} is V45's seed: the four numeric codes on Standard Bank's returns
-     * report of 21 August 2026 (2, 4, 30, 34), each mapped to a reason -- the last two wordings
-     * inferred and marked so, until question 39 is answered.
+     * {@code acb_unpaid_codes}: V45's four codes from Standard Bank's report of 21 August 2026 (2, 4, 30, 34), as
+     * V70 corrected them from Stephne's answers, and the six her "Suspension codes" sheet and DOD-04 add (6, 15, 18,
+     * 26, 31, 32). In the order {@code ORDER BY length(code), code} reads them.
      */
     public static final List<UnpaidCode> ACB_UNPAID_CODES = List.of(
-            new UnpaidCode("2", "NOT_PROVIDED_FOR", Boolean.TRUE),
-            new UnpaidCode("4", "PAYMENT_STOPPED", Boolean.FALSE),
-            new UnpaidCode("30", "NO_AUTHORITY_TO_DEBIT", null),
-            new UnpaidCode("34", "AUTHORISATION_CANCELLED", null));
+            new UnpaidCode("2", "NOT_PROVIDED_FOR", Boolean.TRUE, 18, false),
+            new UnpaidCode("4", "PAYMENT_STOPPED", Boolean.FALSE, 16, false),
+            new UnpaidCode("6", "ACCOUNT_FROZEN", null, 13, true),
+            new UnpaidCode("15", "ACCOUNT_CLOSED", null, 15, true),
+            new UnpaidCode("18", "ACCOUNT_HOLDER_DECEASED", null, null, true),
+            new UnpaidCode("26", "INVALID_ACCOUNT_NUMBER", null, 19, true),
+            new UnpaidCode("30", "NO_AUTHORITY_TO_DEBIT", Boolean.FALSE, 30, true),
+            new UnpaidCode("31", "NO_AUTHORITY_TO_DEBIT", Boolean.FALSE, 30, true),
+            new UnpaidCode("32", "NO_AUTHORITY_TO_DEBIT", Boolean.FALSE, 30, true),
+            new UnpaidCode("34", "NO_AUTHORITY_TO_DEBIT", Boolean.FALSE, 30, true));
 
     /**
-     * One of V45's codes: what it means, and whether it allows a re-debit -- yes, no, or {@code null}
-     * for unknown (Q40, Q44), each flag inferred until the bank's list is in hand (Q39).
+     * One of the bank's codes: what it means, whether it allows a re-debit -- yes, no, or {@code null} for unknown
+     * (Stephne, DOD-03 and DOD-04; unknown where she has not said, Friday item 9) -- which of SASBO's suspension codes
+     * it records, and whether the row is still provisional.
      */
-    public record UnpaidCode(String code, String reason, Boolean reDebitAllowed) {
+    public record UnpaidCode(String code, String reason, Boolean reDebitAllowed, Integer suspensionCode,
+                             boolean provisional) {
     }
+
+    /** SASBO's suspension codes V70 puts on record when absent: her sheet's, 14, 17 and 20 not among them. */
+    public static final List<Integer> SUSPENSION_CODES = List.of(11, 12, 13, 15, 16, 18, 19, 21, 30, 31, 32, 33);
 
     /** One statutory public holiday, as V47 seeds it. */
     public record Holiday(LocalDate date, String name) {
@@ -64,12 +75,11 @@ public final class MigrationSeed {
     }
 
     /**
-     * {@code acb_holidays} is V47's seed: South Africa's statutory public holidays for 2026 and 2027 --
-     * the Public Holidays Act's schedule, Good Friday and Family Day, and each Monday the Act's Sunday
-     * rule makes a holiday, as its own row (D30). THE ONE COPY of the list (F47): the window fixture's
-     * {@code za-statutory} set and the tests' calendar ({@code AcbCalendars}) read it, and
-     * {@code AcbHolidayCalendarIT} asserts the migrated table equals it. Checked against a printed
-     * calendar, and re-derived independently by the planning pack's own script.
+     * {@code acb_holidays} is V47's seed and V70's: South Africa's statutory public holidays for 2026, 2027 and 2028
+     * -- the Public Holidays Act's schedule, Good Friday and Family Day, and each Monday the Act's Sunday rule makes a
+     * holiday, as its own row (D30). THE ONE COPY of the list (F47): the window fixture's {@code za-statutory} set and
+     * the tests' calendar ({@code AcbCalendars}) read its 2026 and 2027, and {@code AcbHolidayCalendarIT} asserts the
+     * migrated table equals it. Checked against a printed calendar; 2028's Easter Sunday is 16 April.
      *
      * <p>⚠️ Days declared ad hoc -- the 2026 local-government election day among them -- are not here:
      * they are added as data when declared, which is why the calendar says until when it is known.
@@ -101,11 +111,24 @@ public final class MigrationSeed {
             new Holiday("2027-12-16", "Day of Reconciliation"),
             new Holiday("2027-12-25", "Christmas Day"),
             new Holiday("2027-12-26", "Day of Goodwill"),
-            new Holiday("2027-12-27", "Day of Goodwill, observed"));
+            new Holiday("2027-12-27", "Day of Goodwill, observed"),
+            new Holiday("2028-01-01", "New Year's Day"),
+            new Holiday("2028-03-21", "Human Rights Day"),
+            new Holiday("2028-04-14", "Good Friday"),
+            new Holiday("2028-04-17", "Family Day"),
+            new Holiday("2028-04-27", "Freedom Day"),
+            new Holiday("2028-05-01", "Workers' Day"),
+            new Holiday("2028-06-16", "Youth Day"),
+            new Holiday("2028-08-09", "National Women's Day"),
+            new Holiday("2028-09-24", "Heritage Day"),
+            new Holiday("2028-09-25", "Heritage Day, observed"),
+            new Holiday("2028-12-16", "Day of Reconciliation"),
+            new Holiday("2028-12-25", "Christmas Day"),
+            new Holiday("2028-12-26", "Day of Goodwill"));
 
-    /** {@code acb_calendar}'s one row, V47's: the calendar's name and the last date it is complete for. */
+    /** {@code acb_calendar}'s one row: the calendar's name (V47's) and the last date it is complete for (V70's). */
     public static final String ACB_CALENDAR_NAME = "za-statutory";
-    public static final LocalDate ACB_CALENDAR_KNOWN_UNTIL = LocalDate.of(2027, 12, 31);
+    public static final LocalDate ACB_CALENDAR_KNOWN_UNTIL = LocalDate.of(2028, 12, 31);
 
     /** The root of the structure hierarchy, {@code union_structures.id = 1}. */
     public static final String ROOT_STRUCTURE = "SASBO";
@@ -216,7 +239,10 @@ public final class MigrationSeed {
             // version like V1_1: batch 1 reaches production before batch 2's V70-V81, and production migrates with
             // validate-on-migrate off, so a version below one already applied would be skipped silently -- as 69.1
             // it sorts after the bugs stream's V69 and before V70.
-            "V69_1__workplace_visit_drafts.sql");
+            "V69_1__workplace_visit_drafts.sql",
+            "V70__dod_rules_as_data.sql",
+            "V71__dod_letters.sql",
+            "V72__dod_returns_and_counts.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

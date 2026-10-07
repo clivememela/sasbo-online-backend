@@ -21,12 +21,15 @@ import za.co.titandynamix.sasbo_online_backend.acb.RunPreparer;
 import za.co.titandynamix.sasbo_online_backend.acb.RunPreparer.Exclusion;
 import za.co.titandynamix.sasbo_online_backend.acb.RunPreparer.PreparedLine;
 import za.co.titandynamix.sasbo_online_backend.acb.RunPreparer.Preparation;
+import za.co.titandynamix.sasbo_online_backend.acb.returns.ReDebitRules;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRate;
 import za.co.titandynamix.sasbo_online_backend.entity.acb.AcbRun;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbLineOutcome;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunAction;
 import za.co.titandynamix.sasbo_online_backend.enums.AcbRunStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
+import za.co.titandynamix.sasbo_online_backend.enums.ReDebitWithdrawal;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.repository.AcbPopulationRepository;
@@ -42,6 +45,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -108,12 +112,13 @@ public class AcbPreparationJob {
     private final TransactionTemplate tx;
     private final JdbcTemplate jdbc;
     private final MeterRegistry meters;
+    private final AcbUnpaidCounter counter;
 
     public AcbPreparationJob(AcbRunRepository runs, AcbRunLineRepository lines, AcbRateRepository rates,
                              AcbPopulationRepository population, AcbAuditTrail audit,
                              HolidayCalendarSource calendars, Clock clock,
                              PlatformTransactionManager transactions, JdbcTemplate jdbc,
-                             MeterRegistry meters) {
+                             MeterRegistry meters, AcbUnpaidCounter counter) {
         this.runs = runs;
         this.lines = lines;
         this.rates = rates;
@@ -124,6 +129,7 @@ public class AcbPreparationJob {
         this.tx = new TransactionTemplate(transactions);
         this.jdbc = jdbc;
         this.meters = meters;
+        this.counter = counter;
     }
 
     /**
@@ -157,11 +163,16 @@ public class AcbPreparationJob {
         // the one the run's fingerprint records (SD3-F, SD3-L).
         HolidayCalendar calendar = AcbRuns.calendarCovering(calendars.load(), month);
         BankIndex banks = AcbRuns.unambiguousBanks(population);
-        List<RePresentationCandidate> candidates = lines.findRePresentationCandidates(
+        List<RePresentationCandidate> waiting = lines.findRePresentationCandidates(
                 month.atDay(1), AcbLineOutcome.UNPAID, UnpaidDecision.RE_PRESENT, AcbRuns.SENT);
+        // A member who came back or rejoined since the unpaid pays only the current month (DOD-26, DOD-27): those
+        // re-debits are withdrawn here, whichever screen brought the member back, and written with the run.
+        Map<Long, ReDebitWithdrawal> withdrawn = withdrawals(waiting);
+        List<RePresentationCandidate> candidates = waiting.stream()
+                .filter(candidate -> !withdrawn.containsKey(candidate.lineId())).toList();
 
         RunPreparer preparer = new RunPreparer(month, new DebitWindow(calendar), banks,
-                rate.getAmount(), candidates);
+                rate.getAmount(), candidates, counter.atTheLimit());
         Integer after = BEFORE_FIRST_MEMBER;
         List<MemberDebitRow> page;
         do {
@@ -174,7 +185,7 @@ public class AcbPreparationJob {
         } while (page.size() == PAGE_SIZE);
 
         Preparation prepared = preparer.finish();
-        if (Boolean.TRUE.equals(tx.execute(status -> write(runId, rate, calendar, prepared)))) {
+        if (Boolean.TRUE.equals(tx.execute(status -> write(runId, rate, calendar, prepared, withdrawn)))) {
             meters.counter("acb.runs.prepared").increment();
             meters.counter("acb.lines.written").increment(prepared.lineCount());
             log.info("ACB run {}: prepared {} lines, {} listed exclusions", runId,
@@ -188,7 +199,8 @@ public class AcbPreparationJob {
      * @return false when the run is no longer {@code PREPARING} -- the sweep failed it while this
      *         job was reading -- in which case nothing is written and the sweep's verdict stands
      */
-    private boolean write(long runId, AcbRate rate, HolidayCalendar calendar, Preparation prepared) {
+    private boolean write(long runId, AcbRate rate, HolidayCalendar calendar, Preparation prepared,
+                          Map<Long, ReDebitWithdrawal> withdrawn) {
         AcbRun run = runs.findById(runId).orElse(null);
         if (run == null) {
             return false;
@@ -201,6 +213,7 @@ public class AcbPreparationJob {
         insertLines(runId, prepared.lines());
         insertExclusions(runId, prepared.exclusions());
         insertCounts(runId, prepared.counted());
+        int withdrawnCount = markWithdrawn(withdrawn);
 
         run.setStatus(to.get());
         run.setLineCount(prepared.lineCount());
@@ -220,7 +233,9 @@ public class AcbPreparationJob {
         runs.saveAndFlush(run);
         audit.record(runId, null, AcbRunAction.COMPLETE_PREPARATION.name(), from, to.get(),
                 prepared.lineCount() + " lines, R " + prepared.total() + ", "
-                        + prepared.exclusions().size() + " members listed as excluded",
+                        + prepared.exclusions().size() + " members listed as excluded"
+                        + (withdrawnCount == 0 ? "" : ", " + withdrawnCount
+                        + " waiting re-debit(s) withdrawn: the member came back or rejoined"),
                 AcbActor.SYSTEM);
         return true;
     }
@@ -293,6 +308,48 @@ public class AcbPreparationJob {
     private void heartbeat(long runId) {
         tx.executeWithoutResult(status ->
                 runs.touchHeartbeat(runId, AcbRunStatus.PREPARING, AcbTime.instant(clock)));
+    }
+
+    /**
+     * The waiting re-debits a member's return withdraws (DOD-26, DOD-27) -- {@link ReDebitRules#withdrawal}, over the
+     * lines' dates, the members' join dates and their last reinstatements: three queries, whatever the count.
+     */
+    private Map<Long, ReDebitWithdrawal> withdrawals(List<RePresentationCandidate> waiting) {
+        Map<Long, ReDebitWithdrawal> withdrawn = new HashMap<>();
+        if (waiting.isEmpty()) {
+            return withdrawn;
+        }
+        Map<Long, LocalDate> actionDates = new HashMap<>();
+        for (Object[] row : lines.findActionDates(waiting.stream().map(RePresentationCandidate::lineId).toList())) {
+            actionDates.put((Long) row[0], (LocalDate) row[1]);
+        }
+        List<Integer> memberIds = waiting.stream().map(RePresentationCandidate::memberId).distinct().toList();
+        Map<Integer, LocalDate> joined = new HashMap<>();
+        population.findCountRows(memberIds).forEach(row -> joined.put(row.id(), row.joinDate()));
+        Map<Integer, LocalDate> reinstated = new HashMap<>();
+        for (Object[] row : population.findLastReinstatements(MemberStatusReason.REINSTATED, memberIds)) {
+            reinstated.put((Integer) row[0], LocalDate.ofInstant((java.time.Instant) row[1], AcbTime.ZONE));
+        }
+        for (RePresentationCandidate candidate : waiting) {
+            LocalDate unpaidOn = actionDates.get(candidate.lineId());
+            if (unpaidOn != null) {
+                ReDebitRules.withdrawal(unpaidOn, joined.get(candidate.memberId()), reinstated.get(candidate.memberId()))
+                        .ifPresent(reason -> withdrawn.put(candidate.lineId(), reason));
+            }
+        }
+        return withdrawn;
+    }
+
+    private int markWithdrawn(Map<Long, ReDebitWithdrawal> withdrawn) {
+        if (withdrawn.isEmpty()) {
+            return 0;
+        }
+        java.sql.Timestamp at = java.sql.Timestamp.from(AcbTime.instant(clock));
+        List<Object[]> rows = withdrawn.entrySet().stream()
+                .map(e -> new Object[] {e.getValue().name(), at, e.getKey()}).toList();
+        int[] done = jdbc.batchUpdate("UPDATE acb_run_lines SET re_debit_withdrawn = ?, re_debit_withdrawn_at = ? "
+                + "WHERE id = ? AND re_debit_withdrawn IS NULL", rows);
+        return java.util.Arrays.stream(done).map(n -> Math.max(n, 0)).sum();
     }
 
     // ------------------------------------------------------------------------------------------

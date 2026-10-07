@@ -59,7 +59,8 @@ public class AcbRateServiceImpl implements AcbRateService {
     public AcbRatesDto rates() {
         List<AcbRate> all = rates.findAllByOrderByEffectiveFromAsc();
         return new AcbRatesDto(all.stream()
-                .map(r -> new AcbRatesDto.Rate(AcbTime.iso(r.getEffectiveFrom()), r.getAmount(), r.getSource()))
+                .map(r -> new AcbRatesDto.Rate(AcbTime.iso(r.getEffectiveFrom()), r.getAmount(), r.getSource(),
+                        Boolean.TRUE.equals(r.getProvisional())))
                 .toList(), januaryNotice(all, AcbTime.today(clock)));
     }
 

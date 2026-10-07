@@ -34,7 +34,11 @@ final class AcbRuns {
     static final Set<AcbRunStatus> SENT =
             EnumSet.of(AcbRunStatus.SUBMITTED, AcbRunStatus.RETURNED, AcbRunStatus.CLOSED);
 
-    /** The file is made by this many days before the first action date -- SASBO's rule (D31, Q37). */
+    /**
+     * The file is made by this many WORKING days before the first action date (D31, Q37). Counted in working days
+     * since the October build: three calendar days put October 2026's day on Saturday 17 October, and three working
+     * days give Thursday 15 October -- the day SASBO runs October ("This will only run on 15 October 26.", DOD-16).
+     */
     static final int MAKE_BY_LEAD_DAYS = 3;
 
     /** The states in which a file can still be made: a proposal, and an approved run. */
@@ -43,9 +47,22 @@ final class AcbRuns {
     private AcbRuns() {
     }
 
-    /** The latest day to make the file: three days before the first debit. {@code null} for a run with no lines. */
-    static LocalDate makeBy(LocalDate firstActionDate) {
-        return firstActionDate == null ? null : firstActionDate.minusDays(MAKE_BY_LEAD_DAYS);
+    /**
+     * The latest day to make the file: three working days before the first debit, skipping weekends and the
+     * calendar's non-working days. {@code null} for a run with no lines.
+     */
+    static LocalDate makeBy(LocalDate firstActionDate, HolidayCalendar calendar) {
+        if (firstActionDate == null) {
+            return null;
+        }
+        LocalDate day = firstActionDate;
+        for (int counted = 0; counted < MAKE_BY_LEAD_DAYS; counted++) {
+            day = day.minusDays(1);
+            while (!calendar.isBusinessDay(day)) {
+                day = day.minusDays(1);
+            }
+        }
+        return day;
     }
 
     /**
@@ -57,9 +74,9 @@ final class AcbRuns {
     }
 
     /** The flag for a run: only while its file is still to be made. */
-    static boolean makeByPassed(AcbRun run, LocalDate today) {
+    static boolean makeByPassed(AcbRun run, LocalDate today, HolidayCalendar calendar) {
         return FILE_STILL_TO_MAKE.contains(run.getStatus()) && run.getCreationDate() == null
-                && makeByPassed(makeBy(run.getFirstDueDate()), today);
+                && makeByPassed(makeBy(run.getFirstDueDate(), calendar), today);
     }
 
     /** The rate in force for {@code month}, or the refusal that no line can be priced. */

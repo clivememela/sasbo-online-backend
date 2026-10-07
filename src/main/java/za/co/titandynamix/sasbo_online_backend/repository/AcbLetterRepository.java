@@ -10,7 +10,19 @@ import java.util.Optional;
 
 public interface AcbLetterRepository extends JpaRepository<AcbLetter, Long> {
 
-    Optional<AcbLetter> findByLineId(Long lineId);
+    /**
+     * The first letter queued for a line -- its unpaid's. Since V71 a line can also carry the ending letter (DOD-24),
+     * queued after it, so "the" letter of a line is the first one, never a lookup that fails on finding two.
+     */
+    default Optional<AcbLetter> findByLineId(Long lineId) {
+        return findFirstByLineIdOrderByIdAsc(lineId);
+    }
+
+    Optional<AcbLetter> findFirstByLineIdOrderByIdAsc(Long lineId);
+
+    /** A line's letter of one template: V71 allows one of each (UNIQUE (line_id, template)). */
+    Optional<AcbLetter> findByLineIdAndTemplate(Long lineId,
+                                                za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template);
 
     /** The letters in one state for one channel -- the sender reads the RENDERED emails (03.3). */
     List<AcbLetter> findByStatusAndChannel(za.co.titandynamix.sasbo_online_backend.enums.LetterStatus status,

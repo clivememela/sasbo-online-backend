@@ -87,7 +87,8 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
     @DisplayName("recording an unpaid twice records it once; a different code for it is refused")
     void recordingTwiceRecordsOnce() {
         long line = sentLine();
-        RecordUnpaidRequest stopped = new RecordUnpaidRequest("4", "2026-09-28", UnpaidDecision.RE_PRESENT);
+        // Code 4 is never presented again (Stephne, DOD-03), so the decision recorded with it is SUSPEND.
+        RecordUnpaidRequest stopped = new RecordUnpaidRequest("4", "2026-09-28", UnpaidDecision.SUSPEND);
 
         AcbRunLineDto first = returns.recordUnpaid(run, line, stopped, "system");
         AcbRunLineDto again = returns.recordUnpaid(run, line, stopped, "system");
@@ -115,7 +116,7 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         AcbLetter letter = letters.findByLineId(line).orElseThrow();
         assertThat(letter.getStatus()).isEqualTo(LetterStatus.QUEUED);
         assertThat(letter.getStatusReason()).isEqualTo("NO_EMAIL");
-        assertThat(letter.getTemplate()).isEqualTo(LetterTemplate.RETURN_DEBIT);
+        assertThat(letter.getTemplate()).isEqualTo(LetterTemplate.PAYMENT_STOPPED);
         assertThat(returns.summary(run).lettersByStatus()).containsEntry("QUEUED", 1);
     }
 
@@ -187,15 +188,13 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
     @DisplayName("the Invalid Accounts view is the run's unpaids with that reason -- a filter, not a check")
     void theInvalidAccountsView() {
         long line = sentLine();
-        // A code the bank's own list would supply; added the way SASBO's answer will add it -- as data.
-        jdbc.update("INSERT INTO acb_unpaid_codes (code, reason, wording, inferred, source) "
-                + "VALUES ('26', 'INVALID_ACCOUNT_NUMBER', 'Invalid Account Number', TRUE, 'test')");
+        // Bank code 26, "Invalid account" on SASBO's sheet (DOD-01) -- added by V70 as data.
         returns.recordUnpaid(run, line, new RecordUnpaidRequest("26", "2026-09-28", UnpaidDecision.SUSPEND), "system");
 
         assertThat(returns.unpaids(run, UnpaidReason.INVALID_ACCOUNT_NUMBER, 0, 50).content())
                 .extracting(AcbRunLineDto::id).containsExactly(line);
         assertThat(returns.unpaids(run, UnpaidReason.PAYMENT_STOPPED, 0, 50).content()).isEmpty();
-        assertThat(codes.count()).isEqualTo(5);
+        assertThat(codes.count()).isEqualTo(MigrationSeed.ACB_UNPAID_CODES.size());
         assertThat(returns.summary(run).undecided()).isZero();
     }
 
@@ -295,30 +294,38 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
 
         AcbRefusal atNone = refusal(() -> returns.terminate(m + 2, "administrator"));
         assertThat(atNone.code()).isEqualTo(AcbRefusalCode.TERMINATION_NOT_DUE);
-        assertThat(atNone.details()).containsEntry("unpaidCount", "fewer than two");
+        assertThat(atNone.details()).containsEntry("unpaidCount", "0");
 
         assertThat(statusChanges(m + 1)).isEmpty();
         assertThat(jdbc.queryForObject("SELECT status FROM members WHERE id = ?", String.class, m + 1)).isEqualTo("Active");
     }
 
     @Test
-    @DisplayName("03.5 an unpaid decided SUSPEND suspends its member -- UNPAID_SUSPENDED, with its run and line")
+    @DisplayName("Stephne, DOD-12 and her sheet: an unpaid decided SUSPEND suspends its member with SASBO's code -- bank 4 "
+            + "is SASBO 16 -- and the audit names the run and line")
     void aSuspendDecisionSuspendsTheMember() {
         AcbRunFixture.insert(jdbc, 15, 2);
+        jdbc.update("INSERT INTO suspension_codes (code, name) SELECT 16, 'PAYMENT STOPPED' "
+                + "WHERE NOT EXISTS (SELECT 1 FROM suspension_codes WHERE code = 16)");
         int m = AcbRunFixture.FIRST_MEMBER_ID;
         long september = insertRun(SEPTEMBER, "SUBMITTED", FROZEN, "system");
         long suspended = insertLine(september, m, null, "UNPAID", "SUSPEND", RATE);
+        jdbc.update("UPDATE acb_run_lines SET unpaid_code = '4', unpaid_reason = 'PAYMENT_STOPPED' WHERE id = ?", suspended);
         long again = insertLine(september, m + 1, null, "UNPAID", "RE_PRESENT", RATE);
         long undecided = insertLine(september, m + 2, null, "UNPAID", null, RATE);
 
         AcbMemberStatusDto done = returns.suspendMember(september, suspended, "administrator");
 
         assertThat(done.status()).isEqualTo("Suspended");
-        assertThat(statusChanges(m)).singleElement().satisfies(row -> {
-            assertThat(row.get("reason")).isEqualTo("UNPAID_SUSPENDED");
-            assertThat(((Number) row.get("run_id")).longValue()).isEqualTo(september);
-            assertThat(((Number) row.get("line_id")).longValue()).isEqualTo(suspended);
-        });
+        assertThat(done.suspensionCode()).isEqualTo(16);
+        assertThat(jdbc.queryForList("SELECT c.reason, s.code FROM member_status_changes c "
+                + "JOIN suspension_codes s ON s.id = c.suspension_code_id WHERE c.member_id = ?", m))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.get("reason")).isEqualTo("SUSPENSION_CODE");
+                    assertThat(((Number) row.get("code")).intValue()).isEqualTo(16);
+                });
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_audit_events WHERE run_id = ? AND line_id = ? "
+                + "AND kind = 'MEMBER_SUSPENDED'", Long.class, september, suspended)).isEqualTo(1L);
         assertThat(refusal(() -> returns.suspendMember(september, again, "administrator")).code())
                 .isEqualTo(AcbRefusalCode.UNPAID_NOT_SUSPENDED);
         assertThat(refusal(() -> returns.suspendMember(september, undecided, "administrator")).code())
@@ -528,14 +535,21 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
     // ------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("🔬 F50: V45's codes ARE MigrationSeed.ACB_UNPAID_CODES -- each meaning and its re-debit flag, every flag inferred")
+    @DisplayName("🔬 F50: V45's and V70's codes ARE MigrationSeed.ACB_UNPAID_CODES -- meaning, re-debit flag, SASBO's code, "
+            + "provisional -- and a flag is inferred exactly where SASBO has not said (Stephne, DOD-03, DOD-04)")
     void theCodesAreTheOneList() {
         List<MigrationSeed.UnpaidCode> migrated = jdbc.query(
-                "SELECT code, reason, re_debit_allowed, re_debit_inferred FROM acb_unpaid_codes ORDER BY length(code), code",
+                "SELECT code, reason, re_debit_allowed, re_debit_inferred, suspension_code, provisional, re_debit_source "
+                        + "FROM acb_unpaid_codes ORDER BY length(code), code",
                 (rs, row) -> {
-                    assertThat(rs.getBoolean("re_debit_inferred")).as("code %s marked inferred", rs.getString("code")).isTrue();
                     Object allowed = rs.getObject("re_debit_allowed");
-                    return new MigrationSeed.UnpaidCode(rs.getString("code"), rs.getString("reason"), (Boolean) allowed);
+                    assertThat(rs.getBoolean("re_debit_inferred")).as("code %s inferred only while unknown", rs.getString("code"))
+                            .isEqualTo(allowed == null);
+                    assertThat(rs.getString("re_debit_source")).as("code %s says where its flag came from",
+                            rs.getString("code")).isNotBlank();
+                    Object suspension = rs.getObject("suspension_code");
+                    return new MigrationSeed.UnpaidCode(rs.getString("code"), rs.getString("reason"), (Boolean) allowed,
+                            suspension == null ? null : ((Number) suspension).intValue(), rs.getBoolean("provisional"));
                 });
         assertThat(migrated).containsExactlyElementsOf(MigrationSeed.ACB_UNPAID_CODES);
     }
@@ -553,7 +567,8 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
                 .suggestedDecision()).isEqualTo(UnpaidDecision.RE_PRESENT);
         assertThat(returns.recordUnpaid(run, stopped, new RecordUnpaidRequest("4", "2026-09-28", null), "system")
                 .suggestedDecision()).isEqualTo(UnpaidDecision.SUSPEND);
-        assertThat(returns.recordUnpaid(run, unknown, new RecordUnpaidRequest("30", "2026-09-28", null), "system")
+        // A code the table does not know suggests nothing: nobody has said it may be presented again (Friday item 10).
+        assertThat(returns.recordUnpaid(run, unknown, new RecordUnpaidRequest("99", "2026-09-28", null), "system")
                 .suggestedDecision()).isNull();
         // A suggestion, never a decision: all three are undecided until the administrator decides.
         assertThat(returns.summary(run).undecided()).isEqualTo(3);
@@ -597,6 +612,8 @@ class AcbReturnsServiceImplIT extends AbstractAcbIT {
         AcbRunFixture.insert(jdbc, 15, 2);
         long run = insertRun(LocalDate.of(2026, 8, 1), "CLOSED", FROZEN, "system");
         long line = insertLine(run, AcbRunFixture.FIRST_MEMBER_ID, null, "UNPAID", null, RATE);
+        // Code 2, the one a re-debit is allowed for (Stephne, DOD-03).
+        jdbc.update("UPDATE acb_run_lines SET unpaid_code = '2', unpaid_reason = 'NOT_PROVIDED_FOR' WHERE id = ?", line);
         String note = "Agreed by phone with the Synthetic Member on 000 000 0000, 18 September";
         try (LogCapture service = LogCapture.on(AcbReturnsServiceImpl.class);
              LogCapture trail = LogCapture.on(AcbAuditTrail.class)) {

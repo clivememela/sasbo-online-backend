@@ -1,9 +1,18 @@
+GET /api/acb/banks
+GET /api/acb/banks/{bankId}/debit-day-move
+POST /api/acb/banks/{bankId}/debit-day-move
 POST /api/acb/calendar/known-until
+PUT /api/acb/calendar/settings
+GET /api/acb/codes
+POST /api/acb/codes
+PUT /api/acb/codes/{bankCode}
 GET /api/acb/holidays
 POST /api/acb/holidays
 DELETE /api/acb/holidays/{date}
 GET /api/acb/letters/specimen/{template}
 POST /api/acb/members/search
+POST /api/acb/members/{memberId}/reactivate
+POST /api/acb/members/{memberId}/rejoin
 GET /api/acb/opening-position
 POST /api/acb/opening-position
 GET /api/acb/rates
@@ -14,6 +23,7 @@ GET /api/acb/runs/{id}
 POST /api/acb/runs/{id}/approve
 POST /api/acb/runs/{id}/cancel
 POST /api/acb/runs/{id}/close
+GET /api/acb/runs/{id}/debit-days
 POST /api/acb/runs/{id}/declined
 GET /api/acb/runs/{id}/exclusions
 GET /api/acb/runs/{id}/file
@@ -28,6 +38,8 @@ POST /api/acb/runs/{id}/lines/{lineId}/suspend-member
 POST /api/acb/runs/{id}/lines/{lineId}/unpaid
 POST /api/acb/runs/{id}/returned
 GET /api/acb/runs/{id}/returns
+POST /api/acb/runs/{id}/returns
+GET /api/acb/runs/{id}/returns/batches
 POST /api/acb/runs/{id}/submitted
 GET /api/acb/runs/{id}/unpaids
 GET /api/acb/termination-report
@@ -43,6 +55,8 @@ GET /api/admin/users
 POST /api/admin/users
 PUT /api/admin/users/{id}
 POST /api/admin/users/{id}/reset-password
+GET /api/acb/unpaid-counts
+PUT /api/acb/unpaid-counts
 GET /api/areas
 GET /api/audit
 POST /api/auth/login

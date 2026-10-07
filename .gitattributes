@@ -1,6 +1,8 @@
 /gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
+# The letters' fonts are embedded byte for byte; a line-ending conversion would corrupt them silently.
+*.ttf binary
 
 # The generated API contract artifacts, compared BYTE FOR BYTE by
 # ApiSurfaceSnapshotTest and by the browser's contract guard. Pinned to LF so

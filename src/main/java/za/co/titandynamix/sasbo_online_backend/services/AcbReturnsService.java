@@ -9,6 +9,12 @@ import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldOverDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHeldLetterDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberSearchRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbDebitDaysDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbReturnsBatchDto;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.MemberReturnRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.ReturnsBatchRequest;
+import za.co.titandynamix.sasbo_online_backend.dto.acb.SuspendMemberRequest;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidDecision;
 import za.co.titandynamix.sasbo_online_backend.enums.UnpaidReason;
 
@@ -29,8 +35,25 @@ public interface AcbReturnsService {
      */
     AcbRunLineDto recordUnpaid(long runId, long lineId, RecordUnpaidRequest request, String actor);
 
-    /** The decision on an unpaid recorded without one. */
+    /**
+     * The decision on an unpaid recorded without one. Present it again only where the bank's code allows a re-debit
+     * ({@code RE_DEBIT_NOT_ALLOWED}) and the member is below three unpaids ({@code UNPAID_LIMIT_REACHED}) -- Stephne,
+     * DOD-03, DOD-04.
+     */
     AcbRunLineDto decide(long runId, long lineId, UnpaidDecision decision, String actor);
+
+    /**
+     * One debit day's returns report, typed in (DOD-05, DOD-06, DOD-12): every entry recorded, every letter queued,
+     * every decision checked against the rules -- or nothing at all, with each problem named by entry
+     * ({@code RETURNS_BATCH_INVALID}). An entry already recorded with the same code changes nothing.
+     */
+    AcbReturnsBatchDto recordReturnsBatch(long runId, ReturnsBatchRequest request, String actor);
+
+    /** The returns reports typed in for a run, newest debit day first, a page at a time. */
+    AcbPage<AcbReturnsBatchDto> returnsBatches(long runId, int page, int size);
+
+    /** A run's debit days, with how far each one's returns have come back (DOD-06). */
+    AcbDebitDaysDto debitDays(long runId);
 
     /**
      * A run's unpaids, a page at a time; with {@code reason} INVALID_ACCOUNT_NUMBER, the legacy
@@ -83,13 +106,6 @@ public interface AcbReturnsService {
     AcbTerminationReportDto terminationReport(int page, int size);
 
     /**
-     * 03.3 -- a SPECIMEN of one of the union's three letters, as the member would receive it: a PDF on the
-     * letterhead, filled from a member who does not exist. It is what the letters review SASBO asked for reads
-     * (question 32 c).
-     */
-    byte[] letterSpecimen(za.co.titandynamix.sasbo_online_backend.enums.LetterTemplate template);
-
-    /**
      * 03.5 -- terminates a member the termination rule says three unpaid presentations have reached, through
      * {@code MemberService.changeStatus} with the reason {@code SUBS_IN_ARREARS} and never the whole-record
      * update (Q25, Q27, R3-9). Refuses a member the rule does not reach ({@code TERMINATION_NOT_DUE}); a member
@@ -99,11 +115,48 @@ public interface AcbReturnsService {
     za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto terminate(Integer memberId, String actor);
 
     /**
+     * A suspended member made active again (DOD-25): only the current month is collected (DOD-26) -- every re-debit
+     * waiting from before is withdrawn. {@code MEMBER_NOT_SUSPENDED} for anyone not suspended.
+     */
+    AcbMemberStatusDto reactivate(Integer memberId, MemberReturnRequest request, String actor);
+
+    /**
+     * A member whose membership ended joins again, freely, with a new join date (DOD-27): their count starts again
+     * at nought and re-debits from before are withdrawn. {@code MEMBER_NOT_ENDED} for anyone whose membership has not
+     * ended.
+     */
+    AcbMemberStatusDto rejoin(Integer memberId, MemberReturnRequest request, String actor);
+
+    /**
      * 03.5 -- suspends the member of an unpaid decided SUSPEND -- a code that allows no re-debit (Q40, Q44) --
      * through {@code changeStatus} with the reason {@code UNPAID_SUSPENDED}. Refuses any other line ({@code
      * UNPAID_NOT_SUSPENDED}) and a member already terminated ({@code MEMBER_TERMINATED}). No route calls it
      * while the API is anonymous.
      */
-    za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto suspendMember(long runId, long lineId,
-                                                                                      String actor);
+    default za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto suspendMember(long runId, long lineId,
+                                                                                              String actor) {
+        return suspendMember(runId, lineId, null, actor);
+    }
+
+    /**
+     * Suspends the member of an unpaid decided SUSPEND with SASBO's suspension code (DOD-12; her sheet, DOD-01): the
+     * one the bank's code records, unless {@code request} names another. {@code SUSPENSION_CODE_REQUIRED} where the
+     * bank's code records none (bank 18, "Deceased", Friday item 1); {@code SUSPENSION_CODE_UNKNOWN} for a code not on
+     * record.
+     */
+    AcbMemberStatusDto suspendMember(long runId, long lineId, SuspendMemberRequest request, String actor);
+
+    /**
+     * The same three changes dated {@code at} rather than now -- for the demonstration seed, whose past is dated in the
+     * month before the clock's. The routes call the undated forms.
+     */
+    za.co.titandynamix.sasbo_online_backend.dto.acb.AcbMemberStatusDto terminate(Integer memberId, String actor,
+                                                                                  java.time.Instant at);
+
+    /** {@link #suspendMember(long, long, SuspendMemberRequest, String)}, dated {@code at}. */
+    AcbMemberStatusDto suspendMember(long runId, long lineId, SuspendMemberRequest request, String actor,
+                                     java.time.Instant at);
+
+    /** {@link #reactivate(Integer, MemberReturnRequest, String)}, dated {@code at}. */
+    AcbMemberStatusDto reactivate(Integer memberId, MemberReturnRequest request, String actor, java.time.Instant at);
 }

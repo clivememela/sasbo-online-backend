@@ -7,11 +7,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbCalendarDto;
 import za.co.titandynamix.sasbo_online_backend.dto.acb.AcbHolidayDto;
+import za.co.titandynamix.sasbo_online_backend.enums.AcbHolidayKind;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.AcbRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.AcbCalendarService;
 import za.co.titandynamix.sasbo_online_backend.support.AbstractAcbIT;
+import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,12 +41,16 @@ class AcbCalendarServiceImplIT extends AbstractAcbIT {
     @Autowired
     private PlatformTransactionManager transactions;
 
+    @Autowired
+    private za.co.titandynamix.sasbo_online_backend.acb.HolidayCalendarSource calendars;
+
     @Test
     @DisplayName("a year reads as the calendar, its known-until and that year's days, in order")
     void aYearReads() {
         AcbCalendarDto year = calendar.calendar(2026);
         assertThat(year.name()).isEqualTo("za-statutory");
-        assertThat(year.knownUntil()).isEqualTo("2027-12-31");
+        assertThat(year.knownUntil()).isEqualTo(MigrationSeed.ACB_CALENDAR_KNOWN_UNTIL.toString());
+        assertThat(year.bankClosuresCount()).as("DOD-17's setting, on by default").isTrue();
         assertThat(year.endingSoon()).as("the frozen clock is fifteen months out").isFalse();
         assertThat(year.holidays()).hasSize(13).first()
                 .isEqualTo(new AcbHolidayDto("2026-01-01", "New Year's Day", "STATUTORY"));
@@ -69,13 +76,30 @@ class AcbCalendarServiceImplIT extends AbstractAcbIT {
     void removingAndExtendingAreAttributed() {
         calendar.add("2026-10-28", "A day declared by proclamation", "admin-a");
         calendar.remove("2026-10-28", "admin-a");
-        calendar.extend("2028-12-31", "admin-a");
+        calendar.extend("2029-12-31", "admin-a");
         assertThat(audits()).extracting(row -> row.get("kind"))
                 .containsExactly("HOLIDAY_ADDED", "HOLIDAY_REMOVED", "CALENDAR_EXTENDED");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_holidays WHERE holiday_date = DATE '2026-10-28'", Long.class))
                 .isZero();
         assertThat(jdbc.queryForObject("SELECT known_until FROM acb_calendar WHERE id = 1", java.sql.Date.class))
-                .isEqualTo(java.sql.Date.valueOf("2028-12-31"));
+                .isEqualTo(java.sql.Date.valueOf("2029-12-31"));
+    }
+
+    @Test
+    @DisplayName("Stephne, DOD-17: a day the bank is closed is added as such, and moves the debits on it while the "
+            + "setting says so -- off, only public holidays do; each change audited")
+    void aBankClosureAndTheSetting() {
+        AcbHolidayDto closed = calendar.add("2026-10-28", "The bank closed", AcbHolidayKind.BANK_CLOSED, "cfo");
+        assertThat(closed.kind()).isEqualTo("BANK_CLOSED");
+        assertThat(calendars.load().isHoliday(LocalDate.of(2026, 10, 28))).as("on by default").isTrue();
+
+        AcbCalendarDto off = calendar.setting(false, "cfo");
+        assertThat(off.bankClosuresCount()).isFalse();
+        assertThat(calendars.load().isHoliday(LocalDate.of(2026, 10, 28))).as("off: a bank closure moves nothing").isFalse();
+        assertThat(calendars.load().isHoliday(LocalDate.of(2026, 12, 25))).as("a public holiday always does").isTrue();
+        calendar.setting(false, "cfo");
+        assertThat(audits()).extracting(row -> row.get("kind")).as("the same setting twice is one change")
+                .containsExactly("HOLIDAY_ADDED", "CALENDAR_SETTING_CHANGED");
     }
 
     @Test
@@ -109,7 +133,8 @@ class AcbCalendarServiceImplIT extends AbstractAcbIT {
                 .isEqualTo(AcbRefusalCode.HOLIDAY_NOT_REMOVABLE);
         assertThat(catchThrowableOfType(AcbRefusal.class, () -> calendar.remove("2026-10-28", "admin-a")).code())
                 .isEqualTo(AcbRefusalCode.HOLIDAY_NOT_REMOVABLE);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_holidays", Long.class)).isEqualTo(27L);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM acb_holidays", Long.class))
+                .isEqualTo((long) MigrationSeed.ACB_HOLIDAYS.size());
         assertThat(audits()).isEmpty();
     }
 

@@ -1,0 +1,16 @@
+# Your SASBO membership has ended
+
+Dear {{salutationName}}
+
+Your subscription debit order has been returned unpaid three times in a row, most recently for {{debitMonthYear}}.
+As SASBO's constitution provides, your membership has therefore ended.
+
+| Last debit order returned | {{debitMonthYear}}
+| Amount | {{amount}}
+| Bank's reason | {{unpaidReason}}
+
+## If you would like to join again
+
+You are welcome to join SASBO again at any time, as a new member with a new join date.
+
+If you think we have made a mistake, please contact us as soon as possible.

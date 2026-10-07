@@ -43,12 +43,19 @@ class AcbRateServiceImplIT extends AbstractAcbIT {
     private AcbRunService runs;
 
     @Test
-    @DisplayName("V41's row says what SASBO confirmed: from January")
+    @DisplayName("V41's row says what SASBO confirmed: from January -- and V70's before it is marked provisional")
     void theFirstRowsSource() {
-        assertThat(service.rates().rates()).singleElement().satisfies(rate -> {
-            assertThat(rate.effectiveFrom()).isEqualTo("2026-01-01");
-            assertThat(rate.source()).startsWith("From January -- confirmed by SASBO 2026-09-21");
-        });
+        assertThat(service.rates().rates()).filteredOn(rate -> rate.effectiveFrom().equals("2026-01-01")).singleElement()
+                .satisfies(rate -> {
+                    assertThat(rate.source()).startsWith("From January -- confirmed by SASBO 2026-09-21");
+                    assertThat(rate.provisional()).isFalse();
+                });
+        assertThat(service.rates().rates()).filteredOn(rate -> rate.effectiveFrom().equals("2025-01-01")).singleElement()
+                .satisfies(rate -> {
+                    assertThat(rate.amount()).isEqualByComparingTo("166.65");
+                    assertThat(rate.provisional()).as("its start is assumed").isTrue();
+                    assertThat(rate.source()).contains("26 Nov 2025");
+                });
         assertThat(service.rates().januaryNotice()).as("September is not December").isNull();
     }
 
@@ -56,7 +63,8 @@ class AcbRateServiceImplIT extends AbstractAcbIT {
     @DisplayName("🔒 R1-19: a rate dated ahead is not in force before its month, and is from it -- audited run-less, who and what")
     void aRateDatedAhead() {
         AcbRatesDto after = service.add("2026-11-01", new BigDecimal("185.00"), "Agreed at the synthetic AGM", "admin-a");
-        assertThat(after.rates()).extracting(AcbRatesDto.Rate::effectiveFrom).containsExactly("2026-01-01", "2026-11-01");
+        assertThat(after.rates()).extracting(AcbRatesDto.Rate::effectiveFrom)
+                .containsExactly("2025-01-01", "2026-01-01", "2026-11-01");
         assertThat(AcbRuns.rateInForce(rates, YearMonth.of(2026, 10)).getAmount()).isEqualByComparingTo("174.00");
         assertThat(AcbRuns.rateInForce(rates, YearMonth.of(2026, 11)).getAmount()).isEqualByComparingTo("185.00");
         assertThat(jdbc.queryForMap("SELECT actor, reason, run_id FROM acb_audit_events WHERE kind = 'RATE_ADDED'"))
