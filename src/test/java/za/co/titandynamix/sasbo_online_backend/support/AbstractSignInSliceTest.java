@@ -1,6 +1,8 @@
 package za.co.titandynamix.sasbo_online_backend.support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -31,12 +33,23 @@ import static org.mockito.Mockito.when;
  * bearer token through the real filter ({@link #as}).
  *
  * <p>One base for every class of the slice, so they share one cached context; a class that sets the mode adds one more.
+ *
+ * <h2>🔴 One class at a time -- the mocks are shared</h2>
+ * Sharing the context means sharing its mock beans, and the suite runs test CLASSES concurrently: one class's stubbing
+ * of {@code sessions.authenticate}, or the reset that follows each of its tests, landed in another class's request
+ * mid-test -- a 401 where the token had been stubbed, a 200 where a refusal had (run 37610088942; the run before it
+ * passed). Every class of this base takes {@link #MOCKS} for the whole class, so they run one after another and each
+ * test's stubs are its own. ({@code @ResourceLock} is inherited.)
  */
 @WebMvcTest(controllers = {AuthController.class, UserAdminController.class, AuditController.class,
         SignInSliceRoutes.class})
+@ResourceLock(value = AbstractSignInSliceTest.MOCKS, mode = ResourceAccessMode.READ_WRITE)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, SignInExceptionHandler.class, JacksonConfig.class,
         SignInSliceRoutes.class})
 public abstract class AbstractSignInSliceTest {
+
+    /** The lock every class of the sign-in slice holds: their shared context's mock beans. */
+    public static final String MOCKS = "the sign-in slice's shared mock beans";
 
     @Autowired
     protected MockMvc mockMvc;
