@@ -70,7 +70,67 @@ class PayrollMatcherTest {
         assertThat(r.matches().get(0).rule()).isEqualTo(PayrollMatchRule.NAME);
         assertThat(r.matches().get(0).member().id()).isEqualTo(1);
         assertThat(r.matches().get(0).confidence()).isEqualTo(PayrollConfidence.LOW);
-        assertThat(types(r)).containsExactly(PayrollDiscrepancyType.EMPLOYEE_NUMBER_DIFFERS);
+        // The other member is a current payroll member the file does not list: missing, as PAY-14 says.
+        assertThat(types(r)).containsExactly(PayrollDiscrepancyType.EMPLOYEE_NUMBER_DIFFERS,
+                PayrollDiscrepancyType.MISSING_FROM_FILE);
+        assertThat(r.found().get(1).memberId()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Stephne, PAY-10, PAY-19: a staff number several members share -- the name picks the one, an initial "
+            + "that differs flagged")
+    void aSharedStaffNumber() {
+        PayrollMatcher.Member a = member(1, "990", null, "E", "Casewell");
+        PayrollMatcher.Member b = member(2, "990", null, "P", "Ledgerley");
+        PayrollMatcher.Member c = member(3, "990", null, "RT", "Tallymore");
+        PayrollMatcher.Result r = match(List.of(line(4, "990", null, "N", "CASEWELL", "174.00"),
+                line(5, "990", null, "P", "Ledgerley", "174.00"), line(6, "990", null, "RT", "Tallymore", "174.00")),
+                List.of(a, b, c));
+        assertThat(r.matches()).extracting(m -> m.member().id(), PayrollMatcher.LineMatch::rule).containsExactly(
+                org.assertj.core.groups.Tuple.tuple(1, PayrollMatchRule.STAFF_NUMBER),
+                org.assertj.core.groups.Tuple.tuple(2, PayrollMatchRule.STAFF_NUMBER),
+                org.assertj.core.groups.Tuple.tuple(3, PayrollMatchRule.STAFF_NUMBER));
+        assertThat(types(r)).containsExactly(PayrollDiscrepancyType.NAME_DIFFERS);
+        assertThat(r.found().get(0).memberId()).isEqualTo(1);
+
+        // The must-pass twin: two of them share the surname too, and nothing on the line tells them apart.
+        PayrollMatcher.Member twin = member(4, "990", null, "K", "Casewell");
+        PayrollMatcher.Result unsure = match(List.of(line(4, "990", null, "N", "CASEWELL", "174.00")), List.of(a, twin));
+        assertThat(unsure.matches().get(0).rule()).isEqualTo(PayrollMatchRule.NONE);
+        assertThat(types(unsure)).containsExactly(PayrollDiscrepancyType.NOT_A_MEMBER,
+                PayrollDiscrepancyType.MISSING_FROM_FILE, PayrollDiscrepancyType.MISSING_FROM_FILE);
+    }
+
+    @Test
+    @DisplayName("Stephne, PAY-19: a name alone whose initial differs is paired by a surname each side holds alone -- "
+            + "LOW, and flagged")
+    void aNameAloneWithAnInitialThatDiffers() {
+        PayrollMatcher.Member a = member(1, null, null, "D", "Draftmore");
+        PayrollMatcher.Member b = member(2, null, null, "RT", "Ledgerwood");
+        PayrollMatcher.Result r = match(List.of(line(1, null, null, "B", "Draftmore", "174.00"),
+                line(2, null, null, "RT", "Ledgerwood", "174.00")), List.of(a, b));
+        assertThat(r.matches()).extracting(m -> m.member().id(), PayrollMatcher.LineMatch::confidence)
+                .containsExactlyInAnyOrder(org.assertj.core.groups.Tuple.tuple(1, PayrollConfidence.LOW),
+                        org.assertj.core.groups.Tuple.tuple(2, PayrollConfidence.LOW));
+        assertThat(r.matches()).filteredOn(m -> m.member().id() == 1).singleElement()
+                .satisfies(m -> assertThat(m.reason()).isEqualTo(PayrollMatcher.SURNAME_ALONE));
+        assertThat(types(r)).containsExactly(PayrollDiscrepancyType.NAME_DIFFERS);
+        assertThat(r.found().get(0).detail()).contains("matched by the surname alone");
+
+        // The must-pass twins: a second member with the surname, or a second line claiming it, and nobody is paired.
+        PayrollMatcher.Member namesake = member(3, null, null, "K", "Draftmore");
+        PayrollMatcher.Result namesakes = match(List.of(line(1, null, null, "B", "Draftmore", "174.00")),
+                List.of(a, namesake));
+        assertThat(types(namesakes)).containsExactly(PayrollDiscrepancyType.NOT_A_MEMBER,
+                PayrollDiscrepancyType.MISSING_FROM_FILE, PayrollDiscrepancyType.MISSING_FROM_FILE);
+        PayrollMatcher.Result rivals = match(List.of(line(1, null, null, "B", "Draftmore", "174.00"),
+                line(2, null, null, "C", "Draftmore", "174.00")), List.of(a));
+        assertThat(types(rivals)).containsExactly(PayrollDiscrepancyType.NOT_A_MEMBER,
+                PayrollDiscrepancyType.NOT_A_MEMBER, PayrollDiscrepancyType.MISSING_FROM_FILE);
+        // A line that carries a number is never paired by its surname: the number had its say.
+        PayrollMatcher.Result numbered = match(List.of(line(1, "77", null, "B", "Draftmore", "174.00")), List.of(a));
+        assertThat(types(numbered)).containsExactly(PayrollDiscrepancyType.NOT_A_MEMBER,
+                PayrollDiscrepancyType.MISSING_FROM_FILE);
     }
 
     @Test

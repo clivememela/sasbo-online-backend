@@ -29,10 +29,14 @@ import java.util.function.Function;
  * <h2>Who a line is (Stephne, PAY-10: staff number, ID number, "Initials and surname")</h2>
  * <ol>
  *   <li>The staff number, among the employer's members -- a staff number is the employer's, and means nothing at
- *       another.</li>
+ *       another. Where several members share it (Nedbank prints a code its staff have in common), the name on the
+ *       line picks the one it fits: by initials and surname, else by the surname alone, the initials then flagged.</li>
  *   <li>The ID number, among every member on record.</li>
  *   <li>Initials and surname, among the employer's members, and only where exactly one fits -- preferring, where
  *       several fit, the one member who pays by payroll and has not left.</li>
+ *   <li>A name alone with no number on the line (GBS's letter, SA Reserve Bank's picture), whose initials fit nobody:
+ *       paired with a member who would otherwise be missing, only where the surname is theirs alone -- no other member
+ *       of the employer has it, and no other line left over does -- and the initials flagged for a person to check.</li>
  * </ol>
  * Whatever the rule, the line's other details are set against the member's: a different employee number, or a name
  * that does not match the ID number or the employee number, is a discrepancy of its own (PAY-19), as is a different ID
@@ -54,6 +58,10 @@ import java.util.function.Function;
 public final class PayrollMatcher {
 
     private static final BigDecimal CENT = new BigDecimal("0.01");
+
+    /** What a line paired by the surname alone says of its match. */
+    static final String SURNAME_ALONE = "Matched by the surname alone: the only member of this employer with it, and no "
+            + "other line of the file has it; the initials differ";
 
     /** A member as the comparison needs them: who, how they are known, how they pay, and what they owe. */
     public record Member(int id, String membershipNumber, String staffKey, String idKey, String initials,
@@ -130,6 +138,7 @@ public final class PayrollMatcher {
         int byName = 0;
         int notMembers = 0;
         BigDecimal fileTotal = BigDecimal.ZERO.setScale(2);
+        List<PayrollParser.Line> leftOver = new ArrayList<>();
 
         for (PayrollParser.Line line : lines) {
             if (!line.valid()) {
@@ -141,15 +150,7 @@ public final class PayrollMatcher {
             fileTotal = fileTotal.add(line.amount());
             Identified who = identify(line, index, inputs.byIdNumber());
             if (who == null) {
-                notMembers++;
-                found.add(new Found(PayrollDiscrepancyType.NOT_A_MEMBER, "L" + line.lineNumber(), null,
-                        line.lineNumber(), line.amount(), null, null, null,
-                        "Line " + line.lineNumber() + ": " + money(line.amount())
-                                + " deducted from someone who is not a member of SASBO."));
-                matches.add(new LineMatch(line.lineNumber(), null, PayrollMatchRule.NONE, null,
-                        index.ambiguousName(line) ? "More than one member of this employer has this name, and "
-                                + "nothing else on the line tells them apart." : "No member has this staff number, ID "
-                                + "number, or initials and surname.", null, null, null, null));
+                leftOver.add(line);
                 continue;
             }
             switch (who.rule()) {
@@ -160,6 +161,28 @@ public final class PayrollMatcher {
             identified.put(line.lineNumber(), who);
             linesOf.computeIfAbsent(who.member().id(), id -> new ArrayList<>()).add(line);
             matchedMembers.put(who.member().id(), who.member());
+        }
+
+        Map<Integer, Member> bySurnameAlone = pairBySurnameAlone(leftOver, inputs, matchedMembers);
+        for (PayrollParser.Line line : leftOver) {
+            Member alone = bySurnameAlone.get(line.lineNumber());
+            if (alone != null) {
+                byName++;
+                identified.put(line.lineNumber(), new Identified(alone, PayrollMatchRule.NAME, PayrollConfidence.LOW,
+                        SURNAME_ALONE, false, false, !PayrollNames.fits(line.name(), alone.initials(), alone.surname())));
+                linesOf.computeIfAbsent(alone.id(), id -> new ArrayList<>()).add(line);
+                matchedMembers.put(alone.id(), alone);
+                continue;
+            }
+            notMembers++;
+            found.add(new Found(PayrollDiscrepancyType.NOT_A_MEMBER, "L" + line.lineNumber(), null,
+                    line.lineNumber(), line.amount(), null, null, null,
+                    "Line " + line.lineNumber() + ": " + money(line.amount())
+                            + " deducted from someone who is not a member of SASBO."));
+            matches.add(new LineMatch(line.lineNumber(), null, PayrollMatchRule.NONE, null,
+                    index.ambiguousName(line) ? "More than one member of this employer has this name, and "
+                            + "nothing else on the line tells them apart." : "No member has this staff number, ID "
+                            + "number, or initials and surname.", null, null, null, null));
         }
 
         int catchUps = 0;
@@ -252,7 +275,20 @@ public final class PayrollMatcher {
 
         Member byStaff(PayrollParser.Line line) {
             List<Member> found = line.staffKey() == null ? List.of() : byStaff.getOrDefault(line.staffKey(), List.of());
-            return single(found, line);
+            Member one = single(found, line);
+            if (one != null || found.size() < 2 || line.name().isEmpty()) {
+                return one;
+            }
+            // A number several members share: the name on the line picks the one it fits, by initials and surname --
+            // else by the surname alone, when one alone has it; the initials are then flagged as differing (PAY-19).
+            List<Member> fitting = found.stream()
+                    .filter(m -> PayrollNames.fits(line.name(), m.initials(), m.surname())).toList();
+            if (!fitting.isEmpty()) {
+                return fitting.size() == 1 ? fitting.get(0) : null;
+            }
+            List<Member> sameSurname = found.stream().filter(m -> !m.surnameKey().isEmpty() && line.name().readings()
+                    .stream().anyMatch(reading -> reading.surnameKey().equals(m.surnameKey()))).toList();
+            return sameSurname.size() == 1 ? sameSurname.get(0) : null;
         }
 
         Member byName(PayrollParser.Line line) {
@@ -299,6 +335,51 @@ public final class PayrollMatcher {
             }
             return null;
         }
+    }
+
+    /**
+     * Lines left over that carry a name alone -- no staff number, no ID number -- paired with members who would otherwise
+     * be missing, where the surname is theirs alone on both sides: one member of the employer has it, and one line left
+     * over claims that member. A line or a member with any rival is left as it was: not a member, and missing.
+     */
+    private static Map<Integer, Member> pairBySurnameAlone(List<PayrollParser.Line> leftOver, Inputs inputs,
+                                                           Map<Integer, Member> matchedMembers) {
+        Map<String, List<Member>> namesakes = new HashMap<>();
+        for (Member member : inputs.employerMembers()) {
+            if (!member.surnameKey().isEmpty()) {
+                namesakes.computeIfAbsent(member.surnameKey(), key -> new ArrayList<>()).add(member);
+            }
+        }
+        Map<Integer, Member> candidates = new LinkedHashMap<>();
+        Map<Integer, Integer> claims = new HashMap<>();
+        for (PayrollParser.Line line : leftOver) {
+            if (line.staffKey() != null || line.idKey() != null || line.name().isEmpty()) {
+                continue;
+            }
+            Set<Member> members = new HashSet<>();
+            for (PayrollNames.Reading reading : line.name().readings()) {
+                List<Member> same = namesakes.getOrDefault(reading.surnameKey(), List.of());
+                if (same.size() == 1) {
+                    members.add(same.get(0));
+                }
+            }
+            members.forEach(member -> claims.merge(member.id(), 1, Integer::sum));
+            boolean hasInitials = line.name().readings().stream()
+                    .anyMatch(reading -> reading.initials() != null && !reading.initials().isEmpty());
+            if (members.size() == 1 && hasInitials) {
+                candidates.put(line.lineNumber(), members.iterator().next());
+            }
+        }
+        LocalDate monthEnd = inputs.period().atEndOfMonth();
+        Map<Integer, Member> paired = new HashMap<>();
+        candidates.forEach((lineNumber, member) -> {
+            boolean expected = member.payroll() && !member.leaving()
+                    && (member.joined() == null || !member.joined().isAfter(monthEnd));
+            if (expected && !matchedMembers.containsKey(member.id()) && claims.get(member.id()) == 1) {
+                paired.put(lineNumber, member);
+            }
+        });
+        return paired;
     }
 
     private static Identified identify(PayrollParser.Line line, Index index, Map<String, Member> byIdNumber) {
@@ -385,9 +466,12 @@ public final class PayrollMatcher {
         }
         if (who.nameDiffers()) {
             found.add(found(PayrollDiscrepancyType.NAME_DIFFERS, member, line, null, null,
-                    at + "the name on the file does not match the "
-                            + (who.rule() == PayrollMatchRule.ID_NUMBER ? "ID number" : "employee number")
-                            + " on record."));
+                    at + (who.rule() == PayrollMatchRule.NAME
+                            ? "the initials on the file differ from the member's on record (matched by the surname "
+                                    + "alone: the only member of this employer with it)."
+                            : "the name on the file does not match the "
+                                    + (who.rule() == PayrollMatchRule.ID_NUMBER ? "ID number" : "employee number")
+                                    + " on record.")));
         }
         List<String> details = new ArrayList<>();
         if (who.idDiffers()) {

@@ -271,7 +271,10 @@ public final class PayrollNames {
         List<String> kept = new ArrayList<>();
         for (String word : words) {
             String bare = word.replace(".", "").toUpperCase(Locale.ROOT);
-            if (!TITLES.contains(bare)) {
+            // "M.R." and "D.R." are initials, not "Mr" and "Dr": a title has at most a full stop at its end.
+            int stop = word.indexOf('.');
+            boolean dottedInitials = stop >= 0 && stop < word.length() - 1;
+            if (!TITLES.contains(bare) || dottedInitials) {
                 kept.add(word);
             }
         }

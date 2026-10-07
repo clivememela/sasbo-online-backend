@@ -89,6 +89,23 @@ class PayrollNamesTest {
     }
 
     @Test
+    @DisplayName("initials that spell a title are initials: Surname M.R., Mr. -- and Mr. Surname loses only its title")
+    void initialsThatSpellATitle() {
+        PayrollNames.Name dotted = PayrollNames.read(NameStyle.SURNAME_INITIALS_TITLE, null, null, null,
+                "Pilotwell M.R., Mr.");
+        assertThat(dotted.initials()).isEqualTo("MR");
+        assertThat(dotted.surname()).isEqualTo("Pilotwell");
+        PayrollNames.Name doctor = PayrollNames.read(NameStyle.SURNAME_INITIALS_TITLE, null, null, null,
+                "Pilotwell D.R., Dr.");
+        assertThat(doctor.initials()).isEqualTo("DR");
+        // The must-pass twin: a title written as a title still goes.
+        PayrollNames.Name titled = PayrollNames.read(NameStyle.TITLE_INITIALS_SURNAME, null, null, null,
+                "Mr. AB Pilotwell");
+        assertThat(titled.initials()).isEqualTo("AB");
+        assertThat(titled.surname()).isEqualTo("Pilotwell");
+    }
+
+    @Test
     @DisplayName("separate columns: an initials column, or initials from first names")
     void separate() {
         assertThat(PayrollNames.read(NameStyle.SEPARATE, "MP  ", null, "SAMPLEKOP            ", null).initials())
