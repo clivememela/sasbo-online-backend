@@ -61,6 +61,8 @@ GET /api/members/{id}/welcome-letter-preview
 GET /api/month-end/months
 GET /api/month-end/packs/{id}
 GET /api/month-end/packs/{id}/{workbook}
+GET /api/month-end/suspensions/lapsed
+GET /api/month-end/suspensions/members
 GET /api/month-end/{month}
 GET /api/month-end/{month}/branches
 GET /api/month-end/{month}/leavers
@@ -70,6 +72,7 @@ GET /api/month-end/{month}/new-and-deleted
 POST /api/month-end/{month}/pack
 GET /api/month-end/{month}/recruitment
 GET /api/month-end/{month}/representatives
+GET /api/month-end/{month}/suspensions
 POST /api/month-end/{month}/take
 GET /api/month-end/{month}/visits
 GET /api/provinces
@@ -81,13 +84,18 @@ PUT /api/recruitment-channels/{id}
 GET /api/reference/areas
 GET /api/reference/committee-provinces
 GET /api/reference/committees
+GET /api/reference/core-tiers
 GET /api/reference/deletion-codes
 GET /api/reference/employer-groups
 GET /api/reference/employers
+GET /api/reference/no-deduction-reasons
+POST /api/reference/no-deduction-reasons
+PUT /api/reference/no-deduction-reasons/{id}
 GET /api/reference/regions
 GET /api/reference/status
 GET /api/reference/suspension-codes
 GET /api/reference/table-codes
+PUT /api/reference/table-codes/{code}/core-tier
 GET /api/representative-userRoles
 POST /api/representative-userRoles
 DELETE /api/representative-userRoles/{id}
