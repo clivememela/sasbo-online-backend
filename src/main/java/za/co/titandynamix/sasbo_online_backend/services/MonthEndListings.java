@@ -117,7 +117,8 @@ public class MonthEndListings {
         }
 
         CallerScope scope = CallerScope.current();
-        MonthRange range = MonthRange.of(asked);
+        // The window the month counts (Stephne, MEN-14), as its figures do: a listing names the members they count.
+        MonthRange range = takes.counted(asked);
         long total = listings.count(definition.kind(), range, scope, areaCode, regionCode);
         List<MonthEndListingDto.Row> rows = listings.page(definition.kind(), range, scope, areaCode, regionCode,
                 Math.multiplyExact(pageNumber, pageSize), pageSize).stream().map(MonthEndListings::row).toList();

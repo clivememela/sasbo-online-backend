@@ -111,28 +111,32 @@
             "name" : "INVENTED BANK",
             "employerId" : 1,
             "employer" : "INVENTED BANK",
-            "part" : null
+            "part" : null,
+            "coreTier" : "A"
           },
           {
             "code" : 902,
             "name" : "INVENTED BANK DEPARTMENTS",
             "employerId" : 1,
             "employer" : "INVENTED BANK",
-            "part" : "DEPARTMENTS"
+            "part" : "DEPARTMENTS",
+            "coreTier" : null
           },
           {
             "code" : 903,
             "name" : "INVENTED INSURER CASH",
             "employerId" : 2,
             "employer" : "INVENTED INSURER",
-            "part" : "CASH"
+            "part" : "CASH",
+            "coreTier" : null
           },
           {
             "code" : 904,
             "name" : "INVENTED LENDER",
-            "employerId" : 0,
+            "employerId" : null,
             "employer" : null,
-            "part" : null
+            "part" : null,
+            "coreTier" : null
           }
         ]
       }
@@ -745,13 +749,13 @@
         "workplacesServed" : "ALL",
         "groupedAsAt" : "2026-09-29",
         "totals" : {
-          "onRecord" : 1,
-          "suspended" : 0,
+          "onRecord" : 2,
+          "suspended" : 1,
           "paying" : 1,
           "joined" : 0,
           "left" : 0,
           "reinstated" : 0,
-          "opening" : 1,
+          "opening" : 2,
           "unexplained" : 0,
           "joinedYearToDate" : 0,
           "leftYearToDate" : 0,
@@ -833,13 +837,13 @@
             "fewerThanFive" : false,
             "withheld" : false,
             "figures" : {
-              "onRecord" : 1,
-              "suspended" : 0,
+              "onRecord" : 2,
+              "suspended" : 1,
               "paying" : 1,
               "joined" : 0,
               "left" : 0,
               "reinstated" : 0,
-              "opening" : 1,
+              "opening" : 2,
               "unexplained" : 0,
               "joinedYearToDate" : 0,
               "leftYearToDate" : 0,
@@ -851,14 +855,15 @@
         ],
         "unplaced" : {
           "statuses" : [ ],
-          "noWorkplace" : 1,
+          "noWorkplace" : 2,
           "noTableCode" : 0
         },
         "seededMembers" : 0,
         "membersFrom" : null,
-        "leaversFrom" : null,
+        "leaversFrom" : "2026-06-02",
         "takenAt" : null,
-        "takenBy" : null
+        "takenBy" : null,
+        "notes" : [ ]
       }
     },
     "GET /api/members/{id}/history" : {
@@ -931,7 +936,10 @@
           "suspensionReason" : null,
           "note" : "Invented: moved away",
           "changedBy" : "system",
-          "changedAt" : "2026-09-29T08:00:00Z"
+          "changedAt" : "2026-09-29T08:00:00Z",
+          "noDeductionReasonId" : null,
+          "noDeductionReason" : null,
+          "undoes" : null
         }
       }
     },
@@ -992,7 +1000,11 @@
             "takenBy" : "seed",
             "takeId" : 1,
             "firstTakenAt" : null,
-            "firstTakenBy" : null
+            "firstTakenBy" : null,
+            "takeNumber" : 1,
+            "reason" : null,
+            "countsFrom" : "2026-07-31T22:00:00Z",
+            "countsUntil" : "2026-08-31T22:00:00Z"
           }
         ]
       }
@@ -1030,7 +1042,11 @@
         "takenBy" : "seed",
         "takeId" : 1,
         "firstTakenAt" : null,
-        "firstTakenBy" : null
+        "firstTakenBy" : null,
+        "takeNumber" : 1,
+        "reason" : null,
+        "countsFrom" : "2026-07-31T22:00:00Z",
+        "countsUntil" : "2026-08-31T22:00:00Z"
       }
     },
     "GET /api/month-end/{month}/new-and-deleted" : {
@@ -1083,7 +1099,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1095,7 +1112,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1107,7 +1125,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1119,7 +1138,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1132,7 +1152,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1167,7 +1188,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1179,7 +1201,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1191,7 +1214,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1203,7 +1227,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1216,7 +1241,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1251,7 +1277,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1263,7 +1290,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1275,7 +1303,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1287,7 +1316,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1300,7 +1330,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1335,7 +1366,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1347,7 +1379,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1359,7 +1392,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1371,7 +1405,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1384,13 +1419,15 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The year to date is the sum of the months taken, each as it was taken -- the months of 2026 taken: August 2026.",
           "Core is the core groups' employers; other is every other employer. A member with no workplace on record is in the total only."
         ]
@@ -1457,7 +1494,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E1",
@@ -1471,7 +1509,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "G2",
@@ -1485,7 +1524,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -1499,7 +1539,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -1513,7 +1554,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1527,7 +1569,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~CORE",
@@ -1541,7 +1584,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1556,7 +1600,117 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "by-tier",
+            "title" : "Membership by core tier",
+            "legacyTitle" : "MEMBERSHIP REPORT",
+            "columns" : [
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "members",
+                "label" : "Members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "joined",
+                "label" : "Enrolments",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "left",
+                "label" : "Cancellations",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "suspended",
+                "label" : "Suspensions",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "Core A",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  40,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_TIER",
+                "label" : "All other institutions",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  135,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  3,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                178,
+                1,
+                0,
+                0,
+                0
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1639,7 +1793,8 @@
                   0,
                   0.0,
                   40
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -1659,7 +1814,8 @@
                   0,
                   0.0,
                   120
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -1679,7 +1835,8 @@
                   0,
                   0.0,
                   15
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -1699,7 +1856,8 @@
                   0,
                   0.0,
                   3
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1719,7 +1877,8 @@
                   1,
                   0.0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1740,7 +1899,8 @@
                 1,
                 0.0,
                 178
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1763,15 +1923,18 @@
               "withheld" : false,
               "cells" : [
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "Members are the members on record less the suspended -- the figure SASBO's reports print (MD24).",
-          "How a member pays is read as it is stored: by debit order, by payroll deduction, and every other way as other. The amounts are the monthly subscriptions on record of the paying members."
+          "How a member pays is read as it is stored: by debit order, by payroll deduction, and every other way as other. The amounts are the monthly subscriptions on record of the paying members.",
+          "Core A, B and C are SASBO's core tiers; which table code stands in which is provisional until SASBO confirms it. Every other employer is one of the individual institutions."
         ]
       }
     },
@@ -1836,7 +1999,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1849,7 +2013,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1862,7 +2027,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1876,7 +2042,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1917,7 +2084,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -1930,7 +2098,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1944,7 +2113,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1985,7 +2155,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -1998,7 +2169,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2011,7 +2183,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2025,7 +2198,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2060,7 +2234,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2072,7 +2247,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2084,7 +2260,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2096,7 +2273,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2108,7 +2286,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2121,7 +2300,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2156,13 +2336,15 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "A member is counted once each time they left in the month. SASBO's reasons are its deletion codes, by their numbers; a leaver with no code on record is counted apart."
         ]
       }
@@ -2233,7 +2415,8 @@
                   0.0,
                   160,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -2248,7 +2431,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -2263,7 +2447,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2278,7 +2463,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2294,7 +2480,8 @@
                 0.0,
                 160,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2347,7 +2534,8 @@
                   0.0,
                   160,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -2362,7 +2550,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2377,7 +2566,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2392,7 +2582,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2408,13 +2599,15 @@
                 0.0,
                 160,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "Members are the members on record less the suspended; penetration is members over complement.",
           "The branches themselves, with their visits, are the workplaces' own screen."
         ]
@@ -2490,7 +2683,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2531,7 +2725,8 @@
                 null,
                 0,
                 null
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2560,13 +2755,15 @@
               "cells" : [
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The year to date is the sum of the months taken, each as it was taken -- the months of 2026 taken: August 2026.",
           "A recruiter is who signed the member up, as captured. Which year to date SASBO reads, and the competition's rule, are SASBO's to say (MM69, MM71)."
         ]
@@ -2634,7 +2831,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2648,7 +2846,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2662,7 +2861,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2676,7 +2876,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2690,7 +2891,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2705,7 +2907,8 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2752,7 +2955,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2766,7 +2970,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2780,7 +2985,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2794,7 +3000,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2808,7 +3015,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2823,7 +3031,8 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2870,7 +3079,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2884,7 +3094,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2898,7 +3109,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2912,7 +3124,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2926,7 +3139,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2941,13 +3155,15 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "A representative is a member on record marked as a shop steward, and a committee member one marked as a BEC member -- a reading SASBO is asked to confirm.",
           "A Memnet member is a member on record marked so from the nomination form, at capture or on an edit. A month taken before the mark existed counts none."
         ]
@@ -3001,7 +3217,8 @@
                   0,
                   120,
                   120
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W3",
@@ -3013,7 +3230,8 @@
                   0,
                   15,
                   15
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W4",
@@ -3025,7 +3243,8 @@
                   0,
                   3,
                   3
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W1",
@@ -3037,7 +3256,8 @@
                   0,
                   40,
                   40
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -3049,7 +3269,8 @@
                   1,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -3062,13 +3283,15 @@
                 1,
                 178,
                 178
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The last visit is the newest on record by the month's end -- a visit captured here, or a month SASBO's branch list prints; as they stood when the month was taken.",
           "Members are the members on record less the suspended. A branch could still yield its complement less its members, where the complement is the more.",
           "The branch manager's name and telephone are a person's details, and are shown once administrators sign in to this system."
@@ -4008,7 +4231,7 @@
         "path" : "/api/members/summary",
         "code" : "SUMMARY_GROUPING_UNKNOWN",
         "details" : {
-          "known" : "group,employer,tableCode,area,region,committee"
+          "known" : "group,employer,tableCode,area,region,committee,tier"
         }
       }
     },
@@ -4286,7 +4509,8 @@
     "MONTH_TAKEN_SINCE" : {
       "request" : "POST /api/month-end/2026-08/take",
       "requestBody" : {
-        "replaces" : 999999
+        "replaces" : 999999,
+        "reason" : "Invented: corrected"
       },
       "status" : 409,
       "body" : {

@@ -39,6 +39,15 @@ public final class MigrationSeed {
     public static final int ACB_RATES = 2;
 
     /**
+     * {@code no_deduction_reasons} is V79's seed: Stephne's reasons for no payroll deduction (MEN-17) -- unpaid leave,
+     * maternity leave, paternity leave, insufficient funds, sick leave.
+     */
+    public static final int NO_DEDUCTION_REASONS = 5;
+
+    /** {@code core_tiers} is V79's seed: Core A, B and C (MEN-31). */
+    public static final int CORE_TIERS = 3;
+
+    /**
      * {@code acb_unpaid_codes}: V45's four codes from Standard Bank's report of 21 August 2026 (2, 4, 30, 34), as
      * V70 corrected them from Stephne's answers, and the six her "Suspension codes" sheet and DOD-04 add (6, 15, 18,
      * 26, 31, 32). In the order {@code ORDER BY length(code), code} reads them.
@@ -244,7 +253,9 @@ public final class MigrationSeed {
             "V71__dod_letters.sql",
             "V72__dod_returns_and_counts.sql",
             "V77__month_end_recipients.sql",
-            "V78__month_end_files_sent.sql");
+            "V78__month_end_files_sent.sql",
+            // October build, month end's rules: the reasons for no deduction, a person once, the cut-off, the tiers.
+            "V79__month_end_rules.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

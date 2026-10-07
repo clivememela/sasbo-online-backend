@@ -93,6 +93,17 @@ public class MonthEndStatisticsController {
     }
 
     /**
+     * Stephne, MEN-18: the suspended within their banks and by SASBO's code, and by the reason for no payroll deduction
+     * (MEN-17) -- counts, under rule C as every statistic is. The members themselves are a listing, held elsewhere.
+     */
+    @GetMapping("/suspensions")
+    public MonthEndStatisticDto suspensions(@PathVariable("month") String month,
+                                            @RequestParam(required = false) String area,
+                                            @RequestParam(required = false) String region) {
+        return statistics.suspensions(month, area, region);
+    }
+
+    /**
      * A listing -- the month's new members, its deleted, the members a recruiter signed up, the elected representatives
      * -- names members: {@code MEMBERS_VIEW}, a page at a time, within the caller's scope.
      */

@@ -158,7 +158,7 @@ class MonthEndControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MONTH_NOT_READY"))
                 .andExpect(jsonPath("$.details.missing").value("workplaces"));
-        verify(facts, never()).insertMonth(any(), any(), any(), any());
+        verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -169,24 +169,54 @@ class MonthEndControllerTest {
         when(facts.workplacesOnRecord()).thenReturn(5L);
 
         SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
-                        .contentType("application/json").content("{\"replaces\": 2}")))
+                        .contentType("application/json").content("{\"replaces\": 2, \"reason\": \"" + REASON + "\"}")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MONTH_TAKEN_SINCE"))
                 .andExpect(jsonPath("$.details.takeId").value("3"))
                 .andExpect(jsonPath("$.details.takenBy").value("seed"));
         SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-07/take")
-                        .contentType("application/json").content("{\"replaces\": 3}")))
+                        .contentType("application/json").content("{\"replaces\": 3, \"reason\": \"" + REASON + "\"}")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("MONTH_NOT_TAKEN"));
-        verify(facts, never()).insertMonth(any(), any(), any(), any());
-        // Naming the newest take, the take again is made -- the month's record, by the person taking it (MEN-10: any
-        // holder of the permission, not only who took it first). Who may call is MonthEndControllerSecurityTest's.
+        verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
+        // Naming the newest take, and saying why (MEN-11), the take again is made -- the month's record, by the person
+        // taking it (MEN-10: any holder of the permission, not only who took it first), with the reason beside it. Who
+        // may call is MonthEndControllerSecurityTest's.
         SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
-                        .contentType("application/json").content("{\"replaces\": 3}")))
+                        .contentType("application/json").content("{\"replaces\": 3, \"reason\": \"" + REASON + "\"}")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.takeId").value(3));
         verify(facts).insertMonth(eq(LocalDate.of(2026, 8, 1)), eq("Invented invented.headoffice (invented.headoffice)"),
-                any(), eq(AUGUST));
+                any(), eq(AUGUST), eq(REASON), any());
         verify(audit).record(eq("MONTH_END_TAKEN_AGAIN"), eq("MONTH_END"), eq("2026-08"), any());
+    }
+
+    /** Why a month is taken again, as an administrator would type it. */
+    private static final String REASON = "Invented: corrected the workplaces";
+
+    @Test
+    @DisplayName("🔒 MEN-11: a take again with no reason is TAKE_REASON_REQUIRED, and one past 500 characters TAKE_REASON_INVALID -- said first, before the take that is not the newest and the month taken already, and nothing is written")
+    void aTakeAgainSaysWhy() throws Exception {
+        when(facts.taken(LocalDate.of(2026, 8, 1))).thenReturn(Optional.of(AUGUST));
+        when(facts.workplacesOnRecord()).thenReturn(5L);
+
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
+                        .contentType("application/json").content("{\"replaces\": 2}")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TAKE_REASON_REQUIRED"))
+                .andExpect(jsonPath("$.details.month").value("2026-08"));
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
+                        .contentType("application/json")
+                        .content("{\"replaces\": 3, \"reason\": \"" + "x".repeat(501) + "\"}")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TAKE_REASON_INVALID"))
+                .andExpect(jsonPath("$.details.field").value("reason"))
+                .andExpect(jsonPath("$.details.limit").value("500"));
+        // A first take may give a reason; one that is not ordinary text is said before the month taken already is.
+        SignInTestUsers.actingAs(TAKER, () -> mockMvc.perform(post("/api/month-end/2026-08/take")
+                        .contentType("application/json").content("{\"reason\": \"Invented\\u0007bell\"}")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TAKE_REASON_INVALID"));
+        verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
     }
 }

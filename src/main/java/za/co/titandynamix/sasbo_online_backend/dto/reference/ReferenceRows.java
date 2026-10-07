@@ -30,8 +30,19 @@ public final class ReferenceRows {
     public record Employer(long id, String name, String group, boolean core, List<Integer> tableCodes) {
     }
 
-    /** A table code, its employer where the files prove one, and the part of it the code is, where the name says. */
-    public record TableCode(int code, String name, Long employerId, String employer, String part) {
+    /**
+     * A table code, its employer where the files prove one, and the part of it the code is, where the name says --
+     * and (October build, MEN-31) the core tier it stands in: {@code A}, {@code B}, {@code C}, or {@code null} for all
+     * other institutions.
+     */
+    public record TableCode(int code, String name, Long employerId, String employer, String part, String coreTier) {
+    }
+
+    /**
+     * One of SASBO's core tiers (MEN-31) with the table codes standing in it; {@code provisional} until SASBO confirms
+     * the mapping (the Senior Secretariat decides).
+     */
+    public record CoreTier(String code, String name, int ordinal, boolean provisional, List<Integer> tableCodes) {
     }
 
     /** A province's letter; its name is empty until SASBO says which province it is (MM62). */

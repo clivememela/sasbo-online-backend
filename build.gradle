@@ -253,6 +253,9 @@ tasks.register('generateApiSurface', Test) {
 		// data/demonstration_members.json: the invented members who stand at SASBO's workplaces (01.4), generated
 		// with a fixed random seed from the workplaces and nine proportions, and checked byte for byte (BR69).
 		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberGeneratorTest'
+		// data/month_end_rules_members.json: month end's rules shown working -- invented members suspended within six
+		// banks, a rejoin in the same month, a workplace over its complement -- written by rule and checked byte for byte.
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.MonthEndRulesSeedGeneratorTest'
 	}
 
 	systemProperty 'apiSurface.write', 'true'

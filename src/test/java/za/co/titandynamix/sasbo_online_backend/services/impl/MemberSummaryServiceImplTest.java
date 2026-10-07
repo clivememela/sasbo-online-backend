@@ -135,12 +135,12 @@ class MemberSummaryServiceImplTest {
     }
 
     @Test
-    @DisplayName("ME-14: a grouping nobody takes is SUMMARY_GROUPING_UNKNOWN naming the six -- and never the one sent")
+    @DisplayName("ME-14: a grouping nobody takes is SUMMARY_GROUPING_UNKNOWN naming the seven -- and never the one sent")
     void aGroupingNobodyTakes() {
         assertThatThrownBy(() -> service("all", null).summary("2026-09", "PLANTEDGROUPING", null, null))
                 .isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
                     assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.SUMMARY_GROUPING_UNKNOWN);
-                    assertThat(refusal.details()).containsEntry("known", "group,employer,tableCode,area,region,committee");
+                    assertThat(refusal.details()).containsEntry("known", "group,employer,tableCode,area,region,committee,tier");
                     assertThat(refusal.getMessage() + refusal.details()).doesNotContain("PLANTEDGROUPING");
                 });
         verifyNoInteractions(repository);

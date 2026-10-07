@@ -19,9 +19,16 @@ import java.util.regex.Pattern;
  *
  * <p>A range is half-open: from the first instant of the month, up to and NOT including the first instant of the
  * next. The dates are the same: from the first, up to and not including the first of the next month.
+ *
+ * <h2>The cut-off (October build, Stephne MEN-14)</h2>
+ * "After month end is done - all capturing and changes move to the next month." So the INSTANTS a month counts --
+ * {@code start} and {@code next}, and {@code yearFrom} for its year -- are its counting window: from the cut-off of the
+ * month before (its newest take) up to its own, as {@code MonthEndTakes} works them out and {@link #counted} records.
+ * {@link #of} is the calendar month, which is the window wherever no take decides otherwise. The DATES stay the
+ * calendar's: they place a member who has no instant of capture on record by their Date Joined, as rule N always did.
  */
 public record MonthRange(YearMonth month, Instant start, Instant next, LocalDate firstDay, LocalDate firstDayOfNext,
-                         LocalDate firstDayOfYear) {
+                         LocalDate firstDayOfYear, Instant yearFrom) {
 
     /** SASBO's zone: the month is South Africa's, whatever the host's clock says (PA-9). */
     public static final ZoneId ZONE = ZoneId.of("Africa/Johannesburg");
@@ -29,12 +36,23 @@ public record MonthRange(YearMonth month, Instant start, Instant next, LocalDate
     /** What a month a request names looks like: four digits, a hyphen, two. Anything else is not read. */
     private static final Pattern WRITTEN = Pattern.compile("\\d{4}-\\d{2}");
 
-    /** The month {@code month}, as a range in SASBO's zone. */
+    /** The month {@code month}, as a range in SASBO's zone: the calendar month. */
     public static MonthRange of(YearMonth month) {
         LocalDate first = month.atDay(1);
         LocalDate next = month.plusMonths(1).atDay(1);
+        LocalDate firstOfYear = LocalDate.of(month.getYear(), 1, 1);
         return new MonthRange(month, first.atStartOfDay(ZONE).toInstant(), next.atStartOfDay(ZONE).toInstant(), first,
-                next, LocalDate.of(month.getYear(), 1, 1));
+                next, firstOfYear, firstOfYear.atStartOfDay(ZONE).toInstant());
+    }
+
+    /**
+     * {@code month} as it COUNTS (MEN-14): changes and captures from {@code from} up to, not including, {@code until};
+     * its year's from {@code yearFrom}. The dates stay the calendar month's.
+     */
+    public static MonthRange counted(YearMonth month, Instant from, Instant until, Instant yearFrom) {
+        MonthRange calendar = of(month);
+        return new MonthRange(month, from, until, calendar.firstDay(), calendar.firstDayOfNext(),
+                calendar.firstDayOfYear(), yearFrom);
     }
 
     /** The month the clock is in, in SASBO's zone -- never the browser's, never the host's (MD55). */
@@ -71,9 +89,12 @@ public record MonthRange(YearMonth month, Instant start, Instant next, LocalDate
         return asked;
     }
 
-    /** The first instant of the month's year, in SASBO's zone: where the year to date begins (rule Y). */
+    /**
+     * Where the year to date begins (rule Y): the first instant of the month's year in SASBO's zone -- or, where the
+     * December before was taken, its cut-off (MEN-14).
+     */
     public Instant yearStart() {
-        return firstDayOfYear.atStartOfDay(ZONE).toInstant();
+        return yearFrom;
     }
 
     /** Whether {@code instant} falls in this month -- half-open, in SASBO's zone. */

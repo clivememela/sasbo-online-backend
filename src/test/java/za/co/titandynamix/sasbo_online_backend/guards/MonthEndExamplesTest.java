@@ -185,6 +185,7 @@ class MonthEndExamplesTest {
                     .replace("{workplace}", "{id}").replace("{draft}", "{id}")
                     .replace("{regionpack}", "{id}").replace("{southpack}", "{id}")
                     .replace("{bankfile}", "{id}").replace("{lawcallfile}", "{id}")
+                    .replace("{reasonId}", "{id}")
                     .replaceAll("/\\d{4}-\\d{2}(/|$)", "/{month}$1")
                     .replaceAll("/\\d+/", "/{id}/");
         }
@@ -315,6 +316,20 @@ class MonthEndExamplesTest {
         routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/files/banks/INVENTED_BANK", null));
         routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/files/providers/OM_FUNERAL", null));
         routes.add(new Example("POST", "/api/month-end/files/{lawcallfile}/sftp", null, "SFTP_ON"));
+        // October build, month end's rules. MEN-17: the reasons for no payroll deduction -- read, added, edited.
+        routes.add(new Example("GET", "/api/reference/no-deduction-reasons", null));
+        routes.add(new Example("POST", "/api/reference/no-deduction-reasons",
+                "{\"name\": \"Study leave\", \"suspensionCode\": 11}"));
+        routes.add(new Example("PUT", "/api/reference/no-deduction-reasons/{reasonId}", "{\"name\": \"Unpaid leave\", "
+                + "\"suspensionCode\": 11, \"ordinal\": 1, \"active\": true, \"version\": 0}"));
+        // MEN-31: the tiers, and a table code's tier set.
+        routes.add(new Example("GET", "/api/reference/core-tiers", null));
+        routes.add(new Example("PUT", "/api/reference/table-codes/902/core-tier", "{\"tier\": \"B\"}"));
+        // MEN-18: the suspended within each bank in the invented August, and the invented suspended member -- listed,
+        // and lapsed, three months after June.
+        routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/suspensions", null));
+        routes.add(new Example("GET", "/api/month-end/suspensions/members", null));
+        routes.add(new Example("GET", "/api/month-end/suspensions/lapsed", null));
         return routes;
     }
 
@@ -324,6 +339,9 @@ class MonthEndExamplesTest {
      */
     static final Set<String> SETUPS = Set.of("", "MAIL_ON", "MAIL_FAILS", "SFTP_ON", "SFTP_FAILS", "REGION_USER",
             "BELOW_ALL", "PACK_MADE", "PACK_DOWNLOADED", "FILE_MADE");
+
+    /** The invented member who is suspended: for no payroll deduction, in June, so lapsed by the frozen clock. */
+    static final String SUSPENDED_MEMBER = "M-900002";
 
     /** The month the invented rows have taken. */
     static final String TAKEN = "2026-08";
@@ -374,7 +392,40 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.MONTH_ALREADY_TAKEN, new Example("POST", take.formatted(TAKEN), null));
         // 04.11: a take again that names a take which is not the month's newest -- said before the take refuses.
         provoked.put(MonthEndRefusalCode.MONTH_TAKEN_SINCE, new Example("POST", take.formatted(TAKEN),
+                "{\"replaces\": 999999, \"reason\": \"Invented: corrected\"}"));
+        // October build, MEN-11: a take again says why -- said first of all.
+        provoked.put(MonthEndRefusalCode.TAKE_REASON_REQUIRED, new Example("POST", take.formatted(TAKEN),
                 "{\"replaces\": 999999}"));
+        provoked.put(MonthEndRefusalCode.TAKE_REASON_INVALID, new Example("POST", take.formatted(TAKEN),
+                "{\"replaces\": 999999, \"reason\": \"" + "x".repeat(501) + "\"}"));
+        // MEN-19: the invented member captured again -- answered by the global handler, the capture being
+        // MemberController's; the refusal names the member's number and never the person.
+        provoked.put(MonthEndRefusalCode.MEMBER_ALREADY_CAPTURED, new Example("POST", "/api/members",
+                "{\"firstNames\": \"Invented\", \"surname\": \"Again\", \"identityType\": \"I.D. Number\", "
+                        + "\"identityNumber\": \"" + MemberFixture.syntheticIdFor(900) + "\", \"paymentType\": \"Payroll\"}"));
+        // MEN-17: a suspension under 11 with neither a reason from the list nor one typed; a reason not on it.
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_REQUIRED, new Example("POST", status,
+                "{\"toStatus\": \"Suspended\", \"reason\": \"SUSPENSION_CODE\", \"suspensionCode\": 11}"));
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_UNKNOWN, new Example("POST", status,
+                "{\"toStatus\": \"Suspended\", \"reason\": \"SUSPENSION_CODE\", \"noDeductionReasonId\": 999999}"));
+        // The reasons' own maintenance: no name; a name taken in another case; no such reason; an edit on a stale view.
+        String reasons = "/api/reference/no-deduction-reasons";
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_INVALID, new Example("POST", reasons,
+                "{\"name\": \" \", \"suspensionCode\": 11}"));
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_TAKEN, new Example("POST", reasons,
+                "{\"name\": \"unpaid LEAVE\", \"suspensionCode\": 11}"));
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_NOT_FOUND, new Example("PUT", reasons + "/999999",
+                "{\"name\": \"Unpaid leave\", \"suspensionCode\": 11, \"version\": 0}"));
+        provoked.put(MonthEndRefusalCode.NO_DEDUCTION_REASON_CHANGED_SINCE, new Example("PUT", reasons + "/{reasonId}",
+                "{\"name\": \"Unpaid leave\", \"suspensionCode\": 11, \"version\": 7}"));
+        // MEN-18: a page of the suspended past its ceiling.
+        provoked.put(MonthEndRefusalCode.SUSPENDED_PAGE_INVALID, new Example("GET",
+                "/api/month-end/suspensions/members?size=500", null));
+        // MEN-31: a tier that is not A, B or C; a table code that is not on record.
+        provoked.put(MonthEndRefusalCode.CORE_TIER_UNKNOWN, new Example("PUT", "/api/reference/table-codes/901/core-tier",
+                "{\"tier\": \"D\"}"));
+        provoked.put(MonthEndRefusalCode.TABLE_CODE_UNKNOWN, new Example("PUT", "/api/reference/table-codes/999/core-tier",
+                "{\"tier\": \"A\"}"));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_READY, new Example("POST", take.formatted("2026-07"), null, false,
                 true));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_TAKEN, new Example("GET", "/api/month-end/2026-07", null));
@@ -538,6 +589,29 @@ class MonthEndExamplesTest {
                 + "complement_before, membership_found, seeded, captured_at) SELECT id, DATE '2026-08-20', TRUE, "
                 + "'INVENTED ORGANISER', 40, 38, 11, FALSE, TIMESTAMP WITH TIME ZONE '2026-08-20 14:00:00+00:00' "
                 + "FROM workplaces WHERE ra_number = 900001");
+        // October build: her reasons for no payroll deduction, numbered from one, as V79 writes them -- an example that
+        // adds or edits one is answered the same on every run; the invented suspended member's change names the first.
+        jdbc.update("DELETE FROM member_status_changes WHERE member_id = (SELECT id FROM members WHERE "
+                + "membership_number = ?)", SUSPENDED_MEMBER);
+        jdbc.update("DELETE FROM no_deduction_reasons");
+        jdbc.execute("ALTER TABLE no_deduction_reasons ALTER COLUMN id RESTART WITH 1");
+        for (String[] reason : new String[][] {{"Unpaid leave", "11", "1", "TRUE"}, {"Maternity leave", "12", "2", "FALSE"},
+                {"Paternity leave", "11", "3", "TRUE"}, {"Insufficient funds", "11", "4", "TRUE"},
+                {"Sick leave", "21", "5", "FALSE"}}) {
+            jdbc.update("INSERT INTO no_deduction_reasons (name, suspension_code, ordinal, active, provisional, version, "
+                    + "updated_by, updated_at) VALUES (?, ?, ?, TRUE, ?, 0, 'migration', TIMESTAMP WITH TIME ZONE "
+                    + "'2026-10-06 00:00:00+02:00')", reason[0], Integer.parseInt(reason[1]),
+                    Integer.parseInt(reason[2]), Boolean.parseBoolean(reason[3]));
+        }
+        jdbc.update("INSERT INTO member_status_changes (member_id, from_status, to_status, reason, suspension_code_id, "
+                + "no_deduction_reason_id, note, changed_by, changed_at) SELECT m.id, 'Active', 'Suspended', "
+                + "'SUSPENSION_CODE', (SELECT id FROM suspension_codes WHERE code = 11), 1, 'Invented: unpaid leave', "
+                + "'system', TIMESTAMP WITH TIME ZONE '2026-06-02 08:00:00+00:00' FROM members m "
+                + "WHERE m.membership_number = ?", SUSPENDED_MEMBER);
+        // MEN-31: the invented bank's table code in Core A, and no other code in a tier.
+        jdbc.update("UPDATE table_codes SET core_tier_id = NULL, core_tier_by = NULL, core_tier_at = NULL");
+        jdbc.update("UPDATE table_codes SET core_tier_id = (SELECT id FROM core_tiers WHERE code = 'A'), core_tier_by = "
+                + "'seed', core_tier_at = TIMESTAMP WITH TIME ZONE '2026-09-29 08:00:00+00:00' WHERE code = 901");
     }
 
     private void lists() {
@@ -565,6 +639,9 @@ class MonthEndExamplesTest {
                 + "'INVENTED SOUTH COMMITTEE', NULL FROM committee_provinces WHERE letter = 'R'");
         jdbc.update("INSERT INTO suspension_codes (code, name) VALUES (11, 'NOT ON PAYROLL'), (13, 'DEBIT RETURNED'), "
                 + "(19, 'INVALID ACCOUNT')");
+        // MEN-31: the three tiers V79 writes, and the invented bank's code in Core A before August is taken.
+        jdbc.update("INSERT INTO core_tiers (code, name, ordinal) VALUES ('A', 'Core A', 1), ('B', 'Core B', 2), "
+                + "('C', 'Core C', 3)");
         jdbc.update("INSERT INTO deletion_codes (sasbo_code, name) VALUES (2, 'Resigned Society'), "
                 + "(5, 'Subscription in Arrears')");
         // 04.5: a reason SASBO keeps under code 2 -- the row a resignation names by `reasonUnderCode`.
@@ -591,8 +668,16 @@ class MonthEndExamplesTest {
         jdbc.update("INSERT INTO member_changes (member_id, save_id, field, old_value, new_value, changed_by, changed_at) "
                 + "SELECT id, 'invented-save-2', 'cellTel', '+27 60 555 0001', '+27 60 555 0002', 'system', "
                 + "TIMESTAMP WITH TIME ZONE '2026-09-10 08:00:00+00:00' FROM members WHERE membership_number = ?", MEMBER);
+        jdbc.update("UPDATE table_codes SET core_tier_id = (SELECT id FROM core_tiers WHERE code = 'A'), core_tier_by = "
+                + "'seed', core_tier_at = TIMESTAMP WITH TIME ZONE '2026-09-29 08:00:00+00:00' WHERE code = 901");
         // 04.2: August taken, as the seed takes a month -- through the real take, at the frozen clock.
         takes.take(YearMonth.parse(TAKEN), DemonstrationMemberSeeder.SEED_ACTOR);
+        // October build, MEN-18: an invented member suspended for no payroll deduction -- after August was taken, so
+        // August reads as it did; their change is written by invented(), each time.
+        jdbc.update("INSERT INTO members (membership_number, first_names, initials, surname, identity_number, status, "
+                + "payment_type, bank_name, is_representative, created_at, updated_at) VALUES (?, 'Invented', 'I', "
+                + "'Suspended', ?, 'Suspended', 'Payroll', 'INVENTED BANK', FALSE, TIMESTAMP '2026-09-29 08:00:00', "
+                + "TIMESTAMP '2026-09-29 08:00:00')", SUSPENDED_MEMBER, MemberFixture.syntheticIdFor(901));
     }
 
     /** The invented recipients, banks and providers, as an administrator left them -- and nothing made or sent. */
@@ -674,6 +759,20 @@ class MonthEndExamplesTest {
                 ra, name, employer, tableCode, by, area, committee, committee, complement);
     }
 
+    /**
+     * Whether a request reaches a route HELD BY A PERMISSION (MonthEndRoutesTest): such an example is asked by a caller
+     * holding every permission, and every other example anonymously -- the filters are off here, so the caller is put in
+     * the context for the one request and taken out again, and an open route answers as it does to anyone.
+     */
+    static boolean held(String method, String path) {
+        String bare = path.replaceAll("\\?.*$", "");
+        return MonthEndRoutesTest.HELD_BY_PERMISSION.keySet().stream().anyMatch(route -> {
+            String routeMethod = route.substring(0, route.indexOf(' '));
+            String template = route.substring(route.indexOf(' ') + 1);
+            return routeMethod.equals(method) && bare.matches(template.replaceAll("\\{[^}]+}", "[^/]+"));
+        });
+    }
+
     private MvcResult perform(Example example) throws Exception {
         if (example.authorities() == null) {
             return performAs(example);
@@ -732,20 +831,25 @@ class MonthEndExamplesTest {
         if (path.contains("{lawcallfile}")) {
             path = path.replace("{lawcallfile}", String.valueOf(sentFiles.produceProvider(TAKEN, "LAW_CALL").file().id()));
         }
+        if (path.contains("{reasonId}")) {
+            path = path.replace("{reasonId}", String.valueOf(jdbc.queryForObject(
+                    "SELECT id FROM no_deduction_reasons WHERE name = 'Unpaid leave'", Long.class)));
+        }
         MockHttpServletRequestBuilder request = switch (example.method()) {
             case "POST" -> example.body() == null ? post(path)
                     : post(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             default -> get(path);
         };
-        Permission held = heldBy(example);
-        if (held != null) {
-            // A route held by a permission (October build) is asked by a caller holding it -- this class runs without
-            // the filters, so the caller is set on the thread, as the filters would have set it.
-            return SignInTestUsers.actingAs(SignInTestUsers.user("demo.headoffice", CallerScope.all(), held),
-                    () -> ask(example, request));
+        if (example.authorities() != null || !held(example.method(), path)) {
+            // An example that names its own caller (signedIn, anonymously) is asked as that caller; an open route is
+            // asked by the class's anonymous caller, as anyone may ask it.
+            return ask(example, request);
         }
-        return ask(example, request);
+        // A route held by a permission (October build) is asked by a caller holding every permission -- this class runs
+        // without the filters, so the caller is set on the thread, as the filters would have set it.
+        return SignInTestUsers.actingAs(SignInTestUsers.user("demo.headoffice", CallerScope.all(), Permission.values()),
+                () -> ask(example, request));
     }
 
     /** Asks {@code request} as {@code example} says: in a rolled-back transaction, with the gate held, or plainly. */
@@ -798,22 +902,6 @@ class MonthEndExamplesTest {
         }
     }
 
-    /**
-     * The permission a route of the arc is held by (October build): the take, a listing, and every route of the files
-     * that leave SASBO (monthend-packs: settings, the regions' packs, their deliveries, the banks' and providers' files);
-     * {@code null} for the rest.
-     */
-    private static Permission heldBy(Example example) {
-        if (example.path().matches("/api/month-end/[^/]+/take")) {
-            return Permission.MONTH_END_TAKE;
-        }
-        if (example.path().replaceAll("[?].*$", "").matches("/api/month-end/(settings(/.*)?|[^/]+/region-packs(/.*)?"
-                + "|region-packs/.*|[^/]+/deliveries|[^/]+/files(/.*)?|files/.*)")) {
-            return Permission.MONTH_END_SEND;
-        }
-        return example.path().matches("/api/month-end/[^/]+/listings/.*") ? Permission.MEMBERS_VIEW : null;
-    }
-
     private JsonNode body(MvcResult result) throws IOException {
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         if (body instanceof ObjectNode object && object.has("timestamp")) {
@@ -863,12 +951,19 @@ class MonthEndExamplesTest {
         ObjectNode entry = into.putObject(key);
         entry.put("request", example.method() + " " + example.path().replace("{member}", "{id}")
                 .replace("{pack}", "{id}").replace("{regionpack}", "{id}").replace("{southpack}", "{id}")
-                .replace("{bankfile}", "{id}").replace("{lawcallfile}", "{id}"));
+                .replace("{bankfile}", "{id}").replace("{lawcallfile}", "{id}").replace("{reasonId}", "{id}"));
         if (!example.setting().isEmpty()) {
             entry.put("setting", example.setting());
         }
         if (example.body() != null) {
-            entry.set("requestBody", objectMapper.readTree(example.body()));
+            JsonNode asked = objectMapper.readTree(example.body());
+            // A capture's identity number is a valid South African one -- MemberFixture's, check digit and all -- and the
+            // client refuses one in any committed file (POPIA, noCommittedMemberData): the file says one was sent, never
+            // its digits.
+            if (asked instanceof ObjectNode fields && fields.has("identityNumber")) {
+                fields.put("identityNumber", "<an invented identity number>");
+            }
+            entry.set("requestBody", asked);
         }
         entry.put("status", result.getResponse().getStatus());
         entry.set("body", body(result));
@@ -908,6 +1003,62 @@ class MonthEndExamplesTest {
                         + "stale they answer as this server no longer does. Regenerate: %s, and copy it to the client",
                         FILE_NAME, ApiSurface.regenerateCommand())
                 .isEqualTo(live);
+    }
+
+    @Test
+    @DisplayName("🔒 POPIA: the golden answers carry no South African identity number -- the client refuses one in any committed file")
+    void theExamplesCarryNoIdentityNumber() throws IOException {
+        java.util.regex.Matcher thirteen = java.util.regex.Pattern.compile("\\d{13}")
+                .matcher(ApiSurface.readCommittedNormalised(FILE));
+        int found = 0;
+        while (thirteen.find()) {
+            found += isSaIdNumber(thirteen.group()) ? 1 : 0;
+        }
+        assertThat(found).as("identity numbers in %s -- counted, never printed", FILE_NAME).isZero();
+    }
+
+    @Test
+    @DisplayName("canary: the identity number check knows an invented identity number from any other thirteen digits")
+    void theIdentityNumberCheckCanFail() {
+        assertThat(isSaIdNumber(MemberFixture.syntheticIdFor(900))).isTrue();
+        assertThat(isSaIdNumber("1234567890123")).isFalse();
+        assertThat(isSaIdNumber("9013010000080")).as("month 13").isFalse();
+    }
+
+    /** As the client's guard reads one: a day of the year in its first six digits, and Luhn's check digit last. */
+    static boolean isSaIdNumber(String digits) {
+        int month = Integer.parseInt(digits.substring(2, 4));
+        int day = Integer.parseInt(digits.substring(4, 6));
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+            return false;
+        }
+        int sum = 0;
+        for (int i = 0; i < 13; i++) {
+            int n = digits.charAt(i) - '0';
+            if ((13 - i) % 2 == 0) {
+                n *= 2;
+                if (n > 9) {
+                    n -= 9;
+                }
+            }
+            sum += n;
+        }
+        return sum % 10 == 0;
+    }
+
+    @Test
+    @DisplayName("🔒 every golden answer is an answer -- a route that fails is a defect, never gold: the suspended lists' 500 was recorded here once")
+    void everyAnswerIsAnAnswer() throws IOException {
+        JsonNode answers = objectMapper.readTree(ApiSurface.readCommittedNormalised(FILE)).path("answers");
+        List<String> failed = new ArrayList<>();
+        answers.fields().forEachRemaining(entry -> {
+            int status = entry.getValue().path("status").asInt();
+            if (status < 200 || status >= 300) {
+                failed.add(entry.getKey() + " answered " + status);
+            }
+        });
+        assertThat(answers.size()).as("the answers read: a scan of none passes").isGreaterThanOrEqualTo(30);
+        assertThat(failed).as("answers that are not a success: the client's handlers would serve the failure").isEmpty();
     }
 
     @Test

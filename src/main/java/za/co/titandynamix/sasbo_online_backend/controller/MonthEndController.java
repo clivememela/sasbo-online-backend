@@ -54,8 +54,10 @@ public class MonthEndController {
     }
 
     /**
-     * Takes the month -- or takes it again, naming the take it replaces (04.11) -- and answers the month as it now
-     * stands. A first take of a month taken already is {@code MONTH_ALREADY_TAKEN}, said before anything is written.
+     * Takes the month -- or takes it again, naming the take it replaces (04.11) and saying why (MEN-11) -- and answers
+     * the month as it now stands. The reason is said first: a take again without one, or one that is not ordinary
+     * text of at most 500 characters, is refused before anything else is asked of the take. A first take of a month
+     * taken already is {@code MONTH_ALREADY_TAKEN}, said before anything is written.
      */
     @PreAuthorize("hasAuthority('MONTH_END_TAKE')")
     @PostMapping("/{month}/take")
@@ -63,10 +65,11 @@ public class MonthEndController {
                                  @RequestBody(required = false) MonthEndTakeRequest request) {
         YearMonth asked = takes.month(month);
         Long replaces = request == null ? null : request.replaces();
+        String reason = takes.reason(asked, replaces, request == null ? null : request.reason());
         if (replaces == null) {
             takes.refuseIfTaken(asked);
         }
-        takes.take(asked, AcbActor.current(), replaces);
+        takes.take(asked, AcbActor.current(), replaces, reason);
         audit.record(replaces == null ? "MONTH_END_TAKEN" : "MONTH_END_TAKEN_AGAIN", "MONTH_END", asked.toString(),
                 replaces == null ? "Taken." : "Taken again, replacing take " + replaces + ".");
         return takes.record(asked.toString());

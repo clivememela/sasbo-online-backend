@@ -148,7 +148,7 @@ class MemberSummaryTest {
             assertThat(summaries.summary("2026-09", "group", null, null).totals().onRecord())
                     .as("read from the first take, which did not count them").isEqualTo(before);
 
-            takes.take(SummaryFixture.MONTH, "corrected", first.id());
+            takes.take(SummaryFixture.MONTH, "corrected", first.id(), "Invented: corrected the workplaces");
 
             MemberSummaryDto again = summaries.summary("2026-09", "group", null, null);
             assertThat(again.totals().onRecord()).as("read from the newest take").isEqualTo(before + 1);

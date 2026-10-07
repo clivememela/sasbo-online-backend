@@ -20,6 +20,7 @@ import za.co.titandynamix.sasbo_online_backend.support.AbstractSwitchedOnIT;
 import za.co.titandynamix.sasbo_online_backend.support.DatabaseReset;
 import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthEndTakeSeeder;
+import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
 
 import java.time.Clock;
@@ -123,9 +124,9 @@ class MonthEndTakeIT extends AbstractSwitchedOnIT {
     @DisplayName("🔒 04.11, MD70: a take is replaced once -- a second take again of the same take is refused by the index, by name")
     void aTakeIsReplacedOnce() {
         TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
-        facts.insertMonth(SummaryFixture.MONTH.atDay(1), "one", SummaryFixture.NOW, first);
+        facts.insertMonth(SummaryFixture.MONTH.atDay(1), "one", SummaryFixture.NOW, first, "Invented: one", MonthRange.of(SummaryFixture.MONTH));
 
-        assertThatThrownBy(() -> facts.insertMonth(SummaryFixture.MONTH.atDay(1), "two", SummaryFixture.NOW, first))
+        assertThatThrownBy(() -> facts.insertMonth(SummaryFixture.MONTH.atDay(1), "two", SummaryFixture.NOW, first, "Invented: two", MonthRange.of(SummaryFixture.MONTH)))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("month_end_months_replaced_once");
     }
@@ -135,10 +136,10 @@ class MonthEndTakeIT extends AbstractSwitchedOnIT {
     void aTakeReplacesOnlyItsOwnMonth() {
         TakenMonth september = takes.take(SummaryFixture.MONTH, "seed");
 
-        assertThatThrownBy(() -> facts.insertMonth(LocalDate.of(2026, 8, 1), "elsewhere", SummaryFixture.NOW, september))
+        assertThatThrownBy(() -> facts.insertMonth(LocalDate.of(2026, 8, 1), "elsewhere", SummaryFixture.NOW, september, "Invented: elsewhere", MonthRange.of(java.time.YearMonth.of(2026, 8))))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("month_end_months_replaces_its_own_month");
-        assertThat(facts.insertMonth(SummaryFixture.MONTH.atDay(1), "corrected", SummaryFixture.NOW, september))
+        assertThat(facts.insertMonth(SummaryFixture.MONTH.atDay(1), "corrected", SummaryFixture.NOW, september, "Invented: corrected", MonthRange.of(SummaryFixture.MONTH)))
                 .as("the same month's take again is let through").isPositive();
     }
 
@@ -146,7 +147,7 @@ class MonthEndTakeIT extends AbstractSwitchedOnIT {
     @DisplayName("🔒 04.11: a month taken again is read from its newest take on PostgreSQL too -- the first kept beside it")
     void aMonthTakenAgain() {
         TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
-        TakenMonth again = takes.take(SummaryFixture.MONTH, "corrected", first.id());
+        TakenMonth again = takes.take(SummaryFixture.MONTH, "corrected", first.id(), "Invented: corrected the workplaces");
 
         assertThat(takes.taken(SummaryFixture.MONTH)).get().extracting(TakenMonth::id).isEqualTo(again.id());
         assertThat(again.takeNumber()).isEqualTo(2);

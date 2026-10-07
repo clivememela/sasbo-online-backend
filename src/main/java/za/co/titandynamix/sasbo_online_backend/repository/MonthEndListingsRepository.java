@@ -144,7 +144,7 @@ public class MonthEndListingsRepository {
         MapSqlParameterSource arguments = arguments(month, List.of());
         scope.bind(arguments);
         return listings.query("SELECT " + MEMBER_COLUMNS + ", CAST('NEW' AS VARCHAR(3)) AS class_name, " + NO_CHANGE
-                + " FROM members m " + PLACED + " WHERE " + MemberSummaryRepository.joined("m", "firstDay") + " AND "
+                + " FROM members m " + PLACED + " WHERE " + MemberSummaryRepository.joined("m", "start", "firstDay") + " AND "
                 + scope.predicate() + " ORDER BY a.letter, employer_name, m.surname, m.membership_number", arguments,
                 MonthEndListingsRepository::line);
     }
@@ -212,7 +212,7 @@ public class MonthEndListingsRepository {
         MapSqlParameterSource arguments = arguments(month, List.of()).addValue("codes", tableCodes)
                 .addValue("payroll", PAYROLL);
         files.query("SELECT " + MEMBER_COLUMNS + ", CAST('NEW' AS VARCHAR(3)) AS class_name, " + NO_CHANGE
-                + " FROM members m " + PLACED + " WHERE " + MemberSummaryRepository.joined("m", "firstDay")
+                + " FROM members m " + PLACED + " WHERE " + MemberSummaryRepository.joined("m", "start", "firstDay")
                 + " AND m.payment_type = :payroll AND t.code IN (:codes) ORDER BY m.surname, m.initials, "
                 + "m.membership_number", arguments, rs -> {
                     each.accept(line(rs, 0));

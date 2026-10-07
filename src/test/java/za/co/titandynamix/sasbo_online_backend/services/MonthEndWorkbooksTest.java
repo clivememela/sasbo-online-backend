@@ -127,7 +127,8 @@ class MonthEndWorkbooksTest {
             Sheet byTableCode = sheetOf(book, "membership by-table-code");
             assertThat(textBeside(byTableCode, "902 INVENTED INSURER")).as("a hidden row says so in words")
                     .isEqualTo("fewer than 5");
-            assertThat(textBeside(byTableCode, "901 INVENTED BANK")).isEqualTo("withheld");
+            assertThat(textBeside(byTableCode, "901 INVENTED BANK"))
+                    .as("5 Oct: \"withheld\" read to SASBO as \"has to be approved\"").isEqualTo("not shown until you sign in");
         }
     }
 

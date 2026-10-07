@@ -70,4 +70,18 @@ public class MemberStatusChange {
     /** Month end 03.2 (V56): the administrator's words, at most 500 characters -- never logged (MR-SEC-6). */
     @Column(name = "note", length = 500)
     private String note;
+
+    /**
+     * V79, Stephne MEN-17: the reason for no payroll deduction a suspension was given, from the list -- set only with
+     * {@code SUSPENSION_CODE}, which the database checks.
+     */
+    @Column(name = "no_deduction_reason_id")
+    private Long noDeductionReasonId;
+
+    /**
+     * V79, Stephne MEN-23: the leaving this reinstatement undoes, where both fell in one month -- the member keeps their
+     * membership, and neither change is counted. Set only with {@code REINSTATED}; a leaving is undone once.
+     */
+    @Column(name = "undoes_id")
+    private Long undoesId;
 }

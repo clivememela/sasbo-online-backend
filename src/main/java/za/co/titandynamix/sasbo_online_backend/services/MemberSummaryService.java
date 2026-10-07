@@ -8,12 +8,12 @@ import za.co.titandynamix.sasbo_online_backend.dto.summary.MemberSummaryDto;
 public interface MemberSummaryService {
 
     /**
-     * The figures of {@code month}, grouped {@code by} one of the six groupings, within an {@code area} or a
+     * The figures of {@code month}, grouped {@code by} one of the seven groupings, within an {@code area} or a
      * {@code region} where one is named.
      *
      * @param month  {@code YYYY-MM}; the server's own month where none is named (MD55)
-     * @param by     {@code group}, {@code employer}, {@code tableCode}, {@code area}, {@code region} or
-     *               {@code committee}; {@code group} where none is named
+     * @param by     {@code group}, {@code employer}, {@code tableCode}, {@code area}, {@code region},
+     *               {@code committee} or {@code tier} (MEN-31); {@code group} where none is named
      * @throws za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal {@code SUMMARY_GROUPING_UNKNOWN},
      *         {@code SUMMARY_AREA_UNKNOWN}, {@code SUMMARY_MONTH_INVALID}, {@code SUMMARY_MONTH_IN_FUTURE},
      *         {@code SUMMARY_UNAVAILABLE}, or {@code REQUEST_MALFORMED} for an area and a region together, or a code

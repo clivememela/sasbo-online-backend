@@ -83,24 +83,26 @@ public class MonthEndStatistics {
     public static final String NO_RECRUITER = "~NO_RECRUITER";
     public static final String NO_CHANNEL = "~NO_CHANNEL";
     public static final String NO_REASON = "~NO_REASON";
+    public static final String NO_TIER = MemberSummaryRepository.NO_TIER;
 
     /** The longest area letter and region code a request may name (MR-SEC-22). */
     static final int AREA_CEILING = 4;
     static final int REGION_CEILING = 8;
 
-    private static final Map<String, String> SPECIAL_LABELS = Map.of(
-            ALL, "All members",
-            NO_WORKPLACE, "No workplace on record",
-            NO_TABLE_CODE, "No table code on record",
-            NO_EMPLOYER, "No employer on record",
-            NO_REGION, "No region on record",
-            NO_AREA, "No area on record",
-            NO_CODE, "No code on record",
-            NO_RECRUITER, "No recruiter on record",
-            NO_CHANNEL, "No channel on record",
-            NO_REASON, "No reason given");
+    private static final Map<String, String> SPECIAL_LABELS = Map.ofEntries(
+            Map.entry(ALL, "All members"),
+            Map.entry(NO_WORKPLACE, "No workplace on record"),
+            Map.entry(NO_TABLE_CODE, "No table code on record"),
+            Map.entry(NO_EMPLOYER, "No employer on record"),
+            Map.entry(NO_REGION, "No region on record"),
+            Map.entry(NO_AREA, "No area on record"),
+            Map.entry(NO_CODE, "No code on record"),
+            Map.entry(NO_RECRUITER, "No recruiter on record"),
+            Map.entry(NO_CHANNEL, "No channel on record"),
+            Map.entry(NO_REASON, "No reason given"),
+            Map.entry(NO_TIER, "All other institutions"));
 
-    private static final List<String> SPECIAL_ORDER = List.of(NO_CODE, NO_REASON, NO_RECRUITER, NO_CHANNEL,
+    private static final List<String> SPECIAL_ORDER = List.of(NO_CODE, NO_REASON, NO_RECRUITER, NO_CHANNEL, NO_TIER,
             NO_TABLE_CODE, NO_EMPLOYER, NO_REGION, NO_AREA, NO_WORKPLACE, ALL);
 
     private final MonthEndTakes takes;
@@ -157,11 +159,10 @@ public class MonthEndStatistics {
         notes.add("Core is the core groups' employers; other is every other employer. A member with no workplace on "
                 + "record is in the total only.");
         if (read.taken() != null) {
-            long now = facts.joinedNow(read.range());
-            long taken = read.allFacts().stream().mapToLong(Fact::joined).sum();
-            if (now > taken) {
-                notes.add((now - taken) + " member(s) with a Date Joined in " + name + " were captured after the month "
-                        + "was taken, and are not in these figures.");
+            long after = facts.joinedAfter(read.range(), read.taken().cutOff());
+            if (after > 0) {
+                notes.add(after + " member(s) with a Date Joined in " + name + " were captured after the month was "
+                        + "taken, and count in " + monthName(read.month().plusMonths(1)) + "'s figures.");
             }
         }
         return answer("new-and-deleted", List.of("prtmemsum", "prtmemroll", "prtmemroll2"), read, sheets, notes);
@@ -179,7 +180,10 @@ public class MonthEndStatistics {
         Function<Agg, List<BigDecimal>> groupCells = a -> cells(staff ? n(a.complement) : null, n(a.paying),
                 n(a.joined), n(a.left), n(a.suspended));
         Sheet byGroup = groupSheet(read, "by-group", "Membership by group", "MEMBER SUMMARY BY GROUP", groupColumns,
-                groupCells);
+                groupCells, true);
+        // MEN-31: Core A, B and C, and all other institutions -- the tier each workplace's table code stands in.
+        Sheet byTier = placeSheet(read, "by-tier", "Membership by core tier", "MEMBERSHIP REPORT",
+                MonthEndStatistics::tierKey, groupColumns, groupCells, true, true);
 
         List<Column> codeColumns = List.of(count("onRecord", "On record"), count("members", "Excluding suspensions"),
                 count("suspended", "Suspensions"), rand("subscriptions", "Subscriptions"),
@@ -189,7 +193,7 @@ public class MonthEndStatistics {
         Sheet byTableCode = placeSheet(read, "by-table-code", "Membership by table code", "BANK / BRANCH MEMBER COUNT",
                 MonthEndStatistics::tableCodeKey, codeColumns, a -> cells(n(a.onRecord), n(a.paying), n(a.suspended),
                         a.subscriptions(), n(a.byDebitOrder), a.debitOrderRand, n(a.byDeduction), a.deductionRand,
-                        n(a.byOther), a.otherRand, staff ? n(a.complement) : null), true);
+                        n(a.byOther), a.otherRand, staff ? n(a.complement) : null), true, true);
 
         Map<String, long[]> suspended = new LinkedHashMap<>();
         Map<String, String> labels = new HashMap<>();
@@ -206,7 +210,10 @@ public class MonthEndStatistics {
         notes.add("Members are the members on record less the suspended -- the figure SASBO's reports print (MD24).");
         notes.add("How a member pays is read as it is stored: by debit order, by payroll deduction, and every other "
                 + "way as other. The amounts are the monthly subscriptions on record of the paying members.");
-        return answer("membership", List.of("grlist", "mem_count"), read, List.of(byGroup, byTableCode, byCode), notes);
+        notes.add("Core A, B and C are SASBO's core tiers; which table code stands in which is provisional until SASBO "
+                + "confirms it. Every other employer is one of the individual institutions.");
+        return answer("membership", List.of("grlist", "mem_count"), read, List.of(byGroup, byTier, byTableCode, byCode),
+                notes);
     }
 
     /** 04.5: why members left -- by SASBO's reasons, by area, by employer and by table code; joined and deleted; the resigned. */
@@ -268,9 +275,9 @@ public class MonthEndStatistics {
                 staff ? n(a.coreComplement) : null,
                 staff ? n(a.corePaying) : null);
         Sheet byArea = placeSheet(read, "by-area", "The branches, by area", "SUMMARY OF ALL AREAS",
-                MonthEndStatistics::areaKey, columns, cells, false);
+                MonthEndStatistics::areaKey, columns, cells, false, true);
         Sheet byEmployer = placeSheet(read, "by-employer", "The branches, by employer", "S.A.S.B.O. LIST OF BANK BRANCHES",
-                MonthEndStatistics::employerKey, columns, cells, true);
+                MonthEndStatistics::employerKey, columns, cells, true, true);
         List<String> notes = notes(read);
         notes.add("Members are the members on record less the suspended; penetration is members over complement.");
         notes.add("The branches themselves, with their visits, are the workplaces' own screen.");
@@ -411,11 +418,12 @@ public class MonthEndStatistics {
                 staff ? n(Math.max(a.complement - a.paying, 0)) : null);
         // A row that withholds its members withholds what the branch could still yield with them: the two would give
         // each other back (BR44). Rule C's own rows do exactly that, the whole row at once.
-        List<Row> rows = settledRows(read, ordered, true, total.onRecord, cells);
+        List<Row> rows = settledRows(read, ordered, true, total.onRecord, cells, true);
         long yieldAll = ordered.stream().filter(a -> !a.key.startsWith("~"))
                 .mapToLong(a -> Math.max(a.complement - a.paying, 0)).sum();
         Row totalRow = new Row(total.key, total.label, Row.TOTAL, false, false,
-                cells(n(total.paying), staff ? n(total.complement) : null, staff ? n(yieldAll) : null));
+                cells(n(total.paying), staff ? n(total.complement) : null, staff ? n(yieldAll) : null),
+                outOfDate(read, total, true));
         Sheet sheet = new Sheet("due-a-visit", "The branches due a visit", "BANK BRANCHES REQUIRING ATTENTION",
                 columns, rows, totalRow);
         List<String> notes = notes(read);
@@ -427,6 +435,74 @@ public class MonthEndStatistics {
         notes.add("The branch manager's name and telephone are a person's details, and are shown once administrators "
                 + "sign in to this system.");
         return answer("visits", List.of("visits"), read, List.of(sheet), notes);
+    }
+
+    /**
+     * The suspended at the month's end (Stephne, MEN-18: "Suspension totals should appear within their Banks"): within
+     * each bank -- the employer through the member's workplace -- by SASBO's suspension code; by code; and, under the
+     * codes the reasons for no payroll deduction stand under, by the reason chosen (MEN-17).
+     */
+    public MonthEndStatisticDto suspensions(String month, String area, String region) {
+        return suspensions(read(month, area, region, false));
+    }
+
+    MonthEndStatisticDto suspensions(Read read) {
+        List<ReferenceRows.SuspensionCode> known = codes.suspensionCodes();
+        List<Integer> order = known.stream().map(ReferenceRows.SuspensionCode::code).toList();
+        List<Column> columns = new ArrayList<>();
+        known.forEach(code -> columns.add(count("code" + code.code(), code.code() + " " + code.name())));
+        columns.add(count("noCode", SPECIAL_LABELS.get(NO_CODE)));
+        columns.add(count("total", "Total"));
+        int width = order.size() + 2;
+        Set<Integer> noDeduction = new java.util.HashSet<>(codes.noDeductionCodes());
+        Map<Long, Fact> byKey = read.factsByKey();
+        Map<String, long[]> byPlace = new HashMap<>();
+        Map<String, long[]> byCode = new LinkedHashMap<>();
+        Map<String, String> codeLabels = new HashMap<>();
+        Map<String, long[]> byReason = new LinkedHashMap<>();
+        Map<String, String> reasonLabels = new HashMap<>(Map.of(NO_REASON, "No reason from the list"));
+        for (Count c : read.counts(Measure.SUSPENDED_BY_CODE)) {
+            int column = c.code() == null ? -1 : order.indexOf(c.code());
+            int index = column < 0 ? order.size() : column;
+            Fact at = byKey.get(c.workplaceKey());
+            String employer = at == null ? NO_WORKPLACE : placeKey(read, MonthEndStatistics::employerKey, at)[0];
+            String group = at == null ? NO_WORKPLACE : placeKey(read, MonthEndStatistics::groupKey, at)[0];
+            List<String> places = new ArrayList<>(List.of(employer, "~TOTAL"));
+            if (!group.equals(employer)) {
+                places.add(group);
+            }
+            if (at != null && read.grouped() && at.workplaceKey() != 0 && Boolean.TRUE.equals(at.groupCore())) {
+                places.add("~CORE");
+            }
+            for (String place : places) {
+                long[] cells = byPlace.computeIfAbsent(place, k -> new long[width]);
+                cells[index] += c.members();
+                cells[width - 1] += c.members();
+            }
+            String key = c.code() == null ? NO_CODE : String.valueOf(c.code());
+            codeLabels.putIfAbsent(key, c.code() == null ? (c.name() == null ? SPECIAL_LABELS.get(NO_CODE)
+                    : "No code: " + c.name()) : c.code() + " " + c.name());
+            byCode.computeIfAbsent(key, k -> new long[1])[0] += c.members();
+            if (c.code() != null && noDeduction.contains(c.code())) {
+                String reason = c.detail() == null ? NO_REASON : c.detail();
+                reasonLabels.putIfAbsent(reason, reason);
+                byReason.computeIfAbsent(reason, k -> new long[1])[0] += c.members();
+            }
+        }
+        Function<Agg, List<BigDecimal>> cells = a -> counts(byPlace.getOrDefault(a.key, new long[width]));
+        Sheet byEmployer = groupSheet(read, "by-employer", "Suspended members, by bank and code",
+                "SUMMARY OF SUSPENDED MEMBERS", columns, cells, false);
+        Sheet codesSheet = codeSheet("by-code", "Suspended members, by suspension code", "SUMMARY OF SUSPENDED MEMBERS",
+                List.of(count("members", "Suspended")), byCode, codeLabels);
+        Sheet reasons = codeSheet("no-deduction", "No payroll deduction, by reason", "NO PAYROLL DEDUCTION",
+                List.of(count("members", "Suspended")), byReason, reasonLabels);
+        List<String> notes = notes(read);
+        notes.add("A bank is the employer through the member's workplace, as in every month-end figure. The suspended "
+                + "are counted at the month's end, under the SASBO code of the change that suspended them.");
+        notes.add("The suspended members themselves, and the suspensions that have lapsed after three months, are "
+                + "listed for staff signed in to see them.");
+        return answer("suspensions", List.of("mem_count", "grlist"), read, List.of(byEmployer, codesSheet, reasons),
+                notes);
     }
 
     /** {key, label, order} of a workplace's row: its R/A number and name, and when it was last visited. */
@@ -491,9 +567,12 @@ public class MonthEndStatistics {
 
     // ================================================================================================ what is read
 
-    /** What every statistic reads: the month, its rows and counts, in the area or region asked. */
+    /**
+     * What every statistic reads: the month, its rows and counts, in the area or region asked -- and whether rule C's
+     * courtesy applies to who asked (MD27: until sign-in).
+     */
     record Read(YearMonth month, MonthRange range, TakenMonth taken, List<Fact> allFacts, List<Fact> facts,
-                List<Count> counts, boolean grouped, String area, String region) {
+                List<Count> counts, boolean grouped, String area, String region, boolean courtesy) {
 
         List<Count> counts(Measure measure) {
             return counts.stream().filter(c -> c.measure() == measure).toList();
@@ -516,7 +595,7 @@ public class MonthEndStatistics {
             Set<Long> keys = inScope.stream().map(Fact::workplaceKey).collect(Collectors.toSet());
             List<Count> scopedCounts = counts.stream().filter(c -> keys.contains(c.workplaceKey())
                     || (c.workplaceKey() == 0 && inArea == null && inRegion == null)).toList();
-            return new Read(month, range, taken, allFacts, inScope, scopedCounts, grouped, inArea, inRegion);
+            return new Read(month, range, taken, allFacts, inScope, scopedCounts, grouped, inArea, inRegion, courtesy);
         }
     }
 
@@ -544,7 +623,9 @@ public class MonthEndStatistics {
                     Map.of("field", "region"));
         }
         boolean grouped = workplaceSwitch.staffNumbersServed();
-        MonthRange range = MonthRange.of(asked);
+        // MEN-14: the month as it counts -- from the cut-off of the month before.
+        MonthRange range = takes.counted(asked);
+        boolean courtesy = SmallCounts.appliesToTheCaller();
         if (!(waitForAPlace ? gate.enter(JOB_WAIT) : gate.tryEnter())) {
             throw unavailable();
         }
@@ -563,7 +644,8 @@ public class MonthEndStatistics {
         Set<Long> keys = inScope.stream().map(Fact::workplaceKey).collect(Collectors.toSet());
         List<Count> scopedCounts = counts.stream().filter(c -> keys.contains(c.workplaceKey())
                 || (c.workplaceKey() == 0 && areaCode == null && regionCode == null)).toList();
-        return new Read(asked, range, taken.orElse(null), rows, inScope, scopedCounts, grouped, areaCode, regionCode);
+        return new Read(asked, range, taken.orElse(null), rows, inScope, scopedCounts, grouped, areaCode, regionCode,
+                courtesy);
     }
 
     /** Below {@code all} nothing is placed by where it works, so a sheet asked for an area or a region holds nobody. */
@@ -683,12 +765,19 @@ public class MonthEndStatistics {
      */
     private Sheet placeSheet(Read read, String key, String title, String legacyTitle, Function<Fact, String[]> place,
                              List<Column> columns, Function<Agg, List<BigDecimal>> cells, boolean guardedPlace) {
+        return placeSheet(read, key, title, legacyTitle, place, columns, cells, guardedPlace, false);
+    }
+
+    /** As above; {@code complement}: the sheet prints members beside a staff complement, and flags them (MEN-26). */
+    private Sheet placeSheet(Read read, String key, String title, String legacyTitle, Function<Fact, String[]> place,
+                             List<Column> columns, Function<Agg, List<BigDecimal>> cells, boolean guardedPlace,
+                             boolean complement) {
         Map<String, Agg> byPlace = aggregate(read, place);
         List<Agg> ordered = byPlace.values().stream().sorted(aggOrder()).toList();
         Agg total = new Agg("~TOTAL", "Total", null);
         ordered.forEach(total::absorb);
-        List<Row> rows = settledRows(read, ordered, guardedPlace, total.onRecord, cells);
-        return new Sheet(key, title, legacyTitle, columns, rows, row(total, Row.TOTAL, cells));
+        List<Row> rows = settledRows(read, ordered, guardedPlace, total.onRecord, cells, complement);
+        return new Sheet(key, title, legacyTitle, columns, rows, row(read, total, Row.TOTAL, cells, complement));
     }
 
     /**
@@ -698,7 +787,7 @@ public class MonthEndStatistics {
      * left out wherever a group is hidden, because it would give a withheld group back.
      */
     private Sheet groupSheet(Read read, String key, String title, String legacyTitle, List<Column> columns,
-                             Function<Agg, List<BigDecimal>> cells) {
+                             Function<Agg, List<BigDecimal>> cells, boolean complement) {
         Map<String, Agg> byEmployer = aggregate(read, MonthEndStatistics::employerKey);
         Map<String, Agg> byGroup = aggregate(read, MonthEndStatistics::groupKey);
         List<Agg> groups = byGroup.values().stream().sorted(aggOrder()).toList();
@@ -711,19 +800,19 @@ public class MonthEndStatistics {
             }
         }
         List<Row> rows = new ArrayList<>();
-        List<Row> groupRows = settledRows(read, groups, true, total.onRecord, cells);
+        List<Row> groupRows = settledRows(read, groups, true, total.onRecord, cells, complement);
         boolean anyHidden = groupRows.stream().anyMatch(r -> r.fewerThanFive() || r.withheld());
         for (int i = 0; i < groups.size(); i++) {
             Agg group = groups.get(i);
             Row groupRow = groupRows.get(i);
             rows.add(new Row(groupRow.key(), groupRow.label(), group.key.startsWith("~") ? Row.ROW : Row.GROUP,
-                    groupRow.fewerThanFive(), groupRow.withheld(), groupRow.cells()));
+                    groupRow.fewerThanFive(), groupRow.withheld(), groupRow.cells(), groupRow.complementOutOfDate()));
             if (group.key.startsWith("~") || !read.grouped()) {
                 continue;
             }
             List<Agg> employers = byEmployer.values().stream().filter(e -> group.key.equals(e.parent))
                     .sorted(aggOrder()).toList();
-            List<Row> employerRows = settledRows(read, employers, true, group.onRecord, cells);
+            List<Row> employerRows = settledRows(read, employers, true, group.onRecord, cells, complement);
             boolean groupHidden = groupRow.fewerThanFive() || groupRow.withheld();
             for (Row employer : employerRows) {
                 rows.add(groupHidden ? new Row(employer.key(), employer.label(), Row.ROW, employer.fewerThanFive(),
@@ -731,9 +820,9 @@ public class MonthEndStatistics {
             }
         }
         if (read.grouped() && !anyHidden) {
-            rows.add(row(core, Row.TOTAL, cells));
+            rows.add(row(read, core, Row.TOTAL, cells, complement));
         }
-        return new Sheet(key, title, legacyTitle, columns, rows, row(total, Row.TOTAL, cells));
+        return new Sheet(key, title, legacyTitle, columns, rows, row(read, total, Row.TOTAL, cells, complement));
     }
 
     /** The month's leavers by SASBO's reasons, one row a place. */
@@ -1015,14 +1104,35 @@ public class MonthEndStatistics {
         return new String[] {"G" + f.groupOrdinal(), f.groupName(), String.valueOf(f.groupOrdinal())};
     }
 
+    /** MEN-31: the core tier the workplace's table code stood in -- Core A, B or C -- or all other institutions. */
+    static String[] tierKey(Fact f) {
+        if (f.tableCode() == null) {
+            return new String[] {NO_TABLE_CODE, SPECIAL_LABELS.get(NO_TABLE_CODE), null};
+        }
+        if (f.coreTier() == null) {
+            return new String[] {NO_TIER, SPECIAL_LABELS.get(NO_TIER), null};
+        }
+        return new String[] {f.coreTier(), "Core " + f.coreTier(), String.valueOf(f.coreTier().charAt(0) - 'A' + 1)};
+    }
+
     /** Rule C over one sum: the rows' states, and each row answered as its state allows. */
     private static List<Row> settledRows(Read read, List<Agg> ordered, boolean guardedPlace, long total,
                                          Function<Agg, List<BigDecimal>> cells) {
+        return settledRows(read, ordered, guardedPlace, total, cells, false);
+    }
+
+    /**
+     * Rule C over one sum -- for a caller it applies to (MD27: until sign-in) -- and, where the sheet prints members
+     * beside a staff complement ({@code complement}), each row shown flagged when more pay than its complement counts
+     * (MEN-26). A row rule C hides carries no flag: the flag would say something of its members.
+     */
+    private static List<Row> settledRows(Read read, List<Agg> ordered, boolean guardedPlace, long total,
+                                         Function<Agg, List<BigDecimal>> cells, boolean complement) {
         long[] members = new long[ordered.size()];
         boolean[] guarded = new boolean[ordered.size()];
         for (int i = 0; i < ordered.size(); i++) {
             members[i] = ordered.get(i).onRecord;
-            guarded[i] = guardedPlace && read.grouped() && !ordered.get(i).key.startsWith("~");
+            guarded[i] = read.courtesy() && guardedPlace && read.grouped() && !ordered.get(i).key.startsWith("~");
         }
         SmallCounts.State[] states = SmallCounts.settle(members, guarded, total);
         List<Row> rows = new ArrayList<>();
@@ -1030,14 +1140,25 @@ public class MonthEndStatistics {
             Agg a = ordered.get(i);
             boolean fewer = states[i] == SmallCounts.State.FEWER_THAN_FIVE;
             boolean withheld = states[i] == SmallCounts.State.WITHHELD;
-            rows.add(new Row(a.key, label(a.key, a.label), Row.ROW, fewer, withheld,
-                    fewer || withheld ? null : cells.apply(a)));
+            boolean shown = !fewer && !withheld;
+            rows.add(new Row(a.key, label(a.key, a.label), Row.ROW, fewer, withheld, shown ? cells.apply(a) : null,
+                    shown && outOfDate(read, a, complement)));
         }
         return rows;
     }
 
     private static Row row(Agg a, String level, Function<Agg, List<BigDecimal>> cells) {
         return new Row(a.key, a.label, level, false, false, cells.apply(a));
+    }
+
+    /** A total, flagged as its rows are where the sheet prints a complement (MEN-26). */
+    private static Row row(Read read, Agg a, String level, Function<Agg, List<BigDecimal>> cells, boolean complement) {
+        return new Row(a.key, a.label, level, false, false, cells.apply(a), outOfDate(read, a, complement));
+    }
+
+    /** MEN-26 for one row: a complement is printed -- the switch at all -- and more pay than it counts. */
+    private static boolean outOfDate(Read read, Agg a, boolean complement) {
+        return complement && read.grouped() && Penetration.complementOutOfDate(a.paying, a.complement);
     }
 
     /** The places in their lists' order -- a group's, an employer's, a table code's -- areas A to X, then Y, Z, XX. */
@@ -1077,12 +1198,23 @@ public class MonthEndStatistics {
 
     private MonthEndStatisticDto answer(String statistic, List<String> legacy, Read read, List<Sheet> sheets,
                                         List<String> notes) {
+        // MEN-26: where any row shown is flagged, the statistic says why -- once.
+        boolean outOfDate = sheets.stream().anyMatch(sheet -> sheet.rows().stream().anyMatch(Row::complementOutOfDate)
+                || (sheet.total() != null && sheet.total().complementOutOfDate()));
+        List<String> said = new ArrayList<>(notes);
+        if (outOfDate) {
+            said.add(Penetration.OUT_OF_DATE_NOTE);
+        }
         return new MonthEndStatisticDto(statistic, legacy, read.month().toString(),
                 read.taken() == null ? MonthEndMonthDto.OPEN : MonthEndMonthDto.TAKEN,
                 read.taken() == null ? null : read.taken().takenAt().toString(),
                 read.taken() == null ? null : read.taken().takenBy(), read.area(), read.region(),
-                workplaceSwitch.mode().name(), sheets, notes);
+                workplaceSwitch.mode().name(), sheets, said);
     }
+
+    /** A moment as a person reads it, in SASBO's zone: "30 September 2026 at 07:10". */
+    private static final java.time.format.DateTimeFormatter SAID = java.time.format.DateTimeFormatter
+            .ofPattern("d MMMM yyyy 'at' HH:mm", Locale.ENGLISH).withZone(MonthRange.ZONE);
 
     private List<String> notes(Read read) {
         List<String> notes = new ArrayList<>();
@@ -1090,12 +1222,24 @@ public class MonthEndStatistics {
                 ? monthName(read.month()) + " is open: these figures are worked out as they stand now."
                 : monthName(read.month()) + " was taken on " + read.taken().takenAt().atZone(MonthRange.ZONE)
                         .toLocalDate() + ": these figures are the month as it stood then.");
+        // MEN-14: "After month end is done - all capturing and changes move to the next month."
+        MonthRange calendar = MonthRange.of(read.month());
+        if (read.taken() == null && !read.range().start().equals(calendar.start())) {
+            notes.add(monthName(read.month()) + " counts every capture and change since " + monthName(read.month()
+                    .minusMonths(1)) + " was taken, on " + SAID.format(read.range().start()) + ".");
+        } else if (read.taken() != null && read.taken().countsFrom() != null) {
+            notes.add(monthName(read.month()) + " counted every capture and change from " + SAID.format(
+                    read.taken().countsFrom()) + " to " + SAID.format(read.taken().countsUntil()) + ".");
+        }
         if (!read.grouped()) {
             notes.add("SASBO's workplaces are not served in full here, so no figure is cut by where members work, "
                     + "and nothing made from a staff number is shown.");
+        } else if (read.courtesy()) {
+            notes.add("A membership of one to four at a named employer or table code is shown as fewer than five, and "
+                    + "one row beside it is not shown until you sign in, so that it cannot be worked out by "
+                    + "subtraction.");
         } else {
-            notes.add("A membership of one to four at a named employer or table code is shown as fewer than five until "
-                    + "sign-in exists, and one row beside it is withheld so it cannot be worked out.");
+            notes.add("You are signed in to see the month's figures, so every figure is shown in full.");
         }
         return notes;
     }

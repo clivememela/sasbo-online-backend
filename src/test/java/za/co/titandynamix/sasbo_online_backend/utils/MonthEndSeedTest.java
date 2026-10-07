@@ -107,6 +107,18 @@ class MonthEndSeedTest {
         }
     }
 
+    /** The suspension codes the lists' resource holds, comma-separated -- the list's own, whatever else is on record. */
+    private static String listsOwnCodes() throws IOException {
+        List<String> codes = new java.util.ArrayList<>();
+        for (JsonNode list : resource(ReferenceListSeeder.RESOURCE).path("lists")) {
+            if (list.path("list").asText().equals("suspensionCodes")) {
+                list.path("rows").forEach(row -> codes.add(String.valueOf(row.path("code").asInt())));
+            }
+        }
+        assertThat(codes).as("the resource's codes").isNotEmpty();
+        return String.join(", ", codes);
+    }
+
     /** Each list's size, as the resource states it. */
     private static Map<String, Long> statedSizes() throws IOException {
         Map<String, Long> sizes = new LinkedHashMap<>();
@@ -133,7 +145,10 @@ class MonthEndSeedTest {
         assertThat(rows("SELECT count(*) FROM table_codes")).isEqualTo(stated.get("tableCodes"));
         assertThat(rows("SELECT count(*) FROM committee_provinces")).isEqualTo(stated.get("committeeProvinces"));
         assertThat(rows("SELECT count(*) FROM committees")).isEqualTo(stated.get("committees"));
-        assertThat(rows("SELECT count(*) FROM suspension_codes")).isEqualTo(stated.get("suspensionCodes"));
+        // Month end's rules insert the codes their seed needs where absent (12, 21 and the debit order codes), and a test
+        // here may have emptied the table since the start: the list's own rows are the resource's, every one.
+        assertThat(rows("SELECT count(*) FROM suspension_codes WHERE code IN (" + listsOwnCodes() + ")"))
+                .isEqualTo(stated.get("suspensionCodes"));
         assertThat(rows("SELECT count(*) FROM deletion_codes WHERE sasbo_code IS NOT NULL OR parent_id IS NOT NULL"))
                 .isEqualTo(stated.get("deletionCodes"));
         assertThat(jdbc.queryForList("SELECT list_key FROM reference_lists WHERE outcome = 'SEEDED' "
@@ -190,14 +205,14 @@ class MonthEndSeedTest {
     }
 
     @Test
-    @DisplayName("MD53, MV-45: the switch at all puts the invented members on record -- the 160, the 150 and the file's own, and nobody else")
+    @DisplayName("MD53, MV-45: the switch at all puts the invented members on record -- the 160, the 150, the file's own and month end's rules', and nobody else")
     void theSwitchPutsTheInventedMembersOnRecord() throws IOException {
         long original;
         try (InputStream stream = new ClassPathResource("data/members.json").getInputStream()) {
             original = DataSeeder.readSeedMembers(stream).size();
         }
         assertThat(members.count()).isEqualTo(original + DebitOrderMemberSeeder.readSeedFile().members().size()
-                + DemonstrationMemberSeeder.readSeedFile().count());
+                + DemonstrationMemberSeeder.readSeedFile().count() + MonthEndRulesSeeder.readSeedFile().members().size());
     }
 
     @Test
@@ -207,6 +222,9 @@ class MonthEndSeedTest {
         Map<String, Integer> expected = new HashMap<>();
         file.members().forEach(m -> expected.put(m.membershipNumber(), m.workplaceRaNumber()));
         file.placements().forEach(p -> expected.put(p.membershipNumber(), p.workplaceRaNumber()));
+        // October build: month end's rules' invented members, each at the workplace its file names.
+        MonthEndRulesSeeder.readSeedFile().members().forEach(m -> expected.put(m.membershipNumber(),
+                m.workplaceRaNumber()));
 
         assertThat(standing()).isEqualTo(expected);
         assertThat(rows("SELECT count(*) FROM members WHERE workplace_id IS NULL"))
@@ -284,11 +302,15 @@ class MonthEndSeedTest {
     @DisplayName("03.7: the three months before the clock's have their leavers and suspended by SASBO's codes, each dated inside its month")
     void theDemonstrationsPast() throws IOException {
         List<DemonstrationMember.PastChange> past = DemonstrationMemberSeeder.readSeedFile().past();
+        // October build: month end's rules write their members' past by the same actor, each in its month too.
+        List<MonthEndRulesSeeder.Change> rules = MonthEndRulesSeeder.readSeedFile().changes();
         java.time.YearMonth clocksMonth = java.time.YearMonth.from(SeedStartupTest.MigrationRowsAndAFrozenClock.FROZEN
                 .atZone(MonthRange.ZONE));
         Map<String, java.time.YearMonth> expected = new HashMap<>();
         past.forEach(c -> expected.merge(c.membershipNumber() + " " + c.toStatus(), clocksMonth.minusMonths(c.monthsBack()),
                 (a, b) -> a));
+        rules.forEach(c -> expected.merge(c.membershipNumber() + " " + c.toStatus(),
+                clocksMonth.minusMonths(c.monthsBack()), (a, b) -> a));
 
         List<Map<String, Object>> written = jdbc.query("SELECT m.membership_number, c.to_status, c.reason, "
                 + "c.deletion_code_id, c.suspension_code_id, c.changed_at FROM member_status_changes c "
@@ -303,7 +325,7 @@ class MonthEndSeedTest {
                     return row;
                 }, DemonstrationMemberSeeder.SEED_ACTOR);
 
-        assertThat(written).hasSize(past.size());
+        assertThat(written).hasSize(past.size() + rules.size());
         for (Map<String, Object> row : written) {
             java.time.Instant at = (java.time.Instant) row.get("changed_at");
             String key = row.get("membership_number") + " " + row.get("to_status");
@@ -373,12 +395,16 @@ class MonthEndSeedTest {
     @Test
     @DisplayName("the per-row lesson of JobGradeSeeder: a row the database lacks reaches it, and the rest are left as they are")
     void aMissingRowReachesTheDatabase() {
+        // Every code on record before -- the list's, and those month end's rules insert where absent (12, 21, the
+        // debit order codes): the one deleted comes back, and the rest are as they were.
+        List<Integer> before = jdbc.queryForList("SELECT code FROM suspension_codes ORDER BY code", Integer.class);
+        assertThat(before).contains(11, 13, 19);
         jdbc.update("DELETE FROM suspension_codes WHERE code = 19");
 
         lists.seed();
 
         assertThat(jdbc.queryForList("SELECT code FROM suspension_codes ORDER BY code", Integer.class))
-                .containsExactly(11, 13, 19);
+                .containsExactlyElementsOf(before);
     }
 
     @Test
@@ -445,13 +471,15 @@ class MonthEndSeedTest {
                 ((ObjectNode) list.path("rows").get(0)).remove("name");
             }
         }
+        // Counted before, not named: month end's rules may have added codes to the list since the start.
+        long before = rows("SELECT count(*) FROM suspension_codes");
         try {
             lists.seed(broken);
 
             assertThat(jdbc.queryForMap("SELECT outcome, failure FROM reference_lists WHERE list_key = 'suspensionCodes'"))
                     .containsEntry("OUTCOME", "FAILED")
                     .containsEntry("FAILURE", "UNREADABLE");
-            assertThat(rows("SELECT count(*) FROM suspension_codes")).as("nothing of it was removed").isEqualTo(3);
+            assertThat(rows("SELECT count(*) FROM suspension_codes")).as("nothing of it was removed").isEqualTo(before);
         } finally {
             lists.seed();
         }

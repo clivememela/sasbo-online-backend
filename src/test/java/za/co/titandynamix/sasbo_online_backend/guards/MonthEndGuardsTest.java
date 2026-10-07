@@ -74,7 +74,14 @@ class MonthEndGuardsTest {
             "MonthEndSendSettings", "MonthEndRegionPacks", "MonthEndSentFiles", "MonthEndRegionPackWriter",
             "MonthEndSendSeeding", "MonthEndSendSettingsRepository", "MonthEndListingsRepository",
             "MonthEndSentRepository", "MonthEndSendSeeder", "MonthEndFileProtection", "MonthEndFileLayouts",
-            "MonthEndPackPdf", "MonthEndSftp", "MonthEndMailer");
+            "MonthEndPackPdf", "MonthEndSftp", "MonthEndMailer",
+            // October build, month end's rules: free text and the penetration flag; the reasons for no deduction; the
+            // core tiers; the suspended and their lapse; the seed that shows them.
+            "FreeText", "Penetration",
+            "NoDeductionReasonController", "NoDeductionReasons", "NoDeductionReasonRepository",
+            "CoreTierController", "CoreTiers",
+            "SuspendedMembersController", "SuspendedMembers", "SuspendedMembersRepository", "SuspensionLapse",
+            "MonthEndRulesSeeder");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -405,6 +412,10 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/committees", "a list of committees: organisations"),
             Map.entry("GET /api/reference/suspension-codes", "a list of SASBO's suspension codes"),
             Map.entry("GET /api/reference/deletion-codes", "a list of SASBO's deletion codes, by their numbers"),
+            Map.entry("GET /api/reference/no-deduction-reasons", "a list of the reasons for no payroll deduction: words "
+                    + "and SASBO's codes, and nobody (MEN-17)"),
+            Map.entry("GET /api/reference/core-tiers", "SASBO's core tiers and the table codes standing in each: "
+                    + "organisations and codes (MEN-31)"),
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
             Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
             Map.entry("GET /api/workplaces/{id}/visits", "a workplace's visits: the day and the complement found; who "
@@ -424,6 +435,8 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/month-end/{month}/branches", STATISTIC),
             Map.entry("GET /api/month-end/{month}/recruitment", STATISTIC),
             Map.entry("GET /api/month-end/{month}/representatives", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/suspensions", STATISTIC + "; the suspended within each bank and by code "
+                    + "(MEN-18) -- the members themselves are a listing, held"),
             Map.entry("GET /api/month-end/{month}/visits", "a statistic: counts, by branch, rule C applied; the "
                     + "manager's name and telephone are not answered until sign-in (B1)"),
             Map.entry("POST /api/month-end/{month}/pack", "the statistics as two workbooks: counts only, the sheets the "

@@ -86,6 +86,7 @@ class MigrationChainContentTest {
         // 64 with the debit order stream: V72 adds acb_returns_batches and acb_unpaid_counts (V70 and V71 add none).
         // 71 with month end packs: V77 adds month_end_pack_sets, month_end_banks, month_end_bank_table_codes and
         // month_end_providers; V78 month_end_region_packs, month_end_files and month_end_deliveries.
+        // 73 with month end's rules: V79 adds no_deduction_reasons and core_tiers.
         //
         // 🔑 This class is gated behind P0_DB_URL and so runs in neither ordinary
         // lane, which makes "25" an edit nobody would catch being wrong. The delta
@@ -95,7 +96,7 @@ class MigrationChainContentTest {
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
                 Integer.class))
                 .as("tables in public, including flyway_schema_history")
-                .isEqualTo(71);
+                .isEqualTo(73);
     }
 
     @Test

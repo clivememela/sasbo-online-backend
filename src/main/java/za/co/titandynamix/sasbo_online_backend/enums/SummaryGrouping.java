@@ -4,9 +4,10 @@ import java.util.Arrays;
 import java.util.Optional;
 
 /**
- * The six groupings the figures take (02.2, MD31) -- each THROUGH THE MEMBER'S WORKPLACE (rule G): its table code, and
- * through the table code its employer and its employer's group; its area, its area's region, its committee. The wire
- * name is what a request sends as {@code by}; anything else is {@code SUMMARY_GROUPING_UNKNOWN}.
+ * The groupings the figures take (02.2, MD31) -- each THROUGH THE MEMBER'S WORKPLACE (rule G): its table code, and
+ * through the table code its employer and its employer's group, and the core tier the code stands in; its area, its
+ * area's region, its committee. The wire name is what a request sends as {@code by}; anything else is
+ * {@code SUMMARY_GROUPING_UNKNOWN}.
  */
 public enum SummaryGrouping {
     GROUP("group", true, false),
@@ -14,7 +15,12 @@ public enum SummaryGrouping {
     TABLE_CODE("tableCode", true, true),
     AREA("area", false, false),
     REGION("region", false, false),
-    COMMITTEE("committee", false, false);
+    COMMITTEE("committee", false, false),
+    /**
+     * October build, Stephne MEN-31: Core A, B and C, and all other institutions. Guarded as an employer is: a tier is
+     * a handful of employers, and a tier of one small employer would print that employer's membership.
+     */
+    TIER("tier", true, true);
 
     private final String wire;
     private final boolean throughTableCode;

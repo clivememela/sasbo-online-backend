@@ -55,6 +55,7 @@ public class DataSeeder implements ApplicationRunner {
     private final WorkplaceVisitSeeder workplaceVisitSeeder;
     private final DemonstrationMemberSeeder demonstrationMemberSeeder;
     private final MonthEndTakeSeeder monthEndTakeSeeder;
+    private final MonthEndRulesSeeder monthEndRulesSeeder;
     private final SignInSeeder signInSeeder;
     private final RecruitmentChannelSeeder recruitmentChannelSeeder;
     private final VisitDraftSeeder visitDraftSeeder;
@@ -340,6 +341,10 @@ public class DataSeeder implements ApplicationRunner {
         // October build: invented visits saved as drafts and submitted -- only where the switch says all. Before the
         // months are taken, so what a taken month freezes of its visits and what it reads of them agree.
         seedMonthEnd("the invented visit drafts", this.visitDraftSeeder::seed);
+        // October build: month end's rules -- her codes, reasons and tiers where absent; members suspended within
+        // several banks, some lapsed; a rejoin in the same month; a workplace over its complement. Before the take, so
+        // the seed's months are taken with them.
+        seedMonthEnd("month end's rules", () -> seedQuietly(this.monthEndRulesSeeder::seed));
         // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
         // are on record (MD54).
         seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);

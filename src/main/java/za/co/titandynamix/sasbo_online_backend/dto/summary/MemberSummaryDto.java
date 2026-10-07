@@ -15,6 +15,8 @@ import java.util.List;
  * {@code membersFrom} and {@code leaversFrom} say how far back each figure can see. {@code takenAt} and
  * {@code takenBy} say when and by whom the month was taken, where it was: its figures are then read from what was frozen
  * (rule F, 04.2) and the screen says "as taken on"; {@code null} for a month not taken. Dates are ISO strings (MD16).
+ * {@code notes} (October build) are sentences a reader needs: one whenever a penetration above 100 % is shown
+ * (Stephne, MEN-26 -- "This should be flagged so we can fix it").
  */
 public record MemberSummaryDto(
         String month,
@@ -31,7 +33,8 @@ public record MemberSummaryDto(
         String membersFrom,
         String leaversFrom,
         String takenAt,
-        String takenBy) {
+        String takenBy,
+        List<String> notes) {
 
     /**
      * The figures of the whole, or of one row. <em>On record</em>, <em>suspended</em> and <em>paying</em> are the

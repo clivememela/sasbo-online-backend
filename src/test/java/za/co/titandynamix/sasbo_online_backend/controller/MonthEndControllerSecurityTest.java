@@ -48,7 +48,10 @@ class MonthEndControllerSecurityTest {
     private static final SignedInUser TAKER = SignInTestUsers.user("invented.headoffice", CallerScope.all(),
             Permission.MONTH_END_TAKE, Permission.MONTH_END_VIEW);
     private static final MonthEndMonthDto TAKEN = new MonthEndMonthDto("2026-08", MonthEndMonthDto.TAKEN,
-            "2026-09-15T08:00:00Z", "Invented invented.headoffice (invented.headoffice)", 4L, null, null);
+            "2026-09-15T08:00:00Z", "Invented invented.headoffice (invented.headoffice)", 4L, null, null, 1, null,
+            "2026-07-31T22:00:00Z", "2026-08-31T22:00:00Z");
+    /** Why a month is taken again (MEN-11), as an administrator would type it. */
+    private static final String REASON = "Invented: corrected the workplaces";
 
     @Autowired
     private MockMvc mockMvc;
@@ -65,7 +68,7 @@ class MonthEndControllerSecurityTest {
         mockMvc.perform(post("/api/month-end/2026-08/take"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("SIGN_IN_REQUIRED"));
-        verify(takes, never()).take(any(), any(), any());
+        verify(takes, never()).take(any(), any(), any(), any());
     }
 
     @Test
@@ -76,7 +79,7 @@ class MonthEndControllerSecurityTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("PERMISSION_REQUIRED"))
                 .andExpect(jsonPath("$.permission").value("MONTH_END_TAKE"));
-        verify(takes, never()).take(any(), any(), any());
+        verify(takes, never()).take(any(), any(), any(), any());
     }
 
     @Test
@@ -89,21 +92,24 @@ class MonthEndControllerSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("TAKEN"))
                 .andExpect(jsonPath("$.takenBy").value("Invented invented.headoffice (invented.headoffice)"));
-        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.headoffice (invented.headoffice)"), isNull());
+        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.headoffice (invented.headoffice)"), isNull(),
+                isNull());
         verify(audit).record(eq("MONTH_END_TAKEN"), eq("MONTH_END"), eq("2026-08"), anyString());
     }
 
     @Test
-    @DisplayName("MEN-10: another person in the same position takes it again -- the permission is the only gate")
+    @DisplayName("MEN-10: another person in the same position takes it again, saying why (MEN-11) -- the permission is the only gate")
     void theSamePositionTakesItAgain() throws Exception {
         SignedInUser colleague = SignInTestUsers.user("invented.colleague", CallerScope.all(), Permission.MONTH_END_TAKE);
         when(takes.month("2026-08")).thenReturn(YearMonth.of(2026, 8));
         when(takes.record("2026-08")).thenReturn(TAKEN);
+        when(takes.reason(YearMonth.of(2026, 8), 3L, REASON)).thenReturn(REASON);
 
         mockMvc.perform(post("/api/month-end/2026-08/take").with(SignInTestUsers.signedIn(colleague))
-                        .contentType("application/json").content("{\"replaces\": 3}"))
+                        .contentType("application/json").content("{\"replaces\": 3, \"reason\": \"" + REASON + "\"}"))
                 .andExpect(status().isOk());
-        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.colleague (invented.colleague)"), eq(3L));
+        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.colleague (invented.colleague)"), eq(3L),
+                eq(REASON));
         verify(audit).record(eq("MONTH_END_TAKEN_AGAIN"), eq("MONTH_END"), eq("2026-08"), anyString());
     }
 

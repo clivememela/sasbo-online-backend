@@ -1,5 +1,10 @@
 package za.co.titandynamix.sasbo_online_backend.utils;
 
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import za.co.titandynamix.sasbo_online_backend.security.Permission;
+
 /**
  * Rule C, for one sum -- the rows of a grouping and the total they add up to (02.2, MD27 as refined by MD37).
  *
@@ -10,12 +15,29 @@ package za.co.titandynamix.sasbo_online_backend.utils;
  * {@code planning/branches/monthly-menu/legacy/reference.py}'s {@code Ledger}, the one this folder's own documents are
  * held to, for a single sum.
  *
- * <p>A courtesy, not a control: two answers read together can find a row, and the control is sign-in.
+ * <p>A courtesy, not a control: two answers read together can find a row, and the control is sign-in. So it holds
+ * "until sign-in" (MD27) and no longer: a caller signed in with {@code MONTH_END_VIEW} -- SASBO's own staff, who see the
+ * month's figures -- is answered every figure exactly ({@link #appliesToTheCaller}). Everyone else keeps it.
  */
 public final class SmallCounts {
 
     /** Of the four values a row of fewer than five can have, how many the sum must leave a reader unable to rule out. */
     public static final int KEEP = 3;
+
+    /** The permission whose holder sees every figure exactly -- the month's figures are what it reads. */
+    public static final String EXACT_FIGURES = Permission.MONTH_END_VIEW.name();
+
+    /**
+     * Whether the courtesy applies to the caller on this thread: to everyone but a signed-in caller holding
+     * {@link #EXACT_FIGURES}. A job's thread carries no caller, and keeps it.
+     */
+    public static boolean appliesToTheCaller() {
+        Authentication caller = SecurityContextHolder.getContext().getAuthentication();
+        if (caller == null || !caller.isAuthenticated() || caller instanceof AnonymousAuthenticationToken) {
+            return true;
+        }
+        return caller.getAuthorities().stream().noneMatch(granted -> EXACT_FIGURES.equals(granted.getAuthority()));
+    }
 
     /** What a row's count is answered as. */
     public enum State {

@@ -96,8 +96,8 @@ public class MonthEndListingRepository {
     private static String where(Kind kind, CallerScope scope, String area, String region, MapSqlParameterSource args) {
         StringBuilder where = new StringBuilder(" WHERE ");
         switch (kind) {
-            case NEW_MEMBERS -> where.append(MemberSummaryRepository.joined("m", "firstDay"));
-            case RECRUITED -> where.append(MemberSummaryRepository.joined("m", "firstDay"))
+            case NEW_MEMBERS -> where.append(MemberSummaryRepository.joined("m", "start", "firstDay"));
+            case RECRUITED -> where.append(MemberSummaryRepository.joined("m", "start", "firstDay"))
                     .append(" AND m.recruiter_id IS NOT NULL");
             case DELETED_MEMBERS -> where.append("c.changed_at >= :start AND c.changed_at < :next AND ")
                     .append(MemberSummaryRepository.intoLeaving(MemberSummaryRepository.kind("c.to_status"),
