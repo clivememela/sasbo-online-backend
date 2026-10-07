@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Visit drafts (V82), by one statement each -- written here and nowhere else.
+ * Visit drafts (V69_1), by one statement each -- written here and nowhere else.
  *
  * <h2>Always the owner's</h2>
  * Every statement names the owner beside the draft's id: a draft is found, changed or submitted only by the person who

@@ -207,8 +207,11 @@ public final class MigrationSeed {
             "V62__workplace_visits.sql",
             "V63__member_memnet.sql",
             "V64__month_end_taken_again.sql",
-            // October build, reports-visits: an organiser's visit saved as a draft and submitted.
-            "V82__workplace_visit_drafts.sql");
+            // October build, reports-visits: an organiser's visit saved as a draft and submitted. 69.1, a fractional
+            // version like V1_1: batch 1 reaches production before batch 2's V70-V81, and production migrates with
+            // validate-on-migrate off, so a version below one already applied would be skipped silently -- as 69.1
+            // it sorts after the bugs stream's V69 and before V70.
+            "V69_1__workplace_visit_drafts.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

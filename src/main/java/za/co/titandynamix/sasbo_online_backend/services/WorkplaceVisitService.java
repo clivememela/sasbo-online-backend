@@ -53,7 +53,7 @@ public class WorkplaceVisitService {
 
     /**
      * The largest count a visit takes -- of staff, members, non-members or recruits (October build): no workplace of
-     * SASBO's has a staff of a hundred thousand, so a larger number is a typing slip, and V82 holds a draft to it too.
+     * SASBO's has a staff of a hundred thousand, so a larger number is a typing slip, and V69_1 holds a draft to it too.
      */
     public static final int MAX_COUNT = 99_999;
 

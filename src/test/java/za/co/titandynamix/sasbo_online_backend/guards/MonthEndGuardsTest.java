@@ -8,8 +8,10 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.MainClassSource;
+import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -338,19 +340,21 @@ class MonthEndGuardsTest {
     @DisplayName("🔒 MR-ROB-21, MR-ROB-34: every migration of the arc begins with the lock timeout, and none gives a column the database's time")
     void everyMigrationIsBounded() throws IOException {
         List<String> offenders = new ArrayList<>();
-        int found = 0;
+        List<String> found = new ArrayList<>();
         try (var files = Files.list(Paths.get("src", "main", "resources", "db", "migration"))) {
             for (var file : files.toList()) {
                 String name = file.getFileName().toString();
-                if (!name.matches("V\\d+__.*\\.sql") || Integer.parseInt(name.substring(1, name.indexOf("__")))
-                        < FIRST_MONTH_END_VERSION) {
+                // A fractional version (V69_1) is read by MigrationSeed's one rule, never passed over in silence.
+                if (!name.matches("V\\d+(_\\d+)?__.*\\.sql") || new BigDecimal(MigrationSeed.versionOf(name))
+                        .compareTo(BigDecimal.valueOf(FIRST_MONTH_END_VERSION)) < 0) {
                     continue;
                 }
-                found++;
+                found.add(name);
                 offenders.addAll(unbounded(name, Files.readString(file, StandardCharsets.UTF_8)));
             }
         }
-        assertThat(found).as("month end's migrations").isPositive();
+        assertThat(found).as("month end's migrations, a fractional version among them")
+                .contains("V53__sasbo_reference_lists.sql", "V69_1__workplace_visit_drafts.sql");
         assertThat(offenders).isEmpty();
     }
 

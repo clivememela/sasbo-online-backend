@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 /**
- * The visit forms on PostgreSQL (October build, V82): a draft saved, saved again from an older version and refused,
+ * The visit forms on PostgreSQL (October build, V69_1): a draft saved, saved again from an older version and refused,
  * submitted -- the visit on record through the visit's own path, its complement written through -- and read-only after;
  * a submission sent twice is one visit; another person's draft is not there; the table's constraints and its trigger,
  * by name; and the seed's invented drafts, once.
@@ -205,7 +205,7 @@ class VisitDraftIT extends AbstractSwitchedOnIT {
     }
 
     @Test
-    @DisplayName("🔒 V82's constraints, by name: a known status, a submission whole, counts in range, the time out after the time in")
+    @DisplayName("🔒 V69_1's constraints, by name: a known status, a submission whole, counts in range, the time out after the time in")
     void theConstraintsByName() {
         assertThatThrownBy(() -> insertDraft("LOST", null))
                 .hasMessageContaining("workplace_visit_drafts_status_known");
@@ -229,7 +229,7 @@ class VisitDraftIT extends AbstractSwitchedOnIT {
     }
 
     @Test
-    @DisplayName("🔒 V82's trigger, by name: a submitted visit is read-only -- a draft is not -- and the lane's reset still empties the table")
+    @DisplayName("🔒 V69_1's trigger, by name: a submitted visit is read-only -- a draft is not -- and the lane's reset still empties the table")
     void submittedIsReadOnly() {
         Long visit = jdbc.queryForObject("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, seeded, "
                 + "captured_at) VALUES (?, DATE '2026-09-10', TRUE, FALSE, now()) RETURNING id", Long.class, workplace);
@@ -288,7 +288,7 @@ class VisitDraftIT extends AbstractSwitchedOnIT {
     }
 
     @Test
-    @DisplayName("🔒 review: V82's workplace_visit_drafts_visit_once, by name -- a visit is submitted from one draft, never two")
+    @DisplayName("🔒 review: V69_1's workplace_visit_drafts_visit_once, by name -- a visit is submitted from one draft, never two")
     void aVisitIsSubmittedFromOneDraft() {
         Long visit = jdbc.queryForObject("INSERT INTO workplace_visits (workplace_id, visited_on, day_known, seeded, "
                 + "captured_at) VALUES (?, DATE '2026-09-10', TRUE, FALSE, now()) RETURNING id", Long.class, workplace);

@@ -15,7 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 /**
- * An organiser's visit before it is SASBO's record (V82): saved as a draft, changed until it is submitted, and then
+ * An organiser's visit before it is SASBO's record (V69_1): saved as a draft, changed until it is submitted, and then
  * read-only, keeping the id of the visit its submission appended to {@code workplace_visits}. Written and read by
  * {@code WorkplaceVisitDraftRepository} through JDBC, one statement each; the entity is the table's shape for the fast
  * lane, which builds its schema from the entities, and for the integration lane's schema validation.

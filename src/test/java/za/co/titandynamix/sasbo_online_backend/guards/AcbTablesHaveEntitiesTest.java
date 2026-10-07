@@ -7,8 +7,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
+import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,6 +64,8 @@ class AcbTablesHaveEntitiesTest {
     void theScanFindsWhatItShould() throws IOException {
         Map<String, String> tables = acbMigrationTables();
         assertThat(tables).containsKeys("acb_runs", "acb_run_lines", "acb_holidays", "acb_calendar");
+        assertThat(tables).as("a fractional version's table is scanned too")
+                .containsEntry("workplace_visit_drafts", "V69_1__workplace_visit_drafts.sql");
         assertThat(entityTables()).contains("acb_runs", "acb_holidays", "acb_calendar", "members");
         for (String sqlOnly : SQL_ONLY.keySet()) {
             assertThat(tables).as("%s is allowed as SQL-only but no ACB migration creates it", sqlOnly).containsKey(sqlOnly);
@@ -77,10 +81,12 @@ class AcbTablesHaveEntitiesTest {
     private static Map<String, String> acbMigrationTables() throws IOException {
         Map<String, String> tables = new TreeMap<>();
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
-            for (Path file : files.filter(f -> f.getFileName().toString().matches("V\\d+__.*\\.sql")).toList()) {
+            // A fractional version (V69_1) is a migration too: read by MigrationSeed's one rule, or this scan would
+            // pass over it -- and over the table it creates -- in silence.
+            for (Path file : files.filter(f -> f.getFileName().toString().matches("V\\d+(_\\d+)?__.*\\.sql")).toList()) {
                 String name = file.getFileName().toString();
-                int version = Integer.parseInt(name.substring(1, name.indexOf("__")));
-                if (version >= FIRST_ACB_VERSION) {
+                BigDecimal version = new BigDecimal(MigrationSeed.versionOf(name));
+                if (version.compareTo(BigDecimal.valueOf(FIRST_ACB_VERSION)) >= 0) {
                     for (String table : created(Files.readString(file, StandardCharsets.UTF_8))) {
                         tables.put(table, name);
                     }
