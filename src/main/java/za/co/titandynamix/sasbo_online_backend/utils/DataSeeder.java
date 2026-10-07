@@ -56,6 +56,7 @@ public class DataSeeder implements ApplicationRunner {
     private final MonthEndTakeSeeder monthEndTakeSeeder;
     private final SignInSeeder signInSeeder;
     private final RecruitmentChannelSeeder recruitmentChannelSeeder;
+    private final VisitDraftSeeder visitDraftSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -334,6 +335,9 @@ public class DataSeeder implements ApplicationRunner {
         seedMonthEnd("the seed members' workplaces", () -> seedQuietly(this.demonstrationMemberSeeder::place));
         // 03.7: their past -- the three months before the clock's, written through the real status change.
         seedMonthEnd("the invented members' past", () -> seedQuietly(this.demonstrationMemberSeeder::past));
+        // October build: invented visits saved as drafts and submitted -- only where the switch says all. Before the
+        // months are taken, so what a taken month freezes of its visits and what it reads of them agree.
+        seedMonthEnd("the invented visit drafts", this.visitDraftSeeder::seed);
         // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
         // are on record (MD54).
         seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);

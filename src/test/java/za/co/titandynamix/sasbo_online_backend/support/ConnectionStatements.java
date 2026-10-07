@@ -61,7 +61,12 @@ public final class ConnectionStatements {
         return count[0] - before;
     }
 
-    static DataSource wrap(DataSource dataSource) {
+    /**
+     * A data source whose every statement is counted on the sending thread. Public since the October build, so an
+     * integration test can count one repository's statements without a context of its own -- each context the lane
+     * caches holds a pool against the one container.
+     */
+    public static DataSource wrap(DataSource dataSource) {
         return (DataSource) Proxy.newProxyInstance(DataSource.class.getClassLoader(),
                 new Class<?>[] {DataSource.class}, forwarding(dataSource, (method, result) ->
                         result instanceof Connection connection ? connection(connection) : result));

@@ -82,6 +82,7 @@ class MigrationChainContentTest {
         // 54 from month end A.1: V62 adds workplace_visits.
         // 61 from sign-in (October build): V65 adds staff_roles, staff_role_permissions, staff_positions, staff_users
         // and staff_user_scope_codes; V66 user_sessions; V67 audit_events.
+        // 62 with the October build's reports-visits: V69_1 adds workplace_visit_drafts.
         //
         // 🔑 This class is gated behind P0_DB_URL and so runs in neither ordinary
         // lane, which makes "25" an edit nobody would catch being wrong. The delta
@@ -91,7 +92,7 @@ class MigrationChainContentTest {
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
                 Integer.class))
                 .as("tables in public, including flyway_schema_history")
-                .isEqualTo(61);
+                .isEqualTo(62);
     }
 
     @Test

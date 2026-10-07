@@ -25,10 +25,37 @@ public enum MonthEndRefusalCode {
      */
     REQUEST_MALFORMED(HttpStatus.BAD_REQUEST),
     /**
-     * 01.2: a page of the workplaces that does not exist -- and A.1: a page of a workplace's visits that does not.
-     * The details carry the page, the size and the ceiling.
+     * 01.2: a page of the workplaces that does not exist -- and A.1: a page of a workplace's visits that does not; the
+     * October build: a page of the members at a workplace, or of a person's own visit drafts, that does not. The
+     * details carry the page, the size and the ceiling.
      */
     WORKPLACE_PAGE_INVALID(HttpStatus.BAD_REQUEST),
+    /**
+     * October build, the organisers' batch print (5 Oct): the R/A numbers asked for could not be read -- none, more
+     * than fifty, or one that is not a number of up to nine digits. The details say which ({@code reason}: NONE,
+     * TOO_MANY or NOT_A_NUMBER) and the ceiling, and give none of what was sent back. Nothing was looked up.
+     */
+    RA_NUMBERS_INVALID(HttpStatus.BAD_REQUEST),
+    /**
+     * October build: the workplace is outside the caller's region or area -- its members are not listed to them, and
+     * a visit to it is not captured by them (the permission contract's scope). The details carry the workplace's id.
+     */
+    WORKPLACE_OUT_OF_SCOPE(HttpStatus.FORBIDDEN),
+    /**
+     * October build, the visit forms (5 Oct): no visit draft of the caller's has that number -- another person's draft
+     * is never found, so it is never shown. The details carry the id asked for.
+     */
+    VISIT_DRAFT_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /**
+     * October build: the draft was saved since the version this save was made from -- in another tab, or on another
+     * device. Nothing was written over it; the details carry the version now and when it was saved.
+     */
+    VISIT_DRAFT_STALE(HttpStatus.CONFLICT),
+    /**
+     * October build: the visit has been submitted, and a submitted visit is SASBO's record -- read-only. The details
+     * carry the visit's number and when it was submitted.
+     */
+    VISIT_ALREADY_SUBMITTED(HttpStatus.CONFLICT),
     /**
      * 01.3: a member's save names a workplace that is not on record here -- or none is served here (MD62). Looked for
      * BEFORE the save, so the database's foreign key is never what refuses it; answered by the global handler, the

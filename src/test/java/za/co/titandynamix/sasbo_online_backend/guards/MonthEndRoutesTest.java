@@ -66,7 +66,22 @@ class MonthEndRoutesTest {
             // Register row A10: the register a page at a time, and its figures -- MEMBERS_VIEW for a signed-in caller,
             // only the caller's own region or area; isAnonymous() admits anyone while sign-in is open (OB8).
             Map.entry("POST /api/members/register/search", "MEMBERS_VIEW"),
-            Map.entry("GET /api/members/register/overview", "MEMBERS_VIEW")
+            Map.entry("GET /api/members/register/overview", "MEMBERS_VIEW"),
+            // reports-visits (5 Oct Show & Tell): the Location Listing's members at a branch -- a listing that names members.
+            Map.entry("GET /api/workplaces/{id}/members", "MEMBERS_VIEW"),
+            // reports-visits (5 Oct Show & Tell): the visit forms, saved as a draft and submitted -- a person's own drafts.
+            Map.entry("GET /api/workplaces/visit-drafts", "VISITS_CAPTURE"),
+            Map.entry("POST /api/workplaces/visit-drafts", "VISITS_CAPTURE"),
+            Map.entry("GET /api/workplaces/visit-drafts/{id}", "VISITS_CAPTURE"),
+            Map.entry("PUT /api/workplaces/visit-drafts/{id}", "VISITS_CAPTURE"),
+            Map.entry("POST /api/workplaces/visit-drafts/{id}/submit", "VISITS_CAPTURE"),
+            Map.entry("DELETE /api/workplaces/visit-drafts/{id}", "VISITS_CAPTURE"),
+            // reports-visits review: the direct visit route, held as the drafts are -- it writes the same complement.
+            Map.entry("POST /api/workplaces/{id}/visits", "VISITS_CAPTURE"),
+            // reports-visits review: the batch print's listings, held by the catalogue's REPORTS_PRINT, and its members
+            // in one read for the batch.
+            Map.entry("GET /api/workplaces/listings", "REPORTS_PRINT"),
+            Map.entry("GET /api/workplaces/members", "MEMBERS_VIEW")
     );
 
     /** The permission a {@code @PreAuthorize} expression names: {@code hasAuthority('MONTH_END_TAKE')}. */

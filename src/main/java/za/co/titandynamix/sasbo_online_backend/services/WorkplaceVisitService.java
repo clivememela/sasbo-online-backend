@@ -7,7 +7,9 @@ import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceVisitPageD
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceVisitRequest;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.repository.WorkplaceLookupRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.WorkplaceVisitRepository;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
 import java.time.Clock;
@@ -27,9 +29,16 @@ import java.util.Map;
  * the workplace's writes it onto the workplace, in the same transaction, and keeps what it was on the visit
  * ({@code complementBefore}); the workplaces' seed leaves a complement a visit wrote as it is ({@code WorkplaceSeeder}).
  *
- * <h2>Open, as every write is today</h2>
- * The write is as open as the member's and is named in B1's list in the commit that creates it (MR-SEC-1). What the
- * read answers, and what it keeps back, is {@link WorkplaceVisitPageDto}'s.
+ * <h2>Held by VISITS_CAPTURE and the caller's scope, on every route that records one (October build)</h2>
+ * A visit writes the workplace's complement, which is that area's figure. So both routes that record one -- the visit
+ * drafts' submission and the direct {@code POST /api/workplaces/{id}/visits} -- come through {@link #record}, which
+ * refuses a workplace outside the caller's region or area ({@code WORKPLACE_OUT_OF_SCOPE}); the routes carry
+ * {@code VISITS_CAPTURE} (the direct one also answers an anonymous caller while sign-in is open, whose scope is
+ * everything -- contracts/signin.md). What the read answers, and what it keeps back, is {@link WorkplaceVisitPageDto}'s.
+ *
+ * <h2>Two visits at once</h2>
+ * The complement on record is read {@code FOR UPDATE} before a visit writes another, so two visits to one branch in the
+ * same moment are written one after the other, each keeping the complement it found before it.
  */
 @Service
 public class WorkplaceVisitService {
@@ -42,16 +51,25 @@ public class WorkplaceVisitService {
     /** The longest name a visitor's line takes -- the column's. */
     static final int ORGANISER_MAX = 120;
 
+    /**
+     * The largest count a visit takes -- of staff, members, non-members or recruits (October build): no workplace of
+     * SASBO's has a staff of a hundred thousand, so a larger number is a typing slip, and V69_1 holds a draft to it too.
+     */
+    public static final int MAX_COUNT = 99_999;
+
     /** What every visit keeps and the read does not answer (MD61, B1). */
     static final List<String> WITHHELD = List.of("organiser", "membershipFound", "nonMembers", "recruited",
             "nonMembersInterviewed");
 
     private final WorkplaceVisitRepository visits;
+    private final WorkplaceLookupRepository places;
     private final WorkplaceSwitch workplaceSwitch;
     private final Clock clock;
 
-    public WorkplaceVisitService(WorkplaceVisitRepository visits, WorkplaceSwitch workplaceSwitch, Clock clock) {
+    public WorkplaceVisitService(WorkplaceVisitRepository visits, WorkplaceLookupRepository places,
+                                 WorkplaceSwitch workplaceSwitch, Clock clock) {
         this.visits = visits;
+        this.places = places;
         this.workplaceSwitch = workplaceSwitch;
         this.clock = clock;
     }
@@ -80,28 +98,54 @@ public class WorkplaceVisitService {
      * Records a visit to a workplace, and -- where it found another complement -- writes the workplace's, keeping what
      * it was. Refused whole, nothing written: a workplace not on record ({@code WORKPLACE_UNKNOWN}); a visit with no
      * day, a day still to come in SASBO's zone, a count below nought, a time out before the time in, or a visitor's
-     * name past its column ({@code VISIT_INVALID}, the field named in the details).
+     * name past its column ({@code VISIT_INVALID}, the field named in the details); a workplace outside the caller's
+     * region or area ({@code WORKPLACE_OUT_OF_SCOPE}).
      */
     @Transactional
     public WorkplaceVisitPageDto.Visit record(Long workplaceId, WorkplaceVisitRequest visit) {
         long id = onRecord(workplaceId);
-        if (visit == null || visit.visitedOn() == null || visit.visitedOn().isBlank()) {
-            throw invalid("visitedOn", "The day of the visit is needed.");
+        WorkplaceLookupRepository.Place place = places.byId(id).orElseThrow(() -> unknown(workplaceId));
+        if (!CallerScope.current().allows(place.area(), place.region())) {
+            throw outOfScope(id);
         }
-        LocalDate day = parse("visitedOn", visit.visitedOn(), LocalDate::parse, "The day of the visit is not a date.");
-        LocalTime in = visit.timeIn() == null || visit.timeIn().isBlank() ? null
-                : parse("timeIn", visit.timeIn(), LocalTime::parse, "The time in is not a time of day.");
-        LocalTime out = visit.timeOut() == null || visit.timeOut().isBlank() ? null
-                : parse("timeOut", visit.timeOut(), LocalTime::parse, "The time out is not a time of day.");
-        validate(visit, day, in, out);
-        Integer onRecord = visits.complementOf(id).orElseThrow(() -> unknown(workplaceId))[0];
+        Checked checked = check(visit, true);
+        Integer onRecord = visits.lockComplementOf(id).orElseThrow(() -> unknown(workplaceId))[0];
         Integer before = null;
         if (visit.complementFound() != null && !visit.complementFound().equals(onRecord)) {
             before = onRecord;
             visits.setComplement(id, visit.complementFound());
         }
-        long visitId = visits.insert(id, visit, day, in, out, before, clock.instant());
-        return new WorkplaceVisitPageDto.Visit(visitId, day.toString(), true, visit.complementFound(), before, false);
+        long visitId = visits.insert(id, visit, checked.day(), checked.in(), checked.out(), before, clock.instant());
+        return new WorkplaceVisitPageDto.Visit(visitId, checked.day().toString(), true, visit.complementFound(), before,
+                false);
+    }
+
+    /** A visit's day and times, read from the text the form sent; the day is {@code null} where none was sent. */
+    public record Checked(LocalDate day, LocalTime in, LocalTime out) {
+    }
+
+    /**
+     * Reads a visit's fields and holds them to a visit's rules -- the ONE place both a visit recorded and a visit draft
+     * saved are checked (October build), so a draft that saves is a draft that submits, but for its day. Refused
+     * {@code VISIT_INVALID}, the field named: a day that is not a date or is still to come in SASBO's zone, a time
+     * that is not one, a time out before the time in, a count below nought or above {@value #MAX_COUNT}, a visitor's
+     * name past its column.
+     *
+     * @param dayRequired a visit recorded has its day; a draft may be saved before the organiser has chosen one
+     */
+    public Checked check(WorkplaceVisitRequest visit, boolean dayRequired) {
+        boolean noDay = visit == null || visit.visitedOn() == null || visit.visitedOn().isBlank();
+        if (noDay && (dayRequired || visit == null)) {
+            throw invalid("visitedOn", "The day of the visit is needed.");
+        }
+        LocalDate day = noDay ? null
+                : parse("visitedOn", visit.visitedOn(), LocalDate::parse, "The day of the visit is not a date.");
+        LocalTime in = visit.timeIn() == null || visit.timeIn().isBlank() ? null
+                : parse("timeIn", visit.timeIn(), LocalTime::parse, "The time in is not a time of day.");
+        LocalTime out = visit.timeOut() == null || visit.timeOut().isBlank() ? null
+                : parse("timeOut", visit.timeOut(), LocalTime::parse, "The time out is not a time of day.");
+        validate(visit, day, in, out);
+        return new Checked(day, in, out);
     }
 
     private static <T> T parse(String field, String text, java.util.function.Function<String, T> parser,
@@ -114,7 +158,9 @@ public class WorkplaceVisitService {
     }
 
     private void validate(WorkplaceVisitRequest visit, LocalDate day, LocalTime in, LocalTime out) {
-        if (day.isAfter(LocalDate.now(clock.withZone(MonthRange.ZONE)))) {
+        // PROVISIONAL (October build review): a visit's day has no LOWER bound -- a visit of years ago is accepted. Which
+        // window SASBO keeps visits in is their question, asked, not ours to guess.
+        if (day != null && day.isAfter(LocalDate.now(clock.withZone(MonthRange.ZONE)))) {
             throw invalid("visitedOn", "A visit cannot be on a day still to come.");
         }
         Map<String, Integer> counts = new java.util.LinkedHashMap<>();
@@ -126,6 +172,9 @@ public class WorkplaceVisitService {
         for (Map.Entry<String, Integer> count : counts.entrySet()) {
             if (count.getValue() != null && count.getValue() < 0) {
                 throw invalid(count.getKey(), "A count cannot be below nought.");
+            }
+            if (count.getValue() != null && count.getValue() > MAX_COUNT) {
+                throw invalid(count.getKey(), "A count cannot be more than 99,999.");
             }
         }
         if (in != null && out != null && out.isBefore(in)) {
@@ -142,6 +191,16 @@ public class WorkplaceVisitService {
             throw unknown(workplaceId);
         }
         return workplaceId;
+    }
+
+    /**
+     * A workplace outside the caller's region or area: its members are not listed to them, and a visit to it is not
+     * recorded by them -- the one sentence every route of the October build says it with.
+     */
+    public static MonthEndRefusal outOfScope(long workplaceId) {
+        return new MonthEndRefusal(MonthEndRefusalCode.WORKPLACE_OUT_OF_SCOPE,
+                "That workplace is outside your region or area.",
+                Map.of("workplaceId", String.valueOf(workplaceId)));
     }
 
     private static MonthEndRefusal unknown(Long workplaceId) {

@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,9 +59,12 @@ public class WorkplaceController {
     }
 
     /**
-     * A.1: records a visit to a workplace -- as open as every write today, and named in B1's list (MR-SEC-1). A visit
-     * that found another complement writes the workplace's, keeping what it was.
+     * A.1: records a visit to a workplace. A visit that found another complement writes the workplace's, keeping what it
+     * was. October build review: held as the visit drafts are -- {@code VISITS_CAPTURE}, and the caller's region or area
+     * ({@code WorkplaceVisitService.record}) -- and still answered to a caller who is not signed in while sign-in is open,
+     * whose scope is everything: the Location Visit form's one-step Save visit keeps working (contracts/signin.md).
      */
+    @PreAuthorize("isAnonymous() or hasAuthority('VISITS_CAPTURE')")
     @PostMapping("/{id}/visits")
     public ResponseEntity<WorkplaceVisitPageDto.Visit> record(@PathVariable Long id,
                                                               @RequestBody WorkplaceVisitRequest visit) {

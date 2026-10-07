@@ -128,6 +128,15 @@ DELETE /api/subscriptions/{id}
 GET /api/subscriptions/{id}
 PUT /api/subscriptions/{id}
 GET /api/workplaces
+GET /api/workplaces/listings
+GET /api/workplaces/members
+GET /api/workplaces/visit-drafts
+POST /api/workplaces/visit-drafts
+DELETE /api/workplaces/visit-drafts/{id}
+GET /api/workplaces/visit-drafts/{id}
+PUT /api/workplaces/visit-drafts/{id}
+POST /api/workplaces/visit-drafts/{id}/submit
+GET /api/workplaces/{id}/members
 GET /api/workplaces/{id}/visits
 POST /api/workplaces/{id}/visits
 ANY /error
