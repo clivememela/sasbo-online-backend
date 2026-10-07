@@ -249,7 +249,7 @@
       {"code": "NOTE_INVALID", "status": 400},
       {"code": "NOTHING_TO_QUERY", "status": 409},
       {"code": "QUERY_NOT_FOUND", "status": 404},
-      {"code": "PASSWORD_INVALID", "status": 400},
+      {"code": "QUERY_FILE_NOT_FOUND", "status": 404},
       {"code": "REPORT_FORMAT_UNKNOWN", "status": 400},
       {"code": "PAYMENT_INVALID", "status": 400},
       {"code": "SETTINGS_INVALID", "status": 400},

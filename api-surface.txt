@@ -93,7 +93,8 @@ GET /api/payroll/files/{id}/rows
 GET /api/payroll/payments
 POST /api/payroll/payments
 GET /api/payroll/queries/{id}
-POST /api/payroll/queries/{id}/download
+POST /api/payroll/queries/{id}/files
+GET /api/payroll/query-files/{id}
 GET /api/payroll/vocabulary
 GET /api/provinces
 GET /api/recruiters
