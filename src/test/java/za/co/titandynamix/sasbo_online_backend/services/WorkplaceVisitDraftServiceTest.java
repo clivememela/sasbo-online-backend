@@ -71,10 +71,11 @@ class WorkplaceVisitDraftServiceTest {
         when(places.byRaNumber(900001)).thenReturn(Optional.of(MAIN_STREET));
         when(places.byId(7L)).thenReturn(Optional.of(MAIN_STREET));
         when(visitRows.complementOf(7L)).thenReturn(Optional.of(new Integer[] {40}));
+        when(visitRows.lockComplementOf(7L)).thenReturn(Optional.of(new Integer[] {40}));
         when(visitRows.insert(anyLong(), any(), any(), any(), any(), any(), any())).thenReturn(99L);
         when(drafts.insert(anyLong(), any(), anyString(), anyString(), any())).thenReturn(5L);
         when(drafts.one(eq(5L), anyString())).thenReturn(Optional.of(draft("DRAFT", "2026-09-10", 0)));
-        WorkplaceVisitService visits = new WorkplaceVisitService(visitRows, workplaceSwitch, CLOCK);
+        WorkplaceVisitService visits = new WorkplaceVisitService(visitRows, places, workplaceSwitch, CLOCK);
         service = new WorkplaceVisitDraftService(drafts, places, visits, workplaceSwitch, CLOCK);
         signedInAs("invented.organiser", CallerScope.areas(Set.of("A")));
     }
@@ -280,6 +281,49 @@ class WorkplaceVisitDraftServiceTest {
         when(drafts.lock(5L, "invented.organiser")).thenReturn(Optional.of(head("DRAFT", 3)));
         assertCode(() -> service.submit(5L, new VisitDraftSubmitRequest(2)), MonthEndRefusalCode.VISIT_DRAFT_STALE);
         verify(visitRows, never()).insert(anyLong(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("🔒 review: the scope is asked again at submission -- a caller whose area no longer covers the draft's workplace is WORKPLACE_OUT_OF_SCOPE, and no visit is recorded")
+    void theScopeIsAskedAgainAtSubmission() {
+        when(drafts.lock(5L, "invented.organiser")).thenReturn(Optional.of(head("DRAFT", 2)));
+        when(drafts.one(5L, "invented.organiser")).thenReturn(Optional.of(draft("DRAFT", "2026-09-10", 2)));
+        signedInAs("invented.organiser", CallerScope.areas(Set.of("B")));
+
+        assertCode(() -> service.submit(5L, new VisitDraftSubmitRequest(2)), MonthEndRefusalCode.WORKPLACE_OUT_OF_SCOPE);
+
+        verify(visitRows, never()).setComplement(anyLong(), anyInt());
+        verify(visitRows, never()).insert(anyLong(), any(), any(), any(), any(), any(), any());
+        verify(drafts, never()).submitted(anyLong(), anyString(), anyInt(), anyLong(), anyString(), any());
+    }
+
+    // ------------------------------------------------------------------------------------------- discarding
+
+    @Test
+    @DisplayName("🔒 review: Discard draft deletes the caller's draft at the version they saw")
+    void discarding() {
+        when(drafts.lock(5L, "invented.organiser")).thenReturn(Optional.of(head("DRAFT", 3)));
+        when(drafts.delete(5L, "invented.organiser", 3)).thenReturn(true);
+
+        service.discard(5L, 3);
+
+        verify(drafts).delete(5L, "invented.organiser", 3);
+    }
+
+    @Test
+    @DisplayName("🔒 a submitted visit is never discarded; a draft saved since, or none of mine, or no version, is refused -- and nothing is deleted")
+    void discardingRefused() {
+        when(drafts.lock(5L, "invented.organiser")).thenReturn(Optional.of(head("SUBMITTED", 1)));
+        assertCode(() -> service.discard(5L, 1), MonthEndRefusalCode.VISIT_ALREADY_SUBMITTED);
+
+        when(drafts.lock(5L, "invented.organiser")).thenReturn(Optional.of(head("DRAFT", 3)));
+        assertCode(() -> service.discard(5L, 2), MonthEndRefusalCode.VISIT_DRAFT_STALE);
+
+        when(drafts.lock(6L, "invented.organiser")).thenReturn(Optional.empty());
+        assertCode(() -> service.discard(6L, 0), MonthEndRefusalCode.VISIT_DRAFT_NOT_FOUND);
+
+        assertCode(() -> service.discard(5L, null), MonthEndRefusalCode.REQUEST_MALFORMED);
+        verify(drafts, never()).delete(anyLong(), anyString(), anyInt());
     }
 
     @Test

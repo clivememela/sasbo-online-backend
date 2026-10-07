@@ -123,6 +123,13 @@ public class WorkplaceVisitDraftRepository {
                 .addValue("version", version)) == 1;
     }
 
+    /** Deletes the owner's draft, where it is still a draft at the version named. Answers whether it did. */
+    public boolean delete(long id, String owner, int version) {
+        return jdbc.update("DELETE FROM workplace_visit_drafts "
+                        + "WHERE id = :id AND owner = :owner AND status = 'DRAFT' AND version = :version",
+                new MapSqlParameterSource("id", id).addValue("owner", owner).addValue("version", version)) == 1;
+    }
+
     /** A page of the owner's drafts of one status, the most recently saved first, then by their own number. */
     public Slice mine(String owner, String status, int page, int size) {
         long[] total = {0};

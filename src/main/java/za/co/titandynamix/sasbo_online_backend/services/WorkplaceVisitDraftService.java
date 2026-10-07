@@ -122,8 +122,9 @@ public class WorkplaceVisitDraftService {
     }
 
     /**
-     * Submits one of the caller's drafts: the visit is recorded -- refused {@code VISIT_INVALID} as any visit is, the
-     * draft kept as it was -- and the draft becomes read-only, naming it.
+     * Submits one of the caller's drafts: the visit is recorded -- refused as any visit is, by {@link
+     * WorkplaceVisitService#record}: {@code VISIT_INVALID}, or {@code WORKPLACE_OUT_OF_SCOPE} where the caller's region
+     * or area no longer covers the workplace -- the draft kept as it was; then the draft becomes read-only, naming it.
      */
     @Transactional
     public VisitDraftDto submit(Long id, VisitDraftSubmitRequest request) {
@@ -139,20 +140,35 @@ public class WorkplaceVisitDraftService {
             return drafts.one(draftId, owner).orElseThrow(() -> notFound(id));
         }
         refuseUnlessDraftAt(head, version);
-        WorkplaceLookupRepository.Place place = places.byId(head.workplaceId())
-                .filter(found -> workplaceSwitch.workplacesOnRecord())
-                .orElseThrow(() -> unknown(null));
-        if (!CallerScope.current().allows(place.area(), place.region())) {
-            throw WorkplaceListingService.outOfScope(place.id());
-        }
         VisitDraftDto draft = drafts.one(draftId, owner).orElseThrow(() -> notFound(id));
-        WorkplaceVisitPageDto.Visit visit = visits.record(place.id(), new WorkplaceVisitRequest(draft.visitedOn(),
+        // The visit's own path holds the switch, the caller's scope and a visit's rules -- one place for both routes.
+        WorkplaceVisitPageDto.Visit visit = visits.record(head.workplaceId(), new WorkplaceVisitRequest(draft.visitedOn(),
                 draft.timeIn(), draft.timeOut(), draft.organiser(), draft.complementFound(), draft.membershipFound(),
                 draft.nonMembers(), draft.recruited(), draft.nonMembersInterviewed()));
         if (!drafts.submitted(draftId, owner, version, visit.id(), AcbActor.current(), clock.instant())) {
             throw stale(head);
         }
         return drafts.one(draftId, owner).orElseThrow(() -> notFound(id));
+    }
+
+    /**
+     * Discards one of the caller's drafts, from the version they saw (October build review: "Discard draft"). Refused
+     * whole, nothing deleted: no version named ({@code REQUEST_MALFORMED}); none of theirs ({@code VISIT_DRAFT_NOT_FOUND});
+     * submitted already -- SASBO's record, which nothing deletes, the table's trigger as well as this
+     * ({@code VISIT_ALREADY_SUBMITTED}); saved since ({@code VISIT_DRAFT_STALE}).
+     */
+    @Transactional
+    public void discard(Long id, Integer version) {
+        long draftId = idOf(id);
+        if (version == null) {
+            throw malformed("version");
+        }
+        String owner = owner();
+        WorkplaceVisitDraftRepository.Head head = drafts.lock(draftId, owner).orElseThrow(() -> notFound(id));
+        refuseUnlessDraftAt(head, version);
+        if (!drafts.delete(draftId, owner, version)) {
+            throw stale(head);
+        }
     }
 
     /**
@@ -172,7 +188,7 @@ public class WorkplaceVisitDraftService {
             throw unknown(raNumber);
         }
         if (!CallerScope.current().allows(place.area(), place.region())) {
-            throw WorkplaceListingService.outOfScope(place.id());
+            throw WorkplaceVisitService.outOfScope(place.id());
         }
         return place;
     }

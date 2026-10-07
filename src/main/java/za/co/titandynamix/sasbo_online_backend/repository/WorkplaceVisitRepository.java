@@ -39,6 +39,18 @@ public class WorkplaceVisitRepository {
         return found.stream().findFirst();
     }
 
+    /**
+     * The workplace's complement as it stands, its row LOCKED for the rest of the transaction -- what a visit about to
+     * write another reads, so two visits to one branch at once are written one after the other, each keeping the
+     * complement it found before it (October build review). Or none.
+     */
+    public Optional<Integer[]> lockComplementOf(long workplaceId) {
+        List<Integer[]> found = jdbc.query("SELECT staff_complement FROM workplaces WHERE id = :id FOR UPDATE",
+                new MapSqlParameterSource("id", workplaceId),
+                (rs, i) -> new Integer[] {rs.getObject(1) == null ? null : rs.getInt(1)});
+        return found.stream().findFirst();
+    }
+
     /** Writes the complement a visit found onto the workplace. */
     public void setComplement(long workplaceId, int complement) {
         jdbc.update("UPDATE workplaces SET staff_complement = :complement WHERE id = :id",

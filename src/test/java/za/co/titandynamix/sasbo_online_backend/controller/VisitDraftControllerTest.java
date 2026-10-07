@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -75,6 +76,7 @@ class VisitDraftControllerTest {
             case "update" -> put("/api/workplaces/visit-drafts/5").contentType(MediaType.APPLICATION_JSON).content(SAVED);
             case "submit" -> post("/api/workplaces/visit-drafts/5/submit").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"version\": 0}");
+            case "discard" -> delete("/api/workplaces/visit-drafts/5").param("version", "0");
             default -> throw new IllegalArgumentException(which);
         };
     }
@@ -104,7 +106,7 @@ class VisitDraftControllerTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {"mine", "one", "create", "update", "submit"})
+    @ValueSource(strings = {"mine", "one", "create", "update", "submit", "discard"})
     @WithMockUser(authorities = "MEMBERS_VIEW")
     @DisplayName("🔒 the contract: a user without VISITS_CAPTURE is refused 403 on every route, and nothing is read or written")
     void aUserWithoutThePermissionIsRefused(String which) throws Exception {
@@ -114,13 +116,27 @@ class VisitDraftControllerTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {"mine", "one", "create", "update", "submit"})
+    @ValueSource(strings = {"mine", "one", "create", "update", "submit", "discard"})
     @WithAnonymousUser
     @DisplayName("🔒 the contract: nobody signed in is refused on every route -- not a 2xx, not a 500 -- and nothing is touched")
     void nobodySignedInIsRefused(String which) throws Exception {
         mockMvc.perform(route(which)).andExpect(status().is4xxClientError());
 
         verifyNoInteractions(drafts);
+    }
+
+    @Test
+    @WithMockUser(authorities = "VISITS_CAPTURE")
+    @DisplayName("🔒 review: Discard draft answers 204, naming the version; a submitted visit is refused 409")
+    void discarding() throws Exception {
+        mockMvc.perform(route("discard")).andExpect(status().isNoContent());
+        verify(drafts).discard(5L, 0);
+
+        org.mockito.Mockito.doThrow(new MonthEndRefusal(MonthEndRefusalCode.VISIT_ALREADY_SUBMITTED,
+                "This visit has been submitted, and a submitted visit cannot be changed.", Map.of("visitId", "3")))
+                .when(drafts).discard(5L, 0);
+        mockMvc.perform(route("discard")).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("VISIT_ALREADY_SUBMITTED"));
     }
 
     @Test

@@ -3,6 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +59,14 @@ public class VisitDraftController {
     @PutMapping("/{id}")
     public VisitDraftDto update(@PathVariable Long id, @RequestBody VisitDraftRequest draft) {
         return drafts.update(id, draft);
+    }
+
+    /** Discards the draft -- {@code ?version=}, the version the person saw. A submitted visit is never discarded. */
+    @PreAuthorize("hasAuthority('VISITS_CAPTURE')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> discard(@PathVariable Long id, @RequestParam(required = false) Integer version) {
+        drafts.discard(id, version);
+        return ResponseEntity.noContent().build();
     }
 
     /** Submits the draft: the visit goes on record and the draft becomes read-only. */
