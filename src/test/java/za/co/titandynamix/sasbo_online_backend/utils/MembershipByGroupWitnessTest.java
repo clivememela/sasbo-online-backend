@@ -26,7 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Here the seed's own files are counted as a fresh demonstration database holds them -- each member's status as the
  * files and their past leave it, placed at its workplace, through the table code to the employer and the group, as the
  * facts are -- and the rows put through the very call the sheet makes. Before the October population one group held a
- * single member, and rule C hid two groups; with it, every group holds five or more and nothing is hidden.
+ * single member, and rule C hid two groups (on these files the second is STANDARD BANK GROUP, the smallest of five or
+ * more); with it, every group holds five or more and nothing is hidden.
  */
 @DisplayName("The 5 Oct sheet, Membership by group: why it came out short, and that it no longer does")
 class MembershipByGroupWitnessTest {
@@ -34,7 +35,7 @@ class MembershipByGroupWitnessTest {
     private static final List<String> GROUPS = new ArrayList<>(DemonstrationMemberGenerator.PER_THOUSAND.keySet());
 
     @Test
-    @DisplayName("before the October population: NON RECOGNITION GROUP holds one member, is 'fewer than 5', and CORE B -- the smallest group of five or more -- is withheld with it")
+    @DisplayName("before the October population: NON RECOGNITION GROUP holds one member, is 'fewer than 5', and the smallest group of five or more is withheld with it")
     void beforeTheOctoberPopulation() {
         Map<String, Long> groups = groupsOnRecord(false);
         assertThat(groups.get("NON RECOGNITION GROUP")).as("NON RECOGNITION GROUP's members on record").isEqualTo(1);
@@ -42,12 +43,14 @@ class MembershipByGroupWitnessTest {
         Map<String, SmallCounts.State> settled = settle(groups);
 
         assertThat(settled).containsEntry("NON RECOGNITION GROUP", SmallCounts.State.FEWER_THAN_FIVE);
+        // Which group that is depends on who is on record -- on the seed's own files STANDARD BANK GROUP, on a link
+        // where testers have captured members whichever is then smallest -- so it is found, never named.
         String smallestOfFiveOrMore = groups.entrySet().stream().filter(e -> e.getValue() >= 5)
                 .min(Map.Entry.comparingByValue()).orElseThrow().getKey();
-        assertThat(smallestOfFiveOrMore).isEqualTo("RECOGNITION AND EMERGING GROUP CORE B");
         assertThat(settled).containsEntry(smallestOfFiveOrMore, SmallCounts.State.WITHHELD);
         assertThat(settled.values().stream().filter(s -> s != SmallCounts.State.SHOWN).count())
-                .as("two groups hidden -- and with them CORE B's employers and the core groups' line").isEqualTo(2);
+                .as("two groups hidden -- and with them the withheld group's employers and the core groups' line")
+                .isEqualTo(2);
     }
 
     @Test

@@ -12,6 +12,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
 import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
+import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
+import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,9 +22,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.YearMonth;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -45,11 +45,12 @@ import java.util.Set;
  *
  * <h2>When absent</h2>
  * Whichever members of the file are missing are put on record -- one query for the file's numbers, one JDBC batch,
- * because IDENTITY ids make {@code saveAll} a round trip a row (MD44) -- and each member's past is written once, at the
- * first start that can, keyed by the member and the actor {@value DemonstrationMemberSeeder#SEED_ACTOR}. A tester's
- * member is never touched. The past is written as the row {@code MemberService.changeStatus} writes -- from, to,
- * reason, SASBO's code, who and when -- so every figure, the history and ACB read it as any change; none of it is
- * ACB's {@code SUBS_IN_ARREARS} or {@code UNPAID_SUSPENDED}.
+ * because IDENTITY ids make {@code saveAll} a round trip a row (MD44), each member Active as captured -- and each
+ * member's past is written once, at the first start that can, keyed by the member and the actor
+ * {@value DemonstrationMemberSeeder#SEED_ACTOR}. A tester's member is never touched. The past goes through
+ * {@code MemberService.changeStatus}, the one writer of a member's status (03.4, MemberStatusWritersTest): from, to,
+ * reason, SASBO's code, who and when -- so every figure, the history and ACB read it as any change; none of it is ACB's
+ * {@code SUBS_IN_ARREARS} or {@code UNPAID_SUSPENDED}. About a hundred and thirty changes, a few statements each.
  *
  * <h2>Dated by the clock</h2>
  * A joiner and every change fall in the month {@code monthsBack} before the clock's month at the start that writes
@@ -67,14 +68,17 @@ public class DemonstrationPopulationSeeder {
     private final TransactionTemplate transactions;
     private final SasboEnvironment environment;
     private final WorkplaceSwitch workplaceSwitch;
+    private final MemberService members;
     private final Clock clock;
 
     public DemonstrationPopulationSeeder(NamedParameterJdbcTemplate jdbc, PlatformTransactionManager transactionManager,
-                                         SasboEnvironment environment, WorkplaceSwitch workplaceSwitch, Clock clock) {
+                                         SasboEnvironment environment, WorkplaceSwitch workplaceSwitch,
+                                         MemberService members, Clock clock) {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.environment = environment;
         this.workplaceSwitch = workplaceSwitch;
+        this.members = members;
         this.clock = clock;
     }
 
@@ -261,15 +265,15 @@ public class DemonstrationPopulationSeeder {
     // ------------------------------------------------------------------------------------------------ the past
 
     /**
-     * Each member's past not yet written -- all of a member's changes or none of them -- as the status change writes
-     * them: one batch of rows, one batch of the status they end in.
+     * Each member's past not yet written -- all of a member's changes or none of them -- THROUGH THE REAL STATUS CHANGE
+     * ({@code MemberService.changeStatus}, the one writer of a member's status, 03.4), with the actor
+     * {@value DemonstrationMemberSeeder#SEED_ACTOR} and the change's own instant, as the invented members' past is
+     * (03.7): so every figure, the history and ACB read it as any change. A change at a time, in the member's order.
      */
     private int past(Map<String, List<DemonstrationPopulation.Change>> pastOf, Map<String, Long> onRecord,
                      Set<Long> pastWritten, YearMonth now) {
         Codes codes = codes();
-        List<MapSqlParameterSource> rows = new ArrayList<>();
-        List<MapSqlParameterSource> statuses = new ArrayList<>();
-        Instant stamp = clock.instant();
+        int written = 0;
         int skipped = 0;
         for (Map.Entry<String, List<DemonstrationPopulation.Change>> member : pastOf.entrySet()) {
             Long id = onRecord.get(member.getKey());
@@ -279,54 +283,36 @@ public class DemonstrationPopulationSeeder {
             List<DemonstrationPopulation.Change> changes = new ArrayList<>(member.getValue());
             changes.sort(Comparator.comparingInt((DemonstrationPopulation.Change c) -> -c.monthsBack())
                     .thenComparingInt(DemonstrationPopulation.Change::day));
-            List<MapSqlParameterSource> his = new ArrayList<>();
-            String from = "Active";
-            boolean writable = true;
+            List<MemberService.StatusChange> his = new ArrayList<>();
             for (DemonstrationPopulation.Change change : changes) {
                 Long deletion = change.deletionCode() == null ? null : codes.deletion(change.deletionCode(),
                         change.reasonUnderCode());
                 Long suspension = change.suspensionCode() == null ? null : codes.suspension(change.suspensionCode());
                 if ((change.deletionCode() != null && deletion == null)
                         || (change.suspensionCode() != null && suspension == null)) {
-                    writable = false;
+                    his = null;
                     break;
                 }
                 Instant at = now.minusMonths(change.monthsBack()).atDay(change.day()).atTime(10, 0)
                         .atZone(MonthRange.ZONE).toInstant();
-                his.add(new MapSqlParameterSource()
-                        .addValue("member", id)
-                        .addValue("from", from)
-                        .addValue("to", change.toStatus())
-                        .addValue("reason", change.reason())
-                        .addValue("deletion", deletion, java.sql.Types.BIGINT)
-                        .addValue("suspension", suspension, java.sql.Types.BIGINT)
-                        .addValue("seed", DemonstrationMemberSeeder.SEED_ACTOR)
-                        .addValue("at", OffsetDateTime.ofInstant(at, ZoneOffset.UTC)));
-                from = change.toStatus();
+                his.add(new MemberService.StatusChange(change.toStatus(), null,
+                        MemberStatusReason.valueOf(change.reason()), deletion, suspension, null,
+                        DemonstrationMemberSeeder.SEED_ACTOR, at));
             }
-            if (!writable) {
+            if (his == null) {
                 skipped++;
                 continue;
             }
-            rows.addAll(his);
-            statuses.add(new MapSqlParameterSource("id", id).addValue("status", from)
-                    .addValue("stamped", LocalDateTime.ofInstant(stamp, MonthRange.ZONE)));
+            for (MemberService.StatusChange change : his) {
+                written += members.changeStatus(id.intValue(), change)
+                        .map(outcome -> outcome.written() != null ? 1 : 0).orElse(0);
+            }
         }
         if (skipped > 0) {
             log.warn("{} demonstration member(s) of {} have a past naming a code that is not on record; it is written at "
                     + "the next start that finds the code", skipped, SEED_FILE);
         }
-        if (rows.isEmpty()) {
-            return 0;
-        }
-        jdbc.batchUpdate("""
-                INSERT INTO member_status_changes (member_id, from_status, to_status, reason, deletion_code_id,
-                  suspension_code_id, changed_by, changed_at)
-                VALUES (:member, :from, :to, :reason, :deletion, :suspension, :seed, :at)
-                """, rows.toArray(MapSqlParameterSource[]::new));
-        jdbc.batchUpdate("UPDATE members SET status = :status, updated_at = :stamped WHERE id = :id",
-                statuses.toArray(MapSqlParameterSource[]::new));
-        return rows.size();
+        return written;
     }
 
     /** SASBO's codes on record, by their numbers -- and the reasons under a code, by name -- read once. */

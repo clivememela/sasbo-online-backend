@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import za.co.titandynamix.sasbo_online_backend.config.SasboEnvironment;
 import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
+import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -30,10 +31,11 @@ class DemonstrationPopulationSeederTest {
 
     private final NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
     private final PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
+    private final MemberService members = mock(MemberService.class);
 
     private DemonstrationPopulationSeeder seeder(String environment, String workplaces) {
         return new DemonstrationPopulationSeeder(jdbc, transactions, new SasboEnvironment(environment),
-                new WorkplaceSwitch(workplaces), CLOCK);
+                new WorkplaceSwitch(workplaces), members, CLOCK);
     }
 
     @Test
@@ -41,7 +43,7 @@ class DemonstrationPopulationSeederTest {
     void neverInProduction() throws Exception {
         assertThat(seeder("production", "all").seed()).isZero();
         assertThat(seeder("PRODUCTION ", "all").seed()).isZero();
-        verifyNoInteractions(jdbc, transactions);
+        verifyNoInteractions(jdbc, transactions, members);
     }
 
     @Test
@@ -50,7 +52,7 @@ class DemonstrationPopulationSeederTest {
         assertThat(seeder("", "").seed()).isZero();
         assertThat(seeder("", "none").seed()).isZero();
         assertThat(seeder("", "names").seed()).isZero();
-        verifyNoInteractions(jdbc, transactions);
+        verifyNoInteractions(jdbc, transactions, members);
     }
 
     @Test
