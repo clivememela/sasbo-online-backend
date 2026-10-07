@@ -206,7 +206,12 @@ public final class MigrationSeed {
             "V61__month_end_packs.sql",
             "V62__workplace_visits.sql",
             "V63__member_memnet.sql",
-            "V64__month_end_taken_again.sql");
+            "V64__month_end_taken_again.sql",
+            // October build, data migration: V80 the batches, their staged rows, the mappings defined here and the
+            // links from each member a move created to its row; V81 the old system's month-end totals to prove a
+            // batch against. V65-V79 are other October streams' numbers, renumbered at integration if need be.
+            "V80__migration_batches.sql",
+            "V81__migration_month_totals.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in
