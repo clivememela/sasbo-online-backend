@@ -298,7 +298,7 @@ class MonthEndStatisticsTest {
         try {
             jdbc.update("UPDATE members SET workplace_id = (SELECT id FROM workplaces WHERE ra_number = 900001) "
                     + "WHERE id = ?", id);
-            takes.take(SummaryFixture.MONTH, "corrected", first.id());
+            takes.take(SummaryFixture.MONTH, "corrected", first.id(), "Invented: corrected the workplaces");
 
             MonthEndStatisticDto again = statistics.membership("2026-09", null, null);
             assertThat(again.takenBy()).as("the newest take's").isEqualTo("corrected");

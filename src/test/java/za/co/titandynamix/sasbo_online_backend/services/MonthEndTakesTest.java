@@ -24,6 +24,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepositor
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository.TakenMonth;
 import za.co.titandynamix.sasbo_online_backend.support.SummaryFixture;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
+import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -143,7 +144,7 @@ class MonthEndTakesTest {
         late.setJoinDate(LocalDate.of(2026, 9, 14));
         members.save(late);
 
-        TakenMonth again = takes.take(SummaryFixture.MONTH, "corrected", first.id());
+        TakenMonth again = takes.take(SummaryFixture.MONTH, "corrected", first.id(), "Invented: corrected the workplaces");
 
         assertThat(again.id()).isNotEqualTo(first.id());
         assertThat(again.takeNumber()).isEqualTo(2);
@@ -163,21 +164,21 @@ class MonthEndTakesTest {
     @DisplayName("🔒 04.11: a take again names the month's newest take -- an older one is MONTH_TAKEN_SINCE naming the newest, a month never taken is MONTH_NOT_TAKEN; neither writes")
     void aTakeAgainNamesTheNewest() {
         TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
-        TakenMonth second = takes.take(SummaryFixture.MONTH, "corrected", first.id());
+        TakenMonth second = takes.take(SummaryFixture.MONTH, "corrected", first.id(), "Invented: corrected the workplaces");
 
-        assertThatThrownBy(() -> takes.take(SummaryFixture.MONTH, "late", first.id()))
+        assertThatThrownBy(() -> takes.take(SummaryFixture.MONTH, "late", first.id(), "Invented: corrected the workplaces"))
                 .isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
                     assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MONTH_TAKEN_SINCE);
                     assertThat(refusal.details()).containsEntry("month", "2026-09").containsEntry("takenBy", "corrected")
                             .containsEntry("takeId", String.valueOf(second.id()));
                 });
-        assertThatThrownBy(() -> takes.take(YearMonth.of(2026, 7), "late", first.id()))
+        assertThatThrownBy(() -> takes.take(YearMonth.of(2026, 7), "late", first.id(), "Invented: corrected the workplaces"))
                 .isInstanceOfSatisfying(MonthEndRefusal.class,
                         refusal -> assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MONTH_NOT_TAKEN));
         // Another month's take is never the one a take again replaces -- the look names it so before anything is
         // written; on PostgreSQL a foreign key would refuse it too, and H2 has none.
         TakenMonth august = takes.take(YearMonth.of(2026, 8), "seed");
-        assertThatThrownBy(() -> takes.take(SummaryFixture.MONTH, "late", august.id()))
+        assertThatThrownBy(() -> takes.take(SummaryFixture.MONTH, "late", august.id(), "Invented: corrected the workplaces"))
                 .isInstanceOfSatisfying(MonthEndRefusal.class,
                         refusal -> assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MONTH_TAKEN_SINCE));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM month_end_months", Long.class)).isEqualTo(3);
@@ -188,9 +189,9 @@ class MonthEndTakesTest {
     @DisplayName("🔒 04.11: two takes again of one take -- the second written loses to the database, never to a look first (H2: one take number a month)")
     void aTakeIsReplacedOnce() {
         TakenMonth first = takes.take(SummaryFixture.MONTH, "seed");
-        facts.insertMonth(LocalDate.of(2026, 9, 1), "one", SummaryFixture.NOW, first);
+        facts.insertMonth(LocalDate.of(2026, 9, 1), "one", SummaryFixture.NOW, first, "Invented: one", MonthRange.of(SummaryFixture.MONTH));
 
-        assertThatThrownBy(() -> facts.insertMonth(LocalDate.of(2026, 9, 1), "two", SummaryFixture.NOW, first))
+        assertThatThrownBy(() -> facts.insertMonth(LocalDate.of(2026, 9, 1), "two", SummaryFixture.NOW, first, "Invented: two", MonthRange.of(SummaryFixture.MONTH)))
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 

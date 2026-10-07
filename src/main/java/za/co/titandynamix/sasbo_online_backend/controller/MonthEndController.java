@@ -53,12 +53,14 @@ public class MonthEndController {
 
     /**
      * 🔒 Refused to every caller until sign-in exists -- after saying what is known of the month. A take again (04.11)
-     * names the take it replaces; one that is not the month's newest is said so first.
+     * names the take it replaces, and says why (MEN-11): a missing or unreadable reason is said first, then a take that
+     * is not the month's newest.
      */
     @PostMapping("/{month}/take")
     public MonthEndMonthDto take(@PathVariable("month") String month,
                                  @RequestBody(required = false) MonthEndTakeRequest request) {
         YearMonth asked = takes.month(month);
+        takes.reason(asked, request == null ? null : request.replaces(), request == null ? null : request.reason());
         if (request == null || request.replaces() == null) {
             takes.refuseIfTaken(asked);
         } else {

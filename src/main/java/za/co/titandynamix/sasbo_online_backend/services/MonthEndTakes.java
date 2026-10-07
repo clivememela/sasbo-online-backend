@@ -13,11 +13,13 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.MonthEndFactsRepository.TakenMonth;
+import za.co.titandynamix.sasbo_online_backend.utils.FreeText;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.Collection;
@@ -145,13 +147,108 @@ public class MonthEndTakes {
                     "That month was not taken, and a past month is read only from what was taken.",
                     MonthEndRefusal.details("month", asked.toString(), "open", open.toString()));
         }
-        return new MonthEndMonthDto(asked.toString(), MonthEndMonthDto.OPEN, null, null, null, null, null);
+        return new MonthEndMonthDto(asked.toString(), MonthEndMonthDto.OPEN, null, null, null, null, null, null, null,
+                counted(asked).start().toString(), null);
     }
 
     private static MonthEndMonthDto dto(TakenMonth taken) {
         return new MonthEndMonthDto(YearMonth.from(taken.monthStart()).toString(), MonthEndMonthDto.TAKEN,
                 taken.takenAt().toString(), taken.takenBy(), taken.id(),
-                taken.firstTakenAt() == null ? null : taken.firstTakenAt().toString(), taken.firstTakenBy());
+                taken.firstTakenAt() == null ? null : taken.firstTakenAt().toString(), taken.firstTakenBy(),
+                taken.takeNumber(), taken.reason(), taken.countsFrom() == null ? null : taken.countsFrom().toString(),
+                taken.countsUntil() == null ? null : taken.countsUntil().toString());
+    }
+
+    // ------------------------------------------------------------------------------------------------ the cut-off
+
+    /**
+     * The window {@code month} counts (Stephne, MEN-14: "After month end is done - all capturing and changes move to
+     * the next month"): every capture and status change from the cut-off of the month before -- its newest take, or
+     * the 1st at 00:00 where it was never taken -- up to its own: its newest take's, where it is taken; else the end of
+     * the calendar month, which for the open month is still to come. Its year counts from the cut-off of the December
+     * before. The windows of the months follow one another, so nothing is counted twice and nothing falls between.
+     */
+    public MonthRange counted(YearMonth month) {
+        return window(month, null);
+    }
+
+    /**
+     * The window a take of {@code month} at {@code now} counts: from the cut-off of the month before, up to now -- but
+     * never past the end of the calendar month, so a month taken late does not count the next month's changes; and
+     * never past where the month after starts counting, where that month is taken already.
+     */
+    MonthRange forTake(YearMonth month, Instant now) {
+        return window(month, now);
+    }
+
+    private MonthRange window(YearMonth month, Instant takingAt) {
+        YearMonth before = month.minusMonths(1);
+        YearMonth after = month.plusMonths(1);
+        YearMonth december = YearMonth.of(month.getYear() - 1, 12);
+        Map<LocalDate, TakenMonth> newest = facts.taken(List.of(before.atDay(1), month.atDay(1), after.atDay(1),
+                december.atDay(1)));
+        MonthRange calendar = MonthRange.of(month);
+        Instant from = cutOff(newest.get(before.atDay(1)), calendar.start());
+        Instant until;
+        if (takingAt == null) {
+            until = cutOff(newest.get(month.atDay(1)), calendar.next());
+        } else {
+            until = earliest(takingAt, calendar.next());
+            TakenMonth next = newest.get(after.atDay(1));
+            if (next != null) {
+                until = earliest(until, next.countsFrom() != null ? next.countsFrom() : calendar.next());
+            }
+        }
+        if (until.isBefore(from)) {
+            until = from;
+        }
+        Instant yearFrom = month.getMonthValue() == 1 ? from
+                : cutOff(newest.get(december.atDay(1)), MonthRange.of(YearMonth.of(month.getYear(), 1)).start());
+        return MonthRange.counted(month, from, until, yearFrom);
+    }
+
+    private static Instant cutOff(TakenMonth taken, Instant otherwise) {
+        return taken == null ? otherwise : taken.cutOff();
+    }
+
+    /**
+     * Where counting is open from: the cut-off of the newest month taken -- nothing after it is in any take yet -- or,
+     * where no month has been taken, the start of the clock's month. A leaving after it, undone by a rejoin, is counted
+     * in no month (MEN-23).
+     */
+    public Instant openSince() {
+        return takenMonths().stream().findFirst().map(TakenMonth::cutOff)
+                .orElseGet(() -> MonthRange.of(openMonth()).start());
+    }
+
+    private static Instant earliest(Instant a, Instant b) {
+        return a.isBefore(b) ? a : b;
+    }
+
+    // ------------------------------------------------------------------------------------------------ the reason
+
+    /**
+     * Why a month is taken (Stephne, MEN-11, on taking a month again: "This will help to understand why the file was
+     * replaced!"): required of a take again, and kept for any take that gives one -- ordinary words, at most
+     * {@value FreeText#NOTE_LIMIT} characters, line breaks allowed. Said before anything else is asked of the take.
+     *
+     * @return the reason, trimmed; {@code null} for a first take that gives none
+     * @throws MonthEndRefusal {@code TAKE_REASON_REQUIRED}, {@code TAKE_REASON_INVALID} -- nothing of the words given back
+     */
+    public String reason(YearMonth month, Long replaces, String reason) {
+        String why = FreeText.clean(reason);
+        if (replaces != null && why == null) {
+            throw new MonthEndRefusal(MonthEndRefusalCode.TAKE_REASON_REQUIRED,
+                    "Say why the month is being taken again: it will stand beside the take it replaces. Nothing has "
+                            + "been taken.", Map.of("month", month.toString()));
+        }
+        if (FreeText.problem(why, FreeText.NOTE_LIMIT, true) != null) {
+            throw new MonthEndRefusal(MonthEndRefusalCode.TAKE_REASON_INVALID,
+                    "A reason may be at most " + FreeText.NOTE_LIMIT + " characters of ordinary text. Nothing has been "
+                            + "taken.", MonthEndRefusal.details("field", "reason",
+                            "limit", String.valueOf(FreeText.NOTE_LIMIT)));
+        }
+        return why;
     }
 
     /** What the route says before it refuses: a month taken already is said so, naming who took it and when. */
@@ -186,47 +283,53 @@ public class MonthEndTakes {
     }
 
     /**
-     * Takes {@code month} for {@code actor}: its record and its facts, in one snapshot.
+     * Takes {@code month} for {@code actor}: its record and its facts, in one snapshot -- a month's first take, with no
+     * reason given.
      *
      * @throws MonthEndRefusal {@code MONTH_NOT_BEGUN}, {@code MONTH_NOT_READY}, or {@code MONTH_ALREADY_TAKEN} where
      *                         the index refused it
      */
     public TakenMonth take(YearMonth month, String actor) {
-        return take(month, actor, null);
+        return take(month, actor, null, null);
     }
 
     /**
-     * Takes {@code month} for {@code actor} -- again, where {@code replaces} names its newest take (04.11, MD70): a new
-     * take beside it, its record and its facts in one snapshot; every read of the month is of it from then on.
+     * Takes {@code month} for {@code actor} -- again, where {@code replaces} names its newest take (04.11, MD70), with
+     * the reason the month is taken again (MEN-11): a new take beside it, its record and its facts in one snapshot,
+     * counting the month's window (MEN-14); every read of the month is of it from then on. There is no overload
+     * without the reason: a caller that takes a month again says why, or does not compile.
      *
-     * @throws MonthEndRefusal {@code MONTH_NOT_BEGUN}, {@code MONTH_NOT_READY}; for a first take
-     *                         {@code MONTH_ALREADY_TAKEN} where the index refused it; for a take again
-     *                         {@code MONTH_NOT_TAKEN}, or {@code MONTH_TAKEN_SINCE} where it is not the newest or the
-     *                         index refused it
+     * @throws MonthEndRefusal {@code TAKE_REASON_REQUIRED}, {@code TAKE_REASON_INVALID}, {@code MONTH_NOT_BEGUN},
+     *                         {@code MONTH_NOT_READY}; for a first take {@code MONTH_ALREADY_TAKEN} where the index
+     *                         refused it; for a take again {@code MONTH_NOT_TAKEN}, or {@code MONTH_TAKEN_SINCE} where it
+     *                         is not the newest or the index refused it
      */
-    public TakenMonth take(YearMonth month, String actor, Long replaces) {
+    public TakenMonth take(YearMonth month, String actor, Long replaces, String reason) {
+        String why = reason(month, replaces, reason);
         requireBegun(month);
         refuseIfNotReady();
         TakenMonth replaced = replaces == null ? null : replacing(month, replaces);
-        MonthRange range = MonthRange.of(month);
         Instant now = clock.instant();
         Collection<String> seeded = environment.isProduction() ? List.of() : seedNumbers.all();
+        LocalDate firstDay = month.atDay(1);
         try {
             return tx.execute(status -> {
-                long id = facts.insertMonth(range.firstDay(), actor, now, replaced);
-                facts.insertFacts(id, range, seeded);
+                // The window is read inside the snapshot, with the takes it counts from.
+                MonthRange window = forTake(month, now);
+                long id = facts.insertMonth(firstDay, actor, now, replaced, why, window);
+                facts.insertFacts(id, window, seeded);
                 pause.between();
-                facts.insertLeftByCode(id, range);
-                facts.insertSuspendedByCode(id, range);
-                facts.insertRecruited(id, range);
-                facts.insertUnknownStatuses(id, range);
-                return facts.taken(range.firstDay()).orElseThrow(() -> new IllegalStateException(
+                facts.insertLeftByCode(id, window);
+                facts.insertSuspendedByCode(id, window);
+                facts.insertRecruited(id, window);
+                facts.insertUnknownStatuses(id, window);
+                return facts.taken(firstDay).orElseThrow(() -> new IllegalStateException(
                         "the month's record was written and cannot be read back in its own transaction"));
             });
         } catch (DataIntegrityViolationException lostTheRace) {
             // Another take of the same month committed first. The index is the arbiter, and its answer is the same
             // refusal the route gives -- read now, in a snapshot of its own, where the winner is visible.
-            TakenMonth taken = facts.taken(range.firstDay()).orElseThrow(() -> lostTheRace);
+            TakenMonth taken = facts.taken(firstDay).orElseThrow(() -> lostTheRace);
             throw replaced == null ? alreadyTaken(taken) : takenSince(taken);
         }
     }

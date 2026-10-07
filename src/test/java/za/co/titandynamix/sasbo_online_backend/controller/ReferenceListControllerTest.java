@@ -53,7 +53,7 @@ class ReferenceListControllerTest {
         when(lists.employers()).thenReturn(answer("employers",
                 List.of(new ReferenceRows.Employer(7, "INVENTED BANK", "INVENTED GROUP", true, List.of(901, 902)))));
         when(lists.tableCodes()).thenReturn(answer("tableCodes",
-                List.of(new ReferenceRows.TableCode(902, "INVENTED BANK DEPARTMENTS", 7L, "INVENTED BANK", "DEPARTMENTS"))));
+                List.of(new ReferenceRows.TableCode(902, "INVENTED BANK DEPARTMENTS", 7L, "INVENTED BANK", "DEPARTMENTS", "A"))));
         when(lists.committeeProvinces()).thenReturn(answer("committeeProvinces",
                 List.of(new ReferenceRows.CommitteeProvince("Q", null))));
         when(lists.committees()).thenReturn(answer("committees",

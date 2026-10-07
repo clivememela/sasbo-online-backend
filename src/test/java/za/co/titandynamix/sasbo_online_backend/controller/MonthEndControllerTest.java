@@ -148,7 +148,7 @@ class MonthEndControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MONTH_NOT_READY"))
                 .andExpect(jsonPath("$.details.missing").value("workplaces"));
-        verify(facts, never()).insertMonth(any(), any(), any(), any());
+        verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -175,6 +175,6 @@ class MonthEndControllerTest {
         mockMvc.perform(get("/api/month-end/2026-08"))
                 .andExpect(jsonPath("$.takeId").value(3))
                 .andExpect(jsonPath("$.firstTakenAt").doesNotExist());
-        verify(facts, never()).insertMonth(any(), any(), any(), any());
+        verify(facts, never()).insertMonth(any(), any(), any(), any(), any(), any());
     }
 }

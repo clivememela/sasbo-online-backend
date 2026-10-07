@@ -12,6 +12,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepository;
 import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
 import za.co.titandynamix.sasbo_online_backend.utils.SeedMemberNumbers;
+import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -42,8 +43,12 @@ class MemberSummaryServiceImplTest {
     private final SummaryGate gate = new SummaryGate();
 
     private MemberSummaryServiceImpl service(String workplaces, String environment) {
+        za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes takes =
+                mock(za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes.class);
+        // MEN-14: the window is the calendar month wherever no month is taken -- the case these tests are about.
+        when(takes.counted(any())).thenAnswer(asked -> MonthRange.of(asked.getArgument(0)));
         return new MemberSummaryServiceImpl(repository, new WorkplaceSwitch(workplaces), new SasboEnvironment(environment),
-                new SeedMemberNumbers(), gate, CLOCK);
+                new SeedMemberNumbers(), gate, CLOCK, takes);
     }
 
     private static MemberSummaryRepository.Line check() {

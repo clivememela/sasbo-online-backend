@@ -412,6 +412,8 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/month-end/{month}/branches", STATISTIC),
             Map.entry("GET /api/month-end/{month}/recruitment", STATISTIC),
             Map.entry("GET /api/month-end/{month}/representatives", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/suspensions", STATISTIC + "; the suspended within each bank and by code "
+                    + "(MEN-18) -- the members themselves are a listing, held"),
             Map.entry("GET /api/month-end/{month}/visits", "a statistic: counts, by branch, rule C applied; the "
                     + "manager's name and telephone are not answered until sign-in (B1)"),
             Map.entry("POST /api/month-end/{month}/pack", "the statistics as two workbooks: counts only, the sheets the "

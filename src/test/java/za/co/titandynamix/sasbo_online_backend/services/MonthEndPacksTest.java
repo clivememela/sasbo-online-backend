@@ -125,7 +125,7 @@ class MonthEndPacksTest {
     void aMonthTakenAgainHasAPackOfItsOwn() {
         MonthEndFactsRepository.TakenMonth august = takes.take(YearMonth.of(2026, 8), "seed");
         MonthEndPacks.Asked first = packs.ask("2026-08");
-        takes.take(YearMonth.of(2026, 8), "corrected", august.id());
+        takes.take(YearMonth.of(2026, 8), "corrected", august.id(), "Invented: corrected the workplaces");
 
         MonthEndPacks.Asked again = packs.ask("2026-08");
 
