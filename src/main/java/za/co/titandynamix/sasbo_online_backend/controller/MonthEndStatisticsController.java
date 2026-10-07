@@ -1,12 +1,15 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import za.co.titandynamix.sasbo_online_backend.config.MonthEndApi;
+import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndListingDto;
 import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndStatisticDto;
+import za.co.titandynamix.sasbo_online_backend.services.MonthEndListings;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndStatistics;
 
 /**
@@ -17,8 +20,8 @@ import za.co.titandynamix.sasbo_online_backend.services.MonthEndStatistics;
  * <h2>Open, and why</h2>
  * A statistic is counts, and an open read like the figures of 02.2: under rule C a membership below five at a named
  * employer or table code never leaves the server, and the switch decides what is cut by where members work (MD62). A
- * LISTING names members, and refuses every caller before anything is read, until this system knows who is calling
- * (MD4).
+ * LISTING names members: held until sign-in (MD4), it is held by {@code MEMBERS_VIEW} now, and lists only the members
+ * within the caller's region or area ({@link MonthEndListings}).
  */
 @MonthEndApi
 @RestController
@@ -26,9 +29,11 @@ import za.co.titandynamix.sasbo_online_backend.services.MonthEndStatistics;
 public class MonthEndStatisticsController {
 
     private final MonthEndStatistics statistics;
+    private final MonthEndListings listings;
 
-    public MonthEndStatisticsController(MonthEndStatistics statistics) {
+    public MonthEndStatisticsController(MonthEndStatistics statistics, MonthEndListings listings) {
         this.statistics = statistics;
+        this.listings = listings;
     }
 
     /** 04.3: new and deleted, by area, core and other; the month and the year to date. */
@@ -88,11 +93,16 @@ public class MonthEndStatisticsController {
     }
 
     /**
-     * 🔒 A listing -- the month's new members, its deleted, the members a recruiter signed up, the elected
-     * representatives -- names members, and is refused to every caller before anything is read (MD4).
+     * A listing -- the month's new members, its deleted, the members a recruiter signed up, the elected representatives
+     * -- names members: {@code MEMBERS_VIEW}, a page at a time, within the caller's scope.
      */
+    @PreAuthorize("hasAuthority('MEMBERS_VIEW')")
     @GetMapping("/listings/{listing}")
-    public MonthEndStatisticDto listing(@PathVariable("listing") String listing) {
-        throw MonthEndStatistics.listingRefused(listing);
+    public MonthEndListingDto listing(@PathVariable("month") String month, @PathVariable("listing") String listing,
+                                      @RequestParam(required = false) String area,
+                                      @RequestParam(required = false) String region,
+                                      @RequestParam(required = false) Integer page,
+                                      @RequestParam(required = false) Integer size) {
+        return listings.listing(month, listing, area, region, page, size);
     }
 }

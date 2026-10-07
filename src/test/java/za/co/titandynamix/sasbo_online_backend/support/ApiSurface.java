@@ -28,6 +28,10 @@ import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
 import za.co.titandynamix.sasbo_online_backend.enums.ListEmptyReason;
 import za.co.titandynamix.sasbo_online_backend.enums.SeedFailure;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.exception.SignInRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
+import za.co.titandynamix.sasbo_online_backend.security.Permission;
+import za.co.titandynamix.sasbo_online_backend.security.SignInMode;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
 import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
 import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
@@ -323,9 +327,30 @@ public final class ApiSurface {
                 MemberSummaryRepository.TIMEOUT_SECONDS, SummaryGate.AT_ONCE,
                 memberStatuses(), names(MemberStatusReason.values()), seededCodes("deletionCodes"),
                 seededCodes("suspensionCodes"), monthEndRefusalCodes()));
+        sections.put("auth", """
+                {
+                    "modes": [%s],
+                    "scopeTypes": [%s],
+                    "permissions": [%s],
+                    "refusalCodes": [
+                %s
+                    ]
+                  }""".formatted(
+                Arrays.stream(SignInMode.values()).map(m -> quote(m.word())).collect(Collectors.joining(", ")),
+                names(CallerScope.Type.values()), names(Permission.values()), signInRefusalCodes()));
         return sections.entrySet().stream()
                 .map(section -> "  " + quote(section.getKey()) + ": " + section.getValue())
                 .collect(Collectors.joining(",\n", "{\n", "\n}\n"));
+    }
+
+    /**
+     * Sign-in's refusal codes, each with the status it answers (October build, contracts/signin.md) -- read off the
+     * enum the sign-in routes and the security chain answer with, never typed out.
+     */
+    private static String signInRefusalCodes() {
+        return Arrays.stream(SignInRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
     }
 
     /**

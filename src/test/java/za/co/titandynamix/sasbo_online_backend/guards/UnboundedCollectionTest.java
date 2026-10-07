@@ -67,7 +67,10 @@ class UnboundedCollectionTest {
             "DeletionCodeController",
             "deletion reason codes -- reference data; ceiling ~40",
             "JobGradeController",
-            "job grades per bank -- reference data; ceiling 27, asserted by the migration seed");
+            "job grades per bank -- reference data; ceiling 27, asserted by the migration seed",
+            "UserAdminController",
+            "sign-in's positions and roles, at most 100 each (UserAdministration refuses past that, TOO_MANY), and the "
+                    + "permission catalogue, the enum's 18; its users are a page");
     // ACBController was here -- "ACB debit-day configuration, reference data", excusing a
     // controller that had no endpoints at all (register E7). Removed with its hand-written
     // `continue` below when ACB's first routes landed: the runs grow one a month and the lines by

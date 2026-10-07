@@ -27,8 +27,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
+import za.co.titandynamix.sasbo_online_backend.security.Permission;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
 import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
+import za.co.titandynamix.sasbo_online_backend.support.SignInTestUsers;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberSeeder;
 import za.co.titandynamix.sasbo_online_backend.utils.WorkplaceSeeder;
@@ -155,6 +158,8 @@ class MonthEndExamplesTest {
         // 04.2: the months taken -- the invented August, taken as the seed takes a month, at the frozen clock -- and
         // that month's record.
         routes.add(new Example("GET", "/api/month-end/months", null));
+        // 04.3 (sign-in): a listing of the invented August -- held by MEMBERS_VIEW, asked by a caller who holds it.
+        routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/listings/new-members", null));
         routes.add(new Example("GET", "/api/month-end/" + TAKEN, null));
         // 04.3 to 04.8: each statistic of the invented August, read from what was frozen.
         for (String statistic : List.of("new-and-deleted", "membership", "leavers", "branches", "recruitment",
@@ -211,7 +216,7 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.SUMMARY_UNAVAILABLE, new Example("GET", "/api/members/summary", null, true));
         provoked.put(MonthEndRefusalCode.HISTORY_PAGE_INVALID, new Example("GET", "/api/members/{member}/history?page=99",
                 null));
-        // 04.2: the take says what it knows of the month, then refuses every caller -- and a past month not taken.
+        // 04.2: the take says what it knows of the month before it writes -- and a past month not taken.
         String take = "/api/month-end/%s/take";
         provoked.put(MonthEndRefusalCode.MONTH_NOT_BEGUN, new Example("POST", take.formatted("2026-10"), null));
         provoked.put(MonthEndRefusalCode.MONTH_ALREADY_TAKEN, new Example("POST", take.formatted(TAKEN), null));
@@ -220,7 +225,6 @@ class MonthEndExamplesTest {
                 "{\"replaces\": 999999}"));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_READY, new Example("POST", take.formatted("2026-07"), null, false,
                 true));
-        provoked.put(MonthEndRefusalCode.IDENTITY_REQUIRED, new Example("POST", take.formatted("2026-07"), null));
         provoked.put(MonthEndRefusalCode.MONTH_NOT_TAKEN, new Example("GET", "/api/month-end/2026-07", null));
         // 04.10: a pack asked for while another month's is in hand -- there is no queue -- and a pack that is not there.
         provoked.put(MonthEndRefusalCode.PACK_BUSY, new Example("POST", "/api/month-end/" + TAKEN + "/pack", null, false,
@@ -358,6 +362,18 @@ class MonthEndExamplesTest {
             case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content(example.body());
             default -> get(path);
         };
+        Permission held = heldBy(example);
+        if (held != null) {
+            // A route held by a permission (October build) is asked by a caller holding it -- this class runs without
+            // the filters, so the caller is set on the thread, as the filters would have set it.
+            return SignInTestUsers.actingAs(SignInTestUsers.user("demo.headoffice", CallerScope.all(), held),
+                    () -> ask(example, request));
+        }
+        return ask(example, request);
+    }
+
+    /** Asks {@code request} as {@code example} says: in a rolled-back transaction, with the gate held, or plainly. */
+    private MvcResult ask(Example example, MockHttpServletRequestBuilder request) throws Exception {
         if (example.packInHand()) {
             // Asked in a transaction holding July's pack in preparation, and rolled back.
             return new TransactionTemplate(transactions).execute(status -> {
@@ -395,6 +411,14 @@ class MonthEndExamplesTest {
             gate.leave();
             gate.leave();
         }
+    }
+
+    /** The permission a route of the arc is held by (October build): the take, a listing; {@code null} for the rest. */
+    private static Permission heldBy(Example example) {
+        if (example.path().matches("/api/month-end/[^/]+/take")) {
+            return Permission.MONTH_END_TAKE;
+        }
+        return example.path().matches("/api/month-end/[^/]+/listings/.*") ? Permission.MEMBERS_VIEW : null;
     }
 
     private JsonNode body(MvcResult result) throws IOException {

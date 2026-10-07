@@ -9,15 +9,24 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import za.co.titandynamix.sasbo_online_backend.config.JacksonConfig;
 import za.co.titandynamix.sasbo_online_backend.config.SecurityConfig;
+import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthDto;
 import za.co.titandynamix.sasbo_online_backend.dto.monthend.MonthEndMonthsDto;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndExceptionHandler;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
+import za.co.titandynamix.sasbo_online_backend.security.Permission;
+import za.co.titandynamix.sasbo_online_backend.security.SignedInUser;
+import za.co.titandynamix.sasbo_online_backend.services.AuditTrail;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
+import za.co.titandynamix.sasbo_online_backend.support.SignInTestUsers;
 
 import java.time.YearMonth;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,20 +36,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Taking a month is refused to EVERY caller (month end 04.2, MD4) -- under the application's real security
- * configuration, with the filter chain on.
- *
- * <h2>Why this cannot live in {@code MonthEndControllerTest}</h2>
- * That slice runs with the filters off, so a claim about who may call would prove nothing there; and a slice without
- * the real {@code SecurityConfig} asserts Spring Security's defaults, which deny an anonymous caller -- so a 403 there
- * could be the framework's. Here the real configuration is loaded, and it permits {@code /api/**} to anyone (B1): a
- * 403 on the take can only be month end refusing -- which the must-pass twin proves, reading the months through the
- * same chain and getting a 200.
+ * Taking a month is held by {@code MONTH_END_TAKE} (month end 04.2, held until sign-in by MD4; switched on by the
+ * October build) -- under the application's real security configuration, with the filter chain on. A take again is
+ * the same permission: the same POSITION may take a month again, not only the person who took it (Stephne, MEN-10).
  */
 @WebMvcTest(MonthEndController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, MonthEndExceptionHandler.class, JacksonConfig.class})
 @DisplayName("MonthEndController, with the application's real security configuration")
 class MonthEndControllerSecurityTest {
+
+    private static final SignedInUser TAKER = SignInTestUsers.user("invented.headoffice", CallerScope.all(),
+            Permission.MONTH_END_TAKE, Permission.MONTH_END_VIEW);
+    private static final MonthEndMonthDto TAKEN = new MonthEndMonthDto("2026-08", MonthEndMonthDto.TAKEN,
+            "2026-09-15T08:00:00Z", "Invented invented.headoffice (invented.headoffice)", 4L, null, null);
 
     @Autowired
     private MockMvc mockMvc;
@@ -48,21 +56,60 @@ class MonthEndControllerSecurityTest {
     @MockitoBean
     private MonthEndTakes takes;
 
-    @Test
-    @DisplayName("🔒 MD4: taking a month is refused to every caller, IDENTITY_REQUIRED -- and nothing is taken")
-    void theTakeIsRefusedToEveryone() throws Exception {
-        when(takes.month("2026-08")).thenReturn(YearMonth.of(2026, 8));
+    @MockitoBean
+    private AuditTrail audit;
 
+    @Test
+    @DisplayName("🔒 nobody signed in is 401 SIGN_IN_REQUIRED, and nothing is taken")
+    void nobodySignedInTakesNothing() throws Exception {
         mockMvc.perform(post("/api/month-end/2026-08/take"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("IDENTITY_REQUIRED"))
-                .andExpect(jsonPath("$.details.month").value("2026-08"));
-        verify(takes, never()).take(any(), any());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("SIGN_IN_REQUIRED"));
+        verify(takes, never()).take(any(), any(), any());
     }
 
     @Test
-    @DisplayName("must-pass: the same chain answers the months taken -- so the 403 above is month end's, not the framework's")
-    void theChainLetsTheReadThrough() throws Exception {
+    @DisplayName("🔒 a signed-in user without MONTH_END_TAKE is 403 PERMISSION_REQUIRED naming it -- a CFO who reads the figures")
+    void withoutThePermissionTakesNothing() throws Exception {
+        SignedInUser reader = SignInTestUsers.user("invented.cfo", CallerScope.all(), Permission.MONTH_END_VIEW);
+        mockMvc.perform(post("/api/month-end/2026-08/take").with(SignInTestUsers.signedIn(reader)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PERMISSION_REQUIRED"))
+                .andExpect(jsonPath("$.permission").value("MONTH_END_TAKE"));
+        verify(takes, never()).take(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("the holder takes the month, recorded as the person who took it -- and the take is a line in the record")
+    void theHolderTakesTheMonth() throws Exception {
+        when(takes.month("2026-08")).thenReturn(YearMonth.of(2026, 8));
+        when(takes.record("2026-08")).thenReturn(TAKEN);
+
+        mockMvc.perform(post("/api/month-end/2026-08/take").with(SignInTestUsers.signedIn(TAKER)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("TAKEN"))
+                .andExpect(jsonPath("$.takenBy").value("Invented invented.headoffice (invented.headoffice)"));
+        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.headoffice (invented.headoffice)"), isNull());
+        verify(audit).record(eq("MONTH_END_TAKEN"), eq("MONTH_END"), eq("2026-08"), anyString());
+    }
+
+    @Test
+    @DisplayName("MEN-10: another person in the same position takes it again -- the permission is the only gate")
+    void theSamePositionTakesItAgain() throws Exception {
+        SignedInUser colleague = SignInTestUsers.user("invented.colleague", CallerScope.all(), Permission.MONTH_END_TAKE);
+        when(takes.month("2026-08")).thenReturn(YearMonth.of(2026, 8));
+        when(takes.record("2026-08")).thenReturn(TAKEN);
+
+        mockMvc.perform(post("/api/month-end/2026-08/take").with(SignInTestUsers.signedIn(colleague))
+                        .contentType("application/json").content("{\"replaces\": 3}"))
+                .andExpect(status().isOk());
+        verify(takes).take(eq(YearMonth.of(2026, 8)), eq("Invented invented.colleague (invented.colleague)"), eq(3L));
+        verify(audit).record(eq("MONTH_END_TAKEN_AGAIN"), eq("MONTH_END"), eq("2026-08"), anyString());
+    }
+
+    @Test
+    @DisplayName("must-pass: the months taken stay open to anyone, as every read of the arc is")
+    void theMonthsStayOpen() throws Exception {
         when(takes.months()).thenReturn(new MonthEndMonthsDto("2026-09", List.of()));
 
         mockMvc.perform(get("/api/month-end/months"))
