@@ -1,0 +1,47 @@
+{
+  "key": "legacy-member-export-fixed-width",
+  "name": "Old system's member export (fixed width) - provisional",
+  "description": "A first layout for a fixed-width export, as older systems print their records: field, start and length. The record's real layout replaces this one when the export or the former supplier's description of the tables arrives (MIG-06).",
+  "format": {
+    "type": "FIXED_WIDTH",
+    "encoding": "windows-1252",
+    "skipRows": 0,
+    "skipLinesStartingWith": ["HDR", "TRL"],
+    "layout": [
+      { "name": "MEMNO", "start": 1, "length": 9 },
+      { "name": "SURNAME", "start": 10, "length": 30 },
+      { "name": "INITIALS", "start": 40, "length": 5 },
+      { "name": "IDNO", "start": 45, "length": 13 },
+      { "name": "JOINED", "start": 58, "length": 10 },
+      { "name": "STATUS", "start": 68, "length": 1 },
+      { "name": "DELCODE", "start": 69, "length": 2 },
+      { "name": "DELDATE", "start": 71, "length": 10 },
+      { "name": "SUSPCODE", "start": 81, "length": 2 },
+      { "name": "SUSPDATE", "start": 83, "length": 10 },
+      { "name": "RANO", "start": 93, "length": 7 },
+      { "name": "TC", "start": 100, "length": 3 },
+      { "name": "AREA", "start": 103, "length": 2 },
+      { "name": "CELL", "start": 105, "length": 12 }
+    ]
+  },
+  "fields": {
+    "membershipNumber": { "column": "MEMNO", "transforms": ["trim", "stripLeadingZeros"] },
+    "surname": { "column": "SURNAME", "transforms": ["trim", "collapseSpaces", "title"] },
+    "initials": { "column": "INITIALS", "transforms": ["removeSpaces", "upper"] },
+    "identityNumber": { "column": "IDNO", "transforms": ["removeSpaces"] },
+    "joinDate": { "column": "JOINED", "transforms": ["removeSpaces"], "dateFormats": ["d/M/yyyy"] },
+    "status": { "column": "STATUS", "codes": "status" },
+    "deletionCode": { "column": "DELCODE", "transforms": ["trim"] },
+    "deletedOn": { "column": "DELDATE", "transforms": ["removeSpaces"], "dateFormats": ["d/M/yyyy"] },
+    "suspensionCode": { "column": "SUSPCODE", "transforms": ["trim"] },
+    "suspendedOn": { "column": "SUSPDATE", "transforms": ["removeSpaces"], "dateFormats": ["d/M/yyyy"] },
+    "workplaceRaNumber": { "column": "RANO", "transforms": ["trim"] },
+    "tableCode": { "column": "TC", "transforms": ["trim"] },
+    "areaLetter": { "column": "AREA", "transforms": ["trim", "upper"] },
+    "cellTel": { "column": "CELL" }
+  },
+  "codes": {
+    "status": { "A": "ACTIVE", "S": "SUSPENDED", "D": "DELETED" },
+    "deletionStatus": { "1": "Retired", "2": "Resigned", "5": "Terminated", "*": "Terminated" }
+  }
+}

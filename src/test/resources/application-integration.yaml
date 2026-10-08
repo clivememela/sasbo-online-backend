@@ -47,3 +47,9 @@ acb:
 month-end:
   packs:
     synchronous: true
+
+# The data migration's jobs -- a check, a move, an undo -- run on the caller's thread under every test lane too, on a
+# launcher of their own.
+migration:
+  jobs:
+    synchronous: true

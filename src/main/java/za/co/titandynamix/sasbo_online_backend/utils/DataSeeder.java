@@ -54,6 +54,7 @@ public class DataSeeder implements ApplicationRunner {
     private final WorkplaceVisitSeeder workplaceVisitSeeder;
     private final DemonstrationMemberSeeder demonstrationMemberSeeder;
     private final MonthEndTakeSeeder monthEndTakeSeeder;
+    private final MigrationDemoSeeder migrationDemoSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -326,6 +327,9 @@ public class DataSeeder implements ApplicationRunner {
         // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
         // are on record (MD54).
         seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);
+        // October build, data migration: an invented legacy export registered, checked and set beside invented totals
+        // -- after the workplaces its R/A numbers stand on; nothing is moved into the register.
+        seedMonthEnd("the data migration's demonstration batch", this.migrationDemoSeeder::seed);
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).

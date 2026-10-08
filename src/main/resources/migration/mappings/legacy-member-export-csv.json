@@ -1,0 +1,53 @@
+{
+  "key": "legacy-member-export-csv",
+  "name": "Old system's member export (CSV) - provisional",
+  "description": "A first layout for the member export, from the columns SASBO's own reports print. The export's real column names replace these when it arrives (due 30 October); the rules stay as they are.",
+  "format": {
+    "type": "CSV",
+    "encoding": "windows-1252",
+    "delimiter": ",",
+    "quote": "\"",
+    "header": true,
+    "skipRows": 0
+  },
+  "fields": {
+    "membershipNumber": { "column": "MEMBERSHIP NO", "transforms": ["trim"] },
+    "title": { "column": "TITLE", "transforms": ["trim", "title"] },
+    "initials": { "column": "INITIALS", "transforms": ["removeSpaces", "upper"] },
+    "firstNames": { "column": "FIRST NAMES", "transforms": ["trim", "collapseSpaces", "title"] },
+    "surname": { "column": "SURNAME", "transforms": ["trim", "collapseSpaces", "title"] },
+    "identityNumber": { "column": "ID NUMBER", "transforms": ["removeSpaces"] },
+    "passportNumber": { "column": "PASSPORT NO", "transforms": ["trim", "upper"] },
+    "dateOfBirth": { "column": "DATE OF BIRTH", "transforms": ["removeSpaces"], "dateFormats": ["d/M/yyyy", "yyyy/MM/dd", "yyyy-MM-dd"] },
+    "gender": { "column": "GENDER", "codes": "gender" },
+    "employeeNumber": { "column": "EMPLOYEE NO", "transforms": ["trim"] },
+    "joinDate": { "column": "DATE JOINED", "transforms": ["removeSpaces"], "dateFormats": ["d/M/yyyy", "yyyy/MM/dd", "yyyy-MM-dd"] },
+    "status": { "column": "STATUS", "codes": "status" },
+    "deletionCode": { "column": "DELETION CODE", "transforms": ["trim"] },
+    "deletedOn": { "column": "DATE DELETED", "transforms": ["removeSpaces"], "dateFormats": ["d/M/yyyy", "yyyy/MM/dd", "yyyy-MM-dd"] },
+    "suspensionCode": { "column": "SUSPENSION CODE", "transforms": ["trim"] },
+    "suspendedOn": { "column": "DATE SUSPENDED", "transforms": ["removeSpaces"], "dateFormats": ["d/M/yyyy", "yyyy/MM/dd", "yyyy-MM-dd"] },
+    "workplaceRaNumber": { "column": "R/A NO", "transforms": ["trim"] },
+    "tableCode": { "column": "T/C", "transforms": ["trim"] },
+    "areaLetter": { "column": "AREA", "transforms": ["trim", "upper"] },
+    "bankName": { "column": "BANK NAME", "transforms": ["trim", "collapseSpaces"] },
+    "paymentType": { "column": "PAYMENT METHOD", "codes": "paymentType" },
+    "bankAccountNumber": { "column": "ACCOUNT NO", "transforms": ["trim"] },
+    "accountType": { "column": "ACCOUNT TYPE", "codes": "accountType" },
+    "debitDay": { "column": "DEBIT DAY", "transforms": ["trim"] },
+    "monthlySubscription": { "column": "SUBSCRIPTION", "transforms": ["trim"] },
+    "cellTel": { "column": "CELL NO" },
+    "workTel": { "column": "WORK TEL" },
+    "homeTel": { "column": "HOME TEL" },
+    "personalEmail": { "column": "E-MAIL", "transforms": ["trim"] },
+    "workEmail": { "column": "WORK E-MAIL", "transforms": ["trim"] },
+    "address": { "column": "ADDRESS", "transforms": ["trim", "collapseSpaces"] }
+  },
+  "codes": {
+    "status": { "A": "ACTIVE", "ACTIVE": "ACTIVE", "S": "SUSPENDED", "SUSPENDED": "SUSPENDED", "D": "DELETED", "DELETED": "DELETED" },
+    "gender": { "M": "Male", "MALE": "Male", "F": "Female", "FEMALE": "Female" },
+    "paymentType": { "QPAC": "Payroll Deduction", "PAYROLL": "Payroll Deduction", "OTHER": "Payroll Deduction", "ACB": "Debit Order", "DEBIT ORDER": "Debit Order" },
+    "accountType": { "C": "Cheque", "CHEQUE": "Cheque", "S": "Savings", "SAVINGS": "Savings", "T": "Transmission", "TRANSMISSION": "Transmission" },
+    "deletionStatus": { "1": "Retired", "2": "Resigned", "5": "Terminated", "*": "Terminated" }
+  }
+}

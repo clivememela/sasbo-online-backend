@@ -113,7 +113,7 @@ class PiiToStringTest {
 
      */
 
-    private static final Set<String> CARRIES_ANY_VALUE = Set.of("MemberChange");
+    private static final Set<String> CARRIES_ANY_VALUE = Set.of("MemberChange", "MigrationRow");
 
 
 
