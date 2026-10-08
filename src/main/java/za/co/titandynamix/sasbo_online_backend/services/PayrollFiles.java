@@ -33,6 +33,7 @@ import za.co.titandynamix.sasbo_online_backend.payroll.PayrollMoney;
 import za.co.titandynamix.sasbo_online_backend.payroll.PayrollParser;
 import za.co.titandynamix.sasbo_online_backend.payroll.PayrollRequests;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileState;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollReads;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollStore;
 
@@ -155,17 +156,26 @@ public class PayrollFiles {
         return load(employer, month, PayrollEntry.TYPED, PayrollFormat.CSV, name, bytes, false, Map.of(), stated, actor);
     }
 
+    /** What a load wrote: the file now live, and whether this load made it so. */
+    private record Written(long id, boolean created) {
+    }
+
+    /**
+     * Loads a file -- or answers the one these bytes already are. The same bytes live are answered as loaded already.
+     * The same bytes on record but not live (replaced, or their contents deleted after a year) are that file again:
+     * loaded again into its own row, made live and compared afresh, where no other file is live for the month or the
+     * load replaces it. Without that it is refused like any other file for a month that has one.
+     */
     private Loaded load(PayrollEmployer employer, YearMonth month, PayrollEntry entry, PayrollFormat format,
                         String name, byte[] bytes, boolean replace, Map<String, String> mapping,
                         BigDecimal statedTotal, String actor) {
         String sha = sha256(bytes);
         LocalDate period = month.atDay(1);
-        Optional<PayrollFile> same = files.findByPayrollEmployerIdAndPeriodAndSha256(employer.getId(), period, sha);
-        if (same.isPresent()) {
-            return new Loaded(summary(same.get().getId(), true), false);
+        Optional<PayrollFileState> same = files.sameBytes(employer.getId(), period, sha);
+        if (same.isPresent() && same.get().status() == PayrollFileStatus.RECONCILED) {
+            return new Loaded(summary(same.get().id(), true), false);
         }
-        Optional<PayrollFile> live = files.findFirstByPayrollEmployerIdAndPeriodAndStatus(employer.getId(), period,
-                PayrollFileStatus.RECONCILED);
+        Optional<PayrollFileState> live = files.liveStateOf(employer.getId(), period);
         if (live.isPresent() && !replace) {
             throw exists(live.get());
         }
@@ -177,67 +187,62 @@ public class PayrollFiles {
         PayrollReconciler.Compared compared = reconciler.compare(employer.getId(), employer.getName(), month, parsed,
                 statedTotal);
         try {
-            Long id = transactions.execute(status -> {
+            Written written = transactions.execute(status -> {
                 Instant now = clock.instant();
-                PayrollFile replaced = null;
+                Long replaced = null;
                 if (live.isPresent()) {
-                    // The old file steps aside first: the partial unique index holds one live file a month.
-                    PayrollFile old = live.get();
-                    old.setStatus(PayrollFileStatus.SUPERSEDED);
-                    replaced = files.saveAndFlush(old);
+                    // The live file steps aside first: the partial unique index holds one live file a month.
+                    if (store.stepAside(live.get().id())) {
+                        replaced = live.get().id();
+                    } else {
+                        Optional<PayrollFileState> liveNow = files.liveStateOf(employer.getId(), period);
+                        if (liveNow.isPresent() && same.isPresent() && liveNow.get().id().equals(same.get().id())) {
+                            return new Written(liveNow.get().id(), false);
+                        }
+                        if (liveNow.isPresent()) {
+                            throw exists(liveNow.get());
+                        }
+                    }
                 }
-                PayrollFile file = new PayrollFile();
-                file.setPayrollEmployerId(employer.getId());
-                file.setPeriod(period);
-                file.setEntry(entry);
-                file.setFormat(format);
-                file.setOriginalName(name);
-                file.setSizeBytes(bytes.length);
-                file.setSha256(sha);
-                file.setContent(bytes);
-                file.setStatus(PayrollFileStatus.RECONCILED);
-                file.setUploadedBy(actor);
-                file.setUploadedAt(now);
-                file.setRetainUntil(LocalDate.now(clock.withZone(za.co.titandynamix.sasbo_online_backend.utils
-                        .MonthRange.ZONE)).plusYears(PayrollLimits.RETAIN_YEARS));
-                file.setStatedTotal(statedTotal);
-                file.setRowCount(0);
-                file.setUnreadableCount(0);
-                file.setRowsNotRead(0);
-                file.setMatchedCount(0);
-                file.setDiscrepancyCount(0);
-                file.setOpenCount(0);
-                file.setFileTotal(BigDecimal.ZERO.setScale(2));
-                file.setAdminFeePercent(employer.getAdminFeePercent());
-                file.setRuns(0);
-                file = files.saveAndFlush(file);
-                reconciler.write(file.getId(), employer.getId(), month, compared, employer.getAdminFeePercent(),
+                long id;
+                if (same.isPresent()) {
+                    if (!store.loadAgain(same.get().id(), bytes, name, actor, now, retainUntil())) {
+                        status.setRollbackOnly();
+                        return new Written(same.get().id(), false);
+                    }
+                    id = same.get().id();
+                } else {
+                    id = insert(employer, period, entry, format, name, bytes, sha, statedTotal, actor, now);
+                }
+                reconciler.write(id, employer.getId(), month, compared, employer.getAdminFeePercent(),
                         PayrollLayouts.mappingJson(mapping), statedTotal, actor);
-                audit.record(PayrollEventKind.FILE_LOADED, file.getId(), null, entry + " " + format + " for "
+                audit.record(PayrollEventKind.FILE_LOADED, id, null, (same.isPresent() ? "Loaded again ("
+                        + same.get().status() + " before): " : "") + entry + " " + format + " for "
                         + employer.getCode() + " " + month + ": " + parsed.lines().size() + " lines, "
                         + compared.result().matched() + " matched, " + (compared.result().found().size()
                         + compared.fileLevel().size()) + " discrepancies", actor);
                 if (replaced != null) {
-                    replaced.setSupersededBy(file.getId());
-                    files.saveAndFlush(replaced);
-                    List<Long> open = store.discrepanciesOf(replaced.getId()).stream()
+                    store.supersededBy(replaced, id);
+                    List<Long> open = store.discrepanciesOf(replaced).stream()
                             .filter(d -> !"RESOLVED".equals(d.status())).map(PayrollStore.Existing::id).toList();
                     store.resolveBySystem(open, PayrollOutcome.SUPERSEDED.name(), PayrollReconciler.SYSTEM, now);
-                    store.recount(replaced.getId());
-                    audit.record(PayrollEventKind.FILE_SUPERSEDED, replaced.getId(), null, "Replaced by file "
-                            + file.getId() + "; " + open.size() + " open discrepancies resolved as superseded", actor);
+                    store.recount(replaced);
+                    audit.record(PayrollEventKind.FILE_SUPERSEDED, replaced, null, "Replaced by file " + id + "; "
+                            + open.size() + " open discrepancies resolved as superseded", actor);
                 }
-                return file.getId();
+                return new Written(id, true);
             });
-            log.info("Payroll file {} loaded for employer {}: {} lines", id, employer.getId(), parsed.lines().size());
-            return new Loaded(summary(id, false), true);
-        } catch (DataIntegrityViolationException raced) {
-            Optional<PayrollFile> again = files.findByPayrollEmployerIdAndPeriodAndSha256(employer.getId(), period, sha);
-            if (again.isPresent()) {
-                return new Loaded(summary(again.get().getId(), true), false);
+            if (written.created()) {
+                log.info("Payroll file {} loaded for employer {}: {} lines", written.id(), employer.getId(),
+                        parsed.lines().size());
             }
-            Optional<PayrollFile> liveNow = files.findFirstByPayrollEmployerIdAndPeriodAndStatus(employer.getId(),
-                    period, PayrollFileStatus.RECONCILED);
+            return new Loaded(summary(written.id(), !written.created()), written.created());
+        } catch (DataIntegrityViolationException raced) {
+            Optional<PayrollFileState> again = files.sameBytes(employer.getId(), period, sha);
+            if (again.isPresent() && again.get().status() == PayrollFileStatus.RECONCILED) {
+                return new Loaded(summary(again.get().id(), true), false);
+            }
+            Optional<PayrollFileState> liveNow = files.liveStateOf(employer.getId(), period);
             if (liveNow.isPresent()) {
                 throw exists(liveNow.get());
             }
@@ -245,11 +250,46 @@ public class PayrollFiles {
         }
     }
 
-    private static PayrollRefusal exists(PayrollFile live) {
+    /** A new file's row, its figures nought until the comparison is written onto it. */
+    private long insert(PayrollEmployer employer, LocalDate period, PayrollEntry entry, PayrollFormat format,
+                        String name, byte[] bytes, String sha, BigDecimal statedTotal, String actor, Instant now) {
+        PayrollFile file = new PayrollFile();
+        file.setPayrollEmployerId(employer.getId());
+        file.setPeriod(period);
+        file.setEntry(entry);
+        file.setFormat(format);
+        file.setOriginalName(name);
+        file.setSizeBytes(bytes.length);
+        file.setSha256(sha);
+        file.setContent(bytes);
+        file.setStatus(PayrollFileStatus.RECONCILED);
+        file.setUploadedBy(actor);
+        file.setUploadedAt(now);
+        file.setRetainUntil(retainUntil());
+        file.setStatedTotal(statedTotal);
+        file.setRowCount(0);
+        file.setUnreadableCount(0);
+        file.setRowsNotRead(0);
+        file.setMatchedCount(0);
+        file.setDiscrepancyCount(0);
+        file.setOpenCount(0);
+        file.setFileTotal(BigDecimal.ZERO.setScale(2));
+        file.setAdminFeePercent(employer.getAdminFeePercent());
+        file.setRuns(0);
+        return files.saveAndFlush(file).getId();
+    }
+
+    /** A file loaded today is kept a year (PAY-39). */
+    private LocalDate retainUntil() {
+        return LocalDate.now(clock.withZone(za.co.titandynamix.sasbo_online_backend.utils.MonthRange.ZONE))
+                .plusYears(PayrollLimits.RETAIN_YEARS);
+    }
+
+    private static PayrollRefusal exists(PayrollFileState live) {
         return new PayrollRefusal(PayrollRefusalCode.FILE_EXISTS_FOR_PERIOD, "A different file is already loaded for "
                 + "this employer and month. Replace it, or choose another month.", PayrollRefusal.details(
-                "fileId", String.valueOf(live.getId()), "uploadedAt", live.getUploadedAt().toString(),
-                "uploadedBy", live.getUploadedBy()));
+                "fileId", String.valueOf(live.id()), "uploadedAt", live.uploadedAt().toString(),
+                "uploadedBy", live.uploadedBy()));
     }
 
     // ------------------------------------------------------------------------------------------- comparing again

@@ -206,6 +206,57 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
                 + "'SUPERSEDED'", Integer.class, first.summary().file().id())).isPositive();
     }
 
+    @Test
+    @DisplayName("a replaced file loaded again: refused while another is live; with Replace, the month's file again -- "
+            + "its own row, compared afresh; a year on, after its contents went, loaded as today's")
+    void aReplacedFileLoadedAgain() {
+        PayrollItSupport.seedManifest(jdbc, PayrollItSupport.manifest("standard-bank"), "STANDARD BANK");
+        long employer = employerRepository.findByCode("STANDARD_BANK").orElseThrow().getId();
+        byte[] first = PayrollItSupport.resource("standard-bank.xlsx");
+        byte[] second = za.co.titandynamix.sasbo_online_backend.payroll.PayrollSampleWriter.write("standard-bank",
+                java.time.YearMonth.of(2026, 9), List.of(new za.co.titandynamix.sasbo_online_backend.payroll
+                        .PayrollSampleWriter.Line("991001", null, "Mr", "A", null, "Elsewhere", new BigDecimal("174.00"),
+                        null, null, null)));
+        long v1 = files.upload(employer, "2026-09", "v1.xlsx", first, false, null, "an IT").summary().file().id();
+        int found = jdbc.queryForObject("SELECT count(*) FROM payroll_discrepancies WHERE file_id = ?", Integer.class, v1);
+        long v2 = files.upload(employer, "2026-09", "v2.xlsx", second, true, null, "an IT").summary().file().id();
+
+        assertThatThrownBy(() -> files.upload(employer, "2026-09", "v1 again.xlsx", first, false, null, "an IT"))
+                .isInstanceOfSatisfying(PayrollRefusal.class, r -> {
+                    assertThat(r.code()).isEqualTo(PayrollRefusalCode.FILE_EXISTS_FOR_PERIOD);
+                    assertThat(r.details()).containsEntry("fileId", String.valueOf(v2));
+                });
+        PayrollFiles.Loaded again = files.upload(employer, "2026-09", "v1 again.xlsx", first, true, null, "an IT");
+        assertThat(again.created()).isTrue();
+        assertThat(again.summary().alreadyLoaded()).isFalse();
+        assertThat(again.summary().file().id()).as("its own row, not a second").isEqualTo(v1);
+        assertThat(again.summary().file().status()).isEqualTo("RECONCILED");
+        assertThat(again.summary().file().originalName()).isEqualTo("v1 again.xlsx");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_files", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT status FROM payroll_files WHERE id = ?", String.class, v2))
+                .isEqualTo("SUPERSEDED");
+        assertThat(jdbc.queryForObject("SELECT superseded_by FROM payroll_files WHERE id = ?", Long.class, v2))
+                .isEqualTo(v1);
+        assertThat(jdbc.queryForObject("SELECT superseded_by FROM payroll_files WHERE id = ?", Long.class, v1)).isNull();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_discrepancies WHERE file_id = ? AND status <> "
+                + "'RESOLVED'", Integer.class, v1)).as("found again, open again").isEqualTo(found);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_discrepancies WHERE file_id = ? AND status <> "
+                + "'RESOLVED'", Integer.class, v2)).as("the replaced one's").isZero();
+        assertThat(files.upload(employer, "2026-09", "v1.xlsx", first, false, null, "an IT").summary().alreadyLoaded())
+                .as("live now: loaded already").isTrue();
+
+        // A year on both files' contents go; the replaced one loaded again is loaded as today's, its content back.
+        jdbc.update("UPDATE payroll_files SET retain_until = DATE '2026-09-14'");
+        assertThat(retention.purgeDue()).isEqualTo(2);
+        PayrollFiles.Loaded afterTheYear = files.upload(employer, "2026-09", "v2.xlsx", second, false, null, "an IT");
+        assertThat(afterTheYear.created()).isTrue();
+        assertThat(afterTheYear.summary().file().id()).isEqualTo(v2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_files WHERE id = ? AND status = 'RECONCILED' AND "
+                + "content IS NOT NULL AND purged_at IS NULL AND retain_until > DATE '2027-01-01'", Integer.class, v2))
+                .isEqualTo(1);
+        assertThat(files.rows(v2, null, null, null).content()).hasSize(1);
+    }
+
     // ------------------------------------------------------------------------------- comparing again keeps the work
 
     @Test
@@ -543,7 +594,10 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
         assertThat(eventRepository.findAllByFileIdOrderByOccurredAtAscIdAsc(file)).extracting(e -> e.getKind().name())
                 .contains("FILE_LOADED", "NOTE_ADDED", "QUERY_RAISED", "PAYMENT_RECORDED");
         assertThat(employerRepository.findAllByOrderByOrdinalAsc()).hasSize(16);
-        assertThat(fileRepository.findByPayrollEmployerIdAndPeriodAndSha256(employer, java.time.LocalDate.of(2026, 9, 1),
-                files.summary(file).file().sha256())).isPresent();
+        assertThat(fileRepository.sameBytes(employer, java.time.LocalDate.of(2026, 9, 1),
+                files.summary(file).file().sha256())).hasValueSatisfying(s -> assertThat(s.id()).isEqualTo(file));
+        assertThat(fileRepository.liveStateOf(employer, java.time.LocalDate.of(2026, 9, 1)))
+                .hasValueSatisfying(s -> assertThat(s.status().name()).isEqualTo("RECONCILED"));
+        assertThat(fileRepository.stateOf(file)).hasValueSatisfying(s -> assertThat(s.fileTotal()).isPositive());
     }
 }

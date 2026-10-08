@@ -258,6 +258,43 @@ public class PayrollStore {
         return rows;
     }
 
+    // ---------------------------------------------------------------------------------------- a month's live file
+
+    /**
+     * The live file steps aside for another: SUPERSEDED, by a statement on its status. Never by saving the entity read
+     * before the comparison -- a comparison of the file at the same moment moves its version on, and merging the copy
+     * read before is refused as stale (a 500), besides writing its ten megabytes again.
+     *
+     * @return whether it was live and stepped aside; {@code false}: another load replaced it, or it was purged, first
+     */
+    public boolean stepAside(long fileId) {
+        return jdbc.update("UPDATE payroll_files SET status = 'SUPERSEDED', version = version + 1 WHERE id = :file "
+                + "AND status = 'RECONCILED'", new MapSqlParameterSource("file", fileId)) == 1;
+    }
+
+    /** The file that replaced it, written on the one that stepped aside. */
+    public void supersededBy(long fileId, long by) {
+        jdbc.update("UPDATE payroll_files SET superseded_by = :by WHERE id = :file",
+                new MapSqlParameterSource("file", fileId).addValue("by", by));
+    }
+
+    /**
+     * A file replaced, or purged after its year, loaded again from the same bytes: live once more, as loaded now -- its
+     * name, who loaded it and when, and its year counted from today; its content put back where the year's deletion
+     * took it. Its row is reused: the same bytes are one row for the employer and month (V74).
+     *
+     * @return whether it was not live and is now; {@code false}: another load made it live first
+     */
+    public boolean loadAgain(long fileId, byte[] content, String name, String by, Instant at, LocalDate retainUntil) {
+        return jdbc.update("UPDATE payroll_files SET status = 'RECONCILED', superseded_by = NULL, purged_at = NULL, "
+                        + "content = COALESCE(content, :content), original_name = :name, uploaded_by = :by, "
+                        + "uploaded_at = :at, retain_until = :until, version = version + 1 "
+                        + "WHERE id = :file AND status IN ('SUPERSEDED', 'PURGED')",
+                new MapSqlParameterSource("file", fileId).addValue("content", content).addValue("name", name)
+                        .addValue("by", by).addValue("at", Timestamp.from(at))
+                        .addValue("until", Date.valueOf(retainUntil))) == 1;
+    }
+
     /** A produced query list downloaded once more: counted in the statement, so two at once count two. */
     public int countDownload(long queryFileId, Instant at) {
         return jdbc.update("UPDATE payroll_query_files SET downloads = downloads + 1, last_downloaded_at = :at "

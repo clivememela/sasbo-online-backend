@@ -9,15 +9,14 @@ import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollPage;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollPaymentDto;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollPaymentRequest;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollEmployer;
-import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollFile;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollPayment;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollEventKind;
-import za.co.titandynamix.sasbo_online_backend.enums.PayrollFileStatus;
 import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.payroll.PayrollKeys;
 import za.co.titandynamix.sasbo_online_backend.payroll.PayrollRequests;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileState;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollPaymentRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollReads;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollStore;
@@ -89,14 +88,13 @@ public class PayrollPayments {
                 payment.setRecordedBy(actor);
                 payment.setRecordedAt(clock.instant());
                 payment = payments.saveAndFlush(payment);
-                Optional<PayrollFile> live = files.findFirstByPayrollEmployerIdAndPeriodAndStatus(employer.getId(),
-                        period, PayrollFileStatus.RECONCILED);
+                Optional<PayrollFileState> live = files.liveStateOf(employer.getId(), period);
                 live.ifPresent(file -> {
-                    reconciler.checkPayment(file.getId(), employer.getId(), YearMonth.from(period), file.getFileTotal(),
-                            file.getAdminFeePercent(), actor);
-                    store.recount(file.getId());
+                    reconciler.checkPayment(file.id(), employer.getId(), YearMonth.from(period), file.fileTotal(),
+                            file.adminFeePercent(), actor);
+                    store.recount(file.id());
                 });
-                audit.record(PayrollEventKind.PAYMENT_RECORDED, live.map(PayrollFile::getId).orElse(null), null,
+                audit.record(PayrollEventKind.PAYMENT_RECORDED, live.map(PayrollFileState::id).orElse(null), null,
                         "Payment of R" + PayrollKeys.money(amount) + " recorded for " + employer.getCode() + " "
                                 + YearMonth.from(period), actor);
                 return payment;

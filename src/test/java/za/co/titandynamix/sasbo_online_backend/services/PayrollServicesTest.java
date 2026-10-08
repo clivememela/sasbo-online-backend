@@ -15,6 +15,7 @@ import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollEvent;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollPayment;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollDelivery;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollEventKind;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollFileStatus;
 import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollDiscrepancyNoteRepository;
@@ -22,6 +23,7 @@ import za.co.titandynamix.sasbo_online_backend.repository.PayrollDiscrepancyRepo
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollEmployerRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollEventRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileState;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollPaymentRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollReads;
@@ -99,6 +101,7 @@ class PayrollServicesTest {
         retention = new PayrollRetention(fileRepository, store, audit, CLOCK, transactions);
         PayrollEmployer absa = absa();
         when(employerRepository.findById(1L)).thenReturn(Optional.of(absa));
+        when(store.received(anyLong(), any())).thenReturn(Map.entry(BigDecimal.ZERO, 0));
     }
 
     private static PayrollEmployer absa() {
@@ -187,6 +190,113 @@ class PayrollServicesTest {
             return refusal;
         }
         throw new AssertionError("no refusal");
+    }
+
+    // -------------------------------------------------------------------------------- loading again, replacing
+
+    private static final byte[] SEPTEMBER = "EMP NO,SURNAME,INITIALS,AMOUNT\n1,Testerson,BK,174.00\n2,Ledgerwood,R,174.00\n"
+            .getBytes(StandardCharsets.UTF_8);
+
+    private static PayrollFileState state(long id, PayrollFileStatus status) {
+        return new PayrollFileState(id, 1L, LocalDate.of(2026, 9, 1), status, null, new BigDecimal("348.00"),
+                new BigDecimal("3.00"), Instant.parse("2026-10-01T08:00:00Z"), "t");
+    }
+
+    private static PayrollReads.FileRow fileRow(long id, String status) {
+        return new PayrollReads.FileRow(id, new za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollEmployerRef(1L,
+                "ABSA", "Absa"), "absa", LocalDate.of(2026, 9, 1), "absa.csv", "UPLOAD", "CSV", SEPTEMBER.length,
+                "0".repeat(64), status, "t", Instant.parse("2026-10-01T08:00:00Z"), LocalDate.of(2027, 10, 1), null, 1,
+                null, null, null, null, 2, 0, 0, null, 0, 0, 0, new BigDecimal("348.00"), null, null, null,
+                new BigDecimal("3.00"), 1, null, null, 1, BigDecimal.ZERO, 0);
+    }
+
+    @Test
+    @DisplayName("must-pass: the same bytes, live, are answered as loaded already -- nothing read, nothing written")
+    void theSameBytesLive() {
+        when(fileRepository.sameBytes(any(), any(), any())).thenReturn(Optional.of(state(7L, PayrollFileStatus.RECONCILED)));
+        when(reads.file(7L)).thenReturn(Optional.of(fileRow(7L, "RECONCILED")));
+        PayrollFiles.Loaded again = files.upload(1L, "2026-09", "absa.csv", SEPTEMBER, true, null, "t");
+        assertThat(again.created()).isFalse();
+        assertThat(again.summary().alreadyLoaded()).isTrue();
+        verify(fileRepository, never()).saveAndFlush(any());
+        verify(store, never()).stepAside(anyLong());
+    }
+
+    @Test
+    @DisplayName("a file replaced, then loaded again with Replace, is the month's file again: compared afresh, the "
+            + "other stepped aside")
+    void aReplacedFileLoadedAgain() {
+        when(fileRepository.sameBytes(any(), any(), any())).thenReturn(Optional.of(state(7L, PayrollFileStatus.SUPERSEDED)));
+        when(fileRepository.liveStateOf(any(), any())).thenReturn(Optional.of(state(8L, PayrollFileStatus.RECONCILED)));
+        when(store.stepAside(8L)).thenReturn(true);
+        when(store.loadAgain(org.mockito.ArgumentMatchers.eq(7L), any(), any(), any(), any(), any())).thenReturn(true);
+        when(reads.file(7L)).thenReturn(Optional.of(fileRow(7L, "RECONCILED")));
+        PayrollFiles.Loaded loaded = files.upload(1L, "2026-09", "absa.csv", SEPTEMBER, true, null, "t");
+        assertThat(loaded.created()).as("loaded, not answered as loaded already").isTrue();
+        assertThat(loaded.summary().alreadyLoaded()).isFalse();
+        assertThat(loaded.summary().file().id()).isEqualTo(7L);
+        verify(store).supersededBy(8L, 7L);
+        verify(fileRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("a file replaced, loaded again without Replace while another is live: FILE_EXISTS_FOR_PERIOD, naming it")
+    void aReplacedFileWithoutReplace() {
+        when(fileRepository.sameBytes(any(), any(), any())).thenReturn(Optional.of(state(7L, PayrollFileStatus.SUPERSEDED)));
+        when(fileRepository.liveStateOf(any(), any())).thenReturn(Optional.of(state(8L, PayrollFileStatus.RECONCILED)));
+        when(reads.file(7L)).thenReturn(Optional.of(fileRow(7L, "SUPERSEDED")));
+        PayrollRefusal refused = catching(() -> files.upload(1L, "2026-09", "absa.csv", SEPTEMBER, false, null, "t"));
+        assertThat(refused.code()).isEqualTo(PayrollRefusalCode.FILE_EXISTS_FOR_PERIOD);
+        assertThat(refused.details()).containsEntry("fileId", "8");
+        verify(store, never()).stepAside(anyLong());
+        verify(store, never()).loadAgain(anyLong(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("the live file replaced by someone else meanwhile: FILE_EXISTS_FOR_PERIOD naming the file live now, "
+            + "nothing loaded")
+    void theLiveFileMovedOnMeanwhile() {
+        when(fileRepository.liveStateOf(any(), any())).thenReturn(Optional.of(state(8L, PayrollFileStatus.RECONCILED)))
+                .thenReturn(Optional.of(state(10L, PayrollFileStatus.RECONCILED)));
+        when(store.stepAside(8L)).thenReturn(false);
+        PayrollRefusal refused = catching(() -> files.upload(1L, "2026-09", "absa.csv", SEPTEMBER, true, null, "t"));
+        assertThat(refused.code()).isEqualTo(PayrollRefusalCode.FILE_EXISTS_FOR_PERIOD);
+        assertThat(refused.details()).containsEntry("fileId", "10");
+        verify(fileRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("replacing never saves the live file as read before the comparison: one compared at the same moment "
+            + "is replaced, never a 500")
+    void aReplaceRacingACompare() {
+        when(fileRepository.liveStateOf(any(), any())).thenReturn(Optional.of(state(8L, PayrollFileStatus.RECONCILED)));
+        when(store.stepAside(8L)).thenReturn(true);
+        when(fileRepository.saveAndFlush(any())).thenAnswer(invocation -> {
+            za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollFile saved = invocation.getArgument(0);
+            if (saved.getStatus() != za.co.titandynamix.sasbo_online_backend.enums.PayrollFileStatus.RECONCILED) {
+                // The comparison moved the row's version on since it was read: merging the copy read before is refused.
+                throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                        za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollFile.class, saved.getId());
+            }
+            saved.setId(9L);
+            return saved;
+        });
+        when(reads.file(9L)).thenReturn(Optional.of(fileRow(9L, "RECONCILED")));
+        PayrollFiles.Loaded replaced = files.upload(1L, "2026-09", "absa.csv", SEPTEMBER, true, null, "t");
+        assertThat(replaced.created()).isTrue();
+        assertThat(replaced.summary().file().id()).isEqualTo(9L);
+        verify(store).supersededBy(8L, 9L);
+        verify(fileRepository, times(1)).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("a query raised for a file, or a file's queries listed, read the file's state -- never its bytes")
+    void aStatusReadLeavesTheBytes() {
+        when(fileRepository.stateOf(5L)).thenReturn(Optional.of(state(5L, PayrollFileStatus.SUPERSEDED)));
+        assertThat(code(() -> queries.raise(5L, "t"))).isEqualTo(PayrollRefusalCode.FILE_SUPERSEDED);
+        when(fileRepository.existsById(6L)).thenReturn(false);
+        assertThat(code(() -> queries.ofFile(6L))).isEqualTo(PayrollRefusalCode.FILE_NOT_FOUND);
+        verify(fileRepository, never()).findById(any());
     }
 
     // ---------------------------------------------------------------------------------------------- employers

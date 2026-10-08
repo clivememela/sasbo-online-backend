@@ -6,7 +6,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryDto;
 import za.co.titandynamix.sasbo_online_backend.dto.payroll.PayrollQueryFileDto;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollDiscrepancy;
-import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollFile;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollQuery;
 import za.co.titandynamix.sasbo_online_backend.entity.payroll.PayrollQueryFile;
 import za.co.titandynamix.sasbo_online_backend.enums.PayrollDiscrepancyStatus;
@@ -19,6 +18,7 @@ import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.payroll.ProtectedFiles;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollDiscrepancyRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileRepository;
+import za.co.titandynamix.sasbo_online_backend.repository.PayrollFileState;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryFileRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollQueryRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.PayrollReads;
@@ -71,14 +71,14 @@ public class PayrollQueries {
     /** A query raised for a file: every open discrepancy that asks the employer for something, on no query yet. */
     public PayrollQueryDto raise(long fileId, String actor) {
         Long id = transactions.execute(status -> {
-            PayrollFile file = files.findById(fileId).orElseThrow(PayrollFiles::notFound);
-            if (file.getStatus() == PayrollFileStatus.PURGED) {
+            PayrollFileState file = files.stateOf(fileId).orElseThrow(PayrollFiles::notFound);
+            if (file.status() == PayrollFileStatus.PURGED) {
                 throw PayrollFiles.purged();
             }
-            if (file.getStatus() == PayrollFileStatus.SUPERSEDED) {
+            if (file.status() == PayrollFileStatus.SUPERSEDED) {
                 throw new PayrollRefusal(PayrollRefusalCode.FILE_SUPERSEDED, "This file was replaced: raise the query "
                         + "from the file that replaced it.", PayrollRefusal.details("supersededBy",
-                        file.getSupersededBy() == null ? null : String.valueOf(file.getSupersededBy())));
+                        file.supersededBy() == null ? null : String.valueOf(file.supersededBy())));
             }
             List<PayrollDiscrepancy> candidates = discrepancies.findAllByFileIdAndStatusIn(fileId,
                     EnumSet.of(PayrollDiscrepancyStatus.OPEN)).stream()
@@ -90,8 +90,8 @@ public class PayrollQueries {
             candidates.forEach(d -> counts.merge(d.getType().queryAction(), 1, Integer::sum));
             PayrollQuery query = new PayrollQuery();
             query.setFileId(fileId);
-            query.setPayrollEmployerId(file.getPayrollEmployerId());
-            query.setPeriod(file.getPeriod());
+            query.setPayrollEmployerId(file.payrollEmployerId());
+            query.setPeriod(file.period());
             query.setRaisedBy(actor);
             query.setRaisedAt(clock.instant());
             query.setAddCount(counts.getOrDefault(PayrollQueryAction.ADD, 0));
@@ -120,7 +120,7 @@ public class PayrollQueries {
 
     /** A file's queries, newest first. */
     public List<PayrollQueryDto> ofFile(long fileId) {
-        if (files.findById(fileId).isEmpty()) {
+        if (!files.existsById(fileId)) {
             throw PayrollFiles.notFound();
         }
         return queries.findAllByFileIdOrderByRaisedAtDescIdDesc(fileId).stream()
@@ -149,8 +149,8 @@ public class PayrollQueries {
     public Produced produce(long queryId, String format, String actor) {
         PayrollReports.Format chosen = PayrollReports.format(format);
         PayrollQueryDto query = get(queryId);
-        PayrollFile file = files.findById(query.fileId()).orElseThrow(PayrollFiles::notFound);
-        if (file.getStatus() == PayrollFileStatus.PURGED) {
+        PayrollFileState file = files.stateOf(query.fileId()).orElseThrow(PayrollFiles::notFound);
+        if (file.status() == PayrollFileStatus.PURGED) {
             throw PayrollFiles.purged();
         }
         PayrollReports.Report plain = reports.queryList(query, chosen);
