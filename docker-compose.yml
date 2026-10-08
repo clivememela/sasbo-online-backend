@@ -1,0 +1,457 @@
+# The stack this suite is authoritative against.
+#
+# WHY A COMPOSE FILE AND NOT THREE MANUAL STEPS
+# The alternative is: start a database, start the API, build and serve the
+# client. Every one of those is a way for two people to run "the same" suite
+# against different things, and the difference only shows up as a disagreement
+# nobody can reproduce. One file, one command, one stack.
+#
+# 🔑 WHICH RUN IS AUTHORITATIVE
+# This one. A native run -- browser on the host, application wherever -- is a
+# debugging convenience and its result is NOT evidence. If a native run and this
+# one disagree, this one is right, and the disagreement is itself a finding: it
+# means the suite depends on something about one developer's machine, which is
+# the entire problem containers were brought in to solve.
+#
+# ── Images, not build contexts ────────────────────────────────────────────────
+# Every service below consumes an image BY TAG. Nothing here builds from a
+# sibling directory, because this suite contains no path to one -- that is the
+# invariant that lets the same file run in a pipeline, where the application
+# repositories are built by their own jobs and never checked out beside this
+# one. Override any tag with the matching environment variable.
+#
+# To produce the two application images locally, from wherever those
+# repositories live on your machine:
+#
+#   docker build -t sasbo-online-backend:local <the server repository>
+#   docker build -f docker/client.Dockerfile -t sasbo-online-client:local <the client's built dist directory>
+#
+# The server image is the artifact that actually deploys, built from that
+# repository's own Dockerfile. It is used deliberately in preference to running
+# the API through Gradle: that build carries Spring Boot devtools, which changes
+# classloading and caching, so the development process and the deployed image
+# are different programs. Testing the one that never ships is false confidence.
+#
+# ── Host ports ────────────────────────────────────────────────────────────────
+# 🔴 Every published port here is deliberately NOT the default. On a developer's
+# machine the API is on 8080, the dev client on 5173 and the development
+# database on 5432 -- all three in use whenever someone has the application
+# running, which is the normal state of things. A stack that demands they shut
+# their own down is a stack that gets run once.
+#
+# 🔴 SET EACH PORT TO THE EMPTY STRING AND DOCKER PICKS A FREE ONE. The
+# substitution below is `${VAR-default}`, NOT `${VAR:-default}` -- the missing
+# colon is load-bearing and the difference is the whole feature. `:-` treats
+# unset and empty as the same thing; `-` distinguishes them, so:
+#
+#   unset            -> the fixed default below, which is what a human wants
+#   set to a number  -> that port
+#   set to EMPTY     -> no `published` port at all, and Docker assigns an
+#                       ephemeral one, which is what a SECOND STACK wants
+#
+# That third case is what makes two stacks able to coexist: a fixed host port
+# is a global singleton, and two of them collide at `up` no matter how well
+# isolated everything else is. Read the assigned port back with
+# `docker compose port client 80`.
+#
+# ── Two stacks at once ────────────────────────────────────────────────────────
+# 🔑 THE PROJECT NAME IS THE ISOLATION BOUNDARY, and it used to be a constant.
+# Compose keys containers, networks and volumes off it, so two sessions running
+# `docker compose up` from two worktrees were not starting two stacks -- they
+# were both addressing ONE, and `docker compose down -v` in either destroyed the
+# other's database mid-run. That failure arrives as a scenario failing on a
+# connection reset, which reads as a flake in the suite rather than as a second
+# session existing.
+#
+#   SASBO_STACK_ID=p7 SASBO_DB_HOST_PORT= SASBO_API_HOST_PORT= \
+#     SASBO_CLIENT_HOST_PORT= docker compose up -d --wait
+#
+# Unset, this is `default` and everything behaves exactly as it did before.
+
+name: sasbo-automation-testing-${SASBO_STACK_ID:-default}
+
+services:
+  postgres:
+    image: postgres:18.3
+    environment:
+      POSTGRES_DB: sasbo_membership_test
+      POSTGRES_USER: sasbo
+      POSTGRES_PASSWORD: sasbo
+      # Locale is pinned explicitly rather than left at the image default of
+      # en_US. ORDER BY on text is collation-dependent, and this is a members
+      # register: `de Villiers`, `De Wet` and `van Zyl` sort differently under
+      # different collations. A sort test that passes here and fails in
+      # production is not flake -- it is a correct test run against the wrong
+      # database, and it is indistinguishable from flake until someone thinks to
+      # read the collation.
+      LANG: en_ZA.UTF-8
+      POSTGRES_INITDB_ARGS: '--locale=en_ZA.UTF-8 --encoding=UTF8'
+    # 🔴 The entrypoint override is NOT decoration, and removing it breaks the
+    # container at start with an error that reads like a Docker problem.
+    #
+    # `postgres:18.3` ships only the `C`, `C.utf8` and `en_US.utf8` locales, so
+    # the `--locale=en_ZA.UTF-8` above fails outright on its own -- initdb
+    # cannot use a locale the image does not have. The locale SOURCE is present,
+    # so the fix is to generate it with `localedef` before handing control to
+    # the normal entrypoint. This is the same override the server's integration
+    # harness uses against the same image, for the same reason.
+    entrypoint: ['bash', '-c']
+    command:
+      - 'localedef -i en_ZA -c -f UTF-8 -A /usr/share/locale/locale.alias en_ZA.UTF-8 && exec docker-entrypoint.sh postgres'
+    ports:
+      - '${SASBO_DB_HOST_PORT-55432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sasbo -d sasbo_membership_test']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      # The database is disposable and never outlives the stack. Keeping it in
+      # memory makes bring-up faster and makes it impossible for one run's
+      # leftovers to reach the next one through a stale volume.
+      #
+      # 🔴 The mount point is `/var/lib/postgresql`, NOT `.../data`. Postgres 18
+      # changed the layout: the image now stores data in a major-version-named
+      # subdirectory, and a mount at the old path is detected as a stray volume
+      # from an un-upgraded installation. The container then refuses to start
+      # with a long message about `pg_upgrade` that describes an upgrade nobody
+      # is attempting -- so it reads as a data-migration problem rather than as
+      # the mount-path mistake it is.
+      - /var/lib/postgresql
+
+  # 🔴 A MAIL CATCHER, BECAUSE SINCE SERVER 99936a5 A MEMBER CANNOT BE CAPTURED
+  # WITHOUT SENDING MAIL -- register row A64. The capture screen's only save is
+  # `POST /api/members?sendWelcome=true`, which answers 503 before saving when the
+  # server has no mail sender, and the server only builds one when MAIL_USERNAME
+  # is set. Without this service every capture scenario is refused by the stack
+  # rather than tested.
+  #
+  # 🔑 IT CATCHES, IT NEVER DELIVERS. Mailpit accepts any login and keeps every
+  # message in memory, so nothing the suite captures can reach a real mailbox --
+  # and the suite reads what was "sent" back from its API (`api/MailApi.js`),
+  # which turns the welcome letter into something a scenario can assert on.
+  mail:
+    image: axllent/mailpit:v1.31.2
+    environment:
+      # The server logs in because `spring.mail.properties.mail.smtp.auth` is
+      # true in its own application.yaml; the catcher takes any credentials, and
+      # over plain SMTP, since nothing here offers STARTTLS.
+      MP_SMTP_AUTH_ACCEPT_ANY: 'true'
+      MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
+    ports:
+      # Published for a human reading the caught letters at /; the suite reaches
+      # it on the compose network. Empty publishes an ephemeral port, as above.
+      - '${SASBO_MAIL_HOST_PORT-58025}:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  server:
+    image: ${SASBO_SERVER_IMAGE:-sasbo-online-backend:local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mail:
+        condition: service_healthy
+    environment:
+      # 🔴 THE VARIABLES BELOW ARE MANDATORY, and the application does not say so
+      # anywhere. `application.yaml` interpolates them with NO defaults, so the
+      # image refuses to start without them -- and it fails late, with
+      #
+      #   Failed to bind properties under 'server.port' to java.lang.Integer:
+      #   Value: "${SERVER_PORT}"
+      #
+      # which reads as a type error rather than as a missing variable (measured
+      # 2026-09-05, before SERVER_PORT gained a default). A
+      # developer has them in a git-ignored `.env`, so this only bites the first
+      # person to run the image somewhere else -- a container, or CI.
+      #
+      # ⚠️ WHICH ones are mandatory is asserted, not counted here. The list lives
+      # in `tests/harness/invariants.spec.js` and that guard is its only owner:
+      # this file used to enumerate them in prose in two places, and the two
+      # statements had already drifted apart before anyone read them together.
+      SERVER_PORT: '8080'
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sasbo_membership_test
+      SPRING_DATASOURCE_USERNAME: sasbo
+      SPRING_DATASOURCE_PASSWORD: sasbo
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: 'true'
+      # 🔴 INFO, AND THE REASON IS MEASURED. The incumbent's application.yaml
+      # sets `logging.level.root: DEBUG`, so the image logs every bean creation,
+      # the whole autoconfiguration conditions report and every request. Measured
+      # 2026-09-10 in this stack: 15 808 log lines to reach "Started", 62 s just
+      # to reach the datasource, 3 m 19 s to healthy against a healthcheck budget
+      # of about 3 m -- so `up --wait` refused a server that was seconds from
+      # ready -- and 58% CPU while idle, answering a 5 s healthcheck with a page
+      # of DEBUG each time. Every containerised run here paid it; the demo paid
+      # it in front of a stopwatch. Spring's relaxed binding lets this one
+      # variable override the file without touching his code. It is a test
+      # environment's setting, not a fix for production, where the same level is
+      # still set -- that is his to change and a register row's to name.
+      LOGGING_LEVEL_ROOT: INFO
+      # MONTH END'S SWITCH (MD45, MD50, MD62): SASBO's 5,507 workplaces, the invented members who stand at them, their
+      # past and the three months the seed takes. Unset on a host, where it is `none` until SASBO says otherwise
+      # (MM79); set here, because this stack is where every journey runs against the whole of it. Held by
+      # `tests/harness/invariants.spec.js`, which fails if it is dropped.
+      SASBO_WORKPLACES: all
+      # The mail sender, pointed at the catcher above -- A64 is why capture needs
+      # one at all. `EmailServiceImpl` exists only when MAIL_USERNAME is non-empty
+      # (`@ConditionalOnExpression`), so the username is what switches it on; the
+      # catcher ignores both values. These are placeholders for a test catcher,
+      # not credentials, and they reach no real mail server.
+      MAIL_HOST: mail
+      MAIL_PORT: '1025'
+      MAIL_USERNAME: suite@sasbo-suite.invalid
+      MAIL_PASSWORD: catcher-accepts-anything
+      # SIGN-IN (the October build). OPEN, as the hosted link runs until SASBO's accounts exist: an anonymous
+      # caller still reaches every route that names no permission, so every journey written before sign-in runs as
+      # it did. AND THE DEMONSTRATION USERS, one per provisional position, for the journeys that need a permission.
+      # The server seeds them only when both lines below are set, never under the production marker, and no hosted
+      # stack sets them. 🔑 THE PASSWORD IS NOT WRITTEN HERE OR IN ANY COMMITTED FILE: it is read from the
+      # environment compose runs in -- `tools/test-all.mjs` and `tools/demo.mjs` make one per stack -- and the
+      # suite service below signs the users in with the same value. Held by `tests/harness/signInStack.spec.js`.
+      SASBO_SIGNIN: open
+      SASBO_SIGNIN_DEMO_USERS: 'true'
+      SASBO_SIGNIN_DEMO_PASSWORD: ${SASBO_SIGNIN_DEMO_PASSWORD:-}
+      # THE SIGN-IN THROTTLE (sign-in's review, server `oct/signin` 8da4bcc): 30 sign-ins in a clock minute from one
+      # address, and 120 from everyone, then `429 SIGN_IN_THROTTLED`. EVERY sign-in this suite makes comes from ONE
+      # address -- the API's from the suite's container, the form's forwarded through the client's proxy -- and a run
+      # signs in dozens of times (each journey that needs a permission signs in fresh; `--repeat-each` multiplies
+      # them), so at the defaults the run's pace, not its code, would decide whether a journey is refused. Raised for
+      # this stack alone: the limits are the server's own tests' to prove, and every host keeps its defaults.
+      SASBO_SIGNIN_THROTTLE_PER_ADDRESS: '1000'
+      SASBO_SIGNIN_THROTTLE_PER_MINUTE: '1000'
+    ports:
+      - '${SASBO_API_HOST_PORT-58080}:8080'
+    healthcheck:
+      # 🔑 TWO QUESTIONS, BOTH ASKED, IN THIS ORDER: is the server READY, and does
+      # it SERVE DATA? `suite` depends on `client` depends on `server`, all
+      # service_healthy, so this check is what decides whether the suite runs at
+      # all -- and when.
+      #
+      # 🔴 READY FIRST (register E20). Tomcat answers during the context refresh;
+      # the ApplicationRunners -- DataSeeder, and the seed's A.C.B. history with
+      # it -- run AFTER it. So /api/banks alone went healthy while the seed was
+      # still being written, and a scenario could start against half of it: one
+      # that prepares the current month counts the wrong number of second lines.
+      # Since server 72402d3 (ReadinessConfig, proved by ReadinessHealthTest) the
+      # root /actuator/health answers OUT_OF_SERVICE, a 503, until every runner
+      # has returned; busybox wget exits non-zero on the 503, so the `&&` holds
+      # this check at `starting` until the seed is in.
+      #
+      # 🔑 /api/banks STAYS, on L11's argument: it proves the web layer, the
+      # security chain, the datasource AND the seeded reference data are all
+      # working. A stack that comes up healthy and serves nothing is the failure
+      # this ordering exists to prevent; "the process is ready" alone is not the
+      # question either.
+      #
+      # ⚠️ A server older than 72402d3 answers UP at once, and this check quietly
+      # becomes the old one. The images test-all builds are the checkouts' own.
+      #
+      # ⏳ L11 used to say NOT /actuator/health, because Spring Security answered
+      # it with 403. SecurityConfig permits EXACTLY that path now -- not the
+      # paths under it, which is why readiness rides the root answer rather than
+      # /actuator/health/readiness.
+      #
+      # `tests/harness/invariants.spec.js` holds this order; the budget below
+      # (30 s grace, 30 checks at 5 s) now covers the seed as well.
+      test: ['CMD-SHELL', 'wget -q -O- http://127.0.0.1:8080/actuator/health && wget -q -O /dev/null http://127.0.0.1:8080/api/banks || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  client:
+    image: ${SASBO_CLIENT_IMAGE:-sasbo-online-client:local}
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - '${SASBO_CLIENT_HOST_PORT-55173}:80'
+    healthcheck:
+      # 🔴 127.0.0.1, NOT localhost. The container's /etc/hosts maps localhost to
+      # both 127.0.0.1 and ::1, busybox wget tries the IPv6 address first, and
+      # nginx listens only on 0.0.0.0 -- so the check fails with "Connection
+      # refused" against a server that is running perfectly. Verified inside the
+      # container: 127.0.0.1 exits 0, localhost exits 1, same instant.
+      test: ['CMD-SHELL', 'wget -q -O- http://127.0.0.1:80/ >/dev/null || exit 1']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # The suite itself, in Playwright's official image pinned to the exact
+  # @playwright/test version in package.json.
+  #
+  # This is the largest single anti-flake win containers offer. It removes, in
+  # one move: browser build drift; FONT AVAILABILITY AND SUBSTITUTION, which is
+  # the most underrated cause of layout flake, because a missing font changes
+  # text metrics, which changes wrapping, which moves elements and therefore
+  # click targets; OS text rendering, where subpixel differences make
+  # hit-testing near a boundary a coin flip; and locale, timezone and Intl
+  # behaviour, which make assertions on formatted text machine-dependent.
+  #
+  # The exact pin is the whole point. `:latest` reintroduces precisely the drift
+  # the image exists to remove.
+  suite:
+    # 🔴 THE ARCHITECTURE IS A VARIABLE AND THE VERSION IS NOT, and the split is
+    # the whole design.
+    #
+    # Microsoft publishes Playwright images as SEPARATE per-architecture tags --
+    # `-noble-amd64` and `-noble-arm64` are distinct artifacts, and a
+    # multi-architecture manifest was requested and CLOSED AS NOT PLANNED
+    # (microsoft/playwright#29819). So an Apple Silicon machine pulling the
+    # unsuffixed tag gets one of two outcomes, and the second is worse: a hard
+    # `no matching manifest for linux/arm64/v8`, or an amd64 image running under
+    # emulation. Emulated browser timing is exactly the variability `retries: 0`
+    # converts into a hard red, so the suite would be slow and intermittently
+    # failing on that machine for a reason that looks like a defect in the tests.
+    #
+    # ⚠️ VERIFIED BEFORE CHANGING THE DEFAULT, because the previous pin is the
+    # one configuration known to run green here: `docker manifest inspect`
+    # confirms all three of `v1.63.0-noble`, `v1.63.0-noble-amd64` and
+    # `v1.63.0-noble-arm64` exist. Measured 2026-09-08, not assumed.
+    #
+    #   SASBO_PLAYWRIGHT_ARCH=arm64 docker compose run --rm suite
+    #
+    # 🔑 ONLY THE SUFFIX VARIES -- deliberately NOT a whole-image override like
+    # the other two services have. A whole-image variable would also let the
+    # VERSION drift, and the version must match `@playwright/test` in
+    # package.json or the browser and the client disagree. Varying the suffix
+    # keeps the version pinned in this file by construction, and
+    # `tests/harness/invariants.spec.js` asserts that pin against package.json
+    # so the constraint is enforced rather than remembered.
+    #
+    # ⚠️ AND IT COSTS SOMETHING, which is the thing the exact pin existed to
+    # prevent: two architectures reintroduce browser build drift, font
+    # availability and OS text rendering as variables between two developers.
+    # That is why the merged report records the architecture -- a two-machine
+    # disagreement has to be attributable in seconds rather than argued about.
+    image: mcr.microsoft.com/playwright:v1.63.0-noble-${SASBO_PLAYWRIGHT_ARCH:-amd64}
+    depends_on:
+      client:
+        condition: service_healthy
+    working_dir: /suite
+    volumes:
+      - .:/suite
+      # 🔴 An anonymous volume MASKING the host's node_modules, and the reason is
+      # performance rather than tidiness.
+      #
+      # Measured 2026-09-05: with the host tree visible, four trivial assertions
+      # that take ~0.2s natively took **19s** in the container, and the full
+      # 37-test harness at six workers had not finished after **seven minutes**
+      # -- it looked hung, and "hung" and "extremely slow" are indistinguishable
+      # from the outside. Every `require` crosses the Windows/OneDrive bind
+      # mount, and a Node process resolving a dependency tree does that
+      # thousands of times per worker.
+      #
+      # Masking it means the suite's own files still come from the mount -- they
+      # are edited on the host and must be live -- while node_modules lives on
+      # the container's own filesystem, where module resolution is native speed.
+      # The `npm ci` in the command below is what fills it.
+      #
+      # It is also a CORRECTNESS fix, not only a speed one: the host tree is
+      # installed for Windows, and any dependency with a native binding would be
+      # the wrong build for this container.
+      - /suite/node_modules
+      # An OPTIONAL extra CA, for a machine whose outbound HTTPS is intercepted
+      # and re-signed by a corporate proxy or endpoint-security product. The
+      # container trusts the public roots and nothing else, so on such a machine
+      # every `npm ci` here fails with UNABLE_TO_VERIFY_LEAF_SIGNATURE -- an
+      # error that names certificates and sounds like a registry outage.
+      #
+      # Unset on a normal machine and in CI: this mounts /dev/null and
+      # NODE_EXTRA_CA_CERTS below resolves to empty, so nothing changes. Point
+      # SASBO_CA_BUNDLE at the proxy's root certificate to switch it on.
+      - ${SASBO_CA_BUNDLE:-/dev/null}:/tmp/extra-ca.pem:ro
+      # 🔴 THE DOCKER SOCKET, so a scenario can take the API down and put it
+      # back. This is not a small permission -- it is control of the daemon -- so
+      # it is worth being explicit about why it is here rather than leaving it to
+      # be noticed in a review.
+      #
+      # The third of the three states every list surface owes a user is
+      # "failed", and it is the only one that cannot be asserted without a real
+      # failure. Mocking the response proves the component handles a fabricated
+      # error; it proves nothing about a real network failure reaching a real
+      # component through a real proxy, which is the situation an administrator
+      # is actually in. `features/serial/` owns that, and support/stack.js talks
+      # to the Engine API over this socket -- the Playwright image has no Docker
+      # CLI and is pinned, so adding one would be a second thing to keep in step
+      # with it for no gain.
+      #
+      # The blast radius is bounded by the compose project name: stack.js reads
+      # the project from THIS container's own compose label and refuses to touch
+      # a container outside it, so a second session's stack cannot be stopped by
+      # this one.
+      #
+      # 🔴 THE HOST SIDE IS OVERRIDABLE AND THE CONTAINER SIDE IS NOT, and that
+      # asymmetry is the compose-specific point. The host path has to vary per
+      # machine -- `support/stack.js`'s `dockerSocket()` explains which machines
+      # and why -- while the path INSIDE the container must not, because that
+      # module and every Docker client convention expect it exactly there.
+      #
+      #   SASBO_DOCKER_SOCKET=$HOME/.docker/run/docker.sock docker compose ...
+      #
+      # It is the SAME variable that module reads for a native run, so one name
+      # is set once and both runs work. Without this line the fix covered the
+      # native run and left the AUTHORITATIVE containerised one broken on the
+      # machine that needed it.
+      - ${SASBO_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+    environment:
+      # Inside the compose network the services answer on their own names and
+      # their real ports -- the published host ports above are for humans and
+      # for a native run.
+      SASBO_CLIENT_URL: http://client:80
+      SASBO_API_URL: http://server:8080
+      SASBO_MAIL_URL: http://mail:8025
+      CI: 'true'
+      # Empty unless SASBO_CA_BUNDLE is set, which is how this stays a no-op
+      # everywhere the extra root is not needed.
+      NODE_EXTRA_CA_CERTS: ${SASBO_CA_BUNDLE:+/tmp/extra-ca.pem}
+      # ⚠️ Passed INTO the container as well as used for the limit below.
+      # Compose reads `${SASBO_SUITE_CPUS}` for `deploy.resources.limits`, but
+      # that does NOT put it in the container's environment -- so without this
+      # line the suite cannot see how much CPU it was actually given, and
+      # Playwright sizes its worker pool from `nproc`, which a CFS quota does
+      # not change. Setting the limit without this line silently does half the
+      # job: the container is throttled and the suite still starts six browsers.
+      SASBO_SUITE_CPUS: ${SASBO_SUITE_CPUS:-}
+      # Which package.json script the lane runs: `test`, or `test:gate` -- every
+      # test three times over, the determinism pass the deploy arc runs once after
+      # first light (its D35). `tools/test-all.mjs --determinism` sets it, and
+      # sets `test` otherwise; unset, it is `test`.
+      #
+      #   SASBO_SUITE_SCRIPT=test:gate docker compose run --rm suite
+      SASBO_SUITE_SCRIPT: ${SASBO_SUITE_SCRIPT:-test}
+      # The demonstration users' password: the value the server seeded them with (see the server service), read
+      # from the same environment, so a journey that signs one in needs nothing written down.
+      SASBO_SIGNIN_DEMO_PASSWORD: ${SASBO_SIGNIN_DEMO_PASSWORD:-}
+    # `npm ci` runs here rather than in a Dockerfile because the image is used
+    # as-is and pinned; building a layer on top of it would be one more thing to
+    # keep in step with package.json for no gain the anonymous volume does not
+    # already give.
+    #
+    # 🔑 `$$` so the SHELL in the container reads the script name, quoted, from
+    # the environment above -- a value, never text spliced into the command.
+    command: ['bash', '-c', 'npm ci && npm run "$$SASBO_SUITE_SCRIPT"']
+    # 🔴 THE FLAKE DETECTOR, and it has to live here rather than on the command
+    # line. `docker compose run --cpus=1` does NOT work -- Compose rejects it
+    # with "unknown flag: --cpus", because that is a `docker run` flag and
+    # `compose run` does not accept it. The limit belongs in the service.
+    #
+    # Unset, this is 0 -- unlimited -- so a normal run is unconstrained. Set it
+    # to starve the suite deliberately:
+    #
+    #   SASBO_SUITE_CPUS=1 docker compose run --rm suite
+    #
+    # Why bother: flake hides on fast machines. A race this twelve-core box wins
+    # every single time is one a loaded CI runner will sometimes lose, and the
+    # determinism gate at full parallelism does NOT catch timing races because
+    # the machine is too quick to lose them. Starving it converts "we have not
+    # been bitten yet" into "we went looking".
+    deploy:
+      resources:
+        limits:
+          cpus: '${SASBO_SUITE_CPUS:-0}'
+          memory: ${SASBO_SUITE_MEMORY:-0}

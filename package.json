@@ -1,0 +1,33 @@
+{
+  "name": "sasbo-automation-testing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Automation test suite for SASBO Online — browser and API journeys asserting the client and the server together",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "playwright-bdd": "9.2.0"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "pretest": "npm run clean",
+    "test": "bddgen && playwright test",
+    "pretest:headed": "npm run clean",
+    "test:headed": "bddgen && playwright test --headed",
+    "pretest:live": "npm run clean",
+    "test:live": "bddgen && playwright test --headed --workers=1 --project=journeys",
+    "pretest:ui": "npm run clean",
+    "test:ui": "bddgen && playwright test --ui",
+    "pretest:debug": "npm run clean",
+    "test:debug": "bddgen && playwright test --debug",
+    "test:trace": "playwright show-trace",
+    "demo": "node tools/demo.mjs",
+    "pretest:gate": "npm run clean",
+    "test:gate": "bddgen && playwright test --repeat-each=3",
+    "stack:up": "docker compose up -d --wait",
+    "stack:down": "docker compose down -v"
+  }
+}

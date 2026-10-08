@@ -1,0 +1,18 @@
+# Deterministic line endings across Windows and Linux.
+#
+# The suite is authored on Windows and will later run on Linux runners. Anything
+# byte-compared, hashed, or diffed must not differ by line ending alone — a test
+# that fails only because of CRLF is indistinguishable from a real failure, and
+# chasing one is exactly the wasted afternoon the anti-flake rule exists to prevent.
+* text=auto eol=lf
+
+# Binary — never touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary

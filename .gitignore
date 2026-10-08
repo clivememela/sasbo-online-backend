@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Generated from .feature files at run time — never committed. Every directory
+# playwright-bdd compiles into starts with this (support/sourceFiles.js GENERATED_PREFIX).
+.features-gen*/
+
+# Test output. Reports, traces, screenshots and videos are build artefacts.
+# Traces capture whatever is on screen, which includes member data.
+reports/
+test-results/
+playwright-report/
+blob-report/
+*.zip
+
+# Local environment. Never committed — a fresh clone must run without one.
+.env.local
+.env.*.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
