@@ -213,7 +213,7 @@ public class MonthEndRegionPacks {
         YearMonth asked = YearMonth.from(taken.monthStart());
         Map<String, List<MonthEndStatisticDto>> places = statistics.forPack(asked.toString(), set.regionCode(),
                 set.areaLetters(), waitForAPlace);
-        MonthRange range = MonthRange.of(asked);
+        MonthRange range = window(taken);
         PackScope scope = new PackScope(set.regionCode(), set.areaLetters());
         List<Fact> rows = facts.facts(taken.id()).stream().filter(f -> f.workplaceKey() != 0 && (set.wholeRegion()
                 ? set.regionCode().equals(f.regionCode()) : set.areaLetters().contains(f.areaLetter()))).toList();
@@ -405,6 +405,16 @@ public class MonthEndRegionPacks {
     }
 
     // ------------------------------------------------------------------------------------------------ helpers
+
+    /**
+     * What a taken month COUNTS -- the window from the take before to its own (Stephne, MEN-14: "After month end is done
+     * - all capturing and changes move to the next month") -- for every list a pack or a file names, as the month's
+     * figures count it. Never the calendar month: a resignation saved after September's take on 30 September would be
+     * in September's calendar, after September's file was made, and in no later file at all.
+     */
+    MonthRange window(TakenMonth taken) {
+        return takes.counted(YearMonth.from(taken.monthStart()));
+    }
 
     /** The month's newest take: a pack is made from what was frozen, and the open month has none. */
     TakenMonth taken(String month) {

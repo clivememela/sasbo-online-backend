@@ -25,6 +25,9 @@ import java.util.function.Consumer;
  * {@link MonthEndFactsRepository#kinds()} (rule S), <em>joined</em> is rule N, <em>left</em> rule L with SASBO's deletion
  * code read as the leavers' count reads it, <em>suspended</em> the suspension code of the last change into a suspended
  * status, as the suspended's count reads it. So a pack's listing and the statistic beside it count the same members.
+ * The {@link MonthRange} each list is given is the WINDOW the month counts (Stephne, MEN-14: "After month end is done -
+ * all capturing and changes move to the next month"), from the take before to the month's own -- never the calendar
+ * month, or a change saved after a take on the month's last day would reach no month's file.
  *
  * <ul>
  *   <li>A REGION'S LISTINGS are cut by where each member works, IN SQL -- the areas of the pack set, or its region
@@ -269,10 +272,12 @@ public class MonthEndListingsRepository {
 
     // ------------------------------------------------------------------------------------------------ statements
 
-    /** RULE L's leavers, as the leavers' count reads their code (MO23 included), where {@code where} holds. */
+    /**
+     * RULE L's leavers as a month counts them, as the leavers' count reads their code (MO23 included), where
+     * {@code where} holds: a leaving undone by a rejoin in the same window is none (Stephne, MEN-23: "We would like to
+     * retain current membership as it happened in the same month") -- never sent to a bank as DEL, never listed deleted.
+     */
     private static String leftStatement(String where) {
-        String toKind = MemberSummaryRepository.kind("c.to_status");
-        String fromKind = MemberSummaryRepository.kind("c.from_status");
         return """
                 SELECT %1$s, CAST('DEL' AS VARCHAR(3)) AS class_name, COALESCE(p.sasbo_code, d.sasbo_code) AS code,
                   CASE WHEN d.id IS NULL THEN CAST(c.reason AS VARCHAR(255))
@@ -288,7 +293,7 @@ public class MonthEndListingsRepository {
                 LEFT JOIN deletion_codes p ON p.id = d.parent_id
                 WHERE c.changed_at >= :start AND c.changed_at < :next AND %4$s AND %5$s
                 """.formatted(MEMBER_COLUMNS, PLACED, MonthEndFactsRepository.ARREARS_DELETION_CODE,
-                MemberSummaryRepository.intoLeaving(toKind, fromKind), where);
+                MemberSummaryRepository.leaving("c", "start"), where);
     }
 
     private static MapSqlParameterSource arguments(MonthRange month, Collection<String> seeded) {

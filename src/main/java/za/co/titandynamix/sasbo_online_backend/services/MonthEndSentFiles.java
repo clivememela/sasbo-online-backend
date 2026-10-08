@@ -126,7 +126,7 @@ public class MonthEndSentFiles {
     public MonthEndFilesDto list(String month) {
         MonthEndSendSettings.requireEveryRegion("A bank's or a provider's file");
         TakenMonth taken = packs.taken(month);
-        MonthRange range = MonthRange.of(YearMonth.from(taken.monthStart()));
+        MonthRange range = packs.window(taken);
         Map<Integer, TableCodeRows> byCode = new HashMap<>();
         TableCodeRows none = new TableCodeRows(null, 0, 0, 0, 0);
         long paying = 0;
@@ -190,8 +190,7 @@ public class MonthEndSentFiles {
             throw inactive("bank", bank.code());
         }
         TakenMonth taken = packs.taken(month);
-        YearMonth asked = YearMonth.from(taken.monthStart());
-        MonthRange range = MonthRange.of(asked);
+        MonthRange range = packs.window(taken);
         String stem = bank.code().replace("_", "") + (bank.fullList() ? "FULL" : "") + "_" + stamp(range);
         BankLayout layout = BankLayout.valueOf(bank.layout());
         String password = MonthEndFileProtection.newPassword();
@@ -281,7 +280,7 @@ public class MonthEndSentFiles {
             throw inactive("provider", provider.code());
         }
         TakenMonth taken = packs.taken(month);
-        MonthRange range = MonthRange.of(YearMonth.from(taken.monthStart()));
+        MonthRange range = packs.window(taken);
         String stem = provider.code().replace("_", "") + "_" + stamp(range);
         ProviderLayout layout = ProviderLayout.valueOf(provider.layout());
         String password = MonthEndFileProtection.newPassword();
