@@ -1,0 +1,45 @@
+{
+  "_comment": "RC15's equivalence fixture -- invented people only. The SAME file is in the server (src/test/resources/fixtures/recruitment-channel-fixture.json) and the client (src/test/fixtures/recruitment-channel-fixture.json): the server's grouped SQL and the Recruiters screen's JavaScript are each held to `expected.all` from it. `recruiterId` is the member's RECRUITER, a person; the screen used to match it against the CHANNEL's id, which is what RC15 is.",
+  "channels": ["BEC", "Website", "EORO", "RO", "MSO", "Youth"],
+  "banks": [
+    {"bankName": "Synthetic Bank", "provinceCommitteeName": "Invented North", "area": "Invented Area A"},
+    {"bankName": "Invented Bank", "provinceCommitteeName": "Invented South", "area": "Invented Area B"},
+    {"bankName": "Example Bank", "provinceCommitteeName": "Invented South", "area": "Invented Area B"}
+  ],
+  "members": [
+    {"membershipNumber": "T-0001", "title": "Mr", "initials": "A", "firstNames": "Alpha", "surname": "Testperson", "bankName": "Synthetic Bank", "branch": "Main Street", "status": "Active", "channel": "BEC", "area": "A", "recruiterId": 4},
+    {"membershipNumber": "T-0002", "title": "Ms", "initials": "B", "firstNames": "Bravo", "surname": "Sample", "bankName": "Synthetic Bank", "branch": "Harbour", "status": "Active", "channel": "BEC", "area": "B", "recruiterId": null},
+    {"membershipNumber": "T-0003", "title": "Mr", "initials": "C", "firstNames": "Charlie", "surname": "Example", "bankName": "Invented Bank", "branch": "Main Street", "status": "Suspended", "channel": "BEC", "area": null, "recruiterId": 2},
+    {"membershipNumber": "T-0004", "title": "Ms", "initials": "D", "firstNames": "Delta", "surname": "Fixture", "bankName": "Invented Bank", "branch": "Hill", "status": "Active", "channel": "Website", "area": "A", "recruiterId": 1},
+    {"membershipNumber": "T-0005", "title": "Mr", "initials": "E", "firstNames": "Echo", "surname": "Testcase", "bankName": "Synthetic Bank", "branch": "Main Street", "status": "Resigned", "channel": "RO", "area": "B", "recruiterId": 1},
+    {"membershipNumber": "T-0006", "title": "Ms", "initials": "F", "firstNames": "Foxtrot", "surname": "Dummy", "bankName": null, "branch": null, "status": "Active", "channel": "RO", "area": "A", "recruiterId": null},
+    {"membershipNumber": "T-0007", "title": "Mr", "initials": "G", "firstNames": "Golf", "surname": "Placeholder", "bankName": "Synthetic Bank", "branch": "Harbour", "status": "Active", "channel": null, "area": "A", "recruiterId": 1},
+    {"membershipNumber": "T-0008", "title": "Ms", "initials": "H", "firstNames": "Hotel", "surname": "Sample", "bankName": "Example Bank", "branch": "Quay", "status": "Pending", "channel": "Youth", "area": "B", "recruiterId": 6}
+  ],
+  "expected": {
+    "all": [
+      {"name": "BEC", "members": 3, "banks": ["Invented Bank", "Synthetic Bank"], "branches": ["Harbour", "Main Street"]},
+      {"name": "Website", "members": 1, "banks": ["Invented Bank"], "branches": ["Hill"]},
+      {"name": "EORO", "members": 0, "banks": [], "branches": []},
+      {"name": "RO", "members": 2, "banks": ["Synthetic Bank"], "branches": ["Main Street"]},
+      {"name": "MSO", "members": 0, "banks": [], "branches": []},
+      {"name": "Youth", "members": 1, "banks": ["Example Bank"], "branches": ["Quay"]}
+    ],
+    "areaA": [
+      {"name": "BEC", "members": 1, "banks": ["Synthetic Bank"], "branches": ["Main Street"]},
+      {"name": "Website", "members": 1, "banks": ["Invented Bank"], "branches": ["Hill"]},
+      {"name": "EORO", "members": 0, "banks": [], "branches": []},
+      {"name": "RO", "members": 1, "banks": [], "branches": []},
+      {"name": "MSO", "members": 0, "banks": [], "branches": []},
+      {"name": "Youth", "members": 0, "banks": [], "branches": []}
+    ],
+    "regionSouth": [
+      {"name": "BEC", "members": 1, "banks": ["Synthetic Bank"], "branches": ["Harbour"]},
+      {"name": "Website", "members": 0, "banks": [], "branches": []},
+      {"name": "EORO", "members": 0, "banks": [], "branches": []},
+      {"name": "RO", "members": 1, "banks": ["Synthetic Bank"], "branches": ["Main Street"]},
+      {"name": "MSO", "members": 0, "banks": [], "branches": []},
+      {"name": "Youth", "members": 1, "banks": ["Example Bank"], "branches": ["Quay"]}
+    ]
+  }
+}

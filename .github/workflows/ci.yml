@@ -1,0 +1,138 @@
+# CI for the SASBO Online client: the gate on every pull request and on every push to `main`.
+#
+# ADVISORY. This workflow deploys nothing and references no secret, and nothing else deploys the client either:
+# since 2026-09-22 the project runs locally, having left the incumbent developer's Vercel and Render. A deploy
+# job, when there is a host again, comes in its own pull request and only runs on `main` after `gate` is green.
+#
+# The commands are the repository's own (`npm ci`, `npm run lint`, `npm test`, `npm run build`,
+# `npm run budget`): the pipeline runs exactly what a developer runs.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Workflow-level, read-only. Declared in the file so the grant is visible in the diff rather than
+# inherited from a repository setting nobody re-reads.
+permissions:
+  contents: read
+
+# The clock is STATED, never inherited: a hosted runner is UTC, and these tests have only ever run in South
+# African time. The suite pins no zone of its own.
+env:
+  TZ: Africa/Johannesburg
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A fixup pushed to a PR cancels the superseded run. A running `main` run is NEVER cancelled: cancelling it
+  # would leave a commit on the deploy branch with no verdict. (GitHub still replaces a PENDING run in the
+  # group with a newer one; the newer run carries the superseded commits.)
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15 # measured on the runner: 2.4-3.8 min for the whole job; 15 min here means something hung
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # the token is persisted nowhere a later step's code could read it
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc # the repo's pin, not a second one
+          cache: npm
+
+      # Supply-chain rule, asserted rather than remembered: no `uses:` may point at a movable tag. The
+      # second grep is the guard's own falsifier — a file with NO pinned line would otherwise pass.
+      - name: Every `uses:` is pinned to a commit SHA
+        run: |
+          set -euo pipefail
+          if grep -nE 'uses:[[:space:]]*[^@[:space:]]+@(v[0-9][^[:space:]]*|main|master)([[:space:]]|$)' .github/workflows/*.yml; then
+            echo "::error::An action above is pinned to a tag or branch. Pin it to a 40-character commit SHA."
+            exit 1
+          fi
+          grep -qE 'uses:[[:space:]]*[^@[:space:]]+@[0-9a-f]{40}' .github/workflows/*.yml \
+            || { echo "::error::No SHA-pinned uses: line found at all — the check is broken, not the file."; exit 1; }
+
+      # --ignore-scripts: no dependency's install script runs on this runner. Only 3 of the lockfile's 523 packages
+      # carry one: esbuild (its binary arrives as an optional platform package anyway), fsevents (macOS only, never
+      # installed here) and msw (copies a service worker the Node-mode tests do not use). The whole gate was run green
+      # without them before this line changed.
+      - name: Install (npm ci)
+        run: npm ci --ignore-scripts
+      - name: Lint
+        run: npm run lint
+      # `npm test` runs Vitest through scripts/suite-floor.mjs (asserting BOTH the exit code and the JUnit total
+      # against a floor), then scripts/contract-witness.mjs. The Vitest config supplies its own VITE_* env.
+      - name: Test
+        run: npm test
+      # The build proves the build and feeds `budget`. Its output ships nowhere and is not uploaded: it bakes
+      # the tracked .env's values.
+      - name: Build
+        run: npm run build
+      - name: Bundle budget
+        run: npm run budget
+      - name: Upload the JUnit report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-client-${{ github.sha }}
+          path: reports/junit.xml
+          retention-days: 7
+          # A name is unique per RUN, not per attempt: without this, a re-run dies here on a name conflict.
+          overwrite: true
+          if-no-files-found: warn
+
+  # ------------------------------------------------------------------------------------------------
+  # changes — the path filter, in its OWN JOB on purpose. A `paths-ignore` on the workflow `on:` block
+  # would also skip `gate`, which the future deploy job needs — and a skipped required job BLOCKS its
+  # dependent. Every ambiguous case resolves to DEPLOY: a filter that skips everything passes its own
+  # test with a production that never moves. The skip set is `*.md` — the only files in this repo that
+  # cannot change what ships. Nothing consumes the output yet; it is observed first.
+  # ------------------------------------------------------------------------------------------------
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.decide.outputs.deploy }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      # Push only: a PR never deploys, so its decision is `true` without git being consulted, and no
+      # full-history clone is bought for a branch that never reads it.
+      - if: github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false # history is fetched during checkout; nothing after it needs the network
+      - name: Decide whether this push changes anything that ships
+        id: decide
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          decide() {
+            echo "deploy=$1" >> "$GITHUB_OUTPUT"
+            echo "reason=$2" >> "$GITHUB_OUTPUT"
+            # The backticks are literal: Markdown for the job summary, inside deliberate single quotes.
+            # shellcheck disable=SC2016
+            printf '### Deploy decision\n\n- deploy: `%s`\n- reason: %s\n' "$1" "$2" >> "$GITHUB_STEP_SUMMARY"
+            echo "deploy=$1 — $2"
+            exit 0
+          }
+          [ "$EVENT" = "push" ] || decide true "not a push; the deploy job's ref guard decides"
+          case "${BEFORE:-}" in ""|0000000000000000000000000000000000000000)
+            decide true "no base commit on the event — a diff cannot be computed" ;; esac
+          git cat-file -e "${BEFORE}^{commit}" 2>/dev/null \
+            || decide true "base commit ${BEFORE} is not in this clone (force-push or expired)"
+          changed="$RUNNER_TEMP/changed.txt"
+          git diff --name-only "$BEFORE" "$GITHUB_SHA" > "$changed"
+          echo "changed files:"; sed 's/^/  /' "$changed"
+          [ -s "$changed" ] || decide true "the diff came back EMPTY on a push — refusing to skip on a computation that plainly failed"
+          if grep -qvE '\.md$' "$changed"; then
+            decide true "at least one changed path ships (list above)"
+          fi
+          decide false "every changed path ends in .md — nothing that ships changed"

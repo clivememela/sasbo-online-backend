@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- 🔴 F8, HALF-FIXED HERE AND THE OTHER HALF NAMED. This used to point at
+         `/Tansparent%20Lady%20Robot.png` in `public/`, which is BYTE-IDENTICAL to
+         `src/assets/images/logo.png` (sha256 3863ca94…) -- so the build shipped the SAME
+         121 KiB image TWICE, 242 KiB of a 901 KiB bundle for one picture, and that is what
+         took the bundle over its 900 KiB ceiling. Pointing at the source asset lets Vite
+         hash and emit it ONCE. No pixel changes.
+         ⚠️ It also declared `type="image/svg+xml"` for a PNG, which was simply untrue.
+         ⏳ STILL OPEN (R-PERF-D, P4): a favicon does not need a 121 KiB full-colour photo
+         -- a browser draws it at 16-32px. Replacing it with a real icon needs the OWNER's
+         asset, so it is named rather than invented here. -->
+    <link rel="icon" type="image/png" href="/src/assets/images/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- R-ROB-E / R-PERF-H. The scheme the browser paints its canvas, form controls and
+         scrollbars in before any CSS arrives: light, as the app starts (5 Oct), and dark only
+         for a browser that chose it (the script below). index.css narrows it per theme. -->
+    <meta name="color-scheme" content="light" />
+    <!-- The two faces the Card direction sets: Schibsted Grotesk is the interface, Marcellus
+         engraves the membership card's name and nothing else. index.css declared both on
+         2026-09-09 and nothing ever fetched them, so every screen rendered in Segoe UI -- the
+         single largest reason the build did not look like mockups/design/card.html. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Marcellus&display=swap"
+      rel="stylesheet"
+    />
+    <title>Sasbo - Membership Administration System</title>
+    <script>
+      /* R-ROB-E. Set the theme class BEFORE first paint.
+         React reads the same key, but it does so after the bundle has parsed and mounted --
+         so a dark-theme user watched the app render LIGHT and then flip. That flash is the
+         mock's own defect, found on 2026-09-08 and fixed there the same way.
+         Deliberately inline and blocking: an external file would race the paint it exists
+         to beat. It is four lines, it runs once, and it must never throw -- a storage read
+         throws outright in Safari private mode, and this runs above every boundary. */
+      try {
+        if (localStorage.getItem('darkMode') === 'true') {
+          document.documentElement.classList.add('dark');
+          document.querySelector('meta[name="color-scheme"]').content = 'dark';
+        }
+      } catch (e) { /* no storage: light, which is the same answer a missing key gives */ }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

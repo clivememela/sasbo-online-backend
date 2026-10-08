@@ -1,0 +1,55 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+# `.env` is NOT here on purpose. It is TRACKED, and it is meant to be: it carries this project's local
+# default, VITE_API_BASE_URL=http://localhost:8080, so a fresh clone runs against a local backend without
+# anyone configuring anything. A rule here could not have changed that either -- git applies no ignore rule
+# to a path it already tracks -- and the line that used to sit here read as protection while a live Google
+# key sat in that same tracked file for months (register B2). Secrets and personal overrides go in
+# `.env.local`, which `*.local` above covers and which is never committed.
+.env.production
+.env.development
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+/.junie
+
+# Test output. Added with the reporters that write it, in the same commit --
+# an untracked reports/ directory appearing in someone else's working tree
+# after their first test run is a change to their workflow nobody asked for.
+#
+# 🔴 LEADING SLASH, and it matters far more than it looks. A bare `reports` matches a
+# directory of that name AT ANY DEPTH, so it also matched src/pages/reports/ -- and
+# Tailwind v4's automatic source detection SKIPS whatever .gitignore matches. Every
+# tracked file under src/pages/reports/ went unscanned, every utility class unique to
+# those files was absent from the built CSS, and OrganizerReport's section headings
+# rendered white on white: invisible. Found 2026-09-09 by the design arc's contrast
+# gate; register row A42.
+#
+# `git check-ignore <path>` says NOTHING for a TRACKED file, which is why this hid so
+# long -- the obvious command answers "not ignored". --no-index is the load-bearing
+# half. THE GUARD IS src/test/ignoredSources.test.js: it runs in `npm test` and goes
+# red if any tracked source file is shadowed again.
+#
+# The anchored form still ignores the test output at the repo root, which is all this
+# rule was ever for.
+/reports
+/coverage

@@ -1,0 +1,57 @@
+{
+  "name": "sasbo-online",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.14.0 <25"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . --max-warnings 0",
+    "preview": "vite preview",
+    "test": "node scripts/suite-floor.mjs && node scripts/contract-witness.mjs",
+    "test:raw": "vitest run",
+    "test:fast": "vitest run src/services src/utils src/hooks src/context src/test scripts",
+    "test:ui": "vitest run src/pages src/App.routes.test.jsx",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "budget": "node scripts/bundle-budget.mjs",
+    "audit": "npm audit --audit-level=high"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@tailwindcss/vite": "^4.1.18",
+    "@vis.gl/react-google-maps": "^1.9.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.564.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.13.0",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-v8": "^5.0.0",
+    "axe-core": "^4.13.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^29.1.1",
+    "msw": "^2.15.0",
+    "pdf-lib": "^1.17.1",
+    "vite": "^7.3.1",
+    "vitest": "^5.0.0",
+    "vitest-axe": "0.1.0"
+  }
+}
