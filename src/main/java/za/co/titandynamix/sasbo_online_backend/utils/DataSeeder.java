@@ -60,6 +60,7 @@ public class DataSeeder implements ApplicationRunner {
     private final RecruitmentChannelSeeder recruitmentChannelSeeder;
     private final VisitDraftSeeder visitDraftSeeder;
     private final MonthEndSendSeeder monthEndSendSeeder;
+    private final PayrollSeeder payrollSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -345,9 +346,15 @@ public class DataSeeder implements ApplicationRunner {
         // several banks, some lapsed; a rejoin in the same month; a workplace over its complement. Before the take, so
         // the seed's months are taken with them.
         seedMonthEnd("month end's rules", () -> seedQuietly(this.monthEndRulesSeeder::seed));
+        // Payroll (October build): the employers -- reference data, everywhere -- and the demonstration's members, placed
+        // at their employers' workplaces where those are served: BEFORE the months are taken, so the takes hold them.
+        seedMonthEnd("the payroll employers", this.payrollSeeder::seedEmployers);
+        seedMonthEnd("the payroll members", () -> seedQuietly(this.payrollSeeder::seedMembers));
         // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
         // are on record (MD54).
         seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);
+        // Payroll's demonstration files, built from whoever is on record by now; never under the marker.
+        seedMonthEnd("the payroll demonstration", () -> seedQuietly(this.payrollSeeder::seedFiles));
         // RC15: every seeded member -- the invented ones included, so after the block above -- recruited through one of
         // SASBO's channels where none is recorded, so the Recruiters screen's figures are not all 0. Caught like the
         // block's own: a fault here must not stop the start, and is logged with its cause.

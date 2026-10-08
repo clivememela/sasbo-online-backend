@@ -41,6 +41,19 @@ import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepositor
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 import za.co.titandynamix.sasbo_online_backend.utils.ReferenceListSeeder;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollAmountStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollConfidence;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollDiscrepancyStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollDiscrepancyType;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollEntry;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollFileStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollMatchRule;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollOutcome;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollPaymentStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollQueryAction;
+import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.payroll.PayrollLimits;
+import za.co.titandynamix.sasbo_online_backend.services.PayrollFiles;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -350,6 +363,7 @@ public final class ApiSurface {
                 %s
                     ]
                   }""".formatted(referenceRefusalCodes()));
+        sections.put("payroll", payrollVocabulary());
         return sections.entrySet().stream()
                 .map(section -> "  " + quote(section.getKey()) + ": " + section.getValue())
                 .collect(Collectors.joining(",\n", "{\n", "\n}\n"));
@@ -374,6 +388,61 @@ public final class ApiSurface {
                 .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
                 .collect(Collectors.joining(",\n"));
     }
+
+    /**
+     * Payroll's vocabulary (October build): every kind of discrepancy with its label, Stephne's rule, the employer
+     * query it asks for and the outcomes that fit; every outcome with its label; the words its lists and answers use;
+     * its limits; and every refusal code with its status -- read off the enums the module answers with, never typed
+     * out, for the client's parity tests.
+     */
+    static String payrollVocabulary() {
+        String types = Arrays.stream(PayrollDiscrepancyType.values())
+                .map(t -> "      {\"type\": %s, \"label\": %s, \"rule\": %s, \"queryAction\": %s, \"outcomes\": [%s]}"
+                        .formatted(quote(t.name()), quote(t.label()), t.rule().isEmpty() ? "null" : quote(t.rule()),
+                                t.queryAction() == null ? "null" : quote(t.queryAction().name()),
+                                names(t.outcomes().toArray(PayrollOutcome[]::new))))
+                .collect(Collectors.joining(",\n"));
+        String outcomes = Arrays.stream(PayrollOutcome.values())
+                .map(o -> "      {\"outcome\": %s, \"label\": %s, \"systemOnly\": %s}".formatted(quote(o.name()),
+                        quote(o.label()), o.systemOnly()))
+                .collect(Collectors.joining(",\n"));
+        String refusals = Arrays.stream(PayrollRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
+        return """
+                {
+                    "discrepancyTypes": [
+                %s
+                    ],
+                    "outcomes": [
+                %s
+                    ],
+                    "systemOutcomes": [%s],
+                    "statuses": [%s],
+                    "matchRules": [%s],
+                    "confidences": [%s],
+                    "amountStatuses": [%s],
+                    "fileStatuses": [%s],
+                    "entries": [%s],
+                    "paymentStatuses": [%s],
+                    "queryActions": [%s],
+                    "rowFilters": [%s],
+                    "limits": {"maxBytes": %d, "maxRows": %d, "maxTypedRows": %d, "noteMaxLength": %d, "pageMaxSize": %d},
+                    "refusalCodes": [
+                %s
+                    ]
+                  }""".formatted(types, outcomes,
+                names(Arrays.stream(PayrollOutcome.values()).filter(PayrollOutcome::systemOnly).toArray(PayrollOutcome[]::new)),
+                names(PayrollDiscrepancyStatus.values()),
+                names(Arrays.stream(PayrollMatchRule.values()).filter(r -> r != PayrollMatchRule.NONE)
+                        .toArray(PayrollMatchRule[]::new)),
+                names(PayrollConfidence.values()), names(PayrollAmountStatus.values()),
+                names(PayrollFileStatus.values()), names(PayrollEntry.values()), names(PayrollPaymentStatus.values()),
+                names(PayrollQueryAction.values()), names(PayrollFiles.RowFilter.values()),
+                PayrollLimits.MAX_BYTES, PayrollLimits.MAX_ROWS, PayrollLimits.MAX_TYPED_ROWS,
+                PayrollLimits.NOTE_MAX_LENGTH, PayrollLimits.PAGE_MAX_SIZE, refusals);
+    }
+
 
     /**
      * Every status the member record takes, with its KIND -- the one thing a figure reads of a status (03.2, PA-4).

@@ -49,6 +49,13 @@ spring:
   thymeleaf:
     check-template-location: false
     enabled: false
+  # Payroll files are up to 10 MB (PayrollLimits.MAX_BYTES). The multipart ceiling sits a little above it, so a file
+  # just over 10 MB reaches the payroll service and is refused FILE_TOO_LARGE with the limit; anything larger is refused
+  # while the request is parsed, with the same code (GlobalExceptionHandler).
+  servlet:
+    multipart:
+      max-file-size: 12MB
+      max-request-size: 13MB
   mvc:
     static-path-pattern: /static/**
     throw-exception-if-no-handler-found: true
@@ -198,3 +205,10 @@ sasbo:
     # SASBO's Avant Garde, until a licensed Avant Garde is in hand. A folder of regular.ttf (bold.ttf, italic.ttf
     # optional), classpath: or file: -- config/fonts/README.md. A font that cannot be used stops the start-up.
     font: ${SASBO_LETTERS_FONT:classpath:fonts/letters/adventor/}
+
+# Payroll files are kept for one year (Stephne, PAY-39): every night at 02:30 in SASBO's zone, and once at start-up, a
+# file past its year has its bytes and lines deleted; what was found and done is kept (PayrollConfig, PayrollRetention).
+payroll:
+  retention:
+    enabled: ${PAYROLL_RETENTION_ENABLED:true}
+    cron: "0 30 2 * * *"

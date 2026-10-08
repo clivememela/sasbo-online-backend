@@ -33,3 +33,7 @@ sasbo:
     throttle:
       per-address-per-minute: 1000000
       per-minute: 1000000
+# Payroll's retention job off in every test lane: no job runs beside a test. Its own tests call it directly.
+payroll:
+  retention:
+    enabled: false

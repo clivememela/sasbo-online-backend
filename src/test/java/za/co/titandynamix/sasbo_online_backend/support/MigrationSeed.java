@@ -252,6 +252,12 @@ public final class MigrationSeed {
             "V70__dod_rules_as_data.sql",
             "V71__dod_letters.sql",
             "V72__dod_returns_and_counts.sql",
+            // Payroll Deductions and Reconciliation (October build, V73-V76): the employers and their layouts, the files
+            // and their lines, what the comparison found and the queries, the payments and the record of what was done.
+            "V73__payroll_employers.sql",
+            "V74__payroll_files.sql",
+            "V75__payroll_reconciliation.sql",
+            "V76__payroll_payments_and_events.sql",
             "V77__month_end_recipients.sql",
             "V78__month_end_files_sent.sql",
             // October build, month end's rules: the reasons for no deduction, a person once, the cut-off, the tiers.
