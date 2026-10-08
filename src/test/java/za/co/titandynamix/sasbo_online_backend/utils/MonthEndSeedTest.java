@@ -340,6 +340,11 @@ class MonthEndSeedTest {
                 (a, b) -> a));
         rules.forEach(c -> expected.merge(c.membershipNumber() + " " + c.toStatus(),
                 clocksMonth.minusMonths(c.monthsBack()), (a, b) -> a));
+        // The members whose past is counted: this file's and month end's rules'. The October population writes its own
+        // past by the same actor, tested beside it (DemonstrationPopulationSeederIT), so it is left out here.
+        java.util.Set<String> numbers = new java.util.HashSet<>();
+        past.forEach(c -> numbers.add(c.membershipNumber()));
+        rules.forEach(c -> numbers.add(c.membershipNumber()));
 
         List<Map<String, Object>> written = jdbc.query("SELECT m.membership_number, c.to_status, c.reason, "
                 + "c.deletion_code_id, c.suspension_code_id, c.changed_at FROM member_status_changes c "
@@ -353,8 +358,7 @@ class MonthEndSeedTest {
                     row.put("changed_at", rs.getObject("changed_at", java.time.OffsetDateTime.class).toInstant());
                     return row;
                 }, DemonstrationMemberSeeder.SEED_ACTOR).stream()
-                // This file's members: the October population writes its own past, by the same actor, tested beside it.
-                .filter(row -> past.stream().anyMatch(c -> c.membershipNumber().equals(row.get("membership_number"))))
+                .filter(row -> numbers.contains((String) row.get("membership_number")))
                 .toList();
 
         assertThat(written).hasSize(past.size() + rules.size());
