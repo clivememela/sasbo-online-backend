@@ -17,6 +17,8 @@ public enum SignInRefusalCode {
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST),
     /** Wrong username or password -- the same answer for both, so nobody learns which usernames exist. */
     SIGN_IN_FAILED(HttpStatus.UNAUTHORIZED),
+    /** Too many sign-ins from one address, or from everyone, in a minute; {@code Retry-After} says when to try again. */
+    SIGN_IN_THROTTLED(HttpStatus.TOO_MANY_REQUESTS),
     /** Five failed attempts: locked for fifteen minutes. The details say until when. */
     ACCOUNT_LOCKED(HttpStatus.LOCKED),
     /** The right password for an account that has been closed. Only said to somebody who knew the password. */

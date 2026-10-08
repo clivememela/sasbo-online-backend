@@ -41,10 +41,14 @@ import java.util.Optional;
  * gave the RIGHT password learns that the account was closed ({@code ACCOUNT_INACTIVE}).
  *
  * <h2>Lock-out</h2>
- * Five wrong passwords in a row lock the account for fifteen minutes ({@code ACCOUNT_LOCKED}, saying until when) --
- * counted in the database, so five guesses at once are five. While it is locked even the right password is refused,
- * the same way, or the lock would tell a guesser when they had guessed right. The count starts again after a sign-in,
- * after the lock, and after an administrator's reset, which is also how a locked user is let in early.
+ * Five wrong passwords in a row lock the account for fifteen minutes ({@code ACCOUNT_LOCKED}, saying until when). Each
+ * attempt is RESERVED in the database before its password is checked ({@code reserveAttempt}), so twenty guesses at once
+ * are judged five at most, and the fifth locks the account as it is reserved. While it is locked even the right password
+ * is refused, the same way, or the lock would tell a guesser when they had guessed right; the lock always runs out. The
+ * count starts again after a right password, after the lock, and after an administrator's reset, which is also how a
+ * locked user is let in early. A username NOBODY holds is counted and locked the same way ({@link NamelessAttempts}), so
+ * the lock says nothing about which usernames exist; and the login route is throttled before any of this
+ * ({@code SignInThrottle}).
  *
  * <p>No password, token or hash is ever logged; the record of who did what keeps the sign-ins, the failures (the user's
  * name where the username is somebody's, nothing where it is nobody's) and the lock-outs.
@@ -74,6 +78,8 @@ public class SignInService {
     private final TransactionTemplate tx;
     private final String decoyPassword;
     private volatile String decoyHash;
+    /** The usernames nobody holds, counted as accounts are: this instance's memory, never a table (see the class). */
+    private final NamelessAttempts nameless = new NamelessAttempts();
 
     public SignInService(StaffUserRepository users, UserSessionRepository sessions, PasswordEncoder encoder,
                          AuditTrail audit, Clock clock, SecureRandom random, SignInProperties properties,
@@ -120,21 +126,20 @@ public class SignInService {
         String username = request.username().trim().toLowerCase(Locale.ROOT);
         Optional<StaffUser> found = username.length() > 60 ? Optional.empty() : users.findForSignIn(username);
         if (found.isEmpty()) {
-            verify(request.password(), decoyHash());
-            audit.recordFor(null, true, AuditTrail.SIGN_IN_FAILED, "Sign-in failed: a username nobody holds.");
-            throw failed();
+            throw nobody(username, request.password(), now);
         }
         StaffUser user = found.get();
-        if (user.lockedAt(now)) {
+        Attempt attempt = reserve(user, now);
+        if (!attempt.reserved()) {
             verify(request.password(), decoyHash());
             audit.recordFor(user, true, AuditTrail.SIGN_IN_FAILED, "Sign-in refused: the account is locked.");
-            throw locked(user.getLockedUntil());
+            throw locked(attempt.lockedUntil());
         }
         if (!verify(request.password(), user.getPasswordHash())) {
-            Instant lockedUntil = countFailure(user, now);
-            throw lockedUntil == null ? failed() : locked(lockedUntil);
+            throw wrong(user, attempt, failed());
         }
         if (!user.isActive()) {
+            tx.executeWithoutResult(status -> users.forgiveAttempts(user.getId()));
             audit.recordFor(user, true, AuditTrail.SIGN_IN_FAILED, "Sign-in refused: the account is closed.");
             throw new SignInRefusal(SignInRefusalCode.ACCOUNT_INACTIVE, INACTIVE);
         }
@@ -166,17 +171,17 @@ public class SignInService {
     public void changePassword(SignedInUser caller, PasswordChangeRequest request) {
         Instant now = clock.instant();
         StaffUser user = users.findWithAccess(caller.userId()).orElseThrow(SignInService::sessionEnded);
-        if (user.lockedAt(now)) {
-            throw locked(user.getLockedUntil());
+        Attempt attempt = reserve(user, now);
+        if (!attempt.reserved()) {
+            verify(request.currentPassword(), decoyHash());
+            throw locked(attempt.lockedUntil());
         }
         if (!verify(request.currentPassword(), user.getPasswordHash())) {
-            Instant lockedUntil = countFailure(user, now);
-            if (lockedUntil != null) {
-                throw locked(lockedUntil);
-            }
-            throw new SignInRefusal(SignInRefusalCode.SIGN_IN_FAILED, "That is not the password you use now. Nothing "
-                    + "was changed.");
+            throw wrong(user, attempt, new SignInRefusal(SignInRefusalCode.SIGN_IN_FAILED, "That is not the password "
+                    + "you use now. Nothing was changed."));
         }
+        // The password in use, proved: what this check reserved is forgiven before the rules are read.
+        tx.executeWithoutResult(status -> users.forgiveAttempts(user.getId()));
         PasswordRules.check(user.getUsername(), request.newPassword());
         if (encoder.matches(request.newPassword(), user.getPasswordHash())) {
             throw PasswordRules.refusal(PasswordRules.Rule.SAME_AS_CURRENT);
@@ -190,6 +195,54 @@ public class SignInService {
         });
     }
 
+    /** What a reservation found: whether this attempt may be judged, and the lock in force after it (null: none). */
+    record Attempt(boolean reserved, Instant lockedUntil) {
+    }
+
+    /**
+     * Reserves one attempt at the user's password, in a transaction of its own that commits before the check, so a
+     * guess beside it sees it. Not reserved: the account is locked, and until when is said. A lock lifted between the two
+     * reads (a right password elsewhere) is asked once more.
+     */
+    private Attempt reserve(StaffUser user, Instant now) {
+        Instant until = now.plus(LOCKED_FOR);
+        for (int ask = 0; ask < 2; ask++) {
+            Attempt attempt = tx.execute(status -> new Attempt(
+                    users.reserveAttempt(user.getId(), LOCK_AFTER, now, until) > 0, users.lockedUntil(user.getId())));
+            if (attempt != null && (attempt.reserved() || attempt.lockedUntil() != null)) {
+                return attempt;
+            }
+        }
+        // Neither reserved nor locked, twice over: nothing can be judged now. Answered as a failure, which it is.
+        throw failed();
+    }
+
+    /**
+     * A wrong password on a reserved attempt: recorded, and answered {@code ACCOUNT_LOCKED} where this attempt was the one
+     * that reached the limit (it locked the account as it was reserved), otherwise as {@code otherwise} says.
+     */
+    private SignInRefusal wrong(StaffUser user, Attempt attempt, SignInRefusal otherwise) {
+        if (attempt.lockedUntil() != null) {
+            log.info("Staff user {} locked for {} minutes after {} failed sign-ins", user.getId(),
+                    LOCKED_FOR.toMinutes(), LOCK_AFTER);
+            audit.recordFor(user, true, AuditTrail.ACCOUNT_LOCKED, "Locked for 15 minutes after five failed sign-ins.");
+            return locked(attempt.lockedUntil());
+        }
+        audit.recordFor(user, true, AuditTrail.SIGN_IN_FAILED, "Sign-in failed: wrong password.");
+        return otherwise;
+    }
+
+    /**
+     * A username nobody holds, answered exactly as a real one with a wrong password: counted, locked after five, one
+     * BCrypt check (against the decoy), and recorded with no name, since what was typed may be somebody's password.
+     */
+    private SignInRefusal nobody(String username, String password, Instant now) {
+        NamelessAttempts.Attempt attempt = nameless.reserve(username, now, LOCK_AFTER, now.plus(LOCKED_FOR));
+        verify(password, decoyHash());
+        audit.recordFor(null, true, AuditTrail.SIGN_IN_FAILED, "Sign-in failed: a username nobody holds.");
+        return attempt.lockedUntil() != null ? locked(attempt.lockedUntil()) : failed();
+    }
+
     /**
      * Exactly one BCrypt check, whatever is asked. A password past {@link PasswordRules#MAX_BYTES} -- which no account
      * can have, and which the encoder refuses -- is checked as the decoy, and fails.
@@ -198,23 +251,6 @@ public class SignInService {
         boolean fits = raw != null && raw.getBytes(StandardCharsets.UTF_8).length <= PasswordRules.MAX_BYTES;
         boolean matches = encoder.matches(fits ? raw : decoyPassword, hash);
         return fits && matches;
-    }
-
-    /** One more failure, in the database; the instant the account is now locked until, where this one locked it. */
-    private Instant countFailure(StaffUser user, Instant now) {
-        Instant until = now.plus(LOCKED_FOR);
-        return tx.execute(status -> {
-            users.countFailure(user.getId());
-            if (users.lockIfReached(user.getId(), LOCK_AFTER, until) > 0) {
-                log.info("Staff user {} locked for {} minutes after {} failed sign-ins", user.getId(),
-                        LOCKED_FOR.toMinutes(), LOCK_AFTER);
-                audit.recordFor(user, false, AuditTrail.ACCOUNT_LOCKED,
-                        "Locked for 15 minutes after five failed sign-ins.");
-                return until;
-            }
-            audit.recordFor(user, false, AuditTrail.SIGN_IN_FAILED, "Sign-in failed: wrong password.");
-            return null;
-        });
     }
 
     private SessionDto open(StaffUser user, Instant now, String address, String userAgent) {

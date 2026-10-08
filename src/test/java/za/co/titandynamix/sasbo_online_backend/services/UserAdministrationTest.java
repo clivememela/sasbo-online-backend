@@ -343,6 +343,92 @@ class UserAdministrationTest {
                 1, null))).code()).isEqualTo(SignInRefusalCode.TOO_MANY);
     }
 
+    // ------------------------------------------------------------------------------------------------ the last full administrator
+
+    /*
+     * 🔒 THE LAST SYSTEM ADMINISTRATOR WHO SEES EVERYTHING (the sign-in review, 7 Oct). `Grants` lets nobody manage a user
+     * whose role holds a permission they lack, or whose scope reaches past theirs -- so only a holder of the fixed role with
+     * scope ALL can manage every user. The USERS_ADMIN guard alone let the last of them be narrowed or demoted while another
+     * USERS_ADMIN holder remained, and nothing short of a database edit undid it.
+     */
+
+    /** The only System Administrator who sees everything, on record as 41 -- and a regional user administrator, 42. */
+    private StaffUser theOnlyFullAdministrator() {
+        StaffUser full = onRecord(41, sysadminRole, 0);
+        StaffRole regionalAdmin = SignInFixtures.role(5, "REGIONAL_USER_ADMINISTRATOR", EnumSet.of(Permission.USERS_ADMIN,
+                Permission.MEMBERS_VIEW));
+        StaffUser regional = SignInFixtures.user(42, "invented.regional", regionalAdmin, CallerScope.regions(Set.of("DBN")));
+        when(users.lockActiveHolders("USERS_ADMIN")).thenReturn(List.of(full, regional));
+        return full;
+    }
+
+    private static UpdateUserRequest asSysadmin(String role, ScopeDto scope, boolean active) {
+        return new UpdateUserRequest("Invented Sysadmin", null, "HEAD_OFFICE_ADMINISTRATOR", role, scope, active, 0L);
+    }
+
+    @Test
+    @DisplayName("🔒 LAST_ADMINISTRATOR: the last System Administrator who sees everything is not narrowed to a region")
+    void theLastFullAdministratorKeepsScopeAll() {
+        theOnlyFullAdministrator();
+        SignInRefusal refusal = refused(() -> admin.update(41, asSysadmin("SYSTEM_ADMINISTRATOR",
+                new ScopeDto("REGION", List.of("DBN")), true)));
+        assertThat(refusal).as("narrowed, nobody could manage an ALL user again").isNotNull();
+        assertThat(refusal.code()).isEqualTo(SignInRefusalCode.LAST_ADMINISTRATOR);
+        assertThat(refusal.details()).containsEntry("role", "SYSTEM_ADMINISTRATOR").containsEntry("scope", "ALL");
+        verify(users, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("🔒 LAST_ADMINISTRATOR: …nor moved to a role without every permission, though it still manages users")
+    void theLastFullAdministratorKeepsEveryPermission() {
+        theOnlyFullAdministrator();
+        StaffRole usersOnly = SignInFixtures.role(6, "USER_ADMINISTRATOR", EnumSet.of(Permission.USERS_ADMIN,
+                Permission.AUDIT_VIEW));
+        when(roles.findByCodeWithPermissions("USER_ADMINISTRATOR")).thenReturn(Optional.of(usersOnly));
+        SignInRefusal refusal = refused(() -> admin.update(41, asSysadmin("USER_ADMINISTRATOR",
+                new ScopeDto("ALL", List.of()), true)));
+        assertThat(refusal).as("demoted, nobody could manage the CFO's role or give the fixed one again").isNotNull();
+        assertThat(refusal.code()).isEqualTo(SignInRefusalCode.LAST_ADMINISTRATOR);
+    }
+
+    @Test
+    @DisplayName("🔒 LAST_ADMINISTRATOR: …nor deactivated while only a regional user administrator would remain")
+    void theLastFullAdministratorStaysActive() {
+        theOnlyFullAdministrator();
+        SignInRefusal refusal = refused(() -> admin.update(41, asSysadmin("SYSTEM_ADMINISTRATOR",
+                new ScopeDto("ALL", List.of()), false)));
+        assertThat(refusal).isNotNull();
+        assertThat(refusal.code()).isEqualTo(SignInRefusalCode.LAST_ADMINISTRATOR);
+        verify(sessions, never()).revokeAll(anyLong(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("the must-pass: with another System Administrator who sees everything, the narrowing stands")
+    void anotherFullAdministratorLetsItStand() {
+        StaffUser full = theOnlyFullAdministrator();
+        StaffUser another = SignInFixtures.user(43, "invented.another", sysadminRole, CallerScope.all());
+        when(users.lockActiveHolders("USERS_ADMIN")).thenReturn(List.of(full, another));
+        admin.update(41, asSysadmin("SYSTEM_ADMINISTRATOR", new ScopeDto("REGION", List.of("DBN")), true));
+        assertThat(full.scope()).isEqualTo(CallerScope.regions(Set.of("DBN")));
+    }
+
+    @Test
+    @DisplayName("🔒 SCOPE_ABOVE_YOUR_OWN: roles and positions are national -- a regional user administrator changes neither")
+    void rolesAndPositionsAreChangedNationally() {
+        signedInAs(CallerScope.regions(Set.of("DBN")), EnumSet.of(Permission.USERS_ADMIN, Permission.MEMBERS_VIEW,
+                Permission.MEMBERS_CAPTURE, Permission.VISITS_CAPTURE, Permission.REPORTS_PRINT));
+        when(roles.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
+        assertThat(refused(() -> admin.updateRole("ORGANISER", new RoleRequest(null, "Organiser", List.of("MEMBERS_VIEW"),
+                null))).code()).as("it would take capture and visits from every region's organisers")
+                .isEqualTo(SignInRefusalCode.SCOPE_ABOVE_YOUR_OWN);
+        assertThat(refused(() -> admin.createRole(new RoleRequest("CLERK", "Invented Clerk", List.of("MEMBERS_VIEW"),
+                null))).code()).isEqualTo(SignInRefusalCode.SCOPE_ABOVE_YOUR_OWN);
+        assertThat(refused(() -> admin.updatePosition("ORGANISER", new PositionRequest(null, "Organiser", "ORGANISER",
+                false, 70, null))).code()).isEqualTo(SignInRefusalCode.SCOPE_ABOVE_YOUR_OWN);
+        verify(roles, never()).saveAndFlush(any());
+        verify(positions, never()).saveAndFlush(any());
+    }
+
     // ------------------------------------------------------------------------------------------------ the list
 
     @Test

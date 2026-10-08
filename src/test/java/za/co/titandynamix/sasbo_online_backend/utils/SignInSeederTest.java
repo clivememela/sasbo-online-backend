@@ -73,6 +73,11 @@ class SignInSeederTest {
         });
         when(users.existsByUsername(anyString())).thenAnswer(call -> userTable.containsKey(call.<String>getArgument(0)));
         when(users.count()).thenAnswer(call -> (long) userTable.size());
+        when(users.existsActiveFullAdministrator()).thenAnswer(call -> userTable.values().stream().anyMatch(user ->
+                user.isActive() && user.getRole() != null && user.getRole().isFixed()
+                        && "ALL".equals(user.getScopeType())));
+        when(users.findForSignIn(anyString())).thenAnswer(call ->
+                Optional.ofNullable(userTable.get(call.<String>getArgument(0))));
         when(users.save(any())).thenAnswer(call -> {
             StaffUser user = call.getArgument(0);
             userTable.put(user.getUsername(), user);
@@ -172,9 +177,82 @@ class SignInSeederTest {
         assertThat(seeder(false, null, new SignInProperties.BootstrapAdmin(null, null), null)
                 .seedBootstrapAdministrator()).isFalse();
         assertThat(userTable).isEmpty();
-        userTable.put("somebody", new StaffUser());
+        // Once a System Administrator who sees everything can sign in, never again.
+        SignInSeeder seeder = seeder(false, null, null, null);
+        seeder.seedPositionsAndRoles();
+        StaffUser full = new StaffUser();
+        full.setRole(roleTable.get("SYSTEM_ADMINISTRATOR"));
+        full.scopeExactly(CallerScope.Type.ALL, Set.of());
+        userTable.put("somebody", full);
         assertThat(seeder(false, null, new SignInProperties.BootstrapAdmin("invented.first", "an-invented-first-phrase"),
                 null).seedBootstrapAdministrator()).isFalse();
+        verify(users, never()).saveAndFlush(any());
+    }
+
+    /**
+     * 🔒 BREAK-GLASS (the sign-in review, 7 Oct): users exist, but no active System Administrator with scope ALL -- only
+     * a hand-edit of the database gets there, since the guard always keeps one. The host's named user is restored as that
+     * administrator, with the host's password to change at the next sign-in; a stranger's account is not touched.
+     */
+    @Test
+    @DisplayName("🔒 break-glass: no active System Administrator who sees everything -- the host's named user is restored as one")
+    void theBreakGlassRestoresTheNamedUser() {
+        SignInSeeder seeder = seeder(false, null, new SignInProperties.BootstrapAdmin("Invented.First",
+                "an-invented-first-phrase"), null);
+        seeder.seedPositionsAndRoles();
+        StaffUser narrowed = new StaffUser();
+        narrowed.setUsername("invented.first");
+        narrowed.setRole(roleTable.get("ORGANISER"));
+        narrowed.scopeExactly(CallerScope.Type.REGION, Set.of("DBN"));
+        narrowed.setActive(false);
+        narrowed.setLockedUntil(Instant.parse("2026-10-07T06:10:00Z"));
+        userTable.put("invented.first", narrowed);
+        StaffUser bystander = new StaffUser();
+        bystander.setUsername("invented.bystander");
+        bystander.setRole(roleTable.get("ORGANISER"));
+        bystander.scopeExactly(CallerScope.Type.AREA, Set.of("L"));
+        userTable.put("invented.bystander", bystander);
+
+        assertThat(seeder.seedBootstrapAdministrator()).isTrue();
+
+        StaffUser restored = userTable.get("invented.first");
+        assertThat(restored).isSameAs(narrowed);
+        assertThat(restored.getRole().isFixed()).isTrue();
+        assertThat(restored.scope()).isEqualTo(CallerScope.all());
+        assertThat(restored.isActive()).isTrue();
+        assertThat(restored.isMustChangePassword()).isTrue();
+        assertThat(restored.getLockedUntil()).isNull();
+        assertThat(encoder.matches("an-invented-first-phrase", restored.getPasswordHash())).isTrue();
+        assertThat(bystander.getRole().getCode()).isEqualTo("ORGANISER");
+        assertThat(seeder.seedBootstrapAdministrator()).as("restored, it is not done twice").isFalse();
+    }
+
+    @Test
+    @DisplayName("break-glass: the host's name held by nobody -- it is created, as the first administrator was")
+    void theBreakGlassCreatesAnAbsentName() {
+        SignInSeeder seeder = seeder(false, null, new SignInProperties.BootstrapAdmin("invented.rescue",
+                "an-invented-first-phrase"), null);
+        seeder.seedPositionsAndRoles();
+        StaffUser other = new StaffUser();
+        other.setUsername("invented.other");
+        other.setRole(roleTable.get("HEAD_OFFICE_ADMINISTRATOR"));
+        other.scopeExactly(CallerScope.Type.ALL, Set.of());
+        userTable.put("invented.other", other);
+
+        assertThat(seeder.seedBootstrapAdministrator()).isTrue();
+
+        assertThat(userTable.get("invented.rescue").getRole().isFixed()).isTrue();
+        assertThat(userTable.get("invented.rescue").scope()).isEqualTo(CallerScope.all());
+    }
+
+    @Test
+    @DisplayName("break-glass: no administrator left and no host values -- nothing is changed (the log says what to set)")
+    void theBreakGlassNeedsTheHostsValues() {
+        StaffUser other = new StaffUser();
+        other.setUsername("invented.other");
+        userTable.put("invented.other", other);
+        assertThat(seeder(false, null, new SignInProperties.BootstrapAdmin(null, null), null)
+                .seedBootstrapAdministrator()).isFalse();
         verify(users, never()).saveAndFlush(any());
     }
 

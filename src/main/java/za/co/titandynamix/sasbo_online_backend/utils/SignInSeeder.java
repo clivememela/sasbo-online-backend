@@ -216,27 +216,37 @@ public class SignInSeeder {
     }
 
     /**
-     * The first System Administrator, where nobody can sign in yet and the host says who. Their password must be changed
-     * at the first sign-in. A host set up halfway, or a password that breaks the rules, is said once, at ERROR, and
-     * nobody is created -- the link keeps working in open mode, and the next start tries again.
+     * The first System Administrator, where nobody can sign in yet and the host says who -- and, BREAK-GLASS, again
+     * wherever no active System Administrator with scope ALL is left (the sign-in review, 7 Oct). Only such a user can
+     * manage every user, and the last-administrator guard always keeps one, so their absence means the database was
+     * edited by hand: the host's named user is created, or, where the username is somebody's, made that administrator
+     * again. Either way the password is the host's and must be changed at the next sign-in; until it is, any session of
+     * theirs holds nothing ({@code SignedInUser.effectivePermissions}). A host set up halfway, or a password that breaks
+     * the rules, is said once, at ERROR, and nobody is created -- the link keeps working in open mode, and the next start
+     * tries again.
      *
-     * @return whether the administrator was created
+     * @return whether an administrator was created or restored
      */
     public boolean seedBootstrapAdministrator() {
         SignInProperties.BootstrapAdmin bootstrap = properties.bootstrapAdmin();
         long existing = users.count();
-        if (existing > 0) {
+        if (existing > 0 && users.existsActiveFullAdministrator()) {
             return false;
         }
         if (bootstrap.halfConfigured()) {
-            log.error("No user can sign in, and only one of SASBO_BOOTSTRAP_ADMIN_USERNAME and "
-                    + "SASBO_BOOTSTRAP_ADMIN_PASSWORD is set: set both, and the first administrator is created at the "
-                    + "next start");
+            log.error("{}, and only one of SASBO_BOOTSTRAP_ADMIN_USERNAME and SASBO_BOOTSTRAP_ADMIN_PASSWORD is set: set "
+                    + "both, and the administrator is created at the next start", nobodyCan(existing));
             return false;
         }
         if (!bootstrap.configured()) {
-            log.info("No user can sign in yet: set SASBO_BOOTSTRAP_ADMIN_USERNAME and SASBO_BOOTSTRAP_ADMIN_PASSWORD "
-                    + "on this host to create the first administrator");
+            if (existing == 0) {
+                log.info("No user can sign in yet: set SASBO_BOOTSTRAP_ADMIN_USERNAME and SASBO_BOOTSTRAP_ADMIN_PASSWORD "
+                        + "on this host to create the first administrator");
+            } else {
+                log.error("No active System Administrator who sees all of SASBO is left: set "
+                        + "SASBO_BOOTSTRAP_ADMIN_USERNAME and SASBO_BOOTSTRAP_ADMIN_PASSWORD on this host, and the next "
+                        + "start restores one");
+            }
             return false;
         }
         String username = bootstrap.username().trim().toLowerCase(Locale.ROOT);
@@ -253,18 +263,43 @@ public class SignInSeeder {
         }
         seedPositionsAndRoles();
         try {
-            StaffUser created = tx.execute(status -> {
-                StaffUser user = user(username, BOOTSTRAP_DISPLAY_NAME, BOOTSTRAP_POSITION, CallerScope.all(),
-                        encoder.encode(bootstrap.password()), true);
-                return users.saveAndFlush(user);
+            StaffUser saved = tx.execute(status -> {
+                String hash = encoder.encode(bootstrap.password());
+                StaffUser named = existing == 0 ? null : users.findForSignIn(username).orElse(null);
+                return users.saveAndFlush(named == null
+                        ? user(username, BOOTSTRAP_DISPLAY_NAME, BOOTSTRAP_POSITION, CallerScope.all(), hash, true)
+                        : restored(named, hash));
             });
-            log.info("Created the first System Administrator (user {}); their password must be changed at the first "
-                    + "sign-in", created == null ? "?" : created.getId());
+            log.info(existing == 0
+                    ? "Created the first System Administrator (user {}); their password must be changed at the first sign-in"
+                    : "Restored a System Administrator who sees all of SASBO (user {}); their password must be changed "
+                            + "at the next sign-in", saved == null ? "?" : saved.getId());
             return true;
         } catch (DataIntegrityViolationException anotherStartWon) {
-            log.info("The first administrator was created by another start");
+            log.info("The administrator was created by another start");
             return false;
         }
+    }
+
+    private static String nobodyCan(long existing) {
+        return existing == 0 ? "No user can sign in" : "No active System Administrator who sees all of SASBO is left";
+    }
+
+    /** {@code user} made a System Administrator again: the fixed role, scope ALL, active, the host's password to change. */
+    private StaffUser restored(StaffUser user, String hash) {
+        // The fixed role by its code, not the position's default: positions are data an administrator may have changed.
+        StaffRole fixed = roles.findByCodeWithPermissions(BOOTSTRAP_POSITION).filter(StaffRole::isFixed).orElseThrow();
+        user.setPosition(positions.findByCodeWithRole(BOOTSTRAP_POSITION).orElseThrow());
+        user.setRole(fixed);
+        user.scopeExactly(CallerScope.Type.ALL, Set.of());
+        user.setActive(true);
+        user.setMustChangePassword(true);
+        user.setPasswordHash(hash);
+        user.setFailedAttempts(0);
+        user.setLockedUntil(null);
+        user.setUpdatedAt(clock.instant());
+        user.setUpdatedBy(SEED);
+        return user;
     }
 
     /**

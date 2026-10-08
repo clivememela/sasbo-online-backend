@@ -17,6 +17,7 @@ import za.co.titandynamix.sasbo_online_backend.controller.UserAdminController;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.exception.SignInExceptionHandler;
 import za.co.titandynamix.sasbo_online_backend.security.SessionAuthenticator;
+import za.co.titandynamix.sasbo_online_backend.security.SignInThrottle;
 import za.co.titandynamix.sasbo_online_backend.security.SignedInUser;
 import za.co.titandynamix.sasbo_online_backend.services.AuditTrail;
 import za.co.titandynamix.sasbo_online_backend.services.SignInService;
@@ -68,6 +69,10 @@ public abstract class AbstractSignInSliceTest {
 
     @MockitoBean
     protected SessionAuthenticator sessions;
+
+    /** The login throttle: admits every request unless a test makes it refuse (SignInThrottleTest holds its counts). */
+    @MockitoBean
+    protected SignInThrottle throttle;
 
     /** The request carries {@code user}'s own bearer token, which the (mock) store opens to them. */
     protected RequestPostProcessor as(SignedInUser user) {

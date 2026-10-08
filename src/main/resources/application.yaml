@@ -93,6 +93,10 @@ management:
 
 server:
   port: ${SERVER_PORT:8080}
+  # The caller's address, not the host's proxy's: Tomcat's RemoteIpValve reads X-Forwarded-For from the right, past
+  # the internal proxies, so a client cannot choose it by sending the header. The login throttle keys on it, and a
+  # session records it (the sign-in review, 7 Oct). `native`, not `framework`: the valve, not a filter that trusts all.
+  forward-headers-strategy: native
   error:
     include-message: always
     include-binding-errors: always
@@ -155,8 +159,13 @@ sasbo:
     # compose and a local run set both. The password has no default anywhere.
     demo-users: ${SASBO_SIGNIN_DEMO_USERS:false}
     demo-password: ${SASBO_SIGNIN_DEMO_PASSWORD:}
-    # The first System Administrator, created at a start where there are no users at all and both are set. Set on a
-    # host by the owner; the password must be changed at the first sign-in.
+    # The first System Administrator, created at a start where there are no users at all and both are set -- and,
+    # break-glass, at any start where no active System Administrator who sees all of SASBO is left (the named user is
+    # created, or made one again). Set on a host by the owner; the password must be changed at the next sign-in.
     bootstrap-admin:
       username: ${SASBO_BOOTSTRAP_ADMIN_USERNAME:}
       password: ${SASBO_BOOTSTRAP_ADMIN_PASSWORD:}
+    # POST /api/auth/login, a minute at a time, before any password is checked: 429 SIGN_IN_THROTTLED past either.
+    throttle:
+      per-address-per-minute: ${SASBO_SIGNIN_THROTTLE_PER_ADDRESS:30}
+      per-minute: ${SASBO_SIGNIN_THROTTLE_PER_MINUTE:120}
