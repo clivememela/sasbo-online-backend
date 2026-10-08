@@ -236,7 +236,8 @@ class MonthEndSendSeederTest {
     void theDecksSamples() throws Exception {
         inventJohannesburg();
         long first = takes.taken(YearMonth.of(2026, 9)).orElseThrow().id();
-        takes.take(YearMonth.of(2026, 9), DemonstrationMemberSeeder.SEED_ACTOR, first);
+        takes.take(YearMonth.of(2026, 9), DemonstrationMemberSeeder.SEED_ACTOR, first,
+                "the deck's samples: the invented Johannesburg members, placed after the first take");
         seeder.seed();
         long take = takes.taken(YearMonth.of(2026, 9)).orElseThrow().id();
 
