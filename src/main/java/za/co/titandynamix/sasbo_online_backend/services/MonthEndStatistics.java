@@ -545,10 +545,14 @@ public class MonthEndStatistics {
      * from ONE read of the month, cut as {@link #read} cuts it. The visits too: the regions use both the branch list and
      * the visits report (MEN-38). A screen's read: a full gate is {@code SUMMARY_UNAVAILABLE} at once, unless
      * {@code waitForAPlace}.
+     *
+     * <p>RULE C, WHOEVER MAKES THE PACK: a pack is a file e-mailed to a Regional Secretary, not a screen read by its
+     * maker, so its small counts never follow who pressed Produce -- the packs' decision 13, until SASBO answers
+     * MEN-27 and MEN-28 (do the reports sent to the regions show every figure in full?).
      */
     public Map<String, List<MonthEndStatisticDto>> forPack(String month, String region, List<String> areas,
                                                            boolean waitForAPlace) {
-        Read whole = read(month, null, null, waitForAPlace);
+        Read whole = read(month, null, null, waitForAPlace).courteous();
         Map<String, List<MonthEndStatisticDto>> places = new LinkedHashMap<>();
         if (areas.isEmpty()) {
             places.put(region, everyStatistic(whole.within(null, region)));
@@ -596,6 +600,11 @@ public class MonthEndStatistics {
             List<Count> scopedCounts = counts.stream().filter(c -> keys.contains(c.workplaceKey())
                     || (c.workplaceKey() == 0 && inArea == null && inRegion == null)).toList();
             return new Read(month, range, taken, allFacts, inScope, scopedCounts, grouped, inArea, inRegion, courtesy);
+        }
+
+        /** The same month with rule C's courtesy on, whoever asked -- what leaves SASBO as a file (the packs). */
+        Read courteous() {
+            return new Read(month, range, taken, allFacts, facts, counts, grouped, area, region, true);
         }
     }
 
