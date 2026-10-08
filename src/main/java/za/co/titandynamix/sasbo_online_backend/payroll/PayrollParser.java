@@ -28,9 +28,11 @@ import java.util.Set;
  *   <li>The heading row is found by its words, never by its position: row 1 in nine files, row 2, 3 and 7 in others.
  *       It is the first row, within the first {@value PayrollLimits#HEADING_SCAN_ROWS}, that names an amount and at
  *       least one way of knowing the person (a staff number, an ID number, a name).</li>
- *   <li>A line ends the table where a blank row does, or where the headings come round again: Absa and Capitec put a
- *       second list -- withdrawn or deleted members -- under the first. Those rows are counted, said, and not
- *       compared.</li>
+ *   <li>The table ends where the headings come round again, or at a blank row followed by anything but another line
+ *       of it -- a caption, the headings, a total: Absa and Capitec put a second list -- withdrawn or deleted members --
+ *       under the first. Those rows are counted, said on the file's page, and not compared. A blank row with more
+ *       lines under it (a page or branch break in an export) does not end it: ended there, every member below would
+ *       be "missing" and on the employer's ADD list.</li>
  *   <li>A row with no amount, staff number or ID number before the first line is a caption (African Bank's
  *       "Company :" and "Group :" rows) and is passed over. A row with an amount and nobody beside it is the file's
  *       total where it says TOTAL, and a line that cannot be read where it does not.</li>
@@ -233,7 +235,8 @@ public final class PayrollParser {
             }
             boolean afterBlank = row.number() > previous + 1;
             previous = row.number();
-            if (!lines.isEmpty() && (afterBlank || signature(row).equals(headingSignature))) {
+            if (!lines.isEmpty() && (signature(row).equals(headingSignature)
+                    || (afterBlank && !carriesOn(row, columns, layout)))) {
                 ended = true;
                 notRead++;
                 continue;
@@ -275,6 +278,24 @@ public final class PayrollParser {
         List<String> headingCells = located.row().cells().stream().filter(c -> c != null).toList();
         return new Parsed(grid.sheetName(), located.row().number(), headingCells, headings, lines, statedTotal,
                 notRead);
+    }
+
+    /**
+     * Whether the row right after a blank row carries the list on: a line of this table -- an amount that reads as one,
+     * and a staff number, an ID number or a name -- and not the file's total.
+     */
+    private static boolean carriesOn(SheetGrid.Row row, Map<PayrollField, Integer> columns, PayrollLayout layout) {
+        String staffKey = PayrollKeys.staffKey(cell(row, columns, PayrollField.STAFF_NUMBER));
+        String idKey = PayrollKeys.idKey(cell(row, columns, PayrollField.ID_NUMBER));
+        PayrollNames.Name name = PayrollNames.read(layout.nameStyle(), cell(row, columns, PayrollField.INITIALS),
+                cell(row, columns, PayrollField.FIRST_NAMES), cell(row, columns, PayrollField.SURNAME),
+                cell(row, columns, PayrollField.FULL_NAME));
+        if (amountOf(row, columns) == null || (staffKey == null && idKey == null && name.isEmpty())) {
+            return false;
+        }
+        boolean total = idKey == null && name.isEmpty() && mentionsTotal(row)
+                && (staffKey == null || !staffKey.chars().allMatch(Character::isDigit));
+        return !total;
     }
 
     private static Line line(SheetGrid.Row row, Map<PayrollField, Integer> columns, String staff, String staffKey,

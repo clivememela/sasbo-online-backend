@@ -161,6 +161,37 @@ class PayrollParserTest {
     }
 
     @Test
+    @DisplayName("a blank row inside the list -- a page or a branch break -- does not end it: the lines under it are read")
+    void aBlankRowInsideTheList() {
+        byte[] csv = ("staffNumber,surname,initials,amount\n1,Testerson,BK,174.00\n2,Ledgerwood,R,174.00\n\n"
+                + "3,Tallyburn,T,174.00\n4,Draftmore,D,174.00\n").getBytes(StandardCharsets.UTF_8);
+        PayrollParser.Parsed parsed = PayrollParser.parse(GridReader.read(FileSniffer.Kind.CSV, csv),
+                PayrollLayouts.typed(), Map.of(), PERIOD);
+        assertThat(parsed.lines()).as("every line, the break or not").extracting(PayrollParser.Line::lineNumber)
+                .containsExactly(2, 3, 5, 6);
+        assertThat(parsed.rowsNotRead()).isZero();
+    }
+
+    @Test
+    @DisplayName("must-pass: a blank row, then a caption or the headings again, ends the list -- the second list (Absa's "
+            + "withdrawn, Capitec's deleted members) counted, not compared")
+    void aSecondListUnderTheFirst() {
+        byte[] captioned = ("staffNumber,surname,initials,amount\n1,Testerson,BK,174.00\n2,Ledgerwood,R,174.00\n\n"
+                + ",Withdrawn members,,\n3,Tallyburn,T,174.00\n").getBytes(StandardCharsets.UTF_8);
+        PayrollParser.Parsed underACaption = PayrollParser.parse(GridReader.read(FileSniffer.Kind.CSV, captioned),
+                PayrollLayouts.typed(), Map.of(), PERIOD);
+        assertThat(underACaption.lines()).extracting(PayrollParser.Line::lineNumber).containsExactly(2, 3);
+        assertThat(underACaption.rowsNotRead()).as("the caption and the line under it").isEqualTo(2);
+
+        byte[] headed = ("staffNumber,surname,initials,amount\n1,Testerson,BK,174.00\n\n"
+                + "staffNumber,surname,initials,amount\n3,Tallyburn,T,174.00\n").getBytes(StandardCharsets.UTF_8);
+        PayrollParser.Parsed underHeadings = PayrollParser.parse(GridReader.read(FileSniffer.Kind.CSV, headed),
+                PayrollLayouts.typed(), Map.of(), PERIOD);
+        assertThat(underHeadings.lines()).extracting(PayrollParser.Line::lineNumber).containsExactly(2);
+        assertThat(underHeadings.rowsNotRead()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("headings with no lines under them are NO_ROWS")
     void noRows() {
         byte[] csv = "staffNumber,surname,amount\n".getBytes(StandardCharsets.UTF_8);
