@@ -37,7 +37,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -207,6 +209,26 @@ class MonthEndRegionPacksTest {
         assertThat(month.available()).isTrue();
         assertThat(month.mail().configured()).isFalse();
         assertThat(month.take().takeNumber()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("each recipient's row shows its own pack's deliveries, newest first -- however often another pack was downloaded since")
+    void oneBusyPackNeverHidesAnothersDeliveries() {
+        MonthEndRegionPackDto north1 = packs.produce(MONTH, "NORTH1", false).pack();
+        MonthEndRegionPackDto north2 = packs.produce(MONTH, "NORTH2", false).pack();
+        packs.download(north2.id(), "pdf");
+        for (int i = 0; i < 2 * MonthEndRegionPacks.DELIVERIES_SHOWN + 5; i++) {
+            packs.download(north1.id(), "xlsx");
+        }
+
+        Map<String, List<MonthEndDeliveryDto>> shown = new HashMap<>();
+        packs.list(MONTH).sets().forEach(row -> shown.put(row.set().code(), row.deliveries()));
+
+        assertThat(shown.get("NORTH2")).as("NORTH2's one download, though 25 of NORTH1's came after it").hasSize(1);
+        assertThat(shown.get("NORTH2").get(0).packId()).isEqualTo(north2.id());
+        assertThat(shown.get("NORTH1")).as("NORTH1's newest, at most a row's worth")
+                .hasSize(MonthEndRegionPacks.DELIVERIES_SHOWN).allMatch(d -> d.packId().equals(north1.id()));
+        assertThat(shown.get("SOUTH")).as("no pack, no deliveries").isEmpty();
     }
 
     // ------------------------------------------------------------------------------------------------ handing over
