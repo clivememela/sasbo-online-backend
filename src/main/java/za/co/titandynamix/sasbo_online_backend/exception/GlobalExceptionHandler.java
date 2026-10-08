@@ -7,6 +7,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -78,6 +80,17 @@ public class GlobalExceptionHandler {
      * keep returning their messages -- those are written FOR the user, and 01.2's
      * whole point is that the user finally sees them.
      */
+    /**
+     * A permission refused by method security ({@code @PreAuthorize}, October build) is the security filter chain's to
+     * answer -- 401 for nobody signed in, 403 for a user without the permission. Without this the catch-all below takes
+     * it first and answers a 500, logging a refusal as a failure. Thrown on unchanged: the resolver then leaves the
+     * original exception to Spring Security's {@code ExceptionTranslationFilter}.
+     */
+    @ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
+    public void securityRefusal(RuntimeException refusal) {
+        throw refusal;
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneralException(Exception ex, HttpServletRequest request) {
         String reference = UUID.randomUUID().toString().substring(0, 8);
@@ -219,7 +232,34 @@ public class GlobalExceptionHandler {
             return handleAcbRefusal(new AcbRefusal(AcbRefusalCode.UPLOAD_TOO_LARGE, "The upload is over its limit.",
                     Map.of("limitBytes", String.valueOf(ex.getMaxUploadSize()))), request);
         }
+        if (request.getRequestURI().startsWith("/api/payroll/")) {
+            // Payroll: the same refusal the service gives a file over 10 MB, so the screen says one thing.
+            return handlePayrollRefusal(new PayrollRefusal(PayrollRefusalCode.FILE_TOO_LARGE, "This file is larger "
+                    + "than an employer's payroll file may be (10 MB).", Map.of("limitBytes",
+                    String.valueOf(za.co.titandynamix.sasbo_online_backend.payroll.PayrollLimits.MAX_BYTES))), request);
+        }
         return handleGeneralException(ex, request);
+    }
+
+    /**
+     * A payroll refusal: its own status, its stable {@code code}, and the facts it is about -- the envelope ACB's and
+     * month end's refusals answer with. {@code PayrollExceptionHandler} answers the payroll controllers' refusals
+     * through this; the upload limit, refused before a controller is chosen, reaches it from the handler above.
+     */
+    @ExceptionHandler(PayrollRefusal.class)
+    public ResponseEntity<ApiErrorResponse> handlePayrollRefusal(PayrollRefusal ex, HttpServletRequest request) {
+        HttpStatus status = ex.code().status();
+        ApiErrorResponse response = new ApiErrorResponse(
+                LocalDateTime.now(ZoneId.of("UTC")),
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null,
+                ex.code().name(),
+                ex.details().isEmpty() ? null : ex.details()
+        );
+        return ResponseEntity.status(status).body(response);
     }
 
     /**

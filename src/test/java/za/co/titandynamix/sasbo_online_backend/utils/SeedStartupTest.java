@@ -156,7 +156,9 @@ class SeedStartupTest {
                     .getInputStream()) {
                 original = DataSeeder.readSeedMembers(stream).size();
             }
-            long expected = original + DebitOrderMemberSeeder.readSeedFile().members().size();
+            // The payroll demonstration's own members are seeded whatever the switch says, as the debit-order ones are.
+            long expected = original + DebitOrderMemberSeeder.readSeedFile().members().size()
+                    + PayrollSeeder.readSeedFile().members().size();
             assertThat(members.count()).isEqualTo(expected);
             seeder.run(new DefaultApplicationArguments());
             assertThat(members.count()).as("after a second start").isEqualTo(expected);

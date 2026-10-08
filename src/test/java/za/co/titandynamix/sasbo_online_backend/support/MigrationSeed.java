@@ -206,7 +206,13 @@ public final class MigrationSeed {
             "V61__month_end_packs.sql",
             "V62__workplace_visits.sql",
             "V63__member_memnet.sql",
-            "V64__month_end_taken_again.sql");
+            "V64__month_end_taken_again.sql",
+            // Payroll Deductions and Reconciliation (October build, V73-V76): the employers and their layouts, the files
+            // and their lines, what the comparison found and the queries, the payments and the record of what was done.
+            "V73__payroll_employers.sql",
+            "V74__payroll_files.sql",
+            "V75__payroll_reconciliation.sql",
+            "V76__payroll_payments_and_events.sql");
 
     /**
      * The versions those filenames declare, as Flyway records them in

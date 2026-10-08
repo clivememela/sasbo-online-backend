@@ -35,22 +35,27 @@ class MemberStatusWritersTest {
     static final Pattern MEMBERS_STATUS_SQL = Pattern.compile("(?is)UPDATE\\s+members\\s+SET\\b[^;\"]*\\bstatus\\s*=");
 
     /**
-     * Every class in the main sources that calls a status setter, with how many times -- and why. Three of them set a
+     * Every class in the main sources that calls a status setter, with how many times -- and why. Four of them set a
      * MEMBER's status; the rest set the status of something else, and are listed so that a new call anywhere is seen.
      */
-    static final Map<String, Integer> ALLOWED = new TreeMap<>(Map.of(
+    static final Map<String, Integer> ALLOWED = new TreeMap<>(Map.ofEntries(
             // A member's: changeStatus, both of its forms -- the one writer of a status once 03.4 lands (03.1).
-            "MemberServiceImpl", 2,
-            // A member's, at capture only: an invented member's status as generated (01.4), and A.C.B.'s seed
-            // debit-order members' (D33). Neither changes a status; each gives one to a member being created.
-            "DemonstrationMember", 1,
-            "SeedDebitOrderMember", 1,
-            // Not a member's: A.C.B.'s runs and letters, and a subscription.
-            "AcbHistorySeeder", 2,
-            "AcbPreparationJob", 2,
-            "AcbReturnsServiceImpl", 5,
-            "AcbRunServiceImpl", 2,
-            "SubscriptionSeeder", 1));
+            Map.entry("MemberServiceImpl", 2),
+            // A member's, at capture only: an invented member's status as generated (01.4), A.C.B.'s seed debit-order
+            // members' (D33), and payroll's invented members' (October build). None changes a status; each gives one
+            // to a member being created.
+            Map.entry("DemonstrationMember", 1),
+            Map.entry("SeedDebitOrderMember", 1),
+            Map.entry("PayrollSeedMember", 1),
+            // Not a member's: A.C.B.'s runs and letters, a subscription, and payroll's files (reconciled, superseded)
+            // and discrepancies (resolved).
+            Map.entry("AcbHistorySeeder", 2),
+            Map.entry("AcbPreparationJob", 2),
+            Map.entry("AcbReturnsServiceImpl", 5),
+            Map.entry("AcbRunServiceImpl", 2),
+            Map.entry("SubscriptionSeeder", 1),
+            Map.entry("PayrollFiles", 2),
+            Map.entry("PayrollDiscrepancies", 1)));
 
     @Test
     @DisplayName("🔒 03.4: every writer of a status in the main sources is named, by class and count -- a member's only in changeStatus and at capture")

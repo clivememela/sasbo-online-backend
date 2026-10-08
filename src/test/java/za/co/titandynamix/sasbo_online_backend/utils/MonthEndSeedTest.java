@@ -197,7 +197,7 @@ class MonthEndSeedTest {
             original = DataSeeder.readSeedMembers(stream).size();
         }
         assertThat(members.count()).isEqualTo(original + DebitOrderMemberSeeder.readSeedFile().members().size()
-                + DemonstrationMemberSeeder.readSeedFile().count());
+                + DemonstrationMemberSeeder.readSeedFile().count() + PayrollSeeder.readSeedFile().members().size());
     }
 
     @Test
@@ -207,6 +207,8 @@ class MonthEndSeedTest {
         Map<String, Integer> expected = new HashMap<>();
         file.members().forEach(m -> expected.put(m.membershipNumber(), m.workplaceRaNumber()));
         file.placements().forEach(p -> expected.put(p.membershipNumber(), p.workplaceRaNumber()));
+        // The payroll demonstration's members, each at the workplace of their employer its file names (October build).
+        PayrollSeeder.readSeedFile().members().forEach(m -> expected.put(m.membershipNumber(), m.workplaceRaNumber()));
 
         assertThat(standing()).isEqualTo(expected);
         assertThat(rows("SELECT count(*) FROM members WHERE workplace_id IS NULL"))
