@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 /**
@@ -305,6 +306,16 @@ public class MonthEndTakes {
      *                         is not the newest or the index refused it
      */
     public TakenMonth take(YearMonth month, String actor, Long replaces, String reason) {
+        return take(month, actor, replaces, reason, taken -> { });
+    }
+
+    /**
+     * As {@link #take(YearMonth, String, Long, String)}, with {@code alsoInTheTake} run INSIDE the take's own transaction
+     * once the month is written -- the line in the record of who did what (the sign-in review, 7 Oct). A take is never
+     * without its line, nor a line without its take: should the line fail, nothing is taken.
+     */
+    public TakenMonth take(YearMonth month, String actor, Long replaces, String reason,
+                           Consumer<TakenMonth> alsoInTheTake) {
         String why = reason(month, replaces, reason);
         requireBegun(month);
         refuseIfNotReady();
@@ -323,8 +334,10 @@ public class MonthEndTakes {
                 facts.insertSuspendedByCode(id, window);
                 facts.insertRecruited(id, window);
                 facts.insertUnknownStatuses(id, window);
-                return facts.taken(firstDay).orElseThrow(() -> new IllegalStateException(
+                TakenMonth taken = facts.taken(firstDay).orElseThrow(() -> new IllegalStateException(
                         "the month's record was written and cannot be read back in its own transaction"));
+                alsoInTheTake.accept(taken);
+                return taken;
             });
         } catch (DataIntegrityViolationException lostTheRace) {
             // Another take of the same month committed first. The index is the arbiter, and its answer is the same

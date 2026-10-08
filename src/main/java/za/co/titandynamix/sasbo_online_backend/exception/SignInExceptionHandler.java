@@ -7,6 +7,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -78,7 +79,15 @@ public class SignInExceptionHandler {
 
     @ExceptionHandler(SignInRefusal.class)
     public ResponseEntity<ApiErrorResponse> refused(SignInRefusal refusal, HttpServletRequest request) {
-        return answer(refusal.code(), refusal.getMessage(), refusal.details(), null, request);
+        ResponseEntity<ApiErrorResponse> answer = answer(refusal.code(), refusal.getMessage(), refusal.details(), null,
+                request);
+        String retryAfter = refusal.details().get("retryAfterSeconds");
+        if (retryAfter == null) {
+            return answer;
+        }
+        // The throttle's answer says when to come back, in the header a client reads (RFC 9110 10.2.3) as well.
+        return ResponseEntity.status(answer.getStatusCode()).header(HttpHeaders.RETRY_AFTER, retryAfter)
+                .body(answer.getBody());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

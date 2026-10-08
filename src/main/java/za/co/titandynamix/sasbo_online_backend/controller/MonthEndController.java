@@ -69,9 +69,10 @@ public class MonthEndController {
         if (replaces == null) {
             takes.refuseIfTaken(asked);
         }
-        takes.take(asked, AcbActor.current(), replaces, reason);
-        audit.record(replaces == null ? "MONTH_END_TAKEN" : "MONTH_END_TAKEN_AGAIN", "MONTH_END", asked.toString(),
-                replaces == null ? "Taken." : "Taken again, replacing take " + replaces + ".");
+        // The line in the record goes in the take's own transaction: should it fail, nothing is taken.
+        takes.take(asked, AcbActor.current(), replaces, reason, taken -> audit.record(
+                replaces == null ? "MONTH_END_TAKEN" : "MONTH_END_TAKEN_AGAIN", "MONTH_END", asked.toString(),
+                replaces == null ? "Taken." : "Taken again, replacing take " + replaces + "."));
         return takes.record(asked.toString());
     }
 }

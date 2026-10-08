@@ -15,6 +15,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
+import za.co.titandynamix.sasbo_online_backend.controller.MonthEndController;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
@@ -36,6 +37,9 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 
 /**
  * Taking a month, on H2 (month end 04.2): {@link SummaryFixture}'s September frozen as facts -- one row a workplace
@@ -119,6 +123,25 @@ class MonthEndTakesTest {
         jdbc.update("DELETE FROM month_end_months");
         jdbc.update("DELETE FROM members WHERE membership_number IN ('M-899999', 'M-899998', 'M-899997')");
         clock.at(SummaryFixture.NOW);
+    }
+
+    /**
+     * 🔒 THE TAKE AND ITS LINE IN THE RECORD OF WHO DID WHAT ARE ONE TRANSACTION (the sign-in review, 7 Oct). The route
+     * took the month, committed, and only then wrote the line: a line that failed left a month taken by nobody on record.
+     * Through the route itself, with a record that cannot be written: nothing is taken.
+     */
+    @Test
+    @DisplayName("🔒 the take and the record of who took it are one: a line that cannot be written takes nothing")
+    void aTakeIsNeverWithoutItsLine() {
+        AuditTrail unwritable = mock(AuditTrail.class);
+        doThrow(new IllegalStateException("the record of who did what cannot be written")).when(unwritable)
+                .record(anyString(), anyString(), anyString(), anyString());
+        MonthEndController route = new MonthEndController(takes, unwritable);
+
+        assertThatThrownBy(() -> route.take(SummaryFixture.MONTH.toString(), null))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(facts.taken(SummaryFixture.MONTH.atDay(1))).as("a month taken by nobody on record").isEmpty();
     }
 
     @Test

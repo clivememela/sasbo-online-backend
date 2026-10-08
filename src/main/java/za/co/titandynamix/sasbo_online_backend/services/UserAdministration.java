@@ -212,6 +212,13 @@ public class UserAdministration {
         if (administersNow && !administersAfter) {
             requireAnotherAdministrator(Set.of(user.getId()), null);
         }
+        // The one user who can manage EVERY user holds every permission with scope ALL: `Grants` refuses anything less
+        // a user above it. Demoted, narrowed or deactivated, the last of them would leave SASBO unable to manage its
+        // national users, the CFO among them, until somebody edited the database.
+        if (fullAdministrator(user.isActive(), user.getRole(), user.getScopeType())
+                && !fullAdministrator(active, role, scope.type().name())) {
+            requireAnotherFullAdministrator(user.getId());
+        }
 
         List<String> changed = new ArrayList<>();
         String displayName = request.displayName().trim();
@@ -283,6 +290,7 @@ public class UserAdministration {
 
     @Transactional
     public PositionDto createPosition(PositionRequest request) {
+        requireNationalScope();
         if (request.code() == null) {
             throw new SignInRefusal(SignInRefusalCode.REQUEST_MALFORMED, "Give the new position a code.",
                     Map.of("field", "code"));
@@ -315,6 +323,7 @@ public class UserAdministration {
 
     @Transactional
     public PositionDto updatePosition(String code, PositionRequest request) {
+        requireNationalScope();
         StaffPosition position = positions.findByCodeWithRole(code).orElseThrow(() -> new SignInRefusal(
                 SignInRefusalCode.POSITION_NOT_FOUND, "There is no such position.", Map.of()));
         if (request.version() != null) {
@@ -360,6 +369,7 @@ public class UserAdministration {
 
     @Transactional
     public RoleDto createRole(RoleRequest request) {
+        requireNationalScope();
         if (request.code() == null) {
             throw new SignInRefusal(SignInRefusalCode.REQUEST_MALFORMED, "Give the new role a code.",
                     Map.of("field", "code"));
@@ -392,6 +402,7 @@ public class UserAdministration {
 
     @Transactional
     public RoleDto updateRole(String code, RoleRequest request) {
+        requireNationalScope();
         StaffRole role = roles.findByCodeWithPermissions(code).orElseThrow(() -> new SignInRefusal(
                 SignInRefusalCode.ROLE_NOT_FOUND, "There is no such role.", Map.of()));
         if (request.version() != null) {
@@ -457,6 +468,39 @@ public class UserAdministration {
             throw new SignInRefusal(SignInRefusalCode.LAST_ADMINISTRATOR, "This would leave nobody able to manage "
                     + "users, and SASBO would be locked out of its own system. Give another user that permission "
                     + "first.", Map.of("permission", Permission.USERS_ADMIN.name()));
+        }
+    }
+
+    /** An active holder of the fixed role (every permission) whose scope is ALL: the one who can manage every user. */
+    static boolean fullAdministrator(boolean active, StaffRole role, String scopeType) {
+        return active && role != null && role.isFixed() && CallerScope.Type.ALL.name().equals(scopeType);
+    }
+
+    /**
+     * At least one OTHER active System Administrator with scope ALL must remain -- counted under the same lock as the
+     * USERS_ADMIN guard (every such user holds USERS_ADMIN), so two edits at once are served one after the other.
+     */
+    private void requireAnotherFullAdministrator(long leaving) {
+        boolean another = users.lockActiveHolders(Permission.USERS_ADMIN.name()).stream()
+                .anyMatch(u -> !Objects.equals(u.getId(), leaving)
+                        && fullAdministrator(u.isActive(), u.getRole(), u.getScopeType()));
+        if (!another) {
+            throw new SignInRefusal(SignInRefusalCode.LAST_ADMINISTRATOR, "This would leave no active System "
+                    + "Administrator who sees all of SASBO, and nobody could manage every user. Make another user a "
+                    + "System Administrator for all of SASBO first.", Map.of("role", "SYSTEM_ADMINISTRATOR",
+                    "scope", CallerScope.Type.ALL.name()));
+        }
+    }
+
+    /**
+     * Roles and positions are the same in every region, so only a user administrator whose own scope is ALL writes
+     * them; a regional one would change users their scope does not reach.
+     */
+    private static void requireNationalScope() {
+        if (!CallerScope.current().isAll()) {
+            throw new SignInRefusal(SignInRefusalCode.SCOPE_ABOVE_YOUR_OWN, "Roles and positions are the same in "
+                    + "every region, so only a user administrator who sees all of SASBO can change them.",
+                    Map.of("yourScope", CallerScope.current().type().name()));
         }
     }
 

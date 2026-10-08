@@ -132,23 +132,28 @@ class SignInRepositoriesIT extends AbstractWritingIT {
 
     // ------------------------------------------------------------------------------------------------ users
 
+    /** One reservation, in a transaction of its own, as the sign-in makes it. */
+    private int reserve(long id, Instant now, Instant until) {
+        Integer reserved = new TransactionTemplate(transactions).execute(status -> users.reserveAttempt(id, 5, now, until));
+        return reserved == null ? 0 : reserved;
+    }
+
     @Test
     @DisplayName("the sign-in counters move in the database and leave the optimistic version alone")
     void theCountersLeaveTheVersionAlone() {
         StaffUser first = theFirstAdministrator();
         long version = first.getVersion();
-        Instant until = Instant.now().plus(Duration.ofMinutes(15)).truncatedTo(ChronoUnit.MICROS);
-        new TransactionTemplate(transactions).executeWithoutResult(status -> {
-            for (int i = 0; i < 4; i++) {
-                users.countFailure(first.getId());
-            }
-            assertThat(users.lockIfReached(first.getId(), 5, until)).isZero();
-            users.countFailure(first.getId());
-            assertThat(users.lockIfReached(first.getId(), 5, until)).isEqualTo(1);
-        });
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant until = now.plus(Duration.ofMinutes(15));
+        for (int i = 0; i < 4; i++) {
+            assertThat(reserve(first.getId(), now, until)).isEqualTo(1);
+        }
+        assertThat(users.lockedUntil(first.getId())).as("four reserved, no lock yet").isNull();
+        assertThat(reserve(first.getId(), now, until)).as("the fifth is reserved, and locks as it is").isEqualTo(1);
         assertThat(users.lockedUntil(first.getId())).isEqualTo(until);
+        assertThat(reserve(first.getId(), now, until)).as("locked: the sixth is not reserved").isZero();
         StaffUser locked = users.findWithAccess(first.getId()).orElseThrow();
-        assertThat(locked.getFailedAttempts()).isZero();
+        assertThat(locked.getFailedAttempts()).isEqualTo(5);
         assertThat(locked.getVersion()).isEqualTo(version);
         Instant signedIn = Instant.now().truncatedTo(ChronoUnit.MICROS);
         new TransactionTemplate(transactions).executeWithoutResult(status -> users.signedIn(first.getId(), signedIn));
@@ -158,17 +163,78 @@ class SignInRepositoriesIT extends AbstractWritingIT {
         assertThat(after.getVersion()).isEqualTo(version);
     }
 
+    /**
+     * 🔒 THE RESERVATION IS ONE STATEMENT, AND POSTGRESQL SERIALISES IT ON THE ROW (the sign-in review, 7 Oct). Twenty
+     * attempts at once: exactly five are reserved -- the fifth locking the account -- and fifteen are refused, so at most
+     * five passwords are ever checked in a lock's fifteen minutes, however the guesses are sent.
+     */
+    @Test
+    @DisplayName("🔒 twenty attempts at once: exactly five reserved, the fifth locking the account, fifteen refused")
+    void attemptsAtOnceAreReservedFiveAtMost() throws Exception {
+        StaffUser first = theFirstAdministrator();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant until = now.plus(Duration.ofMinutes(15));
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(10);
+        java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        try {
+            List<java.util.concurrent.Future<Integer>> attempts = new java.util.ArrayList<>();
+            for (int i = 0; i < 20; i++) {
+                attempts.add(pool.submit(() -> {
+                    go.await();
+                    return reserve(first.getId(), now, until);
+                }));
+            }
+            go.countDown();
+            int reserved = 0;
+            for (java.util.concurrent.Future<Integer> attempt : attempts) {
+                reserved += attempt.get(30, java.util.concurrent.TimeUnit.SECONDS);
+            }
+            assertThat(reserved).isEqualTo(5);
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(users.lockedUntil(first.getId())).isEqualTo(until);
+    }
+
+    @Test
+    @DisplayName("🔒 a lock that has run out lets the next attempt through, and its count starts again")
+    void anEndedLockStartsTheCountAgain() {
+        StaffUser first = theFirstAdministrator();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        for (int i = 0; i < 5; i++) {
+            reserve(first.getId(), now, now.plus(Duration.ofMinutes(15)));
+        }
+        Instant later = now.plus(Duration.ofMinutes(15));
+        assertThat(reserve(first.getId(), later, later.plus(Duration.ofMinutes(15)))).isEqualTo(1);
+        StaffUser after = users.findWithAccess(first.getId()).orElseThrow();
+        assertThat(after.getFailedAttempts()).isEqualTo(1);
+        assertThat(after.getLockedUntil()).isNull();
+        new TransactionTemplate(transactions).executeWithoutResult(status -> users.forgiveAttempts(first.getId()));
+        assertThat(users.findWithAccess(first.getId()).orElseThrow().getFailedAttempts()).isZero();
+    }
+
+    @Test
+    @DisplayName("🔒 an active System Administrator who sees everything is found -- and not once narrowed, demoted or closed")
+    void theFullAdministratorIsFound() {
+        StaffUser first = theFirstAdministrator();
+        assertThat(users.existsActiveFullAdministrator()).isTrue();
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            StaffUser user = users.findWithAccess(first.getId()).orElseThrow();
+            user.scopeExactly(CallerScope.Type.REGION, Set.of("DBN"));
+            users.saveAndFlush(user);
+        });
+        assertThat(users.existsActiveFullAdministrator()).as("narrowed by hand").isFalse();
+    }
+
     @Test
     @DisplayName("a new password -- an administrator's reset -- sets the hash and the temporary flag, and lets a locked user in early")
     void aNewPassword() {
         StaffUser first = theFirstAdministrator();
-        Instant until = Instant.now().plus(Duration.ofMinutes(15)).truncatedTo(ChronoUnit.MICROS);
-        new TransactionTemplate(transactions).executeWithoutResult(status -> {
-            for (int i = 0; i < 5; i++) {
-                users.countFailure(first.getId());
-            }
-            users.lockIfReached(first.getId(), 5, until);
-        });
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant until = now.plus(Duration.ofMinutes(15));
+        for (int i = 0; i < 5; i++) {
+            reserve(first.getId(), now, until);
+        }
         assertThat(users.lockedUntil(first.getId())).as("locked first").isEqualTo(until);
         String hash = encoder.encode("an-invented-settled-phrase");
         new TransactionTemplate(transactions).executeWithoutResult(status ->

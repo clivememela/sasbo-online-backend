@@ -66,6 +66,22 @@ class SignInConfigGuardTest {
                 .contains("org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration");
     }
 
+    /**
+     * 🔒 THE CALLER'S ADDRESS IS THE FORWARDED ONE, READ BY TOMCAT (the sign-in review, 7 Oct). The login throttle keys
+     * on it and a session records it; without this every request came from the host's proxy. `native` is Tomcat's
+     * RemoteIpValve, which reads X-Forwarded-For from the right past the internal proxies, so a client cannot choose its
+     * own key by sending the header -- `framework` would be a filter of Spring's, and none at all is the proxy's address.
+     */
+    @Test
+    @DisplayName("🔒 the forwarded address, read by Tomcat's valve: forward-headers-strategy native; the throttle bound to its variables")
+    void theCallersAddressIsTheForwardedOne() {
+        Map<String, String> config = flattened(new FileSystemResource(PRODUCTION_CONFIG));
+        assertThat(config.get("server.forward-headers-strategy")).isEqualTo("native");
+        assertThat(config.get("sasbo.signin.throttle.per-address-per-minute"))
+                .isEqualTo("${SASBO_SIGNIN_THROTTLE_PER_ADDRESS:30}");
+        assertThat(config.get("sasbo.signin.throttle.per-minute")).isEqualTo("${SASBO_SIGNIN_THROTTLE_PER_MINUTE:120}");
+    }
+
     @Test
     @DisplayName("canary: a password given a default is caught, and a placeholder without one passes")
     void thePredicateCanFail() {

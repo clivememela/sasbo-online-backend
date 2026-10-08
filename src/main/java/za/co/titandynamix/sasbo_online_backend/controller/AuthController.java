@@ -19,6 +19,7 @@ import za.co.titandynamix.sasbo_online_backend.dto.signin.SessionDto;
 import za.co.titandynamix.sasbo_online_backend.dto.signin.UserAnswerDto;
 import za.co.titandynamix.sasbo_online_backend.exception.SignInRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.SignInRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.security.SignInThrottle;
 import za.co.titandynamix.sasbo_online_backend.security.SignedInUser;
 import za.co.titandynamix.sasbo_online_backend.services.SignInService;
 
@@ -39,14 +40,20 @@ import za.co.titandynamix.sasbo_online_backend.services.SignInService;
 public class AuthController {
 
     private final SignInService signIn;
+    private final SignInThrottle throttle;
 
-    public AuthController(SignInService signIn) {
+    public AuthController(SignInService signIn, SignInThrottle throttle) {
         this.signIn = signIn;
+        this.throttle = throttle;
     }
 
-    /** Signs in: {@code {token, expiresAt, user}}. The token is shown in this answer only. */
+    /**
+     * Signs in: {@code {token, expiresAt, user}}. The token is shown in this answer only. Throttled first, before any
+     * password is checked ({@code SignInThrottle}): the caller's address is the forwarded one, read by Tomcat.
+     */
     @PostMapping("/login")
     public SessionDto login(@Valid @RequestBody LoginRequest request, HttpServletRequest http) {
+        throttle.admit(http.getRemoteAddr());
         return signIn.signIn(request, http.getRemoteAddr(), http.getHeader(HttpHeaders.USER_AGENT));
     }
 
