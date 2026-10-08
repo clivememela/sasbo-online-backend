@@ -7,6 +7,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -78,6 +80,17 @@ public class GlobalExceptionHandler {
      * keep returning their messages -- those are written FOR the user, and 01.2's
      * whole point is that the user finally sees them.
      */
+    /**
+     * A permission refused by method security ({@code @PreAuthorize}, October build) is the security filter chain's to
+     * answer -- 401 for nobody signed in, 403 for a user without the permission. Without this the catch-all below takes
+     * it first and answers a 500, logging a refusal as a failure. Thrown on unchanged: the resolver then leaves the
+     * original exception to Spring Security's {@code ExceptionTranslationFilter}.
+     */
+    @ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
+    public void securityRefusal(RuntimeException refusal) {
+        throw refusal;
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneralException(Exception ex, HttpServletRequest request) {
         String reference = UUID.randomUUID().toString().substring(0, 8);

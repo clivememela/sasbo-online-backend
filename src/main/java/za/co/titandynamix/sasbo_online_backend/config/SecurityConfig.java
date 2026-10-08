@@ -2,6 +2,7 @@ package za.co.titandynamix.sasbo_online_backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,6 +14,10 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+// October build: routes that need a permission say so with @PreAuthorize("hasAuthority('...')"), naming a
+// security.Permission. Nothing on main carries one, so this changes no route that exists; every route stays open
+// until the sign-in work decides what an anonymous caller may reach.
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
@@ -61,6 +66,10 @@ public class SecurityConfig {
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(List.of("*"));
+        // October build: the site calls the API cross-origin, so a browser hides every response header but a few
+        // unless it is exposed here -- a download's file name (Content-Disposition) and the debit order file's
+        // download count and checksum. One line for every stream's file routes.
+        config.setExposedHeaders(List.of("Content-Disposition", "X-File-Downloads", "X-File-Sha256"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

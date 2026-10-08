@@ -18,7 +18,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.MailSendException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -27,6 +34,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 import za.co.titandynamix.sasbo_online_backend.acb.AcbTime;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
+import za.co.titandynamix.sasbo_online_backend.monthend.MonthEndMailer;
+import za.co.titandynamix.sasbo_online_backend.monthend.MonthEndSftp;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
+import za.co.titandynamix.sasbo_online_backend.security.ScopedPrincipal;
+import za.co.titandynamix.sasbo_online_backend.services.MonthEndRegionPacks;
+import za.co.titandynamix.sasbo_online_backend.services.MonthEndSentFiles;
+import za.co.titandynamix.sasbo_online_backend.services.MonthEndStatistics;
 import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
 import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
 import za.co.titandynamix.sasbo_online_backend.utils.DataSeeder;
@@ -49,6 +63,13 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -74,6 +95,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.datasource.url=jdbc:h2:mem:month-end-examples;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"})
 @AutoConfigureMockMvc(addFilters = false)
 @Import(MonthEndExamplesTest.AFrozenClock.class)
+// October build: the routes held by MONTH_END_SEND are asked as a holder of it -- method security runs with the filters
+// off, and every route that holds no permission answers as it always has.
+@WithMockUser(authorities = "MONTH_END_SEND")
 @DisplayName("Month end's golden answers")
 class MonthEndExamplesTest {
 
@@ -106,22 +130,33 @@ class MonthEndExamplesTest {
      * preparation (04.10). {@code {pack}} is a pack prepared for the example.
      */
     record Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces,
-                   boolean packInHand) {
+                   boolean packInHand, String setup) {
         Example(String method, String path, String body) {
-            this(method, path, body, false, false, false);
+            this(method, path, body, false, false, false, "");
         }
 
         Example(String method, String path, String body, boolean gateHeld) {
-            this(method, path, body, gateHeld, false, false);
+            this(method, path, body, gateHeld, false, false, "");
         }
 
         Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces) {
-            this(method, path, body, gateHeld, withoutWorkplaces, false);
+            this(method, path, body, gateHeld, withoutWorkplaces, false, "");
+        }
+
+        Example(String method, String path, String body, boolean gateHeld, boolean withoutWorkplaces,
+                boolean packInHand) {
+            this(method, path, body, gateHeld, withoutWorkplaces, packInHand, "");
+        }
+
+        /** October build: an example asked in a setting of its own -- one of {@link MonthEndExamplesTest#SETUPS}. */
+        Example(String method, String path, String body, String setup) {
+            this(method, path, body, false, false, false, setup);
         }
 
         String key() {
             return method + " " + path.replaceAll("\\?.*$", "").replace("{member}", "{id}").replace("{pack}", "{id}")
-                    .replace("{workplace}", "{id}")
+                    .replace("{workplace}", "{id}").replace("{regionpack}", "{id}").replace("{southpack}", "{id}")
+                    .replace("{bankfile}", "{id}").replace("{lawcallfile}", "{id}")
                     .replaceAll("/\\d{4}-\\d{2}(/|$)", "/{month}$1")
                     .replaceAll("/\\d+/", "/{id}/");
         }
@@ -165,8 +200,45 @@ class MonthEndExamplesTest {
         // and a pack as the screen polls it.
         routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/pack", null));
         routes.add(new Example("GET", "/api/month-end/packs/{pack}", null));
+        // October build, the files that leave SASBO (monthend-packs): who gets what, and every change to it.
+        routes.add(new Example("GET", "/api/month-end/settings", null));
+        routes.add(new Example("POST", "/api/month-end/settings/recipients", "{\"code\": \"NORTH2\", "
+                + "\"label\": \"Invented North (second set)\", \"regionCode\": \"NORTH\", \"areaLetters\": [\"A\"], "
+                + "\"position\": \"Regional Secretary\", \"email\": \"regional.secretary.north2@example.org\", "
+                + "\"active\": false}"));
+        routes.add(new Example("PUT", "/api/month-end/settings/recipients/NORTH", "{\"label\": \"Invented North\", "
+                + "\"regionCode\": \"NORTH\", \"areaLetters\": [], \"position\": \"Regional Secretary\", "
+                + "\"email\": \"regional.secretary.north@example.org\", \"active\": true, \"version\": 0}"));
+        routes.add(new Example("POST", "/api/month-end/settings/banks", "{\"code\": \"INVENTED_LENDER\", "
+                + "\"name\": \"Invented Lender\", \"tableCodes\": [904], \"fullList\": false, \"layout\": \"CSV\"}"));
+        routes.add(new Example("PUT", "/api/month-end/settings/banks/INVENTED_INSURER", "{\"name\": \"Invented Insurer\", "
+                + "\"tableCodes\": [903], \"fullList\": true, \"layout\": \"SHEET\", \"active\": true, \"version\": 0}"));
+        routes.add(new Example("PUT", "/api/month-end/settings/providers/CRITICARE", "{\"active\": true, "
+                + "\"version\": 0}"));
+        // The regions' packs: the month's, one made, the month's sending, one e-mailed, the record of what was sent.
+        routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/region-packs", null, "PACK_DOWNLOADED"));
+        routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/region-packs/NORTH", null));
+        routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/region-packs/send", "{\"formats\": [\"PDF\"]}",
+                "PACK_MADE"));
+        routes.add(new Example("POST", "/api/month-end/region-packs/{regionpack}/email",
+                "{\"formats\": [\"PDF\", \"XLSX\"]}", "MAIL_ON"));
+        routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/deliveries?page=0&size=10", null,
+                "PACK_DOWNLOADED"));
+        // The banks' and providers' files: the month's, a bank's and a provider's made (the password shown once,
+        // written here as a placeholder), and Law Call's put onto its SFTP server where one is set up.
+        routes.add(new Example("GET", "/api/month-end/" + TAKEN + "/files", null, "FILE_MADE"));
+        routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/files/banks/INVENTED_BANK", null));
+        routes.add(new Example("POST", "/api/month-end/" + TAKEN + "/files/providers/OM_FUNERAL", null));
+        routes.add(new Example("POST", "/api/month-end/files/{lawcallfile}/sftp", null, "SFTP_ON"));
         return routes;
     }
+
+    /**
+     * The settings an October build example is asked in: mail on, or on and failing; SFTP set up, or set up and
+     * failing; a caller who sees one region; the switch below all; a pack made (and downloaded); a bank's file made.
+     */
+    static final Set<String> SETUPS = Set.of("", "MAIL_ON", "MAIL_FAILS", "SFTP_ON", "SFTP_FAILS", "REGION_USER",
+            "BELOW_ALL", "PACK_MADE", "PACK_DOWNLOADED", "FILE_MADE");
 
     /** The month the invented rows have taken. */
     static final String TAKEN = "2026-08";
@@ -226,6 +298,53 @@ class MonthEndExamplesTest {
         provoked.put(MonthEndRefusalCode.PACK_BUSY, new Example("POST", "/api/month-end/" + TAKEN + "/pack", null, false,
                 false, true));
         provoked.put(MonthEndRefusalCode.PACK_NOT_FOUND, new Example("GET", "/api/month-end/packs/999999", null));
+        // October build, the files that leave SASBO (monthend-packs): each refusal through its route.
+        String recipients = "/api/month-end/settings/recipients";
+        String banks = "/api/month-end/settings/banks";
+        provoked.put(MonthEndRefusalCode.PACK_SET_NOT_FOUND, new Example("PUT", recipients + "/NOWHERE",
+                "{\"version\": 0}"));
+        provoked.put(MonthEndRefusalCode.PACK_SET_INVALID, new Example("POST", recipients, "{\"code\": \"bad code!\"}"));
+        provoked.put(MonthEndRefusalCode.PACK_SET_TAKEN, new Example("POST", recipients, "{\"code\": \"NORTH\", "
+                + "\"label\": \"Again\", \"regionCode\": \"NORTH\", \"position\": \"Regional Secretary\", "
+                + "\"active\": false}"));
+        provoked.put(MonthEndRefusalCode.PACK_SET_OVERLAP, new Example("POST", recipients, "{\"code\": \"NORTH2\", "
+                + "\"label\": \"Invented North (second set)\", \"regionCode\": \"NORTH\", \"areaLetters\": [\"A\"], "
+                + "\"position\": \"Regional Secretary\", \"active\": true}"));
+        provoked.put(MonthEndRefusalCode.SETTING_CHANGED_SINCE, new Example("PUT", recipients + "/NORTH",
+                "{\"label\": \"Lost\", \"regionCode\": \"NORTH\", \"position\": \"Regional Secretary\", "
+                        + "\"version\": 7}"));
+        provoked.put(MonthEndRefusalCode.BANK_NOT_FOUND, new Example("PUT", banks + "/NOWHERE", "{\"version\": 0}"));
+        provoked.put(MonthEndRefusalCode.BANK_SETTING_INVALID, new Example("POST", banks, "{\"code\": \"OTHER\", "
+                + "\"name\": \"Other\", \"tableCodes\": [999], \"layout\": \"SHEET\"}"));
+        provoked.put(MonthEndRefusalCode.BANK_TAKEN, new Example("POST", banks, "{\"code\": \"INVENTED_BANK\", "
+                + "\"name\": \"Again\", \"tableCodes\": [904], \"fullList\": false, \"layout\": \"SHEET\"}"));
+        provoked.put(MonthEndRefusalCode.TABLE_CODE_TAKEN, new Example("POST", banks, "{\"code\": \"OTHER\", "
+                + "\"name\": \"Other\", \"tableCodes\": [901], \"fullList\": false, \"layout\": \"SHEET\"}"));
+        provoked.put(MonthEndRefusalCode.PROVIDER_NOT_FOUND, new Example("PUT",
+                "/api/month-end/settings/providers/NOWHERE", "{\"active\": true, \"version\": 0}"));
+        provoked.put(MonthEndRefusalCode.RECIPIENT_INACTIVE, new Example("POST",
+                "/api/month-end/" + TAKEN + "/files/providers/CRITICARE", null));
+        provoked.put(MonthEndRefusalCode.REGION_PACKS_UNAVAILABLE, new Example("POST",
+                "/api/month-end/" + TAKEN + "/region-packs/NORTH", null, "BELOW_ALL"));
+        provoked.put(MonthEndRefusalCode.REGION_PACK_NOT_FOUND, new Example("GET",
+                "/api/month-end/region-packs/999999/pdf", null));
+        provoked.put(MonthEndRefusalCode.PACK_NOT_PRODUCED, new Example("POST",
+                "/api/month-end/" + TAKEN + "/region-packs/send", "{\"formats\": [\"PDF\"]}"));
+        provoked.put(MonthEndRefusalCode.FILE_NOT_FOUND, new Example("GET", "/api/month-end/files/999999", null));
+        provoked.put(MonthEndRefusalCode.SCOPE_TOO_NARROW, new Example("GET", "/api/month-end/" + TAKEN + "/files",
+                null, "REGION_USER"));
+        provoked.put(MonthEndRefusalCode.MAIL_NOT_CONFIGURED, new Example("POST",
+                "/api/month-end/region-packs/{regionpack}/email", "{\"formats\": [\"PDF\"]}"));
+        provoked.put(MonthEndRefusalCode.RECIPIENT_HAS_NO_ADDRESS, new Example("POST",
+                "/api/month-end/region-packs/{southpack}/email", "{\"formats\": [\"PDF\"]}", "MAIL_ON"));
+        provoked.put(MonthEndRefusalCode.MAIL_FAILED, new Example("POST",
+                "/api/month-end/region-packs/{regionpack}/email", "{\"formats\": [\"XLSX\"]}", "MAIL_FAILS"));
+        provoked.put(MonthEndRefusalCode.SFTP_NOT_CONFIGURED, new Example("POST",
+                "/api/month-end/files/{lawcallfile}/sftp", null));
+        provoked.put(MonthEndRefusalCode.SFTP_NOT_FOR_THIS_RECIPIENT, new Example("POST",
+                "/api/month-end/files/{bankfile}/sftp", null));
+        provoked.put(MonthEndRefusalCode.SFTP_FAILED, new Example("POST", "/api/month-end/files/{lawcallfile}/sftp",
+                null, "SFTP_FAILS"));
         return provoked;
     }
 
@@ -244,6 +363,24 @@ class MonthEndExamplesTest {
 
     @Autowired
     private za.co.titandynamix.sasbo_online_backend.services.MonthEndPacks packs;
+
+    /** Mail is off on the examples' server unless an example turns it on. */
+    @MockitoBean
+    private MonthEndMailer mailer;
+
+    /** SFTP is not set up on the examples' server unless an example sets it up. */
+    @MockitoBean
+    private MonthEndSftp sftp;
+
+    /** The real statistics, but for the one example asked where the switch is below all. */
+    @MockitoSpyBean
+    private MonthEndStatistics statistics;
+
+    @Autowired
+    private MonthEndRegionPacks regionPacks;
+
+    @Autowired
+    private MonthEndSentFiles sentFiles;
 
     @Autowired
     private PlatformTransactionManager transactions;
@@ -267,6 +404,14 @@ class MonthEndExamplesTest {
         jdbc.update("UPDATE members SET status = 'Active' WHERE membership_number = ?", MEMBER);
         // No pack before any example: each asks from nothing, and is answered the same on every run.
         jdbc.update("DELETE FROM month_end_packs");
+        // October build: who gets what as invented, and nothing made or sent -- every row numbered from one, so an
+        // example's answer is the same on every run.
+        sendSettings();
+        reset(mailer, sftp, statistics);
+        when(mailer.configured()).thenReturn(false);
+        when(sftp.configured()).thenReturn(false);
+        when(sftp.state()).thenReturn(MonthEndSftp.NOT_CONFIGURED);
+        when(sftp.destination()).thenReturn("sftp.example.org");
         // A.1: the invented main street's two visits and no other, numbered from one -- the visit an example records is
         // answered with the same number on every run. (The fast lane's schema is the entities': no trigger here.)
         jdbc.update("DELETE FROM workplace_visits");
@@ -335,6 +480,76 @@ class MonthEndExamplesTest {
         takes.take(YearMonth.parse(TAKEN), DemonstrationMemberSeeder.SEED_ACTOR);
     }
 
+    /** The invented recipients, banks and providers, as an administrator left them -- and nothing made or sent. */
+    private void sendSettings() {
+        for (String table : List.of("month_end_deliveries", "month_end_region_packs", "month_end_files",
+                "month_end_bank_table_codes", "month_end_banks", "month_end_pack_sets", "month_end_providers")) {
+            jdbc.update("DELETE FROM " + table);
+            jdbc.execute("ALTER TABLE " + table + " ALTER COLUMN id RESTART WITH 1");
+        }
+        String at = "TIMESTAMP WITH TIME ZONE '2026-09-01 08:00:00+00:00'";
+        jdbc.update("INSERT INTO month_end_pack_sets (code, label, region_code, area_letters, position, email, active, "
+                + "version, updated_by, updated_at) VALUES ('NORTH', 'Invented North', 'NORTH', NULL, "
+                + "'Regional Secretary', 'regional.secretary.north@example.org', TRUE, 0, 'seed', " + at + "), "
+                + "('SOUTH', 'Invented South', 'SOUTH', NULL, 'Regional Secretary', NULL, TRUE, 0, 'seed', " + at + ")");
+        jdbc.update("INSERT INTO month_end_banks (code, name, full_list, layout, active, version, updated_by, updated_at) "
+                + "VALUES ('INVENTED_BANK', 'Invented Bank', TRUE, 'ABSA_FIXED_WIDTH', TRUE, 0, 'seed', " + at + "), "
+                + "('INVENTED_INSURER', 'Invented Insurer', FALSE, 'SHEET', TRUE, 0, 'seed', " + at + ")");
+        jdbc.update("INSERT INTO month_end_bank_table_codes (bank_id, table_code) VALUES (1, 901), (1, 902), (2, 903)");
+        jdbc.update("INSERT INTO month_end_providers (code, name, layout, delivery, active, version, updated_by, "
+                + "updated_at) VALUES ('OM_FUNERAL', 'Invented funeral benefit', 'OLD_MUTUAL_FUNERAL', 'DOWNLOAD', TRUE, "
+                + "0, 'seed', " + at + "), ('LAW_CALL', 'Invented legal cover', 'PROVISIONAL_MEMBER_LIST', 'SFTP', "
+                + "TRUE, 0, 'seed', " + at + "), ('CRITICARE', 'Invented suspended benefit', 'PROVISIONAL_MEMBER_LIST', "
+                + "'DOWNLOAD', FALSE, 0, 'seed', " + at + ")");
+    }
+
+    /** An October build example's setting, made before it is asked. */
+    private void setUp(String setup) throws Exception {
+        assertThat(SETUPS).contains(setup);
+        switch (setup) {
+            case "MAIL_ON" -> when(mailer.configured()).thenReturn(true);
+            case "MAIL_FAILS" -> {
+                when(mailer.configured()).thenReturn(true);
+                doThrow(new MailSendException("the invented mail server refused")).when(mailer)
+                        .send(anyString(), anyString(), anyString(), anyList());
+            }
+            case "SFTP_ON" -> when(sftp.configured()).thenReturn(true);
+            case "SFTP_FAILS" -> {
+                when(sftp.configured()).thenReturn(true);
+                doThrow(new IOException("JSchException")).when(sftp).upload(anyString(), any());
+            }
+            case "BELOW_ALL" -> doReturn(false).when(statistics).grouped();
+            case "PACK_MADE" -> regionPacks.produce(TAKEN, "NORTH", false);
+            case "PACK_DOWNLOADED" -> regionPacks.download(regionPacks.produce(TAKEN, "NORTH", false).pack().id(), "pdf")
+                    .body().accept(java.io.OutputStream.nullOutputStream());
+            case "FILE_MADE" -> sentFiles.produceBank(TAKEN, "INVENTED_BANK");
+            default -> {
+                // No setting of its own, or one made as the request is asked (REGION_USER).
+            }
+        }
+    }
+
+    /** A caller who sees one region, holding MONTH_END_SEND. */
+    private static Authentication aNorthUser() {
+        ScopedPrincipal north = new ScopedPrincipal() {
+            @Override
+            public String username() {
+                return "invented.regional";
+            }
+
+            @Override
+            public String displayName() {
+                return "Invented Regional";
+            }
+
+            @Override
+            public CallerScope scope() {
+                return CallerScope.regions(Set.of("NORTH"));
+            }
+        };
+        return new UsernamePasswordAuthenticationToken(north, null, List.of(new SimpleGrantedAuthority("MONTH_END_SEND")));
+    }
+
     private void workplace(int ra, String name, String employer, Integer tableCode, String by, String area,
                            String committee, int complement) {
         jdbc.update("INSERT INTO workplaces (ra_number, name, employer_printed, table_code_id, table_code_by, area_id, "
@@ -351,6 +566,19 @@ class MonthEndExamplesTest {
                 .replace("{workplace}", String.valueOf(workplace));
         if (path.contains("{pack}")) {
             path = path.replace("{pack}", String.valueOf(packs.ask(TAKEN).pack().id()));
+        }
+        setUp(example.setup());
+        if (path.contains("{regionpack}")) {
+            path = path.replace("{regionpack}", String.valueOf(regionPacks.produce(TAKEN, "NORTH", false).pack().id()));
+        }
+        if (path.contains("{southpack}")) {
+            path = path.replace("{southpack}", String.valueOf(regionPacks.produce(TAKEN, "SOUTH", false).pack().id()));
+        }
+        if (path.contains("{bankfile}")) {
+            path = path.replace("{bankfile}", String.valueOf(sentFiles.produceBank(TAKEN, "INVENTED_BANK").file().id()));
+        }
+        if (path.contains("{lawcallfile}")) {
+            path = path.replace("{lawcallfile}", String.valueOf(sentFiles.produceProvider(TAKEN, "LAW_CALL").file().id()));
         }
         MockHttpServletRequestBuilder request = switch (example.method()) {
             case "POST" -> example.body() == null ? post(path)
@@ -385,6 +613,15 @@ class MonthEndExamplesTest {
                 }
             });
         }
+        if ("REGION_USER".equals(example.setup())) {
+            Authentication everyRegion = SecurityContextHolder.getContext().getAuthentication();
+            SecurityContextHolder.getContext().setAuthentication(aNorthUser());
+            try {
+                return mockMvc.perform(request).andReturn();
+            } finally {
+                SecurityContextHolder.getContext().setAuthentication(everyRegion);
+            }
+        }
         if (!example.gateHeld()) {
             return mockMvc.perform(request).andReturn();
         }
@@ -416,6 +653,9 @@ class MonthEndExamplesTest {
         if (body instanceof ObjectNode object && object.has("workbooks") && object.has("id")) {
             object.put("id", 1);
         }
+        // October build: a file's size and hash are a cipher's or a writer's of the moment, and a password is made for
+        // each file -- written as placeholders, wherever they stand in an answer.
+        normaliseFiles(body);
         if (body instanceof ObjectNode object && "PACK_BUSY".equals(object.path("code").asText())
                 && object.path("details") instanceof ObjectNode details && details.has("pack")) {
             details.put("pack", "1");
@@ -423,10 +663,30 @@ class MonthEndExamplesTest {
         return body;
     }
 
+    /** Every {@code sha256}, {@code bytes} and {@code password} in an answer, as a placeholder. */
+    private static void normaliseFiles(JsonNode node) {
+        if (node instanceof ObjectNode object) {
+            if (object.has("sha256")) {
+                object.put("sha256", "<sha256 of the file>");
+            }
+            if (object.has("bytes") && object.get("bytes").isNumber()) {
+                object.put("bytes", 0);
+            }
+            if (object.has("password")) {
+                object.put("password", "<shown once>");
+            }
+        }
+        node.forEach(MonthEndExamplesTest::normaliseFiles);
+    }
+
     private ObjectNode recorded(ObjectNode into, String key, Example example, MvcResult result) throws IOException {
         ObjectNode entry = into.putObject(key);
         entry.put("request", example.method() + " " + example.path().replace("{member}", "{id}")
-                .replace("{pack}", "{id}"));
+                .replace("{pack}", "{id}").replace("{regionpack}", "{id}").replace("{southpack}", "{id}")
+                .replace("{bankfile}", "{id}").replace("{lawcallfile}", "{id}"));
+        if (!example.setup().isEmpty()) {
+            entry.put("setting", example.setup());
+        }
         if (example.body() != null) {
             entry.set("requestBody", objectMapper.readTree(example.body()));
         }

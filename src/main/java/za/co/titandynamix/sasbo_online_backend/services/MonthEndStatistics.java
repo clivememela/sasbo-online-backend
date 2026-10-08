@@ -462,6 +462,32 @@ public class MonthEndStatistics {
     /** How long a job waits for a place at the gate. */
     static final java.time.Duration JOB_WAIT = java.time.Duration.ofMinutes(2);
 
+    /**
+     * October build, the regions' packs (Stephne MEN-08: each region gets "only there regions info"): every statistic of
+     * a month for each place a pack covers -- each of {@code areas}, or the whole of {@code region} where it names none --
+     * from ONE read of the month, cut as {@link #read} cuts it. The visits too: the regions use both the branch list and
+     * the visits report (MEN-38). A screen's read: a full gate is {@code SUMMARY_UNAVAILABLE} at once, unless
+     * {@code waitForAPlace}.
+     */
+    public Map<String, List<MonthEndStatisticDto>> forPack(String month, String region, List<String> areas,
+                                                           boolean waitForAPlace) {
+        Read whole = read(month, null, null, waitForAPlace);
+        Map<String, List<MonthEndStatisticDto>> places = new LinkedHashMap<>();
+        if (areas.isEmpty()) {
+            places.put(region, everyStatistic(whole.within(null, region)));
+        } else {
+            for (String area : areas) {
+                places.put(area, everyStatistic(whole.within(area, null)));
+            }
+        }
+        return places;
+    }
+
+    private List<MonthEndStatisticDto> everyStatistic(Read read) {
+        return List.of(newAndDeleted(read), membership(read), leavers(read), branches(read), recruitment(read),
+                representatives(read), visits(read));
+    }
+
     /** 04.3, 04.7, 04.8: a listing names members, and refuses every caller until sign-in exists -- before anything is read. */
     public static MonthEndRefusal listingRefused(String listing) {
         return new MonthEndRefusal(MonthEndRefusalCode.IDENTITY_REQUIRED, "A listing names members, so it waits until "
@@ -487,6 +513,16 @@ public class MonthEndStatistics {
 
         boolean scoped() {
             return area != null || region != null;
+        }
+
+        /** The same month cut to one area or one region, exactly as {@link MonthEndStatistics#read} cuts it. */
+        Read within(String inArea, String inRegion) {
+            List<Fact> inScope = allFacts.stream().filter(f -> inScope(f.areaLetter(), f.regionCode(),
+                    f.workplaceKey() == 0, inArea, inRegion, grouped)).toList();
+            Set<Long> keys = inScope.stream().map(Fact::workplaceKey).collect(Collectors.toSet());
+            List<Count> scopedCounts = counts.stream().filter(c -> keys.contains(c.workplaceKey())
+                    || (c.workplaceKey() == 0 && inArea == null && inRegion == null)).toList();
+            return new Read(month, range, taken, allFacts, inScope, scopedCounts, grouped, inArea, inRegion);
         }
     }
 
