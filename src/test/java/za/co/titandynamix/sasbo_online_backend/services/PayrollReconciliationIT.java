@@ -506,9 +506,21 @@ class PayrollReconciliationIT extends AbstractSwitchedOnIT {
         PayrollItSupport.insert(jdbc, List.of(new PayrollItSupport.MemberRow("T-00001", "1", null, "Mr", "RT", "Remo Taxo",
                 "Ledgerwood", "Active", "Payroll Deduction", "GBS MUTUAL BANK", new BigDecimal("174.00"))));
         long employer = employerRepository.findByCode("GBS").orElseThrow().getId();
+        // Whether 2025 has a rate is another stream's to say: dod's V70 seeds a provisional R166.65 from January 2025,
+        // and the merged tree carries it. With it on record the two months come to R340.65 and R348.00 is priced --
+        // the wrong amount, which is what this test answered in the merged tree before it took its own rates.
+        jdbc.update("INSERT INTO acb_rates (effective_from, amount, source) SELECT DATE '2025-01-01', 166.65, 'as the "
+                + "merged tree seeds it' WHERE NOT EXISTS (SELECT 1 FROM acb_rates WHERE effective_from = DATE '2025-01-01')");
         long file = files.typed(new PayrollTypedEntryRequest(employer, "2026-01", null,
                 List.of(new PayrollTypedEntryRequest.Row("1", null, "RT", "Ledgerwood", "348.00"))), "an IT")
                 .summary().file().id();
+        assertThat(files.rows(file, null, null, null).content().get(0).match().amountStatus())
+                .as("with a rate for 2025 on record").isEqualTo("DIFFERS");
+
+        // No rate before January 2026, whatever any seed wrote: the test's own rates, which DatabaseReset restores
+        // after it. Compared again, December 2025 is never priced at R174.00.
+        jdbc.update("DELETE FROM acb_rates WHERE effective_from < DATE '2026-01-01'");
+        files.reconcile(file, new PayrollReconcileRequest(null, null), "an IT");
         PayrollRowDto.Match match = files.rows(file, null, null, null).content().get(0).match();
         assertThat(match.amountStatus()).isEqualTo("RATE_UNKNOWN");
         assertThat(match.rateUnknownFor()).isEqualTo("2025-12");
