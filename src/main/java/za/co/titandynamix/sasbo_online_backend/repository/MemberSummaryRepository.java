@@ -16,6 +16,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.List;
@@ -66,6 +67,8 @@ public class MemberSummaryRepository {
     public static final String NO_TABLE_CODE = "~NO_TABLE_CODE";
     public static final String NO_EMPLOYER = "~NO_EMPLOYER";
     public static final String NO_REGION = "~NO_REGION";
+    /** October build, MEN-31: a table code in no core tier -- "All other are captured under individual institutions". */
+    public static final String NO_TIER = "~NO_TIER";
 
     /** The parts of the statement's answer. */
     public static final String ROW = "ROW";
@@ -111,13 +114,21 @@ public class MemberSummaryRepository {
      * the plan's shape (MV-26) explains exactly what a request issues -- never a copy of it typed out again.
      */
     public static MapSqlParameterSource parameters(Ask ask) {
+        // The calendar month's instants, and the floors below which no window of it can start (MEN-14): the window
+        // itself is worked out by the statement, from the takes, so that a request stays ONE statement (MR-ROB-18).
+        YearMonth month = ask.month().month();
+        MonthRange calendar = MonthRange.of(month);
         return new MapSqlParameterSource()
-                .addValue("start", utc(ask.month().start()))
-                .addValue("next", utc(ask.month().next()))
-                .addValue("yearStart", utc(ask.month().yearStart()))
-                .addValue("firstDay", ask.month().firstDay())
-                .addValue("firstDayOfNext", ask.month().firstDayOfNext())
-                .addValue("firstDayOfYear", ask.month().firstDayOfYear())
+                .addValue("calStart", utc(calendar.start()))
+                .addValue("calNext", utc(calendar.next()))
+                .addValue("calYear", utc(calendar.yearStart()))
+                .addValue("floorStart", utc(MonthRange.of(month.minusMonths(1)).start()))
+                .addValue("floorYear", utc(MonthRange.of(YearMonth.of(month.getYear() - 1, 12)).start()))
+                .addValue("firstDayOfPrevious", month.minusMonths(1).atDay(1))
+                .addValue("firstDayOfDecember", YearMonth.of(month.getYear() - 1, 12).atDay(1))
+                .addValue("firstDay", calendar.firstDay())
+                .addValue("firstDayOfNext", calendar.firstDayOfNext())
+                .addValue("firstDayOfYear", calendar.firstDayOfYear())
                 .addValue("seeded", ask.seeded().isEmpty() ? List.of("~none") : ask.seeded())
                 .addValue("area", ask.area())
                 .addValue("region", ask.region());
@@ -142,6 +153,7 @@ public class MemberSummaryRepository {
                 + "AND tk.replaces_id IS NULL)";
         String workplaceJoins = """
                   LEFT JOIN table_codes t ON t.id = w.table_code_id
+                  LEFT JOIN core_tiers ct ON ct.id = t.core_tier_id
                   LEFT JOIN employers e ON e.id = t.employer_id
                   LEFT JOIN employer_groups g ON g.id = e.group_id
                   LEFT JOIN sasbo_areas a ON a.id = w.area_id
@@ -158,8 +170,6 @@ public class MemberSummaryRepository {
         String core = ask.grouped() && ask.by() == SummaryGrouping.GROUP ? "CASE WHEN g.core THEN 1 ELSE 0 END" : "0";
         String endKind = kind("end_status");
         String startKind = kind("start_status");
-        String toKind = kind("c.to_status");
-        String fromKind = kind("c.from_status");
         String noTaking = ", CAST(NULL AS TIMESTAMP WITH TIME ZONE), CAST(NULL AS VARCHAR(100))";
         String complement = ask.complementServed() && ask.grouped() ? """
                 UNION ALL
@@ -171,8 +181,8 @@ public class MemberSummaryRepository {
                 GROUP BY %s
                 """.formatted(key, label, core, order, noTaking, workplaceJoins,
                         where.isEmpty() ? " WHERE " : where + " AND ", "w.closed_on IS NULL", taken, key) : "";
-        return """
-                WITH after_end AS (
+        return counting("""
+                WITH %28$s, after_end AS (
                 %23$s
                 ), after_start AS (
                 %24$s
@@ -180,9 +190,10 @@ public class MemberSummaryRepository {
                   SELECT c.member_id,
                     SUM(CASE WHEN c.changed_at >= :start AND %1$s THEN 1 ELSE 0 END) AS left_n,
                     SUM(CASE WHEN c.changed_at >= :start AND %2$s THEN 1 ELSE 0 END) AS reinstated_n,
-                    SUM(CASE WHEN %1$s THEN 1 ELSE 0 END) AS left_ytd
+                    SUM(CASE WHEN %27$s THEN 1 ELSE 0 END) AS left_ytd
                   FROM member_status_changes c
-                  WHERE c.changed_at >= :yearStart AND c.changed_at < :next
+                  WHERE c.changed_at >= :floorYear AND c.changed_at < :calNext
+                    AND c.changed_at >= :yearStart AND c.changed_at < :next
                   GROUP BY c.member_id
                 ), placed AS (
                   SELECT %3$s AS gkey, %4$s AS glabel, %5$s AS gcore, %6$s AS gorder,
@@ -240,12 +251,46 @@ public class MemberSummaryRepository {
                        (SELECT tk.taken_by FROM month_end_months tk WHERE tk.month_start = :firstDay
                           AND %22$s)
                 FROM (SELECT 1 AS one) single_row
-                """.formatted(intoLeaving(toKind, fromKind), outOfLeaving(toKind, fromKind), key, label, core, order,
+                """.formatted(leaving("c", "start"), reinstating("c", "start"), key, label, core, order,
                 memberWorkplace, workplaceJoins, where, endKind, startKind, complement, known(ask), taken, noTaking,
                 takenHalf(ask, taken), counted(ask), present(ask, key, label, core, order, workplaceJoins),
-                membersFrom(ask, taken), joined("m", "firstDay"), joined("m", "firstDayOfYear"),
-                MonthEndFactsRepository.NEWEST_TAKE.formatted("tk"), firstChangeFrom("next"),
-                firstChangeFrom("start"), statusAt("m", "ae", "firstDayOfNext"), statusAt("m", "ast", "firstDay"));
+                membersFrom(ask, taken), joined("m", "start", "firstDay"), joined("m", "yearStart", "firstDayOfYear"),
+                MonthEndFactsRepository.NEWEST_TAKE.formatted("tk"), firstChangeFrom("next", "calStart"),
+                firstChangeFrom("start", "floorStart"), statusAt("m", "ae", "next", "firstDayOfNext"),
+                statusAt("m", "ast", "start", "firstDay"), leaving("c", "yearStart"), window(ask)));
+    }
+
+    /** Where the window's instants are read in the statement: from {@code win}, once (MEN-14). */
+    static final String WINDOW_START = "(SELECT win.ws FROM win)";
+    static final String WINDOW_END = "(SELECT win.wn FROM win)";
+    static final String WINDOW_YEAR = "(SELECT win.wy FROM win)";
+
+    /**
+     * The statement as a month COUNTS it (Stephne, MEN-14: "After month end is done - all capturing and changes move to
+     * the next month"): the instants its fragments are written with -- {@code :start}, {@code :next} and
+     * {@code :yearStart}, as the take binds them -- read here from the window the statement works out itself, so that a
+     * request is still one statement (MR-ROB-18). The dates stay bound: they are the calendar's.
+     */
+    static String counting(String statement) {
+        return statement.replace(":yearStart", WINDOW_YEAR).replace(":start", WINDOW_START)
+                .replace(":next", WINDOW_END);
+    }
+
+    /**
+     * The window the month counts, as {@code MonthEndTakes} works it out for a take: from the cut-off of the month
+     * before -- its newest take's, or the 1st at 00:00 where it was never taken -- up to the month's own cut-off, or the
+     * end of the calendar month where it is not taken; its year from the cut-off of the December before. A take's
+     * cut-off is the end of the window it counted, or, for a take made before the window was kept, its instant, never
+     * past its month's end (TakenMonth.cutOff).
+     */
+    static String window(Ask ask) {
+        String cutOff = "(SELECT COALESCE(%1$s.counts_until, LEAST(%1$s.taken_at, :%2$s)) FROM month_end_months %1$s"
+                + " WHERE %1$s.month_start = :%3$s AND " + MonthEndFactsRepository.NEWEST_TAKE.formatted("%1$s") + ")";
+        String start = "COALESCE(" + cutOff.formatted("wp", "calStart", "firstDayOfPrevious") + ", :calStart)";
+        String end = "COALESCE(" + cutOff.formatted("wc", "calNext", "firstDay") + ", :calNext)";
+        String year = ask.month().month().getMonthValue() == 1 ? start
+                : "COALESCE(" + cutOff.formatted("wd", "calYear", "firstDayOfDecember") + ", :calYear)";
+        return "win AS (SELECT " + start + " AS ws, " + end + " AS wn, " + year + " AS wy FROM (SELECT 1 AS one) w0)";
     }
 
     /**
@@ -268,19 +313,24 @@ public class MemberSummaryRepository {
                         + " WHERE sr.code = :region)"
                 : "";
         return """
-                (SELECT m1.id, m1.status, m1.join_date, m1.workplace_id, m1.membership_number FROM members m1
+                (SELECT m1.id, m1.status, m1.join_date, m1.captured_at, m1.workplace_id, m1.membership_number
+                   FROM members m1
                    WHERE m1.status NOT IN (%1$s)%2$s
                  UNION ALL
-                 SELECT m2.id, m2.status, m2.join_date, m2.workplace_id, m2.membership_number FROM members m2
+                 SELECT m2.id, m2.status, m2.join_date, m2.captured_at, m2.workplace_id, m2.membership_number
+                   FROM members m2
                    WHERE (m2.status IS NULL OR m2.status IN (%1$s))
-                     AND m2.id IN (SELECT c0.member_id FROM member_status_changes c0 WHERE c0.changed_at >= :yearStart)
+                     AND m2.id IN (SELECT c0.member_id FROM member_status_changes c0
+                                   WHERE c0.changed_at >= :floorYear AND c0.changed_at >= :yearStart)
                  UNION ALL
-                 SELECT m3.id, m3.status, m3.join_date, m3.workplace_id, m3.membership_number FROM members m3
+                 SELECT m3.id, m3.status, m3.join_date, m3.captured_at, m3.workplace_id, m3.membership_number
+                   FROM members m3
                    WHERE (m3.status IS NULL OR m3.status IN (%1$s))
                      AND %3$s
                      AND NOT EXISTS (SELECT 1 FROM member_status_changes c1
-                                     WHERE c1.member_id = m3.id AND c1.changed_at >= :yearStart))""".formatted(leaving,
-                within, joined("m3", "firstDayOfYear"));
+                                     WHERE c1.member_id = m3.id AND c1.changed_at >= :floorYear
+                                       AND c1.changed_at >= :yearStart))""".formatted(leaving,
+                within, joined("m3", "yearStart", "firstDayOfYear"));
     }
 
     /**
@@ -411,6 +461,7 @@ public class MemberSummaryRepository {
             case AREA -> "f.area_letter";
             case REGION -> "f.region_code";
             case COMMITTEE -> "f.committee_code";
+            case TIER -> "f.core_tier";
         };
         StringBuilder sql = new StringBuilder("CASE WHEN f.workplace_key = 0 THEN '" + NO_WORKPLACE + "'");
         if (by.throughTableCode()) {
@@ -421,6 +472,9 @@ public class MemberSummaryRepository {
         }
         if (by == SummaryGrouping.REGION) {
             sql.append(" WHEN f.region_code IS NULL THEN '").append(NO_REGION).append("'");
+        }
+        if (by == SummaryGrouping.TIER) {
+            sql.append(" WHEN f.core_tier IS NULL THEN '").append(NO_TIER).append("'");
         }
         return sql.append(" ELSE ").append(named).append(" END").toString();
     }
@@ -433,6 +487,8 @@ public class MemberSummaryRepository {
             case AREA -> "f.area_letter";
             case REGION -> "f.region_name";
             case COMMITTEE -> "f.committee_name";
+            // A tier is read by its letter, frozen with the month: Core A, Core B, Core C.
+            case TIER -> "CAST('Core ' || f.core_tier AS VARCHAR(100))";
         };
     }
 
@@ -468,6 +524,7 @@ public class MemberSummaryRepository {
             case AREA -> "a.letter";
             case REGION -> "r.code";
             case COMMITTEE -> "w.committee_code";
+            case TIER -> "ct.code";
         };
         StringBuilder sql = new StringBuilder("CASE WHEN w.id IS NULL THEN '" + NO_WORKPLACE + "'");
         if (by.throughTableCode()) {
@@ -478,6 +535,9 @@ public class MemberSummaryRepository {
         }
         if (by == SummaryGrouping.REGION) {
             sql.append(" WHEN r.id IS NULL THEN '").append(NO_REGION).append("'");
+        }
+        if (by == SummaryGrouping.TIER) {
+            sql.append(" WHEN ct.id IS NULL THEN '").append(NO_TIER).append("'");
         }
         return sql.append(" ELSE ").append(named).append(" END").toString();
     }
@@ -490,6 +550,8 @@ public class MemberSummaryRepository {
             case AREA -> "a.letter";
             case REGION -> "r.name";
             case COMMITTEE -> "cm.name";
+            // As the taken half reads it: by the tier's letter (factLabel).
+            case TIER -> "CAST('Core ' || ct.code AS VARCHAR(100))";
         };
     }
 
@@ -522,12 +584,17 @@ public class MemberSummaryRepository {
     }
 
     /**
-     * RULE N (PA-1, MM23): a member is new from {@code :fromDay} up to the next month's first when their Date Joined
-     * falls between -- whatever their status now. Written here once: the month's and the year's figures, the members
-     * the statement reads, and a month's facts, its recruits and the captures since it was taken all ask it.
+     * RULE N (PA-1, MM23), with the cut-off (Stephne, MEN-14: "After month end is done - all capturing and changes move
+     * to the next month"): a member is new in a window when they were CAPTURED in it -- the instant the capture was
+     * saved, from {@code :fromInstant} up to, not including, {@code :next} -- whatever their status now. A member with
+     * no instant of capture on record (captured before it was kept, or seeded) is new when their Date Joined falls from
+     * {@code :fromDay} up to the next month's first, as the rule always read. Written here once: the month's and the
+     * year's figures, the members the statement reads, and a month's facts and its recruits all ask it.
      */
-    static String joined(String member, String fromDay) {
-        return member + ".join_date >= :" + fromDay + " AND " + member + ".join_date < :firstDayOfNext";
+    static String joined(String member, String fromInstant, String fromDay) {
+        return ("((%1$s.captured_at IS NOT NULL AND %1$s.captured_at >= :%2$s AND %1$s.captured_at < :next)"
+                + " OR (%1$s.captured_at IS NULL AND %1$s.join_date >= :%3$s AND %1$s.join_date < :firstDayOfNext))")
+                .formatted(member, fromInstant, fromDay);
     }
 
     /**
@@ -548,14 +615,38 @@ public class MemberSummaryRepository {
     }
 
     /**
+     * RULE L as a month counts it: change {@code change} is a leaving (rule L), and is not undone by a reinstatement in
+     * the same window -- from {@code :fromInstant} up to {@code :next}. Stephne, MEN-23: "We would like to retain current
+     * membership as it happened in the same month"; the leaving stays on record, and is counted in no month.
+     */
+    static String leaving(String change, String fromInstant) {
+        return intoLeaving(kind(change + ".to_status"), kind(change + ".from_status"))
+                + (" AND NOT EXISTS (SELECT 1 FROM member_status_changes undoing WHERE undoing.undoes_id = %1$s.id"
+                + " AND undoing.changed_at >= :%2$s AND undoing.changed_at < :next)").formatted(change, fromInstant);
+    }
+
+    /**
+     * RULE R as a month counts it: change {@code change} is a reinstatement (rule R), and does not undo a leaving in the
+     * same window (MEN-23) -- the two are counted as neither.
+     */
+    static String reinstating(String change, String fromInstant) {
+        return outOfLeaving(kind(change + ".to_status"), kind(change + ".from_status"))
+                + (" AND (%1$s.undoes_id IS NULL OR NOT EXISTS (SELECT 1 FROM member_status_changes undone"
+                + " WHERE undone.id = %1$s.undoes_id AND undone.changed_at >= :%2$s AND undone.changed_at < :next))")
+                .formatted(change, fromInstant);
+    }
+
+    /**
      * A member's status AT AN INSTANT -- the opening and the closing that rule S adds up: the status their first change
      * at or after the instant moved them FROM, or the one on record where nothing has changed since; and none at all
-     * for a member who joined on or after {@code :joinedBefore}, who was not one of them then. Written here once, for
-     * the figures and the facts, over {@link #firstChangeFrom the first change} joined in as {@code firstChange}.
+     * for a member who was not one of them then -- captured at or after {@code :instant}, or, with no instant of
+     * capture on record, joined on or after {@code :day} (rule N, MEN-14). Written here once, for the figures and the
+     * facts, over {@link #firstChangeFrom the first change} joined in as {@code firstChange}.
      */
-    static String statusAt(String member, String firstChange, String joinedBefore) {
-        return ("CASE WHEN %1$s.join_date IS NULL OR %1$s.join_date < :%3$s"
-                + " THEN COALESCE(%2$s.from_status, %1$s.status) END").formatted(member, firstChange, joinedBefore);
+    static String statusAt(String member, String firstChange, String instant, String day) {
+        return ("CASE WHEN (%1$s.captured_at IS NOT NULL AND %1$s.captured_at < :%3$s)"
+                + " OR (%1$s.captured_at IS NULL AND (%1$s.join_date IS NULL OR %1$s.join_date < :%4$s))"
+                + " THEN COALESCE(%2$s.from_status, %1$s.status) END").formatted(member, firstChange, instant, day);
     }
 
     /**
@@ -570,6 +661,19 @@ public class MemberSummaryRepository {
                     WHERE x.member_id = c.member_id AND x.changed_at >= :%1$s
                       AND (x.changed_at < c.changed_at OR (x.changed_at = c.changed_at AND x.id < c.id)))\
                 """.formatted(instant);
+    }
+
+    /**
+     * {@link #firstChangeFrom(String)} where the instant is the window's, worked out in the statement: with a bound
+     * {@code :floor} the instant is never before, so the planner reads the changes by their index from a value it knows.
+     */
+    static String firstChangeFrom(String instant, String floor) {
+        return """
+                  SELECT c.member_id, c.from_status FROM member_status_changes c
+                  WHERE c.changed_at >= :%2$s AND c.changed_at >= :%1$s AND NOT EXISTS (SELECT 1 FROM member_status_changes x
+                    WHERE x.member_id = c.member_id AND x.changed_at >= :%2$s AND x.changed_at >= :%1$s
+                      AND (x.changed_at < c.changed_at OR (x.changed_at = c.changed_at AND x.id < c.id)))\
+                """.formatted(instant, floor);
     }
 
     private static String letter(MemberStatusKind kind) {

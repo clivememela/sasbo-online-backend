@@ -71,13 +71,85 @@ public class SasboReferenceRepository {
     }
 
     public List<ReferenceRows.TableCode> tableCodes() {
-        return jdbc.query("SELECT t.code, t.name, t.employer_id, e.name AS employer, t.part FROM table_codes t "
-                        + "LEFT JOIN employers e ON e.id = t.employer_id ORDER BY t.code",
+        return jdbc.query("SELECT t.code, t.name, t.employer_id, e.name AS employer, t.part, ct.code AS core_tier "
+                        + "FROM table_codes t LEFT JOIN employers e ON e.id = t.employer_id "
+                        + "LEFT JOIN core_tiers ct ON ct.id = t.core_tier_id ORDER BY t.code",
                 (rs, n) -> {
                     long employerId = rs.getLong("employer_id");
-                    return new ReferenceRows.TableCode(rs.getInt("code"), rs.getString("name"),
-                            rs.wasNull() ? null : employerId, rs.getString("employer"), rs.getString("part"));
+                    Long employer = rs.wasNull() ? null : employerId;
+                    return new ReferenceRows.TableCode(rs.getInt("code"), rs.getString("name"), employer,
+                            rs.getString("employer"), rs.getString("part"), rs.getString("core_tier"));
                 });
+    }
+
+    /** MEN-31: the core tiers, each with the table codes standing in it, in order -- one statement, then folded. */
+    public List<ReferenceRows.CoreTier> coreTiers() {
+        Map<String, ReferenceRows.CoreTier> tiers = new LinkedHashMap<>();
+        Map<String, List<Integer>> codes = new LinkedHashMap<>();
+        jdbc.query("SELECT ct.code, ct.name, ct.ordinal, ct.confirmed_on, t.code AS table_code FROM core_tiers ct "
+                + "LEFT JOIN table_codes t ON t.core_tier_id = ct.id ORDER BY ct.ordinal, t.code", rs -> {
+                    String code = rs.getString("code");
+                    if (!tiers.containsKey(code)) {
+                        tiers.put(code, new ReferenceRows.CoreTier(code, rs.getString("name"), rs.getInt("ordinal"),
+                                rs.getDate("confirmed_on") == null, List.of()));
+                        codes.put(code, new ArrayList<>());
+                    }
+                    int tableCode = rs.getInt("table_code");
+                    if (!rs.wasNull()) {
+                        codes.get(code).add(tableCode);
+                    }
+                });
+        return tiers.values().stream().map(t -> new ReferenceRows.CoreTier(t.code(), t.name(), t.ordinal(),
+                t.provisional(), List.copyOf(codes.get(t.code())))).toList();
+    }
+
+    /** The id of the core tier with the letter {@code code}, where there is one. */
+    public Optional<Long> coreTierId(String code) {
+        return jdbc.queryForList("SELECT id FROM core_tiers WHERE code = ?", Long.class, code).stream().findFirst();
+    }
+
+    /** One table code as the tier maintenance answers it: its name, its tier, and who set the tier and when. */
+    public record TableCodeTier(int code, String name, String coreTier, String setBy, Instant setAt) {
+    }
+
+    /** The table code with SASBO's number {@code code}, with its tier. */
+    public Optional<TableCodeTier> tableCodeTier(int code) {
+        return jdbc.query("SELECT t.code, t.name, ct.code AS core_tier, t.core_tier_by, t.core_tier_at FROM table_codes t "
+                        + "LEFT JOIN core_tiers ct ON ct.id = t.core_tier_id WHERE t.code = ?",
+                (rs, n) -> {
+                    Timestamp at = rs.getTimestamp("core_tier_at");
+                    return new TableCodeTier(rs.getInt("code"), rs.getString("name"), rs.getString("core_tier"),
+                            rs.getString("core_tier_by"), at == null ? null : at.toInstant());
+                }, code).stream().findFirst();
+    }
+
+    /** Sets a table code's tier -- {@code null} for all other -- with who and when. One row, by SASBO's number. */
+    public int setTableCodeTier(int code, Long tierId, String by, Instant at) {
+        return jdbc.update("UPDATE table_codes SET core_tier_id = ?, core_tier_by = ?, core_tier_at = ? WHERE code = ?",
+                tierId, by, Timestamp.from(at), code);
+    }
+
+    /** MEN-17: the suspension codes the reasons for no payroll deduction stand under -- active or not. */
+    public List<Integer> noDeductionCodes() {
+        return jdbc.queryForList("SELECT DISTINCT suspension_code FROM no_deduction_reasons ORDER BY suspension_code",
+                Integer.class);
+    }
+
+    /** A reason for no payroll deduction as a status change names it (MEN-17). */
+    public record NoDeductionReasonRow(long id, String name, int suspensionCode, boolean active) {
+    }
+
+    /** The reason with this id, active or not. */
+    public Optional<NoDeductionReasonRow> noDeductionReason(long id) {
+        return jdbc.query("SELECT id, name, suspension_code, active FROM no_deduction_reasons WHERE id = ?",
+                (rs, n) -> new NoDeductionReasonRow(rs.getLong("id"), rs.getString("name"), rs.getInt("suspension_code"),
+                        rs.getBoolean("active")), id).stream().findFirst();
+    }
+
+    /** The ids of the active reasons under a code, in the list's order -- what a refusal says may be chosen. */
+    public List<Long> activeNoDeductionReasonsUnder(int code) {
+        return jdbc.queryForList("SELECT id FROM no_deduction_reasons WHERE suspension_code = ? AND active = TRUE "
+                + "ORDER BY ordinal, name", Long.class, code);
     }
 
     public List<ReferenceRows.CommitteeProvince> committeeProvinces() {

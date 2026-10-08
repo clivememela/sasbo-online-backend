@@ -248,6 +248,15 @@ tasks.register('generateApiSurface', Test) {
 		// data/demonstration_members.json: the invented members who stand at SASBO's workplaces (01.4), generated
 		// with a fixed random seed from the workplaces and nine proportions, and checked byte for byte (BR69).
 		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberGeneratorTest'
+		// data/month_end_rules_members.json: month end's rules shown working -- invented members suspended within six
+		// banks, a rejoin in the same month, a workplace over its complement -- written by rule and checked byte for byte.
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.MonthEndRulesSeedGeneratorTest'
+		// data/demonstration_population.json: the October build's demonstration population -- every region's areas,
+		// movement in each past month, every suspension and deletion code -- generated and checked byte for byte.
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.DemonstrationPopulationGeneratorTest'
+		// src/test/resources/demo/demo-answers-2026-10-14.json: the screens' answers over the seeded demonstration on
+		// Wed 14 Oct 2026, 09:30 SAST -- the presentation's fixtures; invented data only, SASBO's workplaces masked (MD57).
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.guards.DemoAnswersTest'
 	}
 
 	systemProperty 'apiSurface.write', 'true'

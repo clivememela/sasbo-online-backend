@@ -116,6 +116,17 @@ public class WorkplaceVisitSeeder {
                 List.copyOf(rows));
     }
 
+    /**
+     * When one of SASBO's printed visits is on record from: the first day of the month it was made in, in SASBO's zone --
+     * never later than now. A month taken reads only the visits on record when it was taken (MD19), and the seed dates
+     * its own takes at the end of each past month (MonthEndTakeSeeder); stamped with the start's instant instead, every
+     * printed visit would postdate every seeded take, and each taken month's branches would all read "never visited".
+     */
+    static Timestamp knownFrom(YearMonth month, Timestamp now) {
+        Timestamp from = Timestamp.from(month.atDay(1).atStartOfDay(MonthRange.ZONE).toInstant());
+        return from.before(now) ? from : now;
+    }
+
     private int[] write(Resource resource) {
         Map<Integer, Long> workplaceOf = new HashMap<>();
         jdbc.query("SELECT id, ra_number FROM workplaces", rs -> {
@@ -135,7 +146,7 @@ public class WorkplaceVisitSeeder {
             }
             for (YearMonth month : row.visits()) {
                 if (seeded.add(workplace + "@" + month.atDay(1))) {
-                    inserts.add(new Object[] {workplace, Date.valueOf(month.atDay(1)), now});
+                    inserts.add(new Object[] {workplace, Date.valueOf(month.atDay(1)), knownFrom(month, now)});
                     workplaces.add(workplace);
                 }
             }

@@ -123,10 +123,19 @@ public class MemberTrail {
         return values;
     }
 
-    /** A capture: one row, {@code captured}. */
+    /**
+     * Stamps a member about to be captured with the instant of the capture -- the clock this history keeps, so the
+     * member's {@code capturedAt} and the history's "captured" row are one moment (V79, MEN-14). Take it before the save.
+     */
+    public void stampCapture(Member member) {
+        member.setCapturedAt(clock.instant());
+    }
+
+    /** A capture: one row, {@code captured}, at the instant the member was stamped with. */
     public void captured(Member saved) {
         changes.save(new MemberChange(saved.getId(), UUID.randomUUID().toString(), CAPTURED, null,
-                saved.getMembershipNumber(), AcbActor.current(), clock.instant()));
+                saved.getMembershipNumber(), AcbActor.current(),
+                saved.getCapturedAt() != null ? saved.getCapturedAt() : clock.instant()));
     }
 
     /**

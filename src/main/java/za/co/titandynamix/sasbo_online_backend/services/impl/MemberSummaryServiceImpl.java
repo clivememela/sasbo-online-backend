@@ -62,13 +62,15 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
     static final int STATUS_CEILING = 40;
 
     private static final Map<String, String> SPECIAL_LABELS = Map.of(
+            MemberSummaryRepository.NO_TIER, "All other institutions",
             MemberSummaryRepository.NO_TABLE_CODE, "No table code on record",
             MemberSummaryRepository.NO_EMPLOYER, "No employer on record",
             MemberSummaryRepository.NO_REGION, "No region on record",
             MemberSummaryRepository.NO_WORKPLACE, "No workplace on record");
 
-    private static final List<String> SPECIAL_ORDER = List.of(MemberSummaryRepository.NO_TABLE_CODE,
-            MemberSummaryRepository.NO_EMPLOYER, MemberSummaryRepository.NO_REGION, MemberSummaryRepository.NO_WORKPLACE);
+    private static final List<String> SPECIAL_ORDER = List.of(MemberSummaryRepository.NO_TIER,
+            MemberSummaryRepository.NO_TABLE_CODE, MemberSummaryRepository.NO_EMPLOYER, MemberSummaryRepository.NO_REGION,
+            MemberSummaryRepository.NO_WORKPLACE);
 
     private final MemberSummaryRepository repository;
     private final WorkplaceSwitch workplaceSwitch;
@@ -99,6 +101,8 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
         }
         YearMonth asked = MonthRange.asked(month, clock);
         boolean grouped = workplaceSwitch.staffNumbersServed();
+        boolean courtesy = SmallCounts.appliesToTheCaller();
+        // The calendar month: the statement works out the window it counts from the takes (MEN-14), in itself.
         MemberSummaryRepository.Ask ask = new MemberSummaryRepository.Ask(MonthRange.of(asked), grouping, grouped,
                 grouped, areaCode, regionCode, environment.isProduction() ? List.of() : seedNumbers.all());
 
@@ -120,11 +124,12 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
             log.info("The figures took {} ms: grouping {}, month {}, {} lines", millis, grouping.wire(), asked,
                     lines.size());
         }
-        return answer(asked, month == null || month.isBlank(), grouping, grouped, areaCode, regionCode, lines);
+        return answer(asked, month == null || month.isBlank(), grouping, grouped, courtesy, areaCode, regionCode, lines);
     }
 
     private MemberSummaryDto answer(YearMonth asked, boolean fromTheServer, SummaryGrouping grouping, boolean grouped,
-                                    String area, String region, List<MemberSummaryRepository.Line> lines) {
+                                    boolean courtesy, String area, String region,
+                                    List<MemberSummaryRepository.Line> lines) {
         Map<String, MemberSummaryRepository.Line> members = new LinkedHashMap<>();
         Map<String, MemberSummaryRepository.Line> complements = new LinkedHashMap<>();
         List<MemberSummaryDto.UnknownStatus> unknown = new ArrayList<>();
@@ -167,7 +172,8 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
                             line.opening(), line.joinedYearToDate(), line.leftYearToDate(), complement);
             rowFigures.add(row);
             onRecord[i] = row.onRecord();
-            guarded[i] = grouping.namesAnEmployer() && grouped && !keys.get(i).startsWith("~");
+            // Rule C holds until sign-in (MD27): a caller signed in with the month's figures is answered them exactly.
+            guarded[i] = courtesy && grouping.namesAnEmployer() && grouped && !keys.get(i).startsWith("~");
             long[] parts = {row.onRecord(), row.suspended(), row.joined(), row.left(), row.reinstated(), row.opening(),
                     row.joinedYearToDate(), row.leftYearToDate()};
             for (int p = 0; p < parts.length; p++) {
@@ -211,6 +217,9 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
         java.time.Instant takenAt = check == null ? null : check.takenAt();
         String groupedAsAt = takenAt != null ? takenAt.atZone(MonthRange.ZONE).toLocalDate().toString()
                 : LocalDate.now(clock.withZone(MonthRange.ZONE)).toString();
+        // MEN-26: a figure above 100 % is shown and flagged, and the answer says why -- once, whatever is flagged.
+        boolean outOfDate = totals.complementOutOfDate()
+                || rows.stream().anyMatch(r -> r.figures() != null && r.figures().complementOutOfDate());
         return new MemberSummaryDto(asked.toString(), fromTheServer, grouping.wire(), area, region,
                 workplaceSwitch.mode().name(), groupedAsAt, totals, rows,
                 new MemberSummaryDto.Unplaced(unknown, noWorkplace, noTableCode),
@@ -218,7 +227,8 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
                 membersFrom == null ? null : membersFrom.toString(),
                 check == null || check.leaversFrom() == null ? null
                         : check.leaversFrom().atZone(MonthRange.ZONE).toLocalDate().toString(),
-                takenAt == null ? null : takenAt.toString(), check == null ? null : check.takenBy());
+                takenAt == null ? null : takenAt.toString(), check == null ? null : check.takenBy(),
+                outOfDate ? List.of(Penetration.OUT_OF_DATE_NOTE) : List.of());
     }
 
     /** One row's figures, or the whole's: paying and the movement's leftover worked out, the penetration with them. */
@@ -229,7 +239,7 @@ public class MemberSummaryServiceImpl implements MemberSummaryService {
         BigDecimal penetration = Penetration.of(paying, complement);
         return new MemberSummaryDto.Figures(onRecord, suspended, paying, joined, left, reinstated, opening,
                 unexplained, joinedYearToDate, leftYearToDate, complement, penetration,
-                complement != null && complement > 0 && paying > complement);
+                Penetration.complementOutOfDate(paying, complement));
     }
 
     /** Rows in their list's order -- a group's, an employer's, a table code's -- then by key; the kinds of none last. */

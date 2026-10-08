@@ -53,7 +53,10 @@ public class DataSeeder implements ApplicationRunner {
     private final WorkplaceSeeder workplaceSeeder;
     private final WorkplaceVisitSeeder workplaceVisitSeeder;
     private final DemonstrationMemberSeeder demonstrationMemberSeeder;
+    private final DemonstrationPopulationSeeder demonstrationPopulationSeeder;
     private final MonthEndTakeSeeder monthEndTakeSeeder;
+    private final MonthEndRulesSeeder monthEndRulesSeeder;
+    private final SignInSeeder signInSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -154,6 +157,15 @@ public class DataSeeder implements ApplicationRunner {
                 .findAndAddModules()
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .build();
+
+        // SIGN-IN'S BLOCK (October build), FIRST -- so every seeder after it, any stream's, finds the positions and the
+        // demonstration users it names -- and EACH CALL CAUGHT: a fault here must stop nothing else. The positions and
+        // roles are configuration and are seeded everywhere; the first administrator only while nobody can sign in and
+        // the host names one; the demonstration users only where asked for, never under the production marker (the
+        // seeder checks it itself, so no caller can forget to).
+        seedMonthEnd("the sign-in positions and roles", this.signInSeeder::seedPositionsAndRoles);
+        seedMonthEnd("the first administrator", this.signInSeeder::seedBootstrapAdministrator);
+        seedMonthEnd("the demonstration users", this.signInSeeder::seedDemoUsers);
 
         // 🔒 SYNTHETIC PEOPLE ARE NEVER SEEDED WHERE THE PRODUCTION MARKER IS SET (SD3-A). A brand-new
         // production database is empty at its first boot -- exactly when the table-empty guard below
@@ -319,13 +331,26 @@ public class DataSeeder implements ApplicationRunner {
         seedMonthEnd("SASBO's branch visits", this.workplaceVisitSeeder::seed);
         // Then the members who stand at them (01.4): the invented, and the seed's own 310 given a workplace in the
         // same areas -- both only where the switch says all, never where the production marker is set (MD53).
-        seedMonthEnd("the invented members", () -> seedQuietly(this.demonstrationMemberSeeder::seed));
-        seedMonthEnd("the seed members' workplaces", () -> seedQuietly(this.demonstrationMemberSeeder::place));
+        // DEMONSTRATION ROWS: every seeder below that writes into the three past months adds what it wrote here, so
+        // that months the seed took at an earlier start are taken again with the rows in them (MD70) -- on
+        // dev.sasbo.online July to September were taken on 1 Oct, before the October population existed. A seeder of
+        // another stream that writes into those months is added the same way, through demonstration(...).
+        java.util.concurrent.atomic.AtomicInteger demonstrationRows = new java.util.concurrent.atomic.AtomicInteger();
+        demonstration("the invented members", this.demonstrationMemberSeeder::seed, demonstrationRows);
+        demonstration("the seed members' workplaces", this.demonstrationMemberSeeder::place, demonstrationRows);
         // 03.7: their past -- the three months before the clock's, written through the real status change.
-        seedMonthEnd("the invented members' past", () -> seedQuietly(this.demonstrationMemberSeeder::past));
+        demonstration("the invented members' past", this.demonstrationMemberSeeder::past, demonstrationRows);
+        // October build: month end's rules -- her codes, reasons and tiers where absent; members suspended within
+        // several banks, some lapsed; a rejoin in the same month; a workplace over its complement. Before the take, so
+        // the seed's months are taken with them -- again, where the seed took them before these rows existed (OB27).
+        demonstration("month end's rules", this.monthEndRulesSeeder::seed, demonstrationRows);
+        // The October build's population (contracts/demo-population.md): every region's areas, joiners and leavers in
+        // each past month, the suspended under every code of Stephne's sheet -- before the take, so it is in it.
+        demonstration("the demonstration population", this.demonstrationPopulationSeeder::seed, demonstrationRows);
         // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
-        // are on record (MD54).
-        seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);
+        // are on record (MD54); the seed's own taken again where demonstration rows arrived since (MD70).
+        seedMonthEnd("the demonstration's past months, taken",
+                () -> this.monthEndTakeSeeder.seed(demonstrationRows.get() > 0));
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).
@@ -341,16 +366,25 @@ public class DataSeeder implements ApplicationRunner {
     }
 
     /** A seeder that reads its file: an unreadable file is a failure of the seeder, caught like any other. */
-    private static void seedQuietly(IoSeeder seeder) {
+    private static int seedQuietly(IoSeeder seeder) {
         try {
-            seeder.seed();
+            return seeder.seed();
         } catch (java.io.IOException unreadable) {
             throw new java.io.UncheckedIOException(unreadable);
         }
     }
 
+    /**
+     * One demonstration seeder of month end's block -- caught as every call is (MD65) -- whose rows written are added
+     * to {@code rows}: what decides whether the seed's own past months are taken again. Package-private for its test.
+     */
+    static void demonstration(String what, IoSeeder seeder, java.util.concurrent.atomic.AtomicInteger rows) {
+        seedMonthEnd(what, () -> rows.addAndGet(seedQuietly(seeder)));
+    }
+
+    /** A seeder that reads a file, and says how many rows it wrote. */
     @FunctionalInterface
-    private interface IoSeeder {
+    interface IoSeeder {
         int seed() throws java.io.IOException;
     }
 

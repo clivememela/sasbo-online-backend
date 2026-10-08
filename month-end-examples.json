@@ -111,28 +111,32 @@
             "name" : "INVENTED BANK",
             "employerId" : 1,
             "employer" : "INVENTED BANK",
-            "part" : null
+            "part" : null,
+            "coreTier" : "A"
           },
           {
             "code" : 902,
             "name" : "INVENTED BANK DEPARTMENTS",
             "employerId" : 1,
             "employer" : "INVENTED BANK",
-            "part" : "DEPARTMENTS"
+            "part" : "DEPARTMENTS",
+            "coreTier" : null
           },
           {
             "code" : 903,
             "name" : "INVENTED INSURER CASH",
             "employerId" : 2,
             "employer" : "INVENTED INSURER",
-            "part" : "CASH"
+            "part" : "CASH",
+            "coreTier" : null
           },
           {
             "code" : 904,
             "name" : "INVENTED LENDER",
-            "employerId" : 0,
+            "employerId" : null,
             "employer" : null,
-            "part" : null
+            "part" : null,
+            "coreTier" : null
           }
         ]
       }
@@ -444,13 +448,13 @@
         "workplacesServed" : "ALL",
         "groupedAsAt" : "2026-09-29",
         "totals" : {
-          "onRecord" : 1,
-          "suspended" : 0,
+          "onRecord" : 2,
+          "suspended" : 1,
           "paying" : 1,
           "joined" : 0,
           "left" : 0,
           "reinstated" : 0,
-          "opening" : 1,
+          "opening" : 2,
           "unexplained" : 0,
           "joinedYearToDate" : 0,
           "leftYearToDate" : 0,
@@ -532,13 +536,13 @@
             "fewerThanFive" : false,
             "withheld" : false,
             "figures" : {
-              "onRecord" : 1,
-              "suspended" : 0,
+              "onRecord" : 2,
+              "suspended" : 1,
               "paying" : 1,
               "joined" : 0,
               "left" : 0,
               "reinstated" : 0,
-              "opening" : 1,
+              "opening" : 2,
               "unexplained" : 0,
               "joinedYearToDate" : 0,
               "leftYearToDate" : 0,
@@ -550,14 +554,15 @@
         ],
         "unplaced" : {
           "statuses" : [ ],
-          "noWorkplace" : 1,
+          "noWorkplace" : 2,
           "noTableCode" : 0
         },
         "seededMembers" : 0,
         "membersFrom" : null,
-        "leaversFrom" : null,
+        "leaversFrom" : "2026-06-02",
         "takenAt" : null,
-        "takenBy" : null
+        "takenBy" : null,
+        "notes" : [ ]
       }
     },
     "GET /api/members/{id}/history" : {
@@ -630,7 +635,10 @@
           "suspensionReason" : null,
           "note" : "Invented: moved away",
           "changedBy" : "system",
-          "changedAt" : "2026-09-29T08:00:00Z"
+          "changedAt" : "2026-09-29T08:00:00Z",
+          "noDeductionReasonId" : null,
+          "noDeductionReason" : null,
+          "undoes" : null
         }
       }
     },
@@ -647,8 +655,35 @@
             "takenBy" : "seed",
             "takeId" : 1,
             "firstTakenAt" : null,
-            "firstTakenBy" : null
+            "firstTakenBy" : null,
+            "takeNumber" : 1,
+            "reason" : null,
+            "countsFrom" : "2026-07-31T22:00:00Z",
+            "countsUntil" : "2026-08-31T22:00:00Z"
           }
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/listings/new-members" : {
+      "request" : "GET /api/month-end/2026-08/listings/new-members",
+      "status" : 200,
+      "body" : {
+        "listing" : "new-members",
+        "title" : "The month's new members",
+        "legacy" : "Print Member Roll (No Adding) -- the members enrolled",
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "scope" : "ALL",
+        "area" : null,
+        "region" : null,
+        "content" : [ ],
+        "page" : 0,
+        "size" : 50,
+        "totalElements" : 0,
+        "totalPages" : 0,
+        "notes" : [
+          "A member is new in the month their Date Joined falls in, whatever their status now.",
+          "Read from the members as they stand now: a member captured or changed after the month was taken can differ from the month's figures."
         ]
       }
     },
@@ -662,7 +697,11 @@
         "takenBy" : "seed",
         "takeId" : 1,
         "firstTakenAt" : null,
-        "firstTakenBy" : null
+        "firstTakenBy" : null,
+        "takeNumber" : 1,
+        "reason" : null,
+        "countsFrom" : "2026-07-31T22:00:00Z",
+        "countsUntil" : "2026-08-31T22:00:00Z"
       }
     },
     "GET /api/month-end/{month}/new-and-deleted" : {
@@ -715,7 +754,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -727,7 +767,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -739,7 +780,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -751,7 +793,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -764,7 +807,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -799,7 +843,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -811,7 +856,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -823,7 +869,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -835,7 +882,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -848,7 +896,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -883,7 +932,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -895,7 +945,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -907,7 +958,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -919,7 +971,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -932,7 +985,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -967,7 +1021,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -979,7 +1034,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -991,7 +1047,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1003,7 +1060,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1016,13 +1074,15 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The year to date is the sum of the months taken, each as it was taken -- the months of 2026 taken: August 2026.",
           "Core is the core groups' employers; other is every other employer. A member with no workplace on record is in the total only."
         ]
@@ -1089,7 +1149,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E1",
@@ -1103,7 +1164,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "G2",
@@ -1117,7 +1179,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -1131,7 +1194,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -1145,7 +1209,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1159,7 +1224,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~CORE",
@@ -1173,7 +1239,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1188,7 +1255,117 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "by-tier",
+            "title" : "Membership by core tier",
+            "legacyTitle" : "MEMBERSHIP REPORT",
+            "columns" : [
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "members",
+                "label" : "Members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "joined",
+                "label" : "Enrolments",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "left",
+                "label" : "Cancellations",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "suspended",
+                "label" : "Suspensions",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "Core A",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  40,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_TIER",
+                "label" : "All other institutions",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  135,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  3,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                178,
+                1,
+                0,
+                0,
+                0
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1271,7 +1448,8 @@
                   0,
                   0.0,
                   40
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -1291,7 +1469,8 @@
                   0,
                   0.0,
                   120
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -1311,7 +1490,8 @@
                   0,
                   0.0,
                   15
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -1331,7 +1511,8 @@
                   0,
                   0.0,
                   3
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1351,7 +1532,8 @@
                   1,
                   0.0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1372,7 +1554,8 @@
                 1,
                 0.0,
                 178
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1395,15 +1578,18 @@
               "withheld" : false,
               "cells" : [
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "Members are the members on record less the suspended -- the figure SASBO's reports print (MD24).",
-          "How a member pays is read as it is stored: by debit order, by payroll deduction, and every other way as other. The amounts are the monthly subscriptions on record of the paying members."
+          "How a member pays is read as it is stored: by debit order, by payroll deduction, and every other way as other. The amounts are the monthly subscriptions on record of the paying members.",
+          "Core A, B and C are SASBO's core tiers; which table code stands in which is provisional until SASBO confirms it. Every other employer is one of the individual institutions."
         ]
       }
     },
@@ -1468,7 +1654,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1481,7 +1668,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1494,7 +1682,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1508,7 +1697,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1549,7 +1739,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -1562,7 +1753,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1576,7 +1768,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1617,7 +1810,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -1630,7 +1824,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -1643,7 +1838,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1657,7 +1853,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1692,7 +1889,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -1704,7 +1902,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -1716,7 +1915,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -1728,7 +1928,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1740,7 +1941,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1753,7 +1955,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1788,13 +1991,15 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "A member is counted once each time they left in the month. SASBO's reasons are its deletion codes, by their numbers; a leaver with no code on record is counted apart."
         ]
       }
@@ -1865,7 +2070,8 @@
                   0.0,
                   160,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1880,7 +2086,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1895,7 +2102,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1910,7 +2118,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1926,7 +2135,8 @@
                 0.0,
                 160,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1979,7 +2189,8 @@
                   0.0,
                   160,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -1994,7 +2205,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2009,7 +2221,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2024,7 +2237,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2040,13 +2254,15 @@
                 0.0,
                 160,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "Members are the members on record less the suspended; penetration is members over complement.",
           "The branches themselves, with their visits, are the workplaces' own screen."
         ]
@@ -2122,7 +2338,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2163,7 +2380,8 @@
                 null,
                 0,
                 null
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2192,13 +2410,15 @@
               "cells" : [
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The year to date is the sum of the months taken, each as it was taken -- the months of 2026 taken: August 2026.",
           "A recruiter is who signed the member up, as captured. Which year to date SASBO reads, and the competition's rule, are SASBO's to say (MM69, MM71)."
         ]
@@ -2266,7 +2486,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2280,7 +2501,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2294,7 +2516,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2308,7 +2531,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2322,7 +2546,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2337,7 +2562,8 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2384,7 +2610,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2398,7 +2625,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2412,7 +2640,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2426,7 +2655,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2440,7 +2670,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2455,7 +2686,8 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2502,7 +2734,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2516,7 +2749,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2530,7 +2764,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2544,7 +2779,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2558,7 +2794,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2573,13 +2810,15 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "A representative is a member on record marked as a shop steward, and a committee member one marked as a BEC member -- a reading SASBO is asked to confirm.",
           "A Memnet member is a member on record marked so from the nomination form, at capture or on an edit. A month taken before the mark existed counts none."
         ]
@@ -2633,7 +2872,8 @@
                   0,
                   120,
                   120
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W3",
@@ -2645,7 +2885,8 @@
                   0,
                   15,
                   15
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W4",
@@ -2657,7 +2898,8 @@
                   0,
                   3,
                   3
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W1",
@@ -2669,7 +2911,8 @@
                   0,
                   40,
                   40
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2681,7 +2924,8 @@
                   1,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2694,13 +2938,15 @@
                 1,
                 178,
                 178
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The last visit is the newest on record by the month's end -- a visit captured here, or a month SASBO's branch list prints; as they stood when the month was taken.",
           "Members are the members on record less the suspended. A branch could still yield its complement less its members, where the complement is the more.",
           "The branch manager's name and telephone are a person's details, and are shown once administrators sign in to this system."
@@ -2738,6 +2984,457 @@
         "workbooks" : [
           "statistics",
           "monthly"
+        ]
+      }
+    },
+    "GET /api/reference/no-deduction-reasons" : {
+      "request" : "GET /api/reference/no-deduction-reasons",
+      "status" : 200,
+      "body" : {
+        "rows" : [
+          {
+            "id" : 1,
+            "name" : "Unpaid leave",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "ordinal" : 1,
+            "active" : true,
+            "provisional" : true,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          },
+          {
+            "id" : 2,
+            "name" : "Maternity leave",
+            "suspensionCode" : 12,
+            "suspensionName" : null,
+            "ordinal" : 2,
+            "active" : true,
+            "provisional" : false,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          },
+          {
+            "id" : 3,
+            "name" : "Paternity leave",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "ordinal" : 3,
+            "active" : true,
+            "provisional" : true,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          },
+          {
+            "id" : 4,
+            "name" : "Insufficient funds",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "ordinal" : 4,
+            "active" : true,
+            "provisional" : true,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          },
+          {
+            "id" : 5,
+            "name" : "Sick leave",
+            "suspensionCode" : 21,
+            "suspensionName" : null,
+            "ordinal" : 5,
+            "active" : true,
+            "provisional" : false,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          }
+        ],
+        "ceiling" : 50,
+        "nameLimit" : 60,
+        "noteLimit" : 500
+      }
+    },
+    "POST /api/reference/no-deduction-reasons" : {
+      "request" : "POST /api/reference/no-deduction-reasons",
+      "requestBody" : {
+        "name" : "Study leave",
+        "suspensionCode" : 11
+      },
+      "status" : 201,
+      "body" : {
+        "id" : 6,
+        "name" : "Study leave",
+        "suspensionCode" : 11,
+        "suspensionName" : "NOT ON PAYROLL",
+        "ordinal" : 6,
+        "active" : true,
+        "provisional" : false,
+        "version" : 0,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "PUT /api/reference/no-deduction-reasons/{id}" : {
+      "request" : "PUT /api/reference/no-deduction-reasons/{id}",
+      "requestBody" : {
+        "name" : "Unpaid leave",
+        "suspensionCode" : 11,
+        "ordinal" : 1,
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "id" : 1,
+        "name" : "Unpaid leave",
+        "suspensionCode" : 11,
+        "suspensionName" : "NOT ON PAYROLL",
+        "ordinal" : 1,
+        "active" : true,
+        "provisional" : false,
+        "version" : 1,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "GET /api/reference/core-tiers" : {
+      "request" : "GET /api/reference/core-tiers",
+      "status" : 200,
+      "body" : {
+        "tiers" : [
+          {
+            "code" : "A",
+            "name" : "Core A",
+            "ordinal" : 1,
+            "provisional" : true,
+            "tableCodes" : [
+              901
+            ]
+          },
+          {
+            "code" : "B",
+            "name" : "Core B",
+            "ordinal" : 2,
+            "provisional" : true,
+            "tableCodes" : [ ]
+          },
+          {
+            "code" : "C",
+            "name" : "Core C",
+            "ordinal" : 3,
+            "provisional" : true,
+            "tableCodes" : [ ]
+          }
+        ],
+        "allOther" : "All other institutions"
+      }
+    },
+    "PUT /api/reference/table-codes/{id}/core-tier" : {
+      "request" : "PUT /api/reference/table-codes/902/core-tier",
+      "requestBody" : {
+        "tier" : "B"
+      },
+      "status" : 200,
+      "body" : {
+        "code" : 902,
+        "name" : "INVENTED BANK DEPARTMENTS",
+        "coreTier" : "B",
+        "setBy" : "Invented demo.headoffice (demo.headoffice)",
+        "setAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "GET /api/month-end/{month}/suspensions" : {
+      "request" : "GET /api/month-end/2026-08/suspensions",
+      "status" : 200,
+      "body" : {
+        "statistic" : "suspensions",
+        "legacy" : [
+          "mem_count",
+          "grlist"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "by-employer",
+            "title" : "Suspended members, by bank and code",
+            "legacyTitle" : "SUMMARY OF SUSPENDED MEMBERS",
+            "columns" : [
+              {
+                "key" : "code11",
+                "label" : "11 NOT ON PAYROLL",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "code13",
+                "label" : "13 DEBIT RETURNED",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "code19",
+                "label" : "19 INVALID ACCOUNT",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "noCode",
+                "label" : "No code on record",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "G1",
+                "label" : "INVENTED GROUP CORE",
+                "level" : "GROUP",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "E1",
+                "label" : "INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "G2",
+                "label" : "INVENTED GROUP OTHER",
+                "level" : "GROUP",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "E2",
+                "label" : "INVENTED INSURER",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~CORE",
+                "label" : "Core groups",
+                "level" : "TOTAL",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "All groups",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "by-code",
+            "title" : "Suspended members, by suspension code",
+            "legacyTitle" : "SUMMARY OF SUSPENDED MEMBERS",
+            "columns" : [
+              {
+                "key" : "members",
+                "label" : "Suspended",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0
+              ],
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "no-deduction",
+            "title" : "No payroll deduction, by reason",
+            "legacyTitle" : "NO PAYROLL DEDUCTION",
+            "columns" : [
+              {
+                "key" : "members",
+                "label" : "Suspended",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0
+              ],
+              "complementOutOfDate" : false
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
+          "A bank is the employer through the member's workplace, as in every month-end figure. The suspended are counted at the month's end, under the SASBO code of the change that suspended them.",
+          "The suspended members themselves, and the suspensions that have lapsed after three months, are listed for staff signed in to see them."
+        ]
+      }
+    },
+    "GET /api/month-end/suspensions/members" : {
+      "request" : "GET /api/month-end/suspensions/members",
+      "status" : 200,
+      "body" : {
+        "asAt" : "2026-09-29",
+        "lapseMonths" : 3,
+        "page" : 0,
+        "size" : 50,
+        "total" : 1,
+        "totalPages" : 1,
+        "lapsed" : 1,
+        "undated" : 0,
+        "items" : [
+          {
+            "memberId" : 2,
+            "membershipNumber" : "M-900002",
+            "name" : "I Suspended",
+            "bank" : "INVENTED BANK",
+            "workplace" : null,
+            "area" : null,
+            "paymentType" : "Payroll",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "noDeductionReason" : "Unpaid leave",
+            "suspendedOn" : "2026-06-02",
+            "lapsesOn" : "2026-09-02",
+            "lapsed" : true
+          }
+        ]
+      }
+    },
+    "GET /api/month-end/suspensions/lapsed" : {
+      "request" : "GET /api/month-end/suspensions/lapsed",
+      "status" : 200,
+      "body" : {
+        "asAt" : "2026-09-29",
+        "lapseMonths" : 3,
+        "page" : 0,
+        "size" : 50,
+        "total" : 1,
+        "totalPages" : 1,
+        "lapsed" : 1,
+        "undated" : 0,
+        "items" : [
+          {
+            "memberId" : 2,
+            "membershipNumber" : "M-900002",
+            "name" : "I Suspended",
+            "bank" : "INVENTED BANK",
+            "workplace" : null,
+            "area" : null,
+            "paymentType" : "Payroll",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "noDeductionReason" : "Unpaid leave",
+            "suspendedOn" : "2026-06-02",
+            "lapsesOn" : "2026-09-02",
+            "lapsed" : true
+          }
         ]
       }
     }
@@ -2822,7 +3519,7 @@
         "path" : "/api/members/summary",
         "code" : "SUMMARY_GROUPING_UNKNOWN",
         "details" : {
-          "known" : "group,employer,tableCode,area,region,committee"
+          "known" : "group,employer,tableCode,area,region,committee,tier"
         }
       }
     },
@@ -3100,7 +3797,8 @@
     "MONTH_TAKEN_SINCE" : {
       "request" : "POST /api/month-end/2026-08/take",
       "requestBody" : {
-        "replaces" : 999999
+        "replaces" : 999999,
+        "reason" : "Invented: corrected"
       },
       "status" : 409,
       "body" : {
@@ -3149,21 +3847,6 @@
         }
       }
     },
-    "IDENTITY_REQUIRED" : {
-      "request" : "POST /api/month-end/2026-07/take",
-      "status" : 403,
-      "body" : {
-        "timestamp" : "2026-09-29T08:00:00",
-        "status" : 403,
-        "error" : "Forbidden",
-        "message" : "Taking a month freezes its figures for good, so it waits until administrators sign in to this system. Nothing has been taken.",
-        "path" : "/api/month-end/2026-07/take",
-        "code" : "IDENTITY_REQUIRED",
-        "details" : {
-          "month" : "2026-07"
-        }
-      }
-    },
     "PACK_BUSY" : {
       "request" : "POST /api/month-end/2026-08/pack",
       "status" : 409,
@@ -3193,6 +3876,246 @@
         "code" : "PACK_NOT_FOUND",
         "details" : {
           "pack" : "999999"
+        }
+      }
+    },
+    "TAKE_REASON_REQUIRED" : {
+      "request" : "POST /api/month-end/2026-08/take",
+      "requestBody" : {
+        "replaces" : 999999
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Say why the month is being taken again: it will stand beside the take it replaces. Nothing has been taken.",
+        "path" : "/api/month-end/2026-08/take",
+        "code" : "TAKE_REASON_REQUIRED",
+        "details" : {
+          "month" : "2026-08"
+        }
+      }
+    },
+    "TAKE_REASON_INVALID" : {
+      "request" : "POST /api/month-end/2026-08/take",
+      "requestBody" : {
+        "replaces" : 999999,
+        "reason" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "A reason may be at most 500 characters of ordinary text. Nothing has been taken.",
+        "path" : "/api/month-end/2026-08/take",
+        "code" : "TAKE_REASON_INVALID",
+        "details" : {
+          "field" : "reason",
+          "limit" : "500"
+        }
+      }
+    },
+    "MEMBER_ALREADY_CAPTURED" : {
+      "request" : "POST /api/members",
+      "requestBody" : {
+        "firstNames" : "Invented",
+        "surname" : "Again",
+        "identityType" : "I.D. Number",
+        "identityNumber" : "<an invented identity number>",
+        "paymentType" : "Payroll"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This person is already on record as member M-900001 (the same ID number). Open that record instead of capturing them again. Nothing was saved.",
+        "path" : "/api/members",
+        "code" : "MEMBER_ALREADY_CAPTURED",
+        "details" : {
+          "membershipNumber" : "M-900001",
+          "memberId" : "1",
+          "matched" : "IDENTITY_NUMBER",
+          "status" : "Active",
+          "canReinstate" : "false"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_REQUIRED" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Suspended",
+        "reason" : "SUSPENSION_CODE",
+        "suspensionCode" : 11
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Choose the reason for no payroll deduction from the list, or type it in the note. Nothing was changed.",
+        "path" : "/api/members/{id}/status",
+        "code" : "NO_DEDUCTION_REASON_REQUIRED",
+        "details" : {
+          "code" : "11",
+          "reasons" : "1,3,4"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_UNKNOWN" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Suspended",
+        "reason" : "SUSPENSION_CODE",
+        "noDeductionReasonId" : 999999
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That reason for no payroll deduction is not on the list. Choose another, or type the reason.",
+        "path" : "/api/members/{id}/status",
+        "code" : "NO_DEDUCTION_REASON_UNKNOWN",
+        "details" : {
+          "noDeductionReasonId" : "999999"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_INVALID" : {
+      "request" : "POST /api/reference/no-deduction-reasons",
+      "requestBody" : {
+        "name" : " ",
+        "suspensionCode" : 11
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Give the reason a name of up to 60 characters. Nothing was changed.",
+        "path" : "/api/reference/no-deduction-reasons",
+        "code" : "NO_DEDUCTION_REASON_INVALID",
+        "details" : {
+          "field" : "name",
+          "limit" : "60"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_TAKEN" : {
+      "request" : "POST /api/reference/no-deduction-reasons",
+      "requestBody" : {
+        "name" : "unpaid LEAVE",
+        "suspensionCode" : 11
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Another reason has that name already. Nothing was changed.",
+        "path" : "/api/reference/no-deduction-reasons",
+        "code" : "NO_DEDUCTION_REASON_TAKEN",
+        "details" : {
+          "id" : "1"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_NOT_FOUND" : {
+      "request" : "PUT /api/reference/no-deduction-reasons/999999",
+      "requestBody" : {
+        "name" : "Unpaid leave",
+        "suspensionCode" : 11,
+        "version" : 0
+      },
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "That reason is not on the list.",
+        "path" : "/api/reference/no-deduction-reasons/999999",
+        "code" : "NO_DEDUCTION_REASON_NOT_FOUND",
+        "details" : {
+          "id" : "999999"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_CHANGED_SINCE" : {
+      "request" : "PUT /api/reference/no-deduction-reasons/{id}",
+      "requestBody" : {
+        "name" : "Unpaid leave",
+        "suspensionCode" : 11,
+        "version" : 7
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Someone else changed this reason since you opened it. Nothing was changed: look at theirs, then edit it again.",
+        "path" : "/api/reference/no-deduction-reasons/1",
+        "code" : "NO_DEDUCTION_REASON_CHANGED_SINCE",
+        "details" : {
+          "version" : "0",
+          "updatedBy" : "migration",
+          "updatedAt" : "2026-10-05T22:00:00Z"
+        }
+      }
+    },
+    "SUSPENDED_PAGE_INVALID" : {
+      "request" : "GET /api/month-end/suspensions/members?size=500",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "A page of the suspended members is from page 0, of 1 to 100 members.",
+        "path" : "/api/month-end/suspensions/members",
+        "code" : "SUSPENDED_PAGE_INVALID",
+        "details" : {
+          "page" : "0",
+          "size" : "500",
+          "ceiling" : "100"
+        }
+      }
+    },
+    "CORE_TIER_UNKNOWN" : {
+      "request" : "PUT /api/reference/table-codes/901/core-tier",
+      "requestBody" : {
+        "tier" : "D"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "A table code stands in Core A, B or C, or in none. Nothing was changed.",
+        "path" : "/api/reference/table-codes/901/core-tier",
+        "code" : "CORE_TIER_UNKNOWN",
+        "details" : {
+          "tier" : "D",
+          "known" : "A,B,C"
+        }
+      }
+    },
+    "TABLE_CODE_UNKNOWN" : {
+      "request" : "PUT /api/reference/table-codes/999/core-tier",
+      "requestBody" : {
+        "tier" : "A"
+      },
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "No table code has that number here.",
+        "path" : "/api/reference/table-codes/999/core-tier",
+        "code" : "TABLE_CODE_UNKNOWN",
+        "details" : {
+          "code" : "999"
         }
       }
     }

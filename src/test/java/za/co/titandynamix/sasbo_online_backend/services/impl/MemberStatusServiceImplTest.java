@@ -42,8 +42,10 @@ class MemberStatusServiceImplTest {
     private final MemberService members = mock(MemberService.class);
     private final SasboReferenceRepository codes = mock(SasboReferenceRepository.class);
     private final MemberStatusChangeRepository changes = mock(MemberStatusChangeRepository.class);
+    private final za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes takes =
+            mock(za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes.class);
     private final MemberStatusServiceImpl service = new MemberStatusServiceImpl(members, codes, changes,
-            Clock.fixed(NOW, ZoneOffset.UTC));
+            Clock.fixed(NOW, ZoneOffset.UTC), takes);
 
     private static Member member(String status) {
         Member member = new Member();

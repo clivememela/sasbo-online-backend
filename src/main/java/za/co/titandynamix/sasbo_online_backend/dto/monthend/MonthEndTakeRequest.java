@@ -5,6 +5,8 @@ package za.co.titandynamix.sasbo_online_backend.dto.monthend;
  * newest, as the months answer it ({@code takeId}). Nobody overwrites a take they have not seen.
  *
  * @param replaces the take this one replaces; {@code null}, or no body at all, for a month's first take
+ * @param reason   why the month is taken -- required of a take again (Stephne, MEN-11: "This will help to understand why
+ *                 the file was replaced!"), at most 500 characters; optional, and kept, for a first take
  */
-public record MonthEndTakeRequest(Long replaces) {
+public record MonthEndTakeRequest(Long replaces, String reason) {
 }

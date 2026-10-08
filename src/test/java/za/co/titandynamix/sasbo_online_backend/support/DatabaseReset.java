@@ -75,7 +75,7 @@ public final class DatabaseReset {
      */
     private static final List<String> SEEDED_TABLES =
             List.of("union_structures", "representative_roles", "recruiters", "acb_rates", "acb_unpaid_codes",
-                    "acb_holidays", "acb_calendar");
+                    "acb_holidays", "acb_calendar", "no_deduction_reasons", "core_tiers");
 
     /** What the migrations leave behind, from the one place that says so. */
     private static final Map<String, Integer> SEEDED_COUNTS = Map.of(
@@ -85,7 +85,9 @@ public final class DatabaseReset {
             "acb_rates", MigrationSeed.ACB_RATES,
             "acb_unpaid_codes", MigrationSeed.ACB_UNPAID_CODES.size(),
             "acb_holidays", MigrationSeed.ACB_HOLIDAYS.size(),
-            "acb_calendar", 1);
+            "acb_calendar", 1,
+            "no_deduction_reasons", MigrationSeed.NO_DEDUCTION_REASONS,
+            "core_tiers", MigrationSeed.CORE_TIERS);
 
     /**
      * The seeded tables keyed by a natural value rather than a generated {@code id} -- ordered by

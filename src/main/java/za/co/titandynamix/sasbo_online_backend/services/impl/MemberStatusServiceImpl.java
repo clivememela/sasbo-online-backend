@@ -14,10 +14,13 @@ import za.co.titandynamix.sasbo_online_backend.repository.SasboReferenceReposito
 import za.co.titandynamix.sasbo_online_backend.services.MemberService;
 import za.co.titandynamix.sasbo_online_backend.services.MemberService.StatusChange;
 import za.co.titandynamix.sasbo_online_backend.services.MemberStatusService;
+import za.co.titandynamix.sasbo_online_backend.services.MonthEndTakes;
+import za.co.titandynamix.sasbo_online_backend.utils.FreeText;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 import za.co.titandynamix.sasbo_online_backend.utils.MonthRange;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -55,13 +58,16 @@ public class MemberStatusServiceImpl implements MemberStatusService {
     private final SasboReferenceRepository codes;
     private final MemberStatusChangeRepository changes;
     private final Clock clock;
+    /** October build, MEN-23: where counting is open from -- a leaving after it is undone by a rejoin. */
+    private final MonthEndTakes takes;
 
     public MemberStatusServiceImpl(MemberService members, SasboReferenceRepository codes,
-                                   MemberStatusChangeRepository changes, Clock clock) {
+                                   MemberStatusChangeRepository changes, Clock clock, MonthEndTakes takes) {
         this.members = members;
         this.codes = codes;
         this.changes = changes;
         this.clock = clock;
+        this.takes = takes;
     }
 
     @Override
@@ -75,17 +81,22 @@ public class MemberStatusServiceImpl implements MemberStatusService {
                     MonthEndRefusal.details("toStatus", MonthEndRefusal.echo(toStatus),
                             "known", String.join(",", MemberStatuses.KINDS.keySet())));
         }
-        if (request.note() != null && request.note().length() > MAX_NOTE_LENGTH) {
+        // The note's length was asked at the 5 October Show & Tell: 500 characters of ordinary text (FreeText).
+        String note = FreeText.clean(request.note());
+        if (FreeText.problem(note, MAX_NOTE_LENGTH, true) != null) {
             throw new MonthEndRefusal(MonthEndRefusalCode.REQUEST_MALFORMED,
-                    "This request could not be read. Send each field in the form it is expected in.",
-                    Map.of("field", "note"));
+                    "A note may be at most " + MAX_NOTE_LENGTH + " characters of ordinary text. Nothing was changed.",
+                    MonthEndRefusal.details("field", "note", "limit", String.valueOf(MAX_NOTE_LENGTH)));
         }
         MemberStatusReason reason = reasonOf(request.reason(), toStatus);
         Long deletionCodeId = null;
         Long suspensionCodeId = null;
+        Long noDeductionReasonId = null;
+        Instant undoesSince = null;
         switch (kind) {
             case LEAVING -> {
-                fits(reason == MemberStatusReason.DELETION_CODE && request.suspensionCode() == null, toStatus, reason,
+                fits(reason == MemberStatusReason.DELETION_CODE && request.suspensionCode() == null
+                        && request.noDeductionReasonId() == null, toStatus, reason,
                         MemberStatusReason.DELETION_CODE.name());
                 deletionCodeId = deletionCode(request.deletionCode(), blankToNull(request.reasonUnderCode()), toStatus);
             }
@@ -93,15 +104,34 @@ public class MemberStatusServiceImpl implements MemberStatusService {
                 fits(reason == MemberStatusReason.SUSPENSION_CODE && request.deletionCode() == null
                         && blankToNull(request.reasonUnderCode()) == null, toStatus, reason,
                         MemberStatusReason.SUSPENSION_CODE.name());
-                suspensionCodeId = suspensionCode(request.suspensionCode(), toStatus);
+                SasboReferenceRepository.NoDeductionReasonRow chosen = noDeductionReason(request.noDeductionReasonId());
+                Integer code = request.suspensionCode() != null ? request.suspensionCode()
+                        : chosen == null ? null : chosen.suspensionCode();
+                if (chosen != null && code != chosen.suspensionCode()) {
+                    throw new MonthEndRefusal(MonthEndRefusalCode.STATUS_REASON_MISMATCH,
+                            "That reason for no payroll deduction stands under code " + chosen.suspensionCode()
+                                    + ", not " + code + ". Nothing was changed.",
+                            MonthEndRefusal.details("toStatus", toStatus, "reason", reason.name(),
+                                    "fits", String.valueOf(chosen.suspensionCode())));
+                }
+                suspensionCodeId = suspensionCode(code, toStatus);
+                if (chosen == null && note == null && codes.noDeductionCodes().contains(code)) {
+                    throw noDeductionReasonRequired(code);
+                }
+                noDeductionReasonId = chosen == null ? null : chosen.id();
             }
-            default -> fits((reason == MemberStatusReason.REINSTATED || reason == MemberStatusReason.CAPTURED)
-                            && request.deletionCode() == null && request.suspensionCode() == null
-                            && blankToNull(request.reasonUnderCode()) == null, toStatus, reason,
-                    MemberStatusReason.REINSTATED.name() + "," + MemberStatusReason.CAPTURED.name());
+            default -> {
+                fits((reason == MemberStatusReason.REINSTATED || reason == MemberStatusReason.CAPTURED)
+                                && request.deletionCode() == null && request.suspensionCode() == null
+                                && request.noDeductionReasonId() == null
+                                && blankToNull(request.reasonUnderCode()) == null, toStatus, reason,
+                        MemberStatusReason.REINSTATED.name() + "," + MemberStatusReason.CAPTURED.name());
+                // MEN-23: a rejoin undoes a leaving not yet in any month taken.
+                undoesSince = reason == MemberStatusReason.REINSTATED ? takes.openSince() : null;
+            }
         }
         StatusChange change = new StatusChange(toStatus, blankToNull(request.expectedStatus()), reason, deletionCodeId,
-                suspensionCodeId, blankToNull(request.note()), AcbActor.current(), clock.instant());
+                suspensionCodeId, note, AcbActor.current(), clock.instant(), noDeductionReasonId, undoesSince);
         MemberService.StatusChangeOutcome outcome = members.changeStatus(memberId, change)
                 .orElseThrow(() -> new MonthEndRefusal(MonthEndRefusalCode.MEMBER_NOT_FOUND,
                         "That member is no longer on record.", Map.of("memberId", String.valueOf(memberId))));
@@ -186,6 +216,33 @@ public class MemberStatusServiceImpl implements MemberStatusService {
                                         .collect(Collectors.joining(",")))));
     }
 
+    /**
+     * MEN-17: the reason for no payroll deduction a change names -- active, from the list -- or none where it names none.
+     *
+     * @throws MonthEndRefusal {@code NO_DEDUCTION_REASON_UNKNOWN} -- no such reason, or no longer offered
+     */
+    private SasboReferenceRepository.NoDeductionReasonRow noDeductionReason(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return codes.noDeductionReason(id).filter(SasboReferenceRepository.NoDeductionReasonRow::active)
+                .orElseThrow(() -> new MonthEndRefusal(MonthEndRefusalCode.NO_DEDUCTION_REASON_UNKNOWN,
+                        "That reason for no payroll deduction is not on the list. Choose another, or type the reason.",
+                        Map.of("noDeductionReasonId", String.valueOf(id))));
+    }
+
+    /**
+     * Stephne, MEN-17 -- "Can we have a dropdown sayin a reason for no payroll deduction. Also have the opporenity to
+     * type a reason": a suspension under a code the reasons stand under says which, or types it.
+     */
+    private MonthEndRefusal noDeductionReasonRequired(int code) {
+        return new MonthEndRefusal(MonthEndRefusalCode.NO_DEDUCTION_REASON_REQUIRED,
+                "Choose the reason for no payroll deduction from the list, or type it in the note. Nothing was changed.",
+                MonthEndRefusal.details("code", String.valueOf(code), "reasons",
+                        codes.activeNoDeductionReasonsUnder(code).stream().map(String::valueOf)
+                                .collect(Collectors.joining(","))));
+    }
+
     private MonthEndRefusal stale(Integer memberId, String currentStatus) {
         List<MemberStatusChange> history = changes.findByMemberIdOrderByChangedAtAscIdAsc(memberId);
         MemberStatusChange last = history.isEmpty() ? null : history.get(history.size() - 1);
@@ -204,11 +261,15 @@ public class MemberStatusServiceImpl implements MemberStatusService {
                 : codes.suspensionCodeById(written.getSuspensionCodeId()).orElse(null);
         String under = written.getDeletionCodeId() == null ? null
                 : codes.reasonUnderCode(written.getDeletionCodeId()).orElse(null);
+        String noDeduction = written.getNoDeductionReasonId() == null ? null
+                : codes.noDeductionReason(written.getNoDeductionReasonId())
+                        .map(SasboReferenceRepository.NoDeductionReasonRow::name).orElse(null);
         return new MemberStatusAnswer.Change(written.getId(), written.getFromStatus(), written.getToStatus(),
                 written.getReason().name(),
                 deletion == null ? null : deletion.number(), deletion == null ? null : deletion.name(), under,
                 suspension == null ? null : suspension.number(), suspension == null ? null : suspension.name(),
-                written.getNote(), written.getChangedBy(), written.getChangedAt().toString());
+                written.getNote(), written.getChangedBy(), written.getChangedAt().toString(),
+                written.getNoDeductionReasonId(), noDeduction, written.getUndoesId());
     }
 
     private static String blankToNull(String value) {
