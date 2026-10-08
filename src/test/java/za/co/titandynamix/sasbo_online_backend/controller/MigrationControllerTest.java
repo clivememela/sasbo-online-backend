@@ -1,8 +1,10 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -90,27 +92,38 @@ class MigrationControllerTest {
                 null, null, null, null, false);
     }
 
-    /** Every route, as a request a holder of the permission could send. */
-    static Stream<MockHttpServletRequestBuilder> everyRoute() {
+    /**
+     * Every route, as a request a holder of the permission could send -- each NAMED by its method and path, because the
+     * JUnit XML names a case by its display name, and a request builder's own name is its hash: a red case read from a
+     * run's XML must say which route refused wrongly.
+     */
+    static Stream<Arguments> everyRoute() {
         return Stream.of(
-                get("/api/migration/mappings"),
-                get("/api/migration/mappings/legacy-member-export-csv"),
-                post("/api/migration/mappings").contentType(MediaType.APPLICATION_JSON).content("{}"),
-                put("/api/migration/mappings/mine").param("version", "1").contentType(MediaType.APPLICATION_JSON).content("{}"),
-                post("/api/migration/batches").param("fileName", "export.csv").param("mapping", "legacy-member-export-csv")
-                        .param("asAt", "2026-08-31").contentType("text/csv").content(CSV),
-                get("/api/migration/batches"),
-                get("/api/migration/batches/7"),
-                post("/api/migration/batches/7/validate"),
-                get("/api/migration/batches/7/report"),
-                get("/api/migration/batches/7/rows"),
-                post("/api/migration/batches/7/commit"),
-                post("/api/migration/batches/7/rollback").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"reason\": \"rehearsal\"}"),
-                get("/api/migration/batches/7/reconciliation"),
-                get("/api/migration/months/2026-08/totals"),
-                put("/api/migration/months/2026-08/totals").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"figures\": []}"));
+                route("GET /api/migration/mappings", get("/api/migration/mappings")),
+                route("GET /api/migration/mappings/{key}", get("/api/migration/mappings/legacy-member-export-csv")),
+                route("POST /api/migration/mappings",
+                        post("/api/migration/mappings").contentType(MediaType.APPLICATION_JSON).content("{}")),
+                route("PUT /api/migration/mappings/{key}", put("/api/migration/mappings/mine").param("version", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}")),
+                route("POST /api/migration/batches", post("/api/migration/batches").param("fileName", "export.csv")
+                        .param("mapping", "legacy-member-export-csv").param("asAt", "2026-08-31")
+                        .contentType("text/csv").content(CSV)),
+                route("GET /api/migration/batches", get("/api/migration/batches")),
+                route("GET /api/migration/batches/{id}", get("/api/migration/batches/7")),
+                route("POST /api/migration/batches/{id}/validate", post("/api/migration/batches/7/validate")),
+                route("GET /api/migration/batches/{id}/report", get("/api/migration/batches/7/report")),
+                route("GET /api/migration/batches/{id}/rows", get("/api/migration/batches/7/rows")),
+                route("POST /api/migration/batches/{id}/commit", post("/api/migration/batches/7/commit")),
+                route("POST /api/migration/batches/{id}/rollback", post("/api/migration/batches/7/rollback")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\": \"rehearsal\"}")),
+                route("GET /api/migration/batches/{id}/reconciliation", get("/api/migration/batches/7/reconciliation")),
+                route("GET /api/migration/months/{month}/totals", get("/api/migration/months/2026-08/totals")),
+                route("PUT /api/migration/months/{month}/totals", put("/api/migration/months/2026-08/totals")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"figures\": []}")));
+    }
+
+    private static Arguments route(String name, MockHttpServletRequestBuilder request) {
+        return Arguments.of(Named.of(name, request));
     }
 
     @ParameterizedTest(name = "{0}")
