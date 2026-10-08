@@ -210,17 +210,31 @@ public class MonthEndListingsRepository {
                 });
     }
 
-    /** A bank's new members of the month (rule N) who pay by payroll deduction, streamed to {@code each}. */
+    /**
+     * A bank's new members of the month who pay by payroll deduction, streamed to {@code each}: those who joined in it
+     * (rule N) -- and, PROVISIONALLY, those re-instated in it ({@link #REINSTATED_AS_NEW}).
+     */
     public void newRows(MonthRange month, Collection<Integer> tableCodes, Consumer<MemberLine> each) {
         MapSqlParameterSource arguments = arguments(month, List.of()).addValue("codes", tableCodes)
                 .addValue("payroll", PAYROLL);
         files.query("SELECT " + MEMBER_COLUMNS + ", CAST('NEW' AS VARCHAR(3)) AS class_name, " + NO_CHANGE
-                + " FROM members m " + PLACED + " WHERE " + MemberSummaryRepository.joined("m", "start", "firstDay")
-                + " AND m.payment_type = :payroll AND t.code IN (:codes) ORDER BY m.surname, m.initials, "
-                + "m.membership_number", arguments, rs -> {
+                + " FROM members m " + PLACED + " WHERE (" + MemberSummaryRepository.joined("m", "start", "firstDay")
+                + " OR " + REINSTATED_AS_NEW + ") AND m.payment_type = :payroll AND t.code IN (:codes)"
+                + " ORDER BY m.surname, m.initials, m.membership_number", arguments, rs -> {
                     each.accept(line(rs, 0));
                 });
     }
+
+    /**
+     * PROVISIONAL (the review of 8 Oct, on SASBO's Friday list beside MEN-33): a member RE-INSTATED in the month (rule R,
+     * as the month counts it) is a NEW instruction to their bank. Their leaving went to the bank as DEL in its own
+     * month's file, so without this the bank never deducts again -- MEN-23: a rejoin after the month was taken is "an
+     * ordinary reinstatement". A rejoin that undoes a leaving of the same window is none (MEN-23), and was never sent as
+     * DEL. Whether a move between banks, or between debit order and payroll, is also NEW and DEL is SASBO's to say.
+     */
+    static final String REINSTATED_AS_NEW = "EXISTS (SELECT 1 FROM member_status_changes c WHERE c.member_id = m.id"
+            + " AND c.changed_at >= :start AND c.changed_at < :next AND "
+            + MemberSummaryRepository.reinstating("c", "start") + ")";
 
     /** A bank's members who left in the month (rule L) and paid by payroll deduction, streamed to {@code each}. */
     public void deletedRows(MonthRange month, Collection<Integer> tableCodes, Consumer<MemberLine> each) {
@@ -254,7 +268,8 @@ public class MonthEndListingsRepository {
         return files.query("""
                 SELECT t.code AS table_code,
                   SUM(CASE WHEN k.end_kind IN ('N', 'S') AND k.payment_type = :payroll THEN 1 ELSE 0 END) AS full_rows,
-                  SUM(CASE WHEN k.joined = 1 AND k.payment_type = :payroll THEN 1 ELSE 0 END) AS new_rows,
+                  SUM(CASE WHEN (k.joined = 1 OR k.reinstated_n > 0) AND k.payment_type = :payroll THEN 1 ELSE 0 END)
+                    AS new_rows,
                   SUM(CASE WHEN k.payment_type = :payroll THEN k.left_n ELSE 0 END) AS deleted_rows,
                   SUM(CASE WHEN k.end_kind = 'N' THEN 1 ELSE 0 END) AS paying
                 FROM (%s) k
