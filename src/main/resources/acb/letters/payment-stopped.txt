@@ -1,0 +1,21 @@
+# Your debit order for {{debitMonthYear}} was stopped
+
+Dear {{salutationName}}
+
+Your bank returned your SASBO subscription debit order for {{debitMonthYear}} unpaid, because the payment was stopped
+on your account.
+
+| Subscription for | {{debitMonthYear}}
+| Amount | {{amount}}
+| Debit date | {{debitDate}}
+| Bank's reason | {{unpaidReason}}
+| Bank account | {{bankName}} {{accountNumber}}
+
+Under the debit order rules, we cannot present a stopped debit order again, so your subscription for {{debitMonthYear}}
+has not been paid. Until this is sorted out, your membership may be suspended.
+
+## What you need to do
+
+- If the debit order was stopped by mistake, please contact us so that we can collect your subscription again.
+- If you meant to cancel your membership, please tell us in writing, as your signed membership application
+requires.

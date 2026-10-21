@@ -88,4 +88,33 @@ class MonthRangeTest {
         assertThat(MonthRange.asked("2026-09", at("2026-09-15T08:00:00Z"))).isEqualTo(YearMonth.of(2026, 9));
         assertThat(MonthRange.asked("2019-01", at("2026-09-15T08:00:00Z"))).isEqualTo(YearMonth.of(2019, 1));
     }
+
+    @Test
+    @DisplayName("🔒 MEN-14: a month as it counts keeps the calendar's dates, and counts the instants it is given")
+    void aMonthAsItCounts() {
+        Instant septemberTaken = Instant.parse("2026-09-30T05:10:00Z");
+        Instant octoberTaken = Instant.parse("2026-10-30T05:10:00Z");
+        Instant decemberTaken = Instant.parse("2025-12-31T05:10:00Z");
+
+        MonthRange october = MonthRange.counted(YearMonth.of(2026, 10), septemberTaken, octoberTaken, decemberTaken);
+
+        assertThat(october.start()).isEqualTo(septemberTaken);
+        assertThat(october.next()).isEqualTo(octoberTaken);
+        assertThat(october.yearStart()).as("the year counts from the December before's cut-off").isEqualTo(decemberTaken);
+        assertThat(october.firstDay()).isEqualTo(LocalDate.of(2026, 10, 1));
+        assertThat(october.firstDayOfNext()).isEqualTo(LocalDate.of(2026, 11, 1));
+        assertThat(october.firstDayOfYear()).isEqualTo(LocalDate.of(2026, 1, 1));
+    }
+
+    @Test
+    @DisplayName("the calendar month is its own window where no take decides otherwise, its year from 1 January")
+    void theCalendarMonthIsItsOwnWindow() {
+        MonthRange october = MonthRange.of(YearMonth.of(2026, 10));
+
+        assertThat(october.start()).isEqualTo(Instant.parse("2026-09-30T22:00:00Z"));
+        assertThat(october.next()).isEqualTo(Instant.parse("2026-10-31T22:00:00Z"));
+        assertThat(october.yearStart()).isEqualTo(Instant.parse("2025-12-31T22:00:00Z"));
+        assertThat(MonthRange.counted(YearMonth.of(2026, 10), october.start(), october.next(), october.yearStart()))
+                .isEqualTo(october);
+    }
 }

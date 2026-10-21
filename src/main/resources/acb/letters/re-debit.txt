@@ -1,38 +1,31 @@
-                                          Membership Number {{membershipNumberPlain}}
-
-{{letterDate}}
-
-{{memberTitle}} {{memberInitials}} {{memberSurname}}
-{{addressLine1}}
-{{addressLine2}}
-{{addressLine3}}
-{{postalCode}}
+# Your debit order for {{debitMonthYear}} was returned unpaid
 
 Dear {{salutationName}}
 
-UNION SUBSCRIPTIONS
+Your bank returned your SASBO subscription debit order for {{debitMonthYear}} unpaid, because there were not enough
+funds in your account.
 
-We advise that a debit in respect of your Union subscription for the
-month of {{debitMonth}} was returned 'Not Provided For'.
+| Subscription for | {{debitMonthYear}}
+| Amount | {{amount}}
+| Debit date | {{debitDate}}
+| Bank's reason | {{unpaidReason}}
+| Bank account | {{bankName}} {{accountNumber}}
 
-In terms of the ACB rules, we are entitled to present this debit again
-the following month which will be on the usual debit day (or closest
-ACB debit date).
+## What happens next
 
-Please make arrangements for future debits which will be presented to
-your account on the {{debitDayOrdinal}} of each month (excluding Saturday/Sunday/Public
-Holidays), when the date will move forward to the next week day.
+Under the debit order rules, we may present this debit order again next month, on {{debitDayPhrase}}, together with
+that month's subscription.
 
-It is in your own interest to ensure availability of funds as your bank
-will hold you accountable for fees charged under such circumstances.
-The Union does not accept any responsibility for banking penalties.
+When your debit day falls on a Saturday, Sunday or public holiday, your debit order goes off on the next working day.
+At the end of the month it moves back instead, to the last working day of the month, so it never goes into the next
+month.
 
-In addition, our constitution stipulates that should a member default
-on monthly payments for three months, the membership will be
-terminated without further notice.
+## What you need to do
 
-Your kind attention in this matter will be appreciated.
+- Please make sure there are enough funds in your account for both debits.
+- If your banking details have changed, please send us your new details.
 
-Yours Sincerely
+Your bank may charge a fee for an unpaid debit order; SASBO is not responsible for it.
 
-SASBO Administration
+Under SASBO's constitution, a membership ends when the subscription has not been paid for three months. If that
+happens, we will write to let you know.

@@ -80,6 +80,16 @@ class MigrationChainContentTest {
         // 52 from month end 04.2: V60 adds month_end_months, month_end_workplaces and month_end_counts.
         // 53 from month end 04.10: V61 adds month_end_packs.
         // 54 from month end A.1: V62 adds workplace_visits.
+        // 61 from sign-in (October build): V65 adds staff_roles, staff_role_permissions, staff_positions, staff_users
+        // and staff_user_scope_codes; V66 user_sessions; V67 audit_events.
+        // 62 with the October build's reports-visits: V69_1 adds workplace_visit_drafts.
+        // 64 with the debit order stream: V72 adds acb_returns_batches and acb_unpaid_counts (V70 and V71 add none).
+        // 71 with month end packs: V77 adds month_end_pack_sets, month_end_banks, month_end_bank_table_codes and
+        // month_end_providers; V78 month_end_region_packs, month_end_files and month_end_deliveries.
+        // 73 with month end's rules: V79 adds no_deduction_reasons and core_tiers.
+        // 85 with payroll: V73 adds payroll_employers, payroll_employer_employers and payroll_employer_names;
+        // V74 payroll_files and payroll_rows; V75 payroll_matches, payroll_queries, payroll_query_files,
+        // payroll_discrepancies and payroll_discrepancy_notes; V76 payroll_payments and payroll_events.
         //
         // 🔑 This class is gated behind P0_DB_URL and so runs in neither ordinary
         // lane, which makes "25" an edit nobody would catch being wrong. The delta
@@ -89,7 +99,7 @@ class MigrationChainContentTest {
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
                 Integer.class))
                 .as("tables in public, including flyway_schema_history")
-                .isEqualTo(54);
+                .isEqualTo(85);
     }
 
     @Test

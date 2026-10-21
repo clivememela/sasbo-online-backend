@@ -106,7 +106,13 @@ public class MonthEndWorkbooks {
 
     private static void writeSheet(SXSSFWorkbook book, Styles styles, Set<String> names, MonthEndStatisticDto answer,
                                    MonthEndStatisticDto.Sheet sheet) {
-        Sheet out = book.createSheet(sheetName(names, answer.statistic() + " " + sheet.key()));
+        writeSheet(book, styles, names, answer.statistic() + " " + sheet.key(), answer, sheet);
+    }
+
+    /** One sheet of a statistic, under the name asked for -- a region's pack names each by its area (October build). */
+    static void writeSheet(SXSSFWorkbook book, Styles styles, Set<String> names, String name,
+                           MonthEndStatisticDto answer, MonthEndStatisticDto.Sheet sheet) {
+        Sheet out = book.createSheet(sheetName(names, name));
         int r = 0;
         text(out.createRow(r++), 0, sheet.title(), styles.title);
         text(out.createRow(r++), 0, sheet.legacyTitle(), styles.quiet);
@@ -132,7 +138,8 @@ public class MonthEndWorkbooks {
                                  Styles styles, boolean total) {
         text(line, 0, row.label(), total ? styles.header : null);
         if (row.cells() == null) {
-            text(line, 1, row.fewerThanFive() ? "fewer than 5" : "withheld", styles.quiet);
+            // "Withheld" read to SASBO as "has to be approved" (5 Oct, transcript ¶92): it is a courtesy until sign-in.
+            text(line, 1, row.fewerThanFive() ? "fewer than 5" : "not shown until you sign in", styles.quiet);
             return;
         }
         for (int c = 0; c < columns.size(); c++) {
@@ -193,7 +200,7 @@ public class MonthEndWorkbooks {
                 }
             }
             if (!asked && month.equals(takes.openMonth())) {
-                months.add(figures(month, true, facts.liveFacts(MonthRange.of(month), seeded())));
+                months.add(figures(month, true, facts.liveFacts(takes.counted(month), seeded())));
             }
             return months;
         } finally {

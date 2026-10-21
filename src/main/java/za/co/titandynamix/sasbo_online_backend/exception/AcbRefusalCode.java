@@ -3,7 +3,7 @@ package za.co.titandynamix.sasbo_online_backend.exception;
 import org.springframework.http.HttpStatus;
 
 /**
- * Every way the ACB module says no, as a stable code with its HTTP status.
+ * Every way the Debit Order Deductions module (the code's ACB) says no, as a stable code with its HTTP status.
  *
  * <h2>The codes are the contract; the messages are copy</h2>
  * A run's state machine refuses things constantly -- a month already prepared, a run already
@@ -132,17 +132,57 @@ public enum AcbRefusalCode {
      * not listed has nothing to remove. The details carry the date.
      */
     HOLIDAY_NOT_REMOVABLE(HttpStatus.CONFLICT),
-    /**
-     * The action moves money, sends a letter, submits a file or changes a member's status, and the
-     * API does not yet know who is calling (register B1). Refused to every caller until it does.
-     */
     /** 03.5: the termination rule does not reach this member -- three unpaid presentations terminate (Q27). */
     TERMINATION_NOT_DUE(HttpStatus.CONFLICT),
     /** 03.5: only an unpaid decided SUSPEND suspends its member (Q40, Q44). The details carry the line. */
     UNPAID_NOT_SUSPENDED(HttpStatus.CONFLICT),
     /** 03.5: the member's membership is terminated; a suspension would not undo that. */
     MEMBER_TERMINATED(HttpStatus.CONFLICT),
-    IDENTITY_REQUIRED(HttpStatus.FORBIDDEN);
+    // ------------------------------------------------------------------------------------------
+    // Stephne's answers, 6 October 2026 (the October build). IDENTITY_REQUIRED, the refusal of every caller while
+    // the API could not tell who was calling, is retired with them: each held action is now a permission, and a
+    // caller without it is answered by sign-in (401 SIGN_IN_REQUIRED, 403 PERMISSION_REQUIRED).
+    // ------------------------------------------------------------------------------------------
+    /**
+     * A re-debit for an unpaid whose bank code does not allow one: never for 4 or 30, 31, 32 and 34 (Stephne,
+     * DOD-03, DOD-04), and not for a code SASBO has not settled until it is set. The details carry the line, the
+     * code and what the code says (YES, NO or UNKNOWN).
+     */
+    RE_DEBIT_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_ENTITY),
+    /**
+     * The member already has three unpaids: "Cannot present more then 3 unpaid debits" (Stephne, DOD-03). The
+     * details carry the member and the count.
+     */
+    UNPAID_LIMIT_REACHED(HttpStatus.CONFLICT),
+    /** A returns batch with problems, named by entry -- at most fifty, with the total -- and nothing recorded. */
+    RETURNS_BATCH_INVALID(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** An unpaid-count list with problems, named by row -- at most fifty, with the total -- and nothing captured. */
+    UNPAID_COUNTS_INVALID(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** The bank's code names none of SASBO's suspension codes yet, so the screen must choose one. */
+    SUSPENSION_CODE_REQUIRED(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** A SASBO suspension code that is not on record. The details carry the code and the codes that are. */
+    SUSPENSION_CODE_UNKNOWN(HttpStatus.UNPROCESSABLE_ENTITY),
+    /** No member with that id is on record. */
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** Only a suspended member is reactivated. The details carry the member's status. */
+    MEMBER_NOT_SUSPENDED(HttpStatus.CONFLICT),
+    /** Only a member whose membership ended joins again. The details carry the member's status. */
+    MEMBER_NOT_ENDED(HttpStatus.CONFLICT),
+    /** The bank's code is not in the codes table. */
+    CODE_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** The bank's code is in the codes table already: it is changed, never added twice. */
+    CODE_ALREADY_LISTED(HttpStatus.CONFLICT),
+    /** Someone changed the code first. The details carry its current version. */
+    CODE_VERSION_CONFLICT(HttpStatus.CONFLICT),
+    /** No bank with that id is on record. */
+    BANK_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** A debit day outside the 20th to the 31st. */
+    DEBIT_DAY_INVALID(HttpStatus.BAD_REQUEST),
+    /**
+     * A bank's members changed between the preview and the move, so the move would not be the one that was
+     * previewed. Nothing was moved; the details carry the count expected and the count now.
+     */
+    MOVE_COUNT_CHANGED(HttpStatus.CONFLICT);
 
     private final HttpStatus status;
 

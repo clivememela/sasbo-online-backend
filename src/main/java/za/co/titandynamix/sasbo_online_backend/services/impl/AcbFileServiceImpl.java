@@ -169,6 +169,30 @@ public class AcbFileServiceImpl implements AcbFileService {
     }
 
     @Override
+    public java.util.Optional<FileFacts> facts(long runId) {
+        return jdbc.query("SELECT sha256, COALESCE(downloads, 0) AS downloads, last_downloaded_by, last_downloaded_at "
+                        + "FROM acb_run_files WHERE run_id = ?",
+                (rs, n) -> {
+                    java.sql.Timestamp last = rs.getTimestamp("last_downloaded_at");
+                    return new FileFacts(rs.getString("sha256"), rs.getInt("downloads"),
+                            rs.getString("last_downloaded_by"), last == null ? null : last.toInstant());
+                }, runId).stream().findFirst();
+    }
+
+    @Override
+    public int countDownload(long runId, String actor) {
+        jdbc.update("UPDATE acb_run_files SET downloads = COALESCE(downloads, 0) + 1, last_downloaded_by = ?, "
+                        + "last_downloaded_at = ? WHERE run_id = ?",
+                actor, OffsetDateTime.ofInstant(AcbTime.instant(clock), ZoneOffset.UTC), runId);
+        Integer downloads = jdbc.queryForObject("SELECT COALESCE(downloads, 0) FROM acb_run_files WHERE run_id = ?",
+                Integer.class, runId);
+        int count = downloads == null ? 0 : downloads;
+        audit.record(runId, null, "FILE_DOWNLOADED", null, null, "the file for the bank downloaded"
+                + (count > 1 ? " again: download " + count : ""), actor);
+        return count;
+    }
+
+    @Override
     public boolean hasRendered(long runId) {
         Integer files = jdbc.queryForObject("SELECT count(*) FROM acb_run_files WHERE run_id = ?", Integer.class, runId);
         return files != null && files > 0;

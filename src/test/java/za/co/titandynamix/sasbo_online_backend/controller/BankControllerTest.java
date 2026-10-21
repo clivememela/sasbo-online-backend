@@ -16,6 +16,8 @@ import za.co.titandynamix.sasbo_online_backend.dto.bank.BankBranchDto;
 import za.co.titandynamix.sasbo_online_backend.dto.bank.BankDto;
 import za.co.titandynamix.sasbo_online_backend.entity.bank.BankBranch;
 import za.co.titandynamix.sasbo_online_backend.exception.GlobalExceptionHandler;
+import za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusal;
+import za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.services.BankBranchService;
 import za.co.titandynamix.sasbo_online_backend.services.BankService;
 
@@ -160,7 +162,7 @@ class BankControllerTest {
 
         this.mockMvc.perform(post("/api/banks/branches")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"branchName\":\"Rosebank\",\"branchCode\":\"632005\"}"))
+                        .content("{\"bankName\":\"Absa\",\"branchName\":\"Rosebank\",\"branchCode\":\"632005\"}"))
                 .andExpect(status().isOk());
 
         ArgumentCaptor<BankBranchDto> bound = ArgumentCaptor.forClass(BankBranchDto.class);
@@ -180,7 +182,8 @@ class BankControllerTest {
 
         this.mockMvc.perform(post("/api/banks/branches")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"physicalAddress\":{\"streetNumber\":\"12\","
+                        .content("{\"bankName\":\"Absa\",\"branch\":\"Rivonia\","
+                                + "\"physicalAddress\":{\"streetNumber\":\"12\","
                                 + "\"streetName\":\"Rivonia Road\"}}"))
                 .andExpect(status().isOk());
 
@@ -194,6 +197,7 @@ class BankControllerTest {
     void updateBranchBindsIdAndPayload() throws Exception {
         BankBranchDto sent = new BankBranchDto();
         sent.setBranch("Sandton City");
+        sent.setBankName("Absa");
 
         BankBranch updated = new BankBranch();
         updated.setId(4);
@@ -220,14 +224,83 @@ class BankControllerTest {
         when(this.bankBranchService.updateFromDto(eq(99), any(BankBranchDto.class)))
                 .thenThrow(new jakarta.persistence.EntityNotFoundException("Branch 99 not found"));
 
+        // A valid body since A29: `{}` is refused for its missing bank and branch before the service is asked.
         this.mockMvc.perform(put("/api/banks/branches/99")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .content("{\"bankName\":\"Absa\",\"branch\":\"Sandton\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.path").value("/api/banks/branches/99"))
                 .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    // ============================================================
+    // A29's server half -- every refusal of a branch save is a sentence a SASBO administrator can act on.
+    // ============================================================
+
+    @Test
+    @DisplayName("A29: a save without its bank or branch is refused with each field named, and nothing is asked of the service")
+    void aSaveWithoutItsRequiredFieldsIsRefusedByField() throws Exception {
+        this.mockMvc.perform(put("/api/banks/branches/4")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bankName\":\"  \",\"branchCode\":\"632005\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.bankName").value("Bank Name is required."))
+                .andExpect(jsonPath("$.validationErrors.branch").value("Branch is required."));
+
+        org.mockito.Mockito.verifyNoInteractions(this.bankBranchService);
+    }
+
+    @Test
+    @DisplayName("A29: a value longer than its column is refused with the field named, not failed in the database")
+    void aValueLongerThanItsColumnIsRefusedByField() throws Exception {
+        BankBranchDto sent = new BankBranchDto();
+        sent.setBankName("Absa");
+        sent.setBranch("Sandton");
+        sent.setBranchCode("6320051");
+
+        this.mockMvc.perform(post("/api/banks/branches")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(this.objectMapper.writeValueAsString(sent)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.branchCode").value("Branch Code is at most 6 characters."));
+
+        org.mockito.Mockito.verifyNoInteractions(this.bankBranchService);
+    }
+
+    @Test
+    @DisplayName("A29: a branch no longer on record is a 404 with its code and a sentence, not the catch-all's 500")
+    void aBranchNoLongerOnRecordIsCoded() throws Exception {
+        when(this.bankBranchService.updateFromDto(eq(99), any(BankBranchDto.class)))
+                .thenThrow(new ReferenceRefusal(ReferenceRefusalCode.BRANCH_NOT_FOUND,
+                        "That branch is no longer on record. Reload the branch list, then try again.",
+                        java.util.Map.of("branchId", "99")));
+
+        this.mockMvc.perform(put("/api/banks/branches/99")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bankName\":\"Absa\",\"branch\":\"Sandton\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("BRANCH_NOT_FOUND"))
+                .andExpect(jsonPath("$.message")
+                        .value("That branch is no longer on record. Reload the branch list, then try again."))
+                .andExpect(jsonPath("$.details.branchId").value("99"));
+    }
+
+    @Test
+    @DisplayName("A29: a branch code another branch of the bank holds is a 409 with its code, naming the bank and code")
+    void aTakenBranchCodeIsCoded() throws Exception {
+        when(this.bankBranchService.updateFromDto(eq(4), any(BankBranchDto.class)))
+                .thenThrow(new ReferenceRefusal(ReferenceRefusalCode.BRANCH_CODE_TAKEN,
+                        "Another Absa branch already has branch code 632005. Each branch of a bank has its own code.",
+                        java.util.Map.of("bankName", "Absa", "branchCode", "632005")));
+
+        this.mockMvc.perform(put("/api/banks/branches/4")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bankName\":\"Absa\",\"branch\":\"Sandton\",\"branchCode\":\"632005\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("BRANCH_CODE_TAKEN"))
+                .andExpect(jsonPath("$.details.branchCode").value("632005"));
     }
 
     private static BankDto bankDto(Integer id, String name) {

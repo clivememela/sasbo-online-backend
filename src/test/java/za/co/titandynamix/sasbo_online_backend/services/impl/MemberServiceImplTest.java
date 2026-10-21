@@ -15,6 +15,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import za.co.titandynamix.sasbo_online_backend.entity.member.Member;
 import za.co.titandynamix.sasbo_online_backend.entity.reference.Committee;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
+import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.fixtures.MemberFixture;
 import za.co.titandynamix.sasbo_online_backend.mapper.MemberMapper;
 import za.co.titandynamix.sasbo_online_backend.repository.BankBranchRepository;
@@ -87,6 +89,8 @@ class MemberServiceImplTest {
      */
     private static final Map<String, String> SERVICE_MAY_CHANGE = Map.ofEntries(
             Map.entry("id", "cleared before save, so a create cannot overwrite an existing row"),
+            Map.entry("version", "cleared before save (V68): a new member starts at its first save, whatever a "
+                    + "request sent -- which save of a record it is is Hibernate's, not the caller's"),
             Map.entry("createdAt", "set by @PrePersist"),
             Map.entry("updatedAt", "set by @PrePersist"),
             Map.entry("dateOfBirth", "derived from the identity number"),
@@ -118,7 +122,7 @@ class MemberServiceImplTest {
             Map.entry("bankName", "derived from the branch"),
             Map.entry("branch", "derived from the banking details"),
             Map.entry("branchCode", "derived from the banking details"),
-            Map.entry("debitDay", "derived from the bank's subscription record"),
+            Map.entry("debitDay", "the bank's subscription day, given only where the member has none (A67)"),
             Map.entry("monthlySubscription", "derived from the bank's subscription record"),
             Map.entry("bankingDetails", "rebuilt from the flat banking fields"),
             Map.entry("user", "its id is cleared so a create cannot adopt an existing user"));
@@ -159,6 +163,10 @@ class MemberServiceImplTest {
                 this.workplaces, this.trail, this.committeeRepository);
 
         when(this.memberRepository.save(any(Member.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        // An edit is saved and flushed at once (V68): the database compares its version there, and the answer carries
+        // the version the save moved it to.
+        when(this.memberRepository.saveAndFlush(any(Member.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(this.bankRepository.findByNameIgnoreCase(any())).thenReturn(Optional.empty());
         when(this.unionStructureRepository.findById(any())).thenReturn(Optional.empty());
@@ -393,6 +401,88 @@ class MemberServiceImplTest {
 
         assertThat(this.service.update(99, MemberFixture.aMember())).isEmpty();
         verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+        verify(this.memberRepository, org.mockito.Mockito.never()).saveAndFlush(any(Member.class));
+    }
+
+    // ============================================================
+    // V68 -- TWO PEOPLE EDITING ONE MEMBER. The later save silently undid the earlier one: a member carried
+    // nothing to say which save of the record an edit had read (the manual stream, 7 Oct, Members.jsx:1016-1022).
+    // ============================================================
+
+    @Test
+    @DisplayName("🔴 V68: an edit made on a stale record is refused MEMBER_CHANGED_SINCE -- before anything is merged or written")
+    void aStaleEditIsRefused() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setVersion(5L);
+        existing.setUpdatedAt(java.time.LocalDateTime.of(2026, 10, 7, 9, 41));
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        Member edit = MemberFixture.aMember();
+        edit.setVersion(4L);
+        edit.setPhone("+27 82 000 0010");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.update(4, edit))
+                .isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
+                    assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MEMBER_CHANGED_SINCE);
+                    assertThat(refusal.code().status().value()).isEqualTo(409);
+                    assertThat(refusal.details()).containsEntry("memberId", "4").containsEntry("versionOnRecord", "5")
+                            .containsEntry("savedAt", "2026-10-07T09:41");
+                    assertThat(refusal.getMessage()).contains("saved");
+                });
+        verify(this.memberMapper, org.mockito.Mockito.never()).updateFromMember(any(Member.class), any(Member.class));
+        verify(this.memberRepository, org.mockito.Mockito.never()).saveAndFlush(any(Member.class));
+        verify(this.memberRepository, org.mockito.Mockito.never()).save(any(Member.class));
+        verify(this.trail, org.mockito.Mockito.never()).changed(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("must-pass: an edit naming the version on record is saved -- and one naming none is not checked")
+    void anEditOfTheVersionOnRecordIsSaved() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setVersion(5L);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        Member current = MemberFixture.aMember();
+        current.setVersion(5L);
+        assertThat(this.service.update(4, current)).isPresent();
+
+        Member unversioned = MemberFixture.aMember();
+        unversioned.setVersion(null);
+        assertThat(this.service.update(4, unversioned)).as("a caller that sends no version is not checked").isPresent();
+        verify(this.memberRepository, org.mockito.Mockito.times(2)).saveAndFlush(existing);
+    }
+
+    @Test
+    @DisplayName("🔴 V68: a save that loses a race at the database is MEMBER_CHANGED_SINCE too -- and records no history")
+    void aRaceLostAtTheDatabaseIsRefused() {
+        Member existing = MemberFixture.aMember();
+        existing.setId(4);
+        existing.setVersion(5L);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        when(this.memberRepository.saveAndFlush(existing)).thenThrow(
+                new org.springframework.orm.ObjectOptimisticLockingFailureException(Member.class, 4));
+        Member edit = MemberFixture.aMember();
+        edit.setVersion(5L);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.service.update(4, edit))
+                .isInstanceOfSatisfying(MonthEndRefusal.class, refusal -> {
+                    assertThat(refusal.code()).isEqualTo(MonthEndRefusalCode.MEMBER_CHANGED_SINCE);
+                    assertThat(refusal.details()).containsEntry("memberId", "4");
+                });
+        verify(this.trail, org.mockito.Mockito.never()).changed(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("🔒 V68: a capture never keeps a version a request sent -- a new member starts at the first save")
+    void aCaptureKeepsNoVersion() {
+        Member incoming = MemberFixture.aMember();
+        incoming.setVersion(7L);
+
+        this.service.create(incoming);
+
+        verify(this.memberRepository).save(this.saved.capture());
+        assertThat(this.saved.getValue().getVersion()).isNull();
     }
 
     // ============================================================
@@ -498,9 +588,10 @@ class MemberServiceImplTest {
     // administrator never entered.
     //
     // The range is authoritative; the banks' seeded ACB days are placeholder data.
-    // So the assignment is conditional now, and these two tests are what stop it
-    // silently going back — DebitDayOverwriteConflictTest guards the RULE, but only
-    // a service test can catch the service forgetting to apply it.
+    // So the assignment is conditional now, and the test below with A67's twin
+    // further down is what stops it silently going back — DebitDayOverwriteConflictTest
+    // guards the RULE, but only a service test can catch the service forgetting to
+    // apply it.
     // ============================================================
 
     /** Wires the bank + subscription lookup the service performs, with a given ACB day. */
@@ -544,38 +635,20 @@ class MemberServiceImplTest {
         assertThat(saved.getMonthlySubscription()).isEqualTo("120.00");
     }
 
-    @Test
-    @DisplayName("a bank whose ACB day IS in range still overwrites, as it always did")
-    void aUsableBankDayIsStillApplied() {
-        // The non-vacuity half. Without it the test above passes just as well against
-        // a service that has stopped deriving the debit day at all -- which would be a
-        // different defect wearing the same green.
-        bankOffers("Nedbank Limited", 20);
-
-        Member member = MemberFixture.aMember();
-        member.setPaymentType("Debit Order");
-        member.setBankAccountNumber("1234567890");
-        member.setAccountType("Cheque");
-        member.setBankName("Nedbank Limited");
-        member.setDebitDay(31);
-
-        assertThat(this.service.create(member).getDebitDay())
-                .as("the bank's day is usable, so it is authoritative over the default")
-                .isEqualTo(20);
-    }
-
     // ============================================================
-    // 🔴 A67 — the test ABOVE is the defect's live pin, as it stands.
+    // 🔴 A67 — FIXED, the October build (2026-10-06).
     //
-    // It asserts the overwrite as intended, and until 2026-09-21 it was: SASBO then
-    // answered Q42 -- the debit day must be flexible, "as banks debit days change" --
-    // so a day the member CHOSE inside the range must survive the bank's. When A67
-    // is fixed, the test above flips (or goes), the disabled one below is enabled,
-    // and the must-pass twin beside it is what keeps the bank's day as the DEFAULT.
+    // A bank whose ACB day was in range used to overwrite the member's own day, and
+    // `aUsableBankDayIsStillApplied` stood here asserting that overwrite as intended --
+    // the defect's live pin. SASBO answered Q42 on 2026-09-21: the debit day must be
+    // flexible, "as banks debit days change". So a day the member CHOSE stands, and
+    // the bank's day is only the DEFAULT for a member with none. The pin is retired
+    // with the fix; the test below is enabled, and the must-pass twin beside it is
+    // the non-vacuity half the pin used to be: a service that stopped deriving the
+    // day at all would pass the first and fail the second.
     // ============================================================
 
     @Test
-    @Disabled(KnownDefects.MEMBER_DEBIT_DAY_OVERWRITTEN_BY_THE_BANKS)
     @DisplayName("🔴 A67: a debit day the member chose stands, even where the bank's day is usable")
     void aChosenDaySurvivesAUsableBankDay() {
         bankOffers("Nedbank Limited", 20);
@@ -670,11 +743,10 @@ class MemberServiceImplTest {
     }
 
     @Test
-    @DisplayName("...and updateBanking still applies a bank day that IS usable")
-    void updateBankingStillAppliesAUsableBankDay() {
-        // The non-vacuity half. Without it the test above is satisfied by an
-        // `updateBanking` that has stopped deriving the debit day at all, which is a
-        // different defect wearing the same green.
+    @DisplayName("🔴 A67: updateBanking keeps the day the administrator chose, even where the bank's is usable")
+    void updateBankingKeepsAChosenDayWhereTheBanksIsUsable() {
+        // Until A67 this asserted the overwrite: Nedbank's 20 replaced the 31 the
+        // banking screen sent. A day sent with the banking details is a choice.
         bankOffers("Nedbank Limited", 20);
 
         Member existing = debitOrderMemberAtAbsa();
@@ -684,8 +756,90 @@ class MemberServiceImplTest {
         Member saved = this.service.updateBanking(4, bankingPayloadFor(existing, 31)).orElseThrow();
 
         assertThat(saved.getDebitDay())
-                .as("Nedbank's 20 is inside the range, so it is authoritative")
+                .as("the 31st was chosen and is in range; Nedbank's 20th must not replace it")
+                .isEqualTo(31);
+    }
+
+    @Test
+    @DisplayName("...and updateBanking with no day chosen is given the bank's usable day")
+    void updateBankingGivesTheBanksDayWhereNoneIsChosen() {
+        // The non-vacuity half. Without it the test above is satisfied by an
+        // `updateBanking` that has stopped deriving the debit day at all, which is a
+        // different defect wearing the same green.
+        bankOffers("Nedbank Limited", 20);
+
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setBankName("Nedbank Limited");
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        Member banking = bankingPayloadFor(existing, 31);
+        banking.setDebitDay(null);
+
+        Member saved = this.service.updateBanking(4, banking).orElseThrow();
+
+        assertThat(saved.getDebitDay())
+                .as("no day was chosen, so Nedbank's usable 20th is the default")
                 .isEqualTo(20);
+    }
+
+    // ============================================================
+    // 🔴 A67 on the PUT — an edit must not reset the day.
+    //
+    // The merge ignores a null (decision ⑨), so a PUT that never mentions the debit
+    // day leaves the stored one on the member -- where the bank's day used to replace
+    // it on the very next line. The stub is what MapStruct really does with the
+    // field (`MemberPutSemanticsIT` holds the real mapper to it): a value is copied,
+    // a null is not.
+    // ============================================================
+
+    /** What MapStruct does with a debit day on the PUT: a value is copied, a null is ignored (decision ⑨). */
+    private void mapperCarriesTheDebitDay() {
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Member source = invocation.getArgument(0);
+            Member target = invocation.getArgument(1);
+            if (source.getDebitDay() != null) {
+                target.setDebitDay(source.getDebitDay());
+            }
+            return null;
+        }).when(this.memberMapper).updateFromMember(any(Member.class), any(Member.class));
+    }
+
+    @Test
+    @DisplayName("🔴 A67: an edit that does not mention the debit day keeps the stored one, even where the bank's is usable")
+    void anEditThatNamesNoDayKeepsTheStoredOne() {
+        bankOffers("Nedbank Limited", 20);
+        mapperCarriesTheDebitDay();
+
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setBankName("Nedbank Limited");
+        existing.setDebitDay(22);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+
+        // A phone-number correction, say: nothing about the debit day.
+        Member saved = this.service.update(4, MemberFixture.aMember()).orElseThrow();
+
+        assertThat(saved.getDebitDay())
+                .as("the member's 22nd was not part of this edit; Nedbank's 20th must not replace it")
+                .isEqualTo(22);
+    }
+
+    @Test
+    @DisplayName("🔴 A67: an edit that names a new debit day keeps it, even where the bank's is usable")
+    void anEditThatNamesADayKeepsIt() {
+        bankOffers("Nedbank Limited", 20);
+        mapperCarriesTheDebitDay();
+
+        Member existing = debitOrderMemberAtAbsa();
+        existing.setBankName("Nedbank Limited");
+        existing.setDebitDay(22);
+        when(this.memberRepository.findById(4)).thenReturn(Optional.of(existing));
+        Member edit = MemberFixture.aMember();
+        edit.setDebitDay(27);
+
+        Member saved = this.service.update(4, edit).orElseThrow();
+
+        assertThat(saved.getDebitDay())
+                .as("the 27th was chosen in this edit; Nedbank's 20th must not replace it")
+                .isEqualTo(27);
     }
 
     @Test
@@ -830,7 +984,7 @@ class MemberServiceImplTest {
         // The property is the validator's, not the mapper's (a bare mock here, as the note above says): the save
         // happens, and the type the member was captured without stays unset rather than being refused or guessed.
         assertThat(this.service.update(4, edit)).isPresent();
-        verify(this.memberRepository).save(existing);
+        verify(this.memberRepository).saveAndFlush(existing);
         assertThat(existing.getAccountType()).isNull();
     }
 

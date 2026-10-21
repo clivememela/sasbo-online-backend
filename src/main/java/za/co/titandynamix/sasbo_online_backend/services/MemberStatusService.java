@@ -9,8 +9,8 @@ import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusRequest;
  */
 public interface MemberStatusService {
 
-    /** The longest note an administrator may write (MR-SEC-22). */
-    int MAX_NOTE_LENGTH = 500;
+    /** The longest note an administrator may write (MR-SEC-22) -- SASBO asked at the 5 October Show &amp; Tell. */
+    int MAX_NOTE_LENGTH = za.co.titandynamix.sasbo_online_backend.utils.FreeText.NOTE_LIMIT;
 
     /**
      * Moves a member to a status with its reason: a leaving with SASBO's deletion code, a suspension with SASBO's

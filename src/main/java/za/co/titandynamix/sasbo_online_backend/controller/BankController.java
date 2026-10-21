@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,12 +31,12 @@ public class BankController {
     }
 
     @PostMapping("/branches")
-    public ResponseEntity<BankBranch> createBranch(@RequestBody BankBranchDto dto) {
+    public ResponseEntity<BankBranch> createBranch(@Valid @RequestBody BankBranchDto dto) {
         return ResponseEntity.ok(this.bankBranchService.createFromDto(dto));
     }
 
     @PutMapping("/branches/{id}")
-    public ResponseEntity<BankBranch> updateBranch(@PathVariable Integer id, @RequestBody BankBranchDto dto) {
+    public ResponseEntity<BankBranch> updateBranch(@PathVariable Integer id, @Valid @RequestBody BankBranchDto dto) {
         return ResponseEntity.ok(this.bankBranchService.updateFromDto(id, dto));
     }
 }

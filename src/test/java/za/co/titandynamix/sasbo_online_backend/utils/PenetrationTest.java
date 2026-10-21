@@ -28,4 +28,20 @@ class PenetrationTest {
         assertThat(Penetration.of(5, null)).isNull();
         assertThat(Penetration.of(5, 0L)).isNull();
     }
+
+    @Test
+    @DisplayName("🔒 MEN-26, \"This should be flagged so we can fix it\": more paying than the complement is out of date")
+    void moreThanTheComplementIsFlagged() {
+        assertThat(Penetration.complementOutOfDate(9, 8L)).as("nine paying, eight on staff").isTrue();
+        assertThat(Penetration.complementOutOfDate(8, 8L)).as("every one of them paying: a hundred, not over").isFalse();
+        assertThat(Penetration.complementOutOfDate(3, 8L)).isFalse();
+    }
+
+    @Test
+    @DisplayName("MEN-26: nothing is compared with nothing -- no complement on record is never flagged")
+    void noComplementIsNeverFlagged() {
+        assertThat(Penetration.complementOutOfDate(5, null)).isFalse();
+        assertThat(Penetration.complementOutOfDate(5, 0L)).isFalse();
+        assertThat(Penetration.OUT_OF_DATE_NOTE).contains("shown as it is").contains("flagged");
+    }
 }

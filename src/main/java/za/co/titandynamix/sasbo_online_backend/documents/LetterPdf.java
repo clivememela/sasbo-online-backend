@@ -15,24 +15,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * THE ONE PDF PATH (ACB {@code 03.3}; the third senior pass: "one PDF path, not two").
+ * The welcome letter's PDF path: A4, 48-point margins, each line wrapped at words to the width, a page added when one
+ * fills, a blank line where the text has one -- exactly the layout the welcome letter had when it had its own copy
+ * of this code.
  *
- * <p>The welcome letter and the union's three debit-order letters are both laid out here: A4, 48-point margins,
- * each line wrapped at words to the width, a page added when one fills, a blank line where the text has one. The
- * welcome letter's layout is exactly what it was when it had its own copy of this code; the debit-order letters are
- * set in Courier, as the union typed them, so a line the template aligns with spaces stays aligned.
+ * <p>The debit order letters left it in October 2026 for {@link LetterLayout}: the letterhead, a modern layout and an
+ * embedded typeface (DOD-33). The welcome letter stays here, in a standard font, until its own owners move it: a
+ * character the font cannot encode is printed as '?' -- register A68, whose pins are the automation arc's
+ * ({@code WelcomeLetterDefectsTest}); moving the welcome letter onto {@link LetterLayout}'s embedded fonts is the fix.
  *
  * <p>🔒 A letterhead, when given, is an image EMBEDDED in the document and drawn at the head of the first page --
- * never a remote reference, which a mail client would fetch (SD3-C). And text is drawn, never interpreted: a
- * character the font cannot encode is printed as '?', so a name with a character outside the standard fonts is
- * still printed rather than refusing the whole letter.
+ * never a remote reference, which a mail client would fetch (SD3-C).
  */
 public final class LetterPdf {
 
-    /** How the text is set: the welcome letter in Times, the typed debit-order letters in Courier. */
+    /** How the text is set: the welcome letter in Times. */
     public record Style(Standard14Fonts.FontName font, float size, float leading) {
         public static final Style WELCOME = new Style(Standard14Fonts.FontName.TIMES_ROMAN, 12f, 14.5f);
-        public static final Style TYPED = new Style(Standard14Fonts.FontName.COURIER, 10.5f, 13f);
     }
 
     static final float MARGIN = 48f;

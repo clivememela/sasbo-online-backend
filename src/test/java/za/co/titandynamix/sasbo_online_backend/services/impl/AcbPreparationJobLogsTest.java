@@ -94,7 +94,7 @@ class AcbPreparationJobLogsTest {
         job = new AcbPreparationJob(runs, lines, rates, population,
                 new AcbAuditTrail(mock(AcbAuditEventRepository.class), CLOCK),
                 () -> AcbCalendars.ZA_STATUTORY, CLOCK, mock(PlatformTransactionManager.class),
-                mock(JdbcTemplate.class), new SimpleMeterRegistry());
+                mock(JdbcTemplate.class), new SimpleMeterRegistry(), mock(AcbUnpaidCounter.class));
     }
 
     @AfterEach

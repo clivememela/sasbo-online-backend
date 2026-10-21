@@ -43,6 +43,12 @@ public class MemberController {
     @Autowired(required = false)
     private EmailService emailService;
 
+    /**
+     * Every member, with every field. SUPERSEDED FOR THE REGISTER by {@code POST /api/members/register/search}
+     * (register row A10, {@code MemberRegisterController}): a page of slim rows, in the caller's region or area. Kept for
+     * whatever still reads it -- the Recruiters screen did on main -- and still unbounded, as
+     * {@code UnboundedCollectionTest} names it.
+     */
     @GetMapping
     @Transactional(readOnly = true)
     public List<MemberDto> getAll() {

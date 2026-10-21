@@ -90,15 +90,31 @@ class RecruitmentChannelControllerTest {
     }
 
     @Test
-    @DisplayName("POST rejects a duplicate with 400, not 500")
+    @DisplayName("🔴 POST rejects a duplicate with 400 and the API's envelope carrying the sentence -- not a bare string")
     void createRejectsWithBadRequest() throws Exception {
         when(this.recruitmentChannelService.create(any(RecruitmentChannelDto.class)))
-                .thenThrow(new IllegalArgumentException("channel already exists"));
+                .thenThrow(new IllegalArgumentException("A recruitment type with that name already exists."));
 
+        // The browser reads the envelope's `message`; a plain-text body left it "That request was rejected."
         this.mockMvc.perform(post("/api/recruitment-channels")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(this.objectMapper.writeValueAsString(channel("WALK_IN"))))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("A recruitment type with that name already exists."));
+    }
+
+    @Test
+    @DisplayName("🔴 PUT rejects a rename onto a taken name the same way")
+    void updateRejectsADuplicateInTheEnvelope() throws Exception {
+        when(this.recruitmentChannelService.update(org.mockito.ArgumentMatchers.eq(4L), any(RecruitmentChannelDto.class)))
+                .thenThrow(new IllegalArgumentException("A recruitment type with that name already exists."));
+
+        this.mockMvc.perform(put("/api/recruitment-channels/4")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(this.objectMapper.writeValueAsString(channel("WALK_IN"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("A recruitment type with that name already exists."));
     }
 
     @Test

@@ -55,6 +55,20 @@ public class MonthEndMonth {
     @Column(name = "take_number", nullable = false)
     private Integer takeNumber;
 
+    /** V79, Stephne MEN-11: why a take again replaced the one before -- required of every take after the first. */
+    @Column(name = "reason", length = 500)
+    private String reason;
+
+    /**
+     * V79, Stephne MEN-14: the window the take counted -- from the cut-off of the month before, up to its own. Empty on
+     * a take made before V79, whose window was the calendar month up to the moment it was taken.
+     */
+    @Column(name = "counts_from")
+    private Instant countsFrom;
+
+    @Column(name = "counts_until")
+    private Instant countsUntil;
+
     @Override
     public String toString() {
         return "MonthEndMonth[" + id + ", " + monthStart + "]";

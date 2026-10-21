@@ -49,11 +49,18 @@ public class DataSeeder implements ApplicationRunner {
     private final SeedMemberRepository seedMembers;
     private final SasboEnvironment environment;
     private final AcbHistorySeeder acbHistorySeeder;
+    private final za.co.titandynamix.sasbo_online_backend.services.impl.DodScenarioSeeder dodScenarioSeeder;
     private final ReferenceListSeeder referenceListSeeder;
     private final WorkplaceSeeder workplaceSeeder;
     private final WorkplaceVisitSeeder workplaceVisitSeeder;
     private final DemonstrationMemberSeeder demonstrationMemberSeeder;
     private final MonthEndTakeSeeder monthEndTakeSeeder;
+    private final MonthEndRulesSeeder monthEndRulesSeeder;
+    private final SignInSeeder signInSeeder;
+    private final RecruitmentChannelSeeder recruitmentChannelSeeder;
+    private final VisitDraftSeeder visitDraftSeeder;
+    private final MonthEndSendSeeder monthEndSendSeeder;
+    private final PayrollSeeder payrollSeeder;
 
     /**
      * The seed members, WITH the fields the request-body rules refuse.
@@ -154,6 +161,15 @@ public class DataSeeder implements ApplicationRunner {
                 .findAndAddModules()
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .build();
+
+        // SIGN-IN'S BLOCK (October build), FIRST -- so every seeder after it, any stream's, finds the positions and the
+        // demonstration users it names -- and EACH CALL CAUGHT: a fault here must stop nothing else. The positions and
+        // roles are configuration and are seeded everywhere; the first administrator only while nobody can sign in and
+        // the host names one; the demonstration users only where asked for, never under the production marker (the
+        // seeder checks it itself, so no caller can forget to).
+        seedMonthEnd("the sign-in positions and roles", this.signInSeeder::seedPositionsAndRoles);
+        seedMonthEnd("the first administrator", this.signInSeeder::seedBootstrapAdministrator);
+        seedMonthEnd("the demonstration users", this.signInSeeder::seedDemoUsers);
 
         // 🔒 SYNTHETIC PEOPLE ARE NEVER SEEDED WHERE THE PRODUCTION MARKER IS SET (SD3-A). A brand-new
         // production database is empty at its first boot -- exactly when the table-empty guard below
@@ -323,9 +339,29 @@ public class DataSeeder implements ApplicationRunner {
         seedMonthEnd("the seed members' workplaces", () -> seedQuietly(this.demonstrationMemberSeeder::place));
         // 03.7: their past -- the three months before the clock's, written through the real status change.
         seedMonthEnd("the invented members' past", () -> seedQuietly(this.demonstrationMemberSeeder::past));
+        // October build: invented visits saved as drafts and submitted -- only where the switch says all. Before the
+        // months are taken, so what a taken month freezes of its visits and what it reads of them agree.
+        seedMonthEnd("the invented visit drafts", this.visitDraftSeeder::seed);
+        // October build: month end's rules -- her codes, reasons and tiers where absent; members suspended within
+        // several banks, some lapsed; a rejoin in the same month; a workplace over its complement. Before the take, so
+        // the seed's months are taken with them.
+        seedMonthEnd("month end's rules", () -> seedQuietly(this.monthEndRulesSeeder::seed));
+        // Payroll (October build): the employers -- reference data, everywhere -- and the demonstration's members, placed
+        // at their employers' workplaces where those are served: BEFORE the months are taken, so the takes hold them.
+        seedMonthEnd("the payroll employers", this.payrollSeeder::seedEmployers);
+        seedMonthEnd("the payroll members", () -> seedQuietly(this.payrollSeeder::seedMembers));
         // 04.2: those three months TAKEN -- after their past, which the take freezes, and only where the workplaces
         // are on record (MD54).
         seedMonthEnd("the demonstration's past months, taken", this.monthEndTakeSeeder::seed);
+        // Payroll's demonstration files, built from whoever is on record by now; never under the marker.
+        seedMonthEnd("the payroll demonstration", () -> seedQuietly(this.payrollSeeder::seedFiles));
+        // RC15: every seeded member -- the invented ones included, so after the block above -- recruited through one of
+        // SASBO's channels where none is recorded, so the Recruiters screen's figures are not all 0. Caught like the
+        // block's own: a fault here must not stop the start, and is logged with its cause.
+        seedMonthEnd("the seed members' recruitment channels", this.recruitmentChannelSeeder::seed);
+        // October build: who gets what -- the regions' recipients, the banks' files, the providers -- and the newest taken
+        // month's packs and files, made and delivered; after the takes, which the packs are made from.
+        seedMonthEnd("the files that leave SASBO", this.monthEndSendSeeder::seed);
 
         // The seed's A.C.B. history (D33, 03.8): LAST, because it prepares runs from the members, banks
         // and subscription rows seeded above -- there is no @Order to sequence a second runner (F49).
@@ -336,6 +372,14 @@ public class DataSeeder implements ApplicationRunner {
             this.acbHistorySeeder.seed();
         } catch (RuntimeException seedingFailed) {
             log.error("The A.C.B. history could not be seeded; the application starts without it",
+                    AcbLogging.scrubbed(seedingFailed));
+        }
+        // The Debit Order Deductions demonstration (Stephne's answers, 6 October 2026): AFTER the history it works on,
+        // all or nothing in one transaction, never in production. Caught like the history: a demo must start.
+        try {
+            this.dodScenarioSeeder.seed();
+        } catch (RuntimeException seedingFailed) {
+            log.error("The Debit Order demonstration could not be seeded; the application starts without it",
                     AcbLogging.scrubbed(seedingFailed));
         }
     }

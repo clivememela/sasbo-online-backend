@@ -4,6 +4,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Random;
 
@@ -87,5 +91,49 @@ class SmallCountsTest {
                 assertThat(SmallCounts.values(i, counts, states, total)).isGreaterThanOrEqualTo(SmallCounts.KEEP);
             }
         }
+    }
+
+    // ------------------------------------------------------------------ MD27: a courtesy until sign-in, and no longer
+
+    @Test
+    @DisplayName("🔒 MD27: a caller signed in with MONTH_END_VIEW is answered every figure exactly")
+    void notForACallerWhoSeesTheMonthsFigures() {
+        try {
+            SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                    "invented.administrator", null, AuthorityUtils.createAuthorityList("MEMBERS_VIEW", "MONTH_END_VIEW")));
+
+            assertThat(SmallCounts.appliesToTheCaller()).isFalse();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @DisplayName("🔒 MD27: anyone else keeps it -- nobody, the anonymous, a caller signed in without MONTH_END_VIEW, a job")
+    void forEveryoneElse() {
+        try {
+            assertThat(SmallCounts.appliesToTheCaller()).as("no caller: a job's thread, or the link").isTrue();
+
+            SecurityContextHolder.getContext().setAuthentication(new AnonymousAuthenticationToken("key", "anonymous",
+                    AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
+            assertThat(SmallCounts.appliesToTheCaller()).as("the anonymous").isTrue();
+
+            SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                    "invented.organiser", null, AuthorityUtils.createAuthorityList("MEMBERS_VIEW", "MEMBERS_CAPTURE")));
+            assertThat(SmallCounts.appliesToTheCaller()).as("signed in, without MONTH_END_VIEW").isTrue();
+
+            SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.unauthenticated(
+                    "invented.administrator", null));
+            assertThat(SmallCounts.appliesToTheCaller()).as("not authenticated, whatever it claims").isTrue();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @DisplayName("the permission that ends it is a name from security.Permission")
+    void thePermissionIsOneOfTheCatalogues() {
+        assertThat(SmallCounts.EXACT_FIGURES).isEqualTo(
+                za.co.titandynamix.sasbo_online_backend.security.Permission.MONTH_END_VIEW.name());
     }
 }

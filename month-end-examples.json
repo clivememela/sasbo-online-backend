@@ -111,28 +111,32 @@
             "name" : "INVENTED BANK",
             "employerId" : 1,
             "employer" : "INVENTED BANK",
-            "part" : null
+            "part" : null,
+            "coreTier" : "A"
           },
           {
             "code" : 902,
             "name" : "INVENTED BANK DEPARTMENTS",
             "employerId" : 1,
             "employer" : "INVENTED BANK",
-            "part" : "DEPARTMENTS"
+            "part" : "DEPARTMENTS",
+            "coreTier" : null
           },
           {
             "code" : 903,
             "name" : "INVENTED INSURER CASH",
             "employerId" : 2,
             "employer" : "INVENTED INSURER",
-            "part" : "CASH"
+            "part" : "CASH",
+            "coreTier" : null
           },
           {
             "code" : 904,
             "name" : "INVENTED LENDER",
-            "employerId" : 0,
+            "employerId" : null,
             "employer" : null,
-            "part" : null
+            "part" : null,
+            "coreTier" : null
           }
         ]
       }
@@ -432,6 +436,307 @@
         "seeded" : false
       }
     },
+    "GET /api/workplaces/listings" : {
+      "request" : "GET /api/workplaces/listings?raNumbers=900001,900003,900099",
+      "status" : 200,
+      "body" : {
+        "asked" : [
+          900001,
+          900003,
+          900099
+        ],
+        "listings" : [
+          {
+            "workplace" : {
+              "id" : 1,
+              "raNumber" : 900001,
+              "name" : "INVENTED MAIN STREET",
+              "employerPrinted" : "INVENTED BANK",
+              "employerId" : 1,
+              "employer" : "INVENTED BANK",
+              "group" : "INVENTED GROUP CORE",
+              "tableCode" : 901,
+              "tableCodeBy" : "NAME",
+              "area" : "A",
+              "region" : "NORTH",
+              "committee" : "Q01",
+              "committeeName" : "INVENTED NORTH COMMITTEE",
+              "staffComplement" : 40,
+              "closedOn" : null
+            },
+            "lastVisited" : [
+              {
+                "visitedOn" : "2026-08-20",
+                "dayKnown" : true
+              },
+              {
+                "visitedOn" : "2026-07-01",
+                "dayKnown" : false
+              }
+            ]
+          },
+          {
+            "workplace" : {
+              "id" : 3,
+              "raNumber" : 900003,
+              "name" : "INVENTED HARBOUR",
+              "employerPrinted" : "INVENTED INSURER",
+              "employerId" : 2,
+              "employer" : "INVENTED INSURER",
+              "group" : "INVENTED GROUP OTHER",
+              "tableCode" : 903,
+              "tableCodeBy" : "NAME",
+              "area" : "B",
+              "region" : "SOUTH",
+              "committee" : "R01",
+              "committeeName" : "INVENTED SOUTH COMMITTEE",
+              "staffComplement" : 15,
+              "closedOn" : null
+            },
+            "lastVisited" : [ ]
+          }
+        ],
+        "unknown" : [
+          900099
+        ],
+        "workplacesServed" : "ALL",
+        "reason" : null
+      }
+    },
+    "GET /api/workplaces/{id}/members" : {
+      "request" : "GET /api/workplaces/{workplace}/members",
+      "status" : 200,
+      "body" : {
+        "workplaceId" : 1,
+        "members" : [
+          {
+            "id" : 1,
+            "membershipNumber" : "M-900001",
+            "title" : null,
+            "initials" : null,
+            "surname" : "Example",
+            "status" : "Active",
+            "suspended" : false,
+            "joinedOn" : null,
+            "employeeNumber" : "****0042",
+            "monthlySubscription" : null,
+            "email" : false,
+            "cell" : true,
+            "identity" : true
+          }
+        ],
+        "page" : 0,
+        "size" : 50,
+        "totalElements" : 1,
+        "totalPages" : 1
+      }
+    },
+    "GET /api/workplaces/members" : {
+      "request" : "GET /api/workplaces/members?ids={workplace},999999",
+      "status" : 200,
+      "body" : {
+        "branches" : [
+          {
+            "workplaceId" : 1,
+            "outOfScope" : false,
+            "members" : [
+              {
+                "id" : 1,
+                "membershipNumber" : "M-900001",
+                "title" : null,
+                "initials" : null,
+                "surname" : "Example",
+                "status" : "Active",
+                "suspended" : false,
+                "joinedOn" : null,
+                "employeeNumber" : "****0042",
+                "monthlySubscription" : null,
+                "email" : false,
+                "cell" : true,
+                "identity" : true
+              }
+            ],
+            "totalElements" : 1
+          }
+        ],
+        "unknown" : [
+          999999
+        ],
+        "perBranch" : 500
+      }
+    },
+    "GET /api/workplaces/visit-drafts" : {
+      "request" : "GET /api/workplaces/visit-drafts",
+      "status" : 200,
+      "body" : {
+        "drafts" : [
+          {
+            "id" : 999001,
+            "status" : "DRAFT",
+            "workplaceId" : 1,
+            "raNumber" : 900001,
+            "workplaceName" : "INVENTED MAIN STREET",
+            "visitedOn" : "2026-09-28",
+            "timeIn" : "09:00",
+            "timeOut" : "10:30",
+            "organiser" : "INVENTED ORGANISER",
+            "complementFound" : 40,
+            "complementBefore" : null,
+            "membershipFound" : 12,
+            "nonMembers" : null,
+            "recruited" : null,
+            "nonMembersInterviewed" : null,
+            "createdBy" : "system",
+            "createdAt" : "2026-09-28T15:00:00Z",
+            "updatedAt" : "2026-09-28T15:00:00Z",
+            "submittedBy" : null,
+            "submittedAt" : null,
+            "visitId" : null,
+            "version" : 0
+          }
+        ],
+        "status" : "DRAFT",
+        "page" : 0,
+        "size" : 20,
+        "totalElements" : 1,
+        "totalPages" : 1
+      }
+    },
+    "POST /api/workplaces/visit-drafts" : {
+      "request" : "POST /api/workplaces/visit-drafts",
+      "requestBody" : {
+        "raNumber" : 900001,
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "membershipFound" : 12
+      },
+      "status" : 201,
+      "body" : {
+        "id" : 1,
+        "status" : "DRAFT",
+        "workplaceId" : 1,
+        "raNumber" : 900001,
+        "workplaceName" : "INVENTED MAIN STREET",
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "membershipFound" : 12,
+        "nonMembers" : null,
+        "recruited" : null,
+        "nonMembersInterviewed" : null,
+        "createdBy" : "Invented Organiser (organiser)",
+        "createdAt" : "2026-09-29T08:00:00Z",
+        "updatedAt" : "2026-09-29T08:00:00Z",
+        "submittedBy" : null,
+        "submittedAt" : null,
+        "visitId" : null,
+        "version" : 0
+      }
+    },
+    "GET /api/workplaces/visit-drafts/{id}" : {
+      "request" : "GET /api/workplaces/visit-drafts/{draft}",
+      "status" : 200,
+      "body" : {
+        "id" : 999001,
+        "status" : "DRAFT",
+        "workplaceId" : 1,
+        "raNumber" : 900001,
+        "workplaceName" : "INVENTED MAIN STREET",
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "membershipFound" : 12,
+        "nonMembers" : null,
+        "recruited" : null,
+        "nonMembersInterviewed" : null,
+        "createdBy" : "system",
+        "createdAt" : "2026-09-28T15:00:00Z",
+        "updatedAt" : "2026-09-28T15:00:00Z",
+        "submittedBy" : null,
+        "submittedAt" : null,
+        "visitId" : null,
+        "version" : 0
+      }
+    },
+    "PUT /api/workplaces/visit-drafts/{id}" : {
+      "request" : "PUT /api/workplaces/visit-drafts/{draft}",
+      "requestBody" : {
+        "raNumber" : 900001,
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "membershipFound" : 12,
+        "recruited" : 2,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "id" : 999001,
+        "status" : "DRAFT",
+        "workplaceId" : 1,
+        "raNumber" : 900001,
+        "workplaceName" : "INVENTED MAIN STREET",
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "membershipFound" : 12,
+        "nonMembers" : null,
+        "recruited" : 2,
+        "nonMembersInterviewed" : null,
+        "createdBy" : "system",
+        "createdAt" : "2026-09-28T15:00:00Z",
+        "updatedAt" : "2026-09-29T08:00:00Z",
+        "submittedBy" : null,
+        "submittedAt" : null,
+        "visitId" : null,
+        "version" : 1
+      }
+    },
+    "POST /api/workplaces/visit-drafts/{id}/submit" : {
+      "request" : "POST /api/workplaces/visit-drafts/{draft}/submit",
+      "requestBody" : {
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "id" : 999001,
+        "status" : "SUBMITTED",
+        "workplaceId" : 1,
+        "raNumber" : 900001,
+        "workplaceName" : "INVENTED MAIN STREET",
+        "visitedOn" : "2026-09-28",
+        "timeIn" : "09:00",
+        "timeOut" : "10:30",
+        "organiser" : "INVENTED ORGANISER",
+        "complementFound" : 40,
+        "complementBefore" : null,
+        "membershipFound" : 12,
+        "nonMembers" : null,
+        "recruited" : null,
+        "nonMembersInterviewed" : null,
+        "createdBy" : "system",
+        "createdAt" : "2026-09-28T15:00:00Z",
+        "updatedAt" : "2026-09-29T08:00:00Z",
+        "submittedBy" : "Invented Organiser (organiser)",
+        "submittedAt" : "2026-09-29T08:00:00Z",
+        "visitId" : 3,
+        "version" : 1
+      }
+    },
     "GET /api/members/summary" : {
       "request" : "GET /api/members/summary?by=group",
       "status" : 200,
@@ -444,13 +749,13 @@
         "workplacesServed" : "ALL",
         "groupedAsAt" : "2026-09-29",
         "totals" : {
-          "onRecord" : 1,
-          "suspended" : 0,
+          "onRecord" : 2,
+          "suspended" : 1,
           "paying" : 1,
           "joined" : 0,
           "left" : 0,
           "reinstated" : 0,
-          "opening" : 1,
+          "opening" : 2,
           "unexplained" : 0,
           "joinedYearToDate" : 0,
           "leftYearToDate" : 0,
@@ -532,13 +837,13 @@
             "fewerThanFive" : false,
             "withheld" : false,
             "figures" : {
-              "onRecord" : 1,
-              "suspended" : 0,
+              "onRecord" : 2,
+              "suspended" : 1,
               "paying" : 1,
               "joined" : 0,
               "left" : 0,
               "reinstated" : 0,
-              "opening" : 1,
+              "opening" : 2,
               "unexplained" : 0,
               "joinedYearToDate" : 0,
               "leftYearToDate" : 0,
@@ -550,14 +855,15 @@
         ],
         "unplaced" : {
           "statuses" : [ ],
-          "noWorkplace" : 1,
+          "noWorkplace" : 2,
           "noTableCode" : 0
         },
         "seededMembers" : 0,
         "membersFrom" : null,
-        "leaversFrom" : null,
+        "leaversFrom" : "2026-06-02",
         "takenAt" : null,
-        "takenBy" : null
+        "takenBy" : null,
+        "notes" : [ ]
       }
     },
     "GET /api/members/{id}/history" : {
@@ -630,8 +936,55 @@
           "suspensionReason" : null,
           "note" : "Invented: moved away",
           "changedBy" : "system",
-          "changedAt" : "2026-09-29T08:00:00Z"
+          "changedAt" : "2026-09-29T08:00:00Z",
+          "noDeductionReasonId" : null,
+          "noDeductionReason" : null,
+          "undoes" : null
         }
+      }
+    },
+    "POST /api/members/register/search" : {
+      "request" : "POST /api/members/register/search",
+      "requestBody" : {
+        "q" : "exa",
+        "size" : 25
+      },
+      "status" : 200,
+      "body" : {
+        "content" : [
+          {
+            "id" : 1,
+            "membershipNumber" : "M-900001",
+            "employeeNumber" : null,
+            "title" : null,
+            "initials" : null,
+            "surname" : "Example",
+            "firstNames" : "Invented",
+            "bankName" : null,
+            "branch" : null,
+            "status" : "Active"
+          }
+        ],
+        "page" : 0,
+        "size" : 25,
+        "totalElements" : 1,
+        "totalPages" : 1,
+        "sort" : "surname,asc"
+      }
+    },
+    "GET /api/members/register/overview" : {
+      "request" : "GET /api/members/register/overview",
+      "status" : 200,
+      "body" : {
+        "total" : 2,
+        "active" : 1,
+        "pending" : 0,
+        "suspended" : 1,
+        "newThisMonth" : 0,
+        "newDebitOrders" : 0,
+        "updatedToday" : 2,
+        "branches" : [ ],
+        "asOf" : "2026-09-29"
       }
     },
     "GET /api/month-end/months" : {
@@ -647,8 +1000,35 @@
             "takenBy" : "seed",
             "takeId" : 1,
             "firstTakenAt" : null,
-            "firstTakenBy" : null
+            "firstTakenBy" : null,
+            "takeNumber" : 1,
+            "reason" : null,
+            "countsFrom" : "2026-07-31T22:00:00Z",
+            "countsUntil" : "2026-08-31T22:00:00Z"
           }
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/listings/new-members" : {
+      "request" : "GET /api/month-end/2026-08/listings/new-members",
+      "status" : 200,
+      "body" : {
+        "listing" : "new-members",
+        "title" : "The month's new members",
+        "legacy" : "Print Member Roll (No Adding) -- the members enrolled",
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "scope" : "ALL",
+        "area" : null,
+        "region" : null,
+        "content" : [ ],
+        "page" : 0,
+        "size" : 50,
+        "totalElements" : 0,
+        "totalPages" : 0,
+        "notes" : [
+          "A member is new in the month their Date Joined falls in, whatever their status now.",
+          "Read from the members as they stand now: a member captured or changed after the month was taken can differ from the month's figures."
         ]
       }
     },
@@ -662,7 +1042,11 @@
         "takenBy" : "seed",
         "takeId" : 1,
         "firstTakenAt" : null,
-        "firstTakenBy" : null
+        "firstTakenBy" : null,
+        "takeNumber" : 1,
+        "reason" : null,
+        "countsFrom" : "2026-07-31T22:00:00Z",
+        "countsUntil" : "2026-08-31T22:00:00Z"
       }
     },
     "GET /api/month-end/{month}/new-and-deleted" : {
@@ -715,7 +1099,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -727,7 +1112,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -739,7 +1125,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -751,7 +1138,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -764,7 +1152,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -799,7 +1188,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -811,7 +1201,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -823,7 +1214,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -835,7 +1227,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -848,7 +1241,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -883,7 +1277,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -895,7 +1290,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -907,7 +1303,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -919,7 +1316,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -932,7 +1330,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -967,7 +1366,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -979,7 +1379,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -991,7 +1392,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1003,7 +1405,8 @@
                   null,
                   null,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1016,13 +1419,15 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The year to date is the sum of the months taken, each as it was taken -- the months of 2026 taken: August 2026.",
           "Core is the core groups' employers; other is every other employer. A member with no workplace on record is in the total only."
         ]
@@ -1089,7 +1494,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E1",
@@ -1103,7 +1509,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "G2",
@@ -1117,7 +1524,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -1131,7 +1539,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -1145,7 +1554,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1159,7 +1569,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~CORE",
@@ -1173,7 +1584,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1188,7 +1600,117 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "by-tier",
+            "title" : "Membership by core tier",
+            "legacyTitle" : "MEMBERSHIP REPORT",
+            "columns" : [
+              {
+                "key" : "complement",
+                "label" : "Complement",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "members",
+                "label" : "Members",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "joined",
+                "label" : "Enrolments",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "left",
+                "label" : "Cancellations",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "suspended",
+                "label" : "Suspensions",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "A",
+                "label" : "Core A",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  40,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_TIER",
+                "label" : "All other institutions",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  135,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  3,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                178,
+                1,
+                0,
+                0,
+                0
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1271,7 +1793,8 @@
                   0,
                   0.0,
                   40
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -1291,7 +1814,8 @@
                   0,
                   0.0,
                   120
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -1311,7 +1835,8 @@
                   0,
                   0.0,
                   15
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -1331,7 +1856,8 @@
                   0,
                   0.0,
                   3
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1351,7 +1877,8 @@
                   1,
                   0.0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1372,7 +1899,8 @@
                 1,
                 0.0,
                 178
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1395,15 +1923,18 @@
               "withheld" : false,
               "cells" : [
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "Members are the members on record less the suspended -- the figure SASBO's reports print (MD24).",
-          "How a member pays is read as it is stored: by debit order, by payroll deduction, and every other way as other. The amounts are the monthly subscriptions on record of the paying members."
+          "How a member pays is read as it is stored: by debit order, by payroll deduction, and every other way as other. The amounts are the monthly subscriptions on record of the paying members.",
+          "Core A, B and C are SASBO's core tiers; which table code stands in which is provisional until SASBO confirms it. Every other employer is one of the individual institutions."
         ]
       }
     },
@@ -1468,7 +1999,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1481,7 +2013,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1494,7 +2027,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1508,7 +2042,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1549,7 +2084,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -1562,7 +2098,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1576,7 +2113,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1617,7 +2155,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -1630,7 +2169,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -1643,7 +2183,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1657,7 +2198,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1692,7 +2234,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -1704,7 +2247,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -1716,7 +2260,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -1728,7 +2273,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1740,7 +2286,8 @@
                   0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1753,7 +2300,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1788,13 +2336,15 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "A member is counted once each time they left in the month. SASBO's reasons are its deletion codes, by their numbers; a leaver with no code on record is counted apart."
         ]
       }
@@ -1865,7 +2415,8 @@
                   0.0,
                   160,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "B",
@@ -1880,7 +2431,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "Y",
@@ -1895,7 +2447,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -1910,7 +2463,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -1926,7 +2480,8 @@
                 0.0,
                 160,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -1979,7 +2534,8 @@
                   0.0,
                   160,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "E2",
@@ -1994,7 +2550,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2009,7 +2566,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2024,7 +2582,8 @@
                   0.0,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2040,13 +2599,15 @@
                 0.0,
                 160,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "Members are the members on record less the suspended; penetration is members over complement.",
           "The branches themselves, with their visits, are the workplaces' own screen."
         ]
@@ -2122,7 +2683,8 @@
                 0,
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2163,7 +2725,8 @@
                 null,
                 0,
                 null
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2192,13 +2755,15 @@
               "cells" : [
                 0,
                 0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The year to date is the sum of the months taken, each as it was taken -- the months of 2026 taken: August 2026.",
           "A recruiter is who signed the member up, as captured. Which year to date SASBO reads, and the competition's rule, are SASBO's to say (MM69, MM71)."
         ]
@@ -2266,7 +2831,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2280,7 +2846,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2294,7 +2861,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2308,7 +2876,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2322,7 +2891,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2337,7 +2907,8 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2384,7 +2955,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2398,7 +2970,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2412,7 +2985,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2426,7 +3000,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2440,7 +3015,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2455,7 +3031,8 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           },
           {
@@ -2502,7 +3079,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "902",
@@ -2516,7 +3094,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "903",
@@ -2530,7 +3109,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_TABLE_CODE",
@@ -2544,7 +3124,8 @@
                   0,
                   1,
                   0.0
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2558,7 +3139,8 @@
                   0,
                   0,
                   null
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2573,13 +3155,15 @@
                 0,
                 4,
                 0.0
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "A representative is a member on record marked as a shop steward, and a committee member one marked as a BEC member -- a reading SASBO is asked to confirm.",
           "A Memnet member is a member on record marked so from the nomination form, at capture or on an edit. A month taken before the mark existed counts none."
         ]
@@ -2633,7 +3217,8 @@
                   0,
                   120,
                   120
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W3",
@@ -2645,7 +3230,8 @@
                   0,
                   15,
                   15
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W4",
@@ -2657,7 +3243,8 @@
                   0,
                   3,
                   3
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "W1",
@@ -2669,7 +3256,8 @@
                   0,
                   40,
                   40
-                ]
+                ],
+                "complementOutOfDate" : false
               },
               {
                 "key" : "~NO_WORKPLACE",
@@ -2681,7 +3269,8 @@
                   1,
                   0,
                   0
-                ]
+                ],
+                "complementOutOfDate" : false
               }
             ],
             "total" : {
@@ -2694,13 +3283,15 @@
                 1,
                 178,
                 178
-              ]
+              ],
+              "complementOutOfDate" : false
             }
           }
         ],
         "notes" : [
           "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
-          "A membership of one to four at a named employer or table code is shown as fewer than five until sign-in exists, and one row beside it is withheld so it cannot be worked out.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
           "The last visit is the newest on record by the month's end -- a visit captured here, or a month SASBO's branch list prints; as they stood when the month was taken.",
           "Members are the members on record less the suspended. A branch could still yield its complement less its members, where the complement is the more.",
           "The branch manager's name and telephone are a person's details, and are shown once administrators sign in to this system."
@@ -2740,6 +3331,1189 @@
           "monthly"
         ]
       }
+    },
+    "GET /api/month-end/settings" : {
+      "request" : "GET /api/month-end/settings",
+      "status" : 200,
+      "body" : {
+        "sets" : [
+          {
+            "code" : "NORTH",
+            "label" : "Invented North",
+            "regionCode" : "NORTH",
+            "regionName" : "NORTH",
+            "areaLetters" : [ ],
+            "position" : "Regional Secretary",
+            "email" : "regional.secretary.north@example.org",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          },
+          {
+            "code" : "SOUTH",
+            "label" : "Invented South",
+            "regionCode" : "SOUTH",
+            "regionName" : "SOUTH",
+            "areaLetters" : [ ],
+            "position" : "Regional Secretary",
+            "email" : null,
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          }
+        ],
+        "banks" : [
+          {
+            "code" : "INVENTED_BANK",
+            "name" : "Invented Bank",
+            "tableCodes" : [
+              901,
+              902
+            ],
+            "fullList" : true,
+            "layout" : "ABSA_FIXED_WIDTH",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          },
+          {
+            "code" : "INVENTED_INSURER",
+            "name" : "Invented Insurer",
+            "tableCodes" : [
+              903
+            ],
+            "fullList" : false,
+            "layout" : "SHEET",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          }
+        ],
+        "providers" : [
+          {
+            "code" : "CRITICARE",
+            "name" : "Invented suspended benefit",
+            "layout" : "PROVISIONAL_MEMBER_LIST",
+            "provisional" : true,
+            "delivery" : "DOWNLOAD",
+            "active" : false,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          },
+          {
+            "code" : "LAW_CALL",
+            "name" : "Invented legal cover",
+            "layout" : "PROVISIONAL_MEMBER_LIST",
+            "provisional" : true,
+            "delivery" : "SFTP",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          },
+          {
+            "code" : "OM_FUNERAL",
+            "name" : "Invented funeral benefit",
+            "layout" : "OLD_MUTUAL_FUNERAL",
+            "provisional" : true,
+            "delivery" : "DOWNLOAD",
+            "active" : true,
+            "version" : 0,
+            "updatedBy" : "seed",
+            "updatedAt" : "2026-09-01T08:00:00Z"
+          }
+        ],
+        "mail" : {
+          "configured" : false
+        },
+        "sftp" : {
+          "configured" : false,
+          "state" : "NOT_CONFIGURED"
+        },
+        "layouts" : {
+          "banks" : [
+            "ABSA_FIXED_WIDTH",
+            "SHEET",
+            "CSV"
+          ],
+          "providers" : [
+            "OLD_MUTUAL_FUNERAL",
+            "PROVISIONAL_MEMBER_LIST"
+          ]
+        },
+        "ceilings" : {
+          "sets" : 20,
+          "banks" : 60
+        }
+      }
+    },
+    "POST /api/month-end/settings/recipients" : {
+      "request" : "POST /api/month-end/settings/recipients",
+      "requestBody" : {
+        "code" : "NORTH2",
+        "label" : "Invented North (second set)",
+        "regionCode" : "NORTH",
+        "areaLetters" : [
+          "A"
+        ],
+        "position" : "Regional Secretary",
+        "email" : "regional.secretary.north2@example.org",
+        "active" : false
+      },
+      "status" : 201,
+      "body" : {
+        "code" : "NORTH2",
+        "label" : "Invented North (second set)",
+        "regionCode" : "NORTH",
+        "regionName" : "NORTH",
+        "areaLetters" : [
+          "A"
+        ],
+        "position" : "Regional Secretary",
+        "email" : "regional.secretary.north2@example.org",
+        "active" : false,
+        "version" : 0,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "PUT /api/month-end/settings/recipients/NORTH" : {
+      "request" : "PUT /api/month-end/settings/recipients/NORTH",
+      "requestBody" : {
+        "label" : "Invented North",
+        "regionCode" : "NORTH",
+        "areaLetters" : [ ],
+        "position" : "Regional Secretary",
+        "email" : "regional.secretary.north@example.org",
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "code" : "NORTH",
+        "label" : "Invented North",
+        "regionCode" : "NORTH",
+        "regionName" : "NORTH",
+        "areaLetters" : [ ],
+        "position" : "Regional Secretary",
+        "email" : "regional.secretary.north@example.org",
+        "active" : true,
+        "version" : 1,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "POST /api/month-end/settings/banks" : {
+      "request" : "POST /api/month-end/settings/banks",
+      "requestBody" : {
+        "code" : "INVENTED_LENDER",
+        "name" : "Invented Lender",
+        "tableCodes" : [
+          904
+        ],
+        "fullList" : false,
+        "layout" : "CSV"
+      },
+      "status" : 201,
+      "body" : {
+        "code" : "INVENTED_LENDER",
+        "name" : "Invented Lender",
+        "tableCodes" : [
+          904
+        ],
+        "fullList" : false,
+        "layout" : "CSV",
+        "active" : true,
+        "version" : 0,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "PUT /api/month-end/settings/banks/INVENTED_INSURER" : {
+      "request" : "PUT /api/month-end/settings/banks/INVENTED_INSURER",
+      "requestBody" : {
+        "name" : "Invented Insurer",
+        "tableCodes" : [
+          903
+        ],
+        "fullList" : true,
+        "layout" : "SHEET",
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "code" : "INVENTED_INSURER",
+        "name" : "Invented Insurer",
+        "tableCodes" : [
+          903
+        ],
+        "fullList" : true,
+        "layout" : "SHEET",
+        "active" : true,
+        "version" : 1,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "PUT /api/month-end/settings/providers/CRITICARE" : {
+      "request" : "PUT /api/month-end/settings/providers/CRITICARE",
+      "requestBody" : {
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "code" : "CRITICARE",
+        "name" : "Invented suspended benefit",
+        "layout" : "PROVISIONAL_MEMBER_LIST",
+        "provisional" : true,
+        "delivery" : "DOWNLOAD",
+        "active" : true,
+        "version" : 1,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "GET /api/month-end/{month}/region-packs" : {
+      "request" : "GET /api/month-end/2026-08/region-packs",
+      "setting" : "PACK_DOWNLOADED",
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "take" : {
+          "takeNumber" : 1,
+          "takenAt" : "2026-09-29T08:00:00Z",
+          "takenBy" : "seed"
+        },
+        "mail" : {
+          "configured" : false
+        },
+        "available" : true,
+        "unplaced" : 1,
+        "uncovered" : {
+          "areas" : [ ],
+          "members" : 0
+        },
+        "sets" : [
+          {
+            "set" : {
+              "code" : "NORTH",
+              "label" : "Invented North",
+              "regionCode" : "NORTH",
+              "regionName" : "NORTH",
+              "areaLetters" : [ ],
+              "position" : "Regional Secretary",
+              "email" : "regional.secretary.north@example.org",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "pack" : {
+              "id" : 1,
+              "month" : "2026-08",
+              "takeNumber" : 1,
+              "setCode" : "NORTH",
+              "setLabel" : "Invented North",
+              "regionCode" : "NORTH",
+              "areaLetters" : [ ],
+              "position" : "Regional Secretary",
+              "producedAt" : "2026-09-29T08:00:00Z",
+              "producedBy" : "system",
+              "counts" : {
+                "joined" : 0,
+                "left" : 0,
+                "suspended" : 0
+              },
+              "files" : [
+                {
+                  "format" : "PDF",
+                  "name" : "sasbo-month-end-2026-08-NORTH.pdf",
+                  "bytes" : 0,
+                  "sha256" : "<sha256 of the file>"
+                },
+                {
+                  "format" : "XLSX",
+                  "name" : "sasbo-month-end-2026-08-NORTH.xlsx",
+                  "bytes" : 0,
+                  "sha256" : "<sha256 of the file>"
+                }
+              ]
+            },
+            "deliveries" : [
+              {
+                "id" : 1,
+                "at" : "2026-09-29T08:00:00Z",
+                "by" : "system",
+                "kind" : "REGION_PACK",
+                "recipientCode" : "NORTH",
+                "recipientName" : "Invented North",
+                "channel" : "DOWNLOAD",
+                "formats" : [
+                  "PDF"
+                ],
+                "address" : null,
+                "outcome" : "SENT",
+                "code" : null,
+                "fileName" : "sasbo-month-end-2026-08-NORTH.pdf",
+                "packId" : 1,
+                "fileId" : null
+              }
+            ]
+          },
+          {
+            "set" : {
+              "code" : "SOUTH",
+              "label" : "Invented South",
+              "regionCode" : "SOUTH",
+              "regionName" : "SOUTH",
+              "areaLetters" : [ ],
+              "position" : "Regional Secretary",
+              "email" : null,
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "pack" : null,
+            "deliveries" : [ ]
+          }
+        ]
+      }
+    },
+    "POST /api/month-end/{month}/region-packs/NORTH" : {
+      "request" : "POST /api/month-end/2026-08/region-packs/NORTH",
+      "status" : 201,
+      "body" : {
+        "id" : 1,
+        "month" : "2026-08",
+        "takeNumber" : 1,
+        "setCode" : "NORTH",
+        "setLabel" : "Invented North",
+        "regionCode" : "NORTH",
+        "areaLetters" : [ ],
+        "position" : "Regional Secretary",
+        "producedAt" : "2026-09-29T08:00:00Z",
+        "producedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "counts" : {
+          "joined" : 0,
+          "left" : 0,
+          "suspended" : 0
+        },
+        "files" : [
+          {
+            "format" : "PDF",
+            "name" : "sasbo-month-end-2026-08-NORTH.pdf",
+            "bytes" : 0,
+            "sha256" : "<sha256 of the file>"
+          },
+          {
+            "format" : "XLSX",
+            "name" : "sasbo-month-end-2026-08-NORTH.xlsx",
+            "bytes" : 0,
+            "sha256" : "<sha256 of the file>"
+          }
+        ]
+      }
+    },
+    "POST /api/month-end/{month}/region-packs/send" : {
+      "request" : "POST /api/month-end/2026-08/region-packs/send",
+      "setting" : "PACK_MADE",
+      "requestBody" : {
+        "formats" : [
+          "PDF"
+        ]
+      },
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "results" : [
+          {
+            "setCode" : "NORTH",
+            "outcome" : "REFUSED",
+            "code" : "MAIL_NOT_CONFIGURED",
+            "message" : "This server has no mail set up, so nothing was sent. Download the pack and e-mail it yourself.",
+            "delivery" : {
+              "id" : 1,
+              "at" : "2026-09-29T08:00:00Z",
+              "by" : "Invented demo.headoffice (demo.headoffice)",
+              "kind" : "REGION_PACK",
+              "recipientCode" : "NORTH",
+              "recipientName" : "Invented North",
+              "channel" : "EMAIL",
+              "formats" : [
+                "PDF"
+              ],
+              "address" : "regional.secretary.north@example.org",
+              "outcome" : "REFUSED",
+              "code" : "MAIL_NOT_CONFIGURED",
+              "fileName" : "sasbo-month-end-2026-08-NORTH.pdf",
+              "packId" : 1,
+              "fileId" : null
+            }
+          },
+          {
+            "setCode" : "SOUTH",
+            "outcome" : "REFUSED",
+            "code" : "PACK_NOT_PRODUCED",
+            "message" : "This recipient's pack has not been made yet. Make it first.",
+            "delivery" : null
+          }
+        ]
+      }
+    },
+    "POST /api/month-end/region-packs/{id}/email" : {
+      "request" : "POST /api/month-end/region-packs/{id}/email",
+      "setting" : "MAIL_ON",
+      "requestBody" : {
+        "formats" : [
+          "PDF",
+          "XLSX"
+        ]
+      },
+      "status" : 200,
+      "body" : {
+        "id" : 1,
+        "at" : "2026-09-29T08:00:00Z",
+        "by" : "Invented demo.headoffice (demo.headoffice)",
+        "kind" : "REGION_PACK",
+        "recipientCode" : "NORTH",
+        "recipientName" : "Invented North",
+        "channel" : "EMAIL",
+        "formats" : [
+          "PDF",
+          "XLSX"
+        ],
+        "address" : "regional.secretary.north@example.org",
+        "outcome" : "SENT",
+        "code" : null,
+        "fileName" : "sasbo-month-end-2026-08-NORTH.pdf, sasbo-month-end-2026-08-NORTH.xlsx",
+        "packId" : 1,
+        "fileId" : null
+      }
+    },
+    "GET /api/month-end/{month}/deliveries" : {
+      "request" : "GET /api/month-end/2026-08/deliveries?page=0&size=10",
+      "setting" : "PACK_DOWNLOADED",
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "page" : 0,
+        "size" : 10,
+        "total" : 1,
+        "items" : [
+          {
+            "id" : 1,
+            "at" : "2026-09-29T08:00:00Z",
+            "by" : "system",
+            "kind" : "REGION_PACK",
+            "recipientCode" : "NORTH",
+            "recipientName" : "Invented North",
+            "channel" : "DOWNLOAD",
+            "formats" : [
+              "PDF"
+            ],
+            "address" : null,
+            "outcome" : "SENT",
+            "code" : null,
+            "fileName" : "sasbo-month-end-2026-08-NORTH.pdf",
+            "packId" : 1,
+            "fileId" : null
+          }
+        ]
+      }
+    },
+    "GET /api/month-end/{month}/files" : {
+      "request" : "GET /api/month-end/2026-08/files",
+      "setting" : "FILE_MADE",
+      "status" : 200,
+      "body" : {
+        "month" : "2026-08",
+        "take" : {
+          "takeNumber" : 1,
+          "takenAt" : "2026-09-29T08:00:00Z",
+          "takenBy" : "seed"
+        },
+        "sftp" : {
+          "configured" : false,
+          "state" : "NOT_CONFIGURED"
+        },
+        "banks" : [
+          {
+            "bank" : {
+              "code" : "INVENTED_BANK",
+              "name" : "Invented Bank",
+              "tableCodes" : [
+                901,
+                902
+              ],
+              "fullList" : true,
+              "layout" : "ABSA_FIXED_WIDTH",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 0,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [
+              {
+                "id" : 1,
+                "month" : "2026-08",
+                "takeNumber" : 1,
+                "kind" : "BANK",
+                "recipientCode" : "INVENTED_BANK",
+                "recipientName" : "Invented Bank",
+                "layout" : "ABSA_FIXED_WIDTH",
+                "fullList" : true,
+                "fileName" : "INVENTEDBANKFULL_260831.zip",
+                "format" : "ZIP",
+                "protection" : "AES_256_ZIP",
+                "rows" : 0,
+                "newRows" : 0,
+                "deletedRows" : 0,
+                "leftOut" : 0,
+                "bytes" : 0,
+                "sha256" : "<sha256 of the file>",
+                "producedAt" : "2026-09-29T08:00:00Z",
+                "producedBy" : "system",
+                "downloads" : 0,
+                "lastDeliveredAt" : null
+              }
+            ]
+          },
+          {
+            "bank" : {
+              "code" : "INVENTED_INSURER",
+              "name" : "Invented Insurer",
+              "tableCodes" : [
+                903
+              ],
+              "fullList" : false,
+              "layout" : "SHEET",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 0,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [ ]
+          }
+        ],
+        "providers" : [
+          {
+            "provider" : {
+              "code" : "CRITICARE",
+              "name" : "Invented suspended benefit",
+              "layout" : "PROVISIONAL_MEMBER_LIST",
+              "provisional" : true,
+              "delivery" : "DOWNLOAD",
+              "active" : false,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 1,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [ ]
+          },
+          {
+            "provider" : {
+              "code" : "LAW_CALL",
+              "name" : "Invented legal cover",
+              "layout" : "PROVISIONAL_MEMBER_LIST",
+              "provisional" : true,
+              "delivery" : "SFTP",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 1,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [ ]
+          },
+          {
+            "provider" : {
+              "code" : "OM_FUNERAL",
+              "name" : "Invented funeral benefit",
+              "layout" : "OLD_MUTUAL_FUNERAL",
+              "provisional" : true,
+              "delivery" : "DOWNLOAD",
+              "active" : true,
+              "version" : 0,
+              "updatedBy" : "seed",
+              "updatedAt" : "2026-09-01T08:00:00Z"
+            },
+            "preview" : {
+              "rows" : 1,
+              "newRows" : 0,
+              "deletedRows" : 0
+            },
+            "files" : [ ]
+          }
+        ],
+        "noTableCode" : {
+          "rows" : 0,
+          "newRows" : 0,
+          "deletedRows" : 0
+        }
+      }
+    },
+    "POST /api/month-end/{month}/files/banks/INVENTED_BANK" : {
+      "request" : "POST /api/month-end/2026-08/files/banks/INVENTED_BANK",
+      "status" : 201,
+      "body" : {
+        "file" : {
+          "id" : 1,
+          "month" : "2026-08",
+          "takeNumber" : 1,
+          "kind" : "BANK",
+          "recipientCode" : "INVENTED_BANK",
+          "recipientName" : "Invented Bank",
+          "layout" : "ABSA_FIXED_WIDTH",
+          "fullList" : true,
+          "fileName" : "INVENTEDBANKFULL_260831.zip",
+          "format" : "ZIP",
+          "protection" : "AES_256_ZIP",
+          "rows" : 0,
+          "newRows" : 0,
+          "deletedRows" : 0,
+          "leftOut" : 0,
+          "bytes" : 0,
+          "sha256" : "<sha256 of the file>",
+          "producedAt" : "2026-09-29T08:00:00Z",
+          "producedBy" : "Invented demo.headoffice (demo.headoffice)",
+          "downloads" : 0,
+          "lastDeliveredAt" : null
+        },
+        "password" : "<shown once>",
+        "passwordNote" : "This password is shown once and is not kept. Give it to the bank by another channel -- telephone or SMS -- never in the e-mail that carries the file. Type it exactly as shown, hyphens included. Lost, produce the file again: a new file, with a new password."
+      }
+    },
+    "POST /api/month-end/{month}/files/providers/OM_FUNERAL" : {
+      "request" : "POST /api/month-end/2026-08/files/providers/OM_FUNERAL",
+      "status" : 201,
+      "body" : {
+        "file" : {
+          "id" : 1,
+          "month" : "2026-08",
+          "takeNumber" : 1,
+          "kind" : "PROVIDER",
+          "recipientCode" : "OM_FUNERAL",
+          "recipientName" : "Invented funeral benefit",
+          "layout" : "OLD_MUTUAL_FUNERAL",
+          "fullList" : true,
+          "fileName" : "OMFUNERAL_260831.xlsx",
+          "format" : "XLSX",
+          "protection" : "EXCEL_AES_256",
+          "rows" : 1,
+          "newRows" : 0,
+          "deletedRows" : 0,
+          "leftOut" : 0,
+          "bytes" : 0,
+          "sha256" : "<sha256 of the file>",
+          "producedAt" : "2026-09-29T08:00:00Z",
+          "producedBy" : "Invented demo.headoffice (demo.headoffice)",
+          "downloads" : 0,
+          "lastDeliveredAt" : null
+        },
+        "password" : "<shown once>",
+        "passwordNote" : "This password is shown once and is not kept. Give it to the bank by another channel -- telephone or SMS -- never in the e-mail that carries the file. Type it exactly as shown, hyphens included. Lost, produce the file again: a new file, with a new password."
+      }
+    },
+    "POST /api/month-end/files/{id}/sftp" : {
+      "request" : "POST /api/month-end/files/{id}/sftp",
+      "setting" : "SFTP_ON",
+      "status" : 200,
+      "body" : {
+        "id" : 1,
+        "at" : "2026-09-29T08:00:00Z",
+        "by" : "Invented demo.headoffice (demo.headoffice)",
+        "kind" : "PROVIDER_FILE",
+        "recipientCode" : "LAW_CALL",
+        "recipientName" : "Invented legal cover",
+        "channel" : "SFTP",
+        "formats" : [
+          "ZIP"
+        ],
+        "address" : "sftp.example.org",
+        "outcome" : "SENT",
+        "code" : null,
+        "fileName" : "LAWCALL_260831.zip",
+        "packId" : null,
+        "fileId" : 1
+      }
+    },
+    "GET /api/reference/no-deduction-reasons" : {
+      "request" : "GET /api/reference/no-deduction-reasons",
+      "status" : 200,
+      "body" : {
+        "rows" : [
+          {
+            "id" : 1,
+            "name" : "Unpaid leave",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "ordinal" : 1,
+            "active" : true,
+            "provisional" : true,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          },
+          {
+            "id" : 2,
+            "name" : "Maternity leave",
+            "suspensionCode" : 12,
+            "suspensionName" : null,
+            "ordinal" : 2,
+            "active" : true,
+            "provisional" : false,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          },
+          {
+            "id" : 3,
+            "name" : "Paternity leave",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "ordinal" : 3,
+            "active" : true,
+            "provisional" : true,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          },
+          {
+            "id" : 4,
+            "name" : "Insufficient funds",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "ordinal" : 4,
+            "active" : true,
+            "provisional" : true,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          },
+          {
+            "id" : 5,
+            "name" : "Sick leave",
+            "suspensionCode" : 21,
+            "suspensionName" : null,
+            "ordinal" : 5,
+            "active" : true,
+            "provisional" : false,
+            "version" : 0,
+            "updatedBy" : "migration",
+            "updatedAt" : "2026-10-05T22:00:00Z"
+          }
+        ],
+        "ceiling" : 50,
+        "nameLimit" : 60,
+        "noteLimit" : 500
+      }
+    },
+    "POST /api/reference/no-deduction-reasons" : {
+      "request" : "POST /api/reference/no-deduction-reasons",
+      "requestBody" : {
+        "name" : "Study leave",
+        "suspensionCode" : 11
+      },
+      "status" : 201,
+      "body" : {
+        "id" : 6,
+        "name" : "Study leave",
+        "suspensionCode" : 11,
+        "suspensionName" : "NOT ON PAYROLL",
+        "ordinal" : 6,
+        "active" : true,
+        "provisional" : false,
+        "version" : 0,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "PUT /api/reference/no-deduction-reasons/{id}" : {
+      "request" : "PUT /api/reference/no-deduction-reasons/{id}",
+      "requestBody" : {
+        "name" : "Unpaid leave",
+        "suspensionCode" : 11,
+        "ordinal" : 1,
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 200,
+      "body" : {
+        "id" : 1,
+        "name" : "Unpaid leave",
+        "suspensionCode" : 11,
+        "suspensionName" : "NOT ON PAYROLL",
+        "ordinal" : 1,
+        "active" : true,
+        "provisional" : false,
+        "version" : 1,
+        "updatedBy" : "Invented demo.headoffice (demo.headoffice)",
+        "updatedAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "GET /api/reference/core-tiers" : {
+      "request" : "GET /api/reference/core-tiers",
+      "status" : 200,
+      "body" : {
+        "tiers" : [
+          {
+            "code" : "A",
+            "name" : "Core A",
+            "ordinal" : 1,
+            "provisional" : true,
+            "tableCodes" : [
+              901
+            ]
+          },
+          {
+            "code" : "B",
+            "name" : "Core B",
+            "ordinal" : 2,
+            "provisional" : true,
+            "tableCodes" : [ ]
+          },
+          {
+            "code" : "C",
+            "name" : "Core C",
+            "ordinal" : 3,
+            "provisional" : true,
+            "tableCodes" : [ ]
+          }
+        ],
+        "allOther" : "All other institutions"
+      }
+    },
+    "PUT /api/reference/table-codes/{id}/core-tier" : {
+      "request" : "PUT /api/reference/table-codes/902/core-tier",
+      "requestBody" : {
+        "tier" : "B"
+      },
+      "status" : 200,
+      "body" : {
+        "code" : 902,
+        "name" : "INVENTED BANK DEPARTMENTS",
+        "coreTier" : "B",
+        "setBy" : "Invented demo.headoffice (demo.headoffice)",
+        "setAt" : "2026-09-29T08:00:00Z"
+      }
+    },
+    "GET /api/month-end/{month}/suspensions" : {
+      "request" : "GET /api/month-end/2026-08/suspensions",
+      "status" : 200,
+      "body" : {
+        "statistic" : "suspensions",
+        "legacy" : [
+          "mem_count",
+          "grlist"
+        ],
+        "month" : "2026-08",
+        "state" : "TAKEN",
+        "takenAt" : "2026-09-29T08:00:00Z",
+        "takenBy" : "seed",
+        "area" : null,
+        "region" : null,
+        "workplacesServed" : "ALL",
+        "sheets" : [
+          {
+            "key" : "by-employer",
+            "title" : "Suspended members, by bank and code",
+            "legacyTitle" : "SUMMARY OF SUSPENDED MEMBERS",
+            "columns" : [
+              {
+                "key" : "code11",
+                "label" : "11 NOT ON PAYROLL",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "code13",
+                "label" : "13 DEBIT RETURNED",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "code19",
+                "label" : "19 INVALID ACCOUNT",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "noCode",
+                "label" : "No code on record",
+                "kind" : "COUNT"
+              },
+              {
+                "key" : "total",
+                "label" : "Total",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [
+              {
+                "key" : "G1",
+                "label" : "INVENTED GROUP CORE",
+                "level" : "GROUP",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "E1",
+                "label" : "INVENTED BANK",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "G2",
+                "label" : "INVENTED GROUP OTHER",
+                "level" : "GROUP",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "E2",
+                "label" : "INVENTED INSURER",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_TABLE_CODE",
+                "label" : "No table code on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~NO_WORKPLACE",
+                "label" : "No workplace on record",
+                "level" : "ROW",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              },
+              {
+                "key" : "~CORE",
+                "label" : "Core groups",
+                "level" : "TOTAL",
+                "fewerThanFive" : false,
+                "withheld" : false,
+                "cells" : [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "complementOutOfDate" : false
+              }
+            ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "All groups",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "by-code",
+            "title" : "Suspended members, by suspension code",
+            "legacyTitle" : "SUMMARY OF SUSPENDED MEMBERS",
+            "columns" : [
+              {
+                "key" : "members",
+                "label" : "Suspended",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0
+              ],
+              "complementOutOfDate" : false
+            }
+          },
+          {
+            "key" : "no-deduction",
+            "title" : "No payroll deduction, by reason",
+            "legacyTitle" : "NO PAYROLL DEDUCTION",
+            "columns" : [
+              {
+                "key" : "members",
+                "label" : "Suspended",
+                "kind" : "COUNT"
+              }
+            ],
+            "rows" : [ ],
+            "total" : {
+              "key" : "~TOTAL",
+              "label" : "Total",
+              "level" : "TOTAL",
+              "fewerThanFive" : false,
+              "withheld" : false,
+              "cells" : [
+                0
+              ],
+              "complementOutOfDate" : false
+            }
+          }
+        ],
+        "notes" : [
+          "August 2026 was taken on 2026-09-29: these figures are the month as it stood then.",
+          "August 2026 counted every capture and change from 1 August 2026 at 00:00 to 1 September 2026 at 00:00.",
+          "A membership of one to four at a named employer or table code is shown as fewer than five, and one row beside it is not shown until you sign in, so that it cannot be worked out by subtraction.",
+          "A bank is the employer through the member's workplace, as in every month-end figure. The suspended are counted at the month's end, under the SASBO code of the change that suspended them.",
+          "The suspended members themselves, and the suspensions that have lapsed after three months, are listed for staff signed in to see them."
+        ]
+      }
+    },
+    "GET /api/month-end/suspensions/members" : {
+      "request" : "GET /api/month-end/suspensions/members",
+      "status" : 200,
+      "body" : {
+        "asAt" : "2026-09-29",
+        "lapseMonths" : 3,
+        "page" : 0,
+        "size" : 50,
+        "total" : 1,
+        "totalPages" : 1,
+        "lapsed" : 1,
+        "undated" : 0,
+        "items" : [
+          {
+            "memberId" : 2,
+            "membershipNumber" : "M-900002",
+            "name" : "I Suspended",
+            "bank" : "INVENTED BANK",
+            "workplace" : null,
+            "area" : null,
+            "paymentType" : "Payroll",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "noDeductionReason" : "Unpaid leave",
+            "suspendedOn" : "2026-06-02",
+            "lapsesOn" : "2026-09-02",
+            "lapsed" : true
+          }
+        ]
+      }
+    },
+    "GET /api/month-end/suspensions/lapsed" : {
+      "request" : "GET /api/month-end/suspensions/lapsed",
+      "status" : 200,
+      "body" : {
+        "asAt" : "2026-09-29",
+        "lapseMonths" : 3,
+        "page" : 0,
+        "size" : 50,
+        "total" : 1,
+        "totalPages" : 1,
+        "lapsed" : 1,
+        "undated" : 0,
+        "items" : [
+          {
+            "memberId" : 2,
+            "membershipNumber" : "M-900002",
+            "name" : "I Suspended",
+            "bank" : "INVENTED BANK",
+            "workplace" : null,
+            "area" : null,
+            "paymentType" : "Payroll",
+            "suspensionCode" : 11,
+            "suspensionName" : "NOT ON PAYROLL",
+            "noDeductionReason" : "Unpaid leave",
+            "suspendedOn" : "2026-06-02",
+            "lapsesOn" : "2026-09-02",
+            "lapsed" : true
+          }
+        ]
+      }
     }
   },
   "refusals" : {
@@ -2772,6 +4546,92 @@
           "page" : "9",
           "size" : "2",
           "maxSize" : "200"
+        }
+      }
+    },
+    "RA_NUMBERS_INVALID" : {
+      "request" : "GET /api/workplaces/listings?raNumbers=12A",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Each R/A number is a number of up to nine digits. Nothing was looked up.",
+        "path" : "/api/workplaces/listings",
+        "code" : "RA_NUMBERS_INVALID",
+        "details" : {
+          "reason" : "NOT_A_NUMBER",
+          "max" : "50"
+        }
+      }
+    },
+    "WORKPLACE_OUT_OF_SCOPE" : {
+      "request" : "GET /api/workplaces/{workplace}/members",
+      "status" : 403,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 403,
+        "error" : "Forbidden",
+        "message" : "That workplace is outside your region or area.",
+        "path" : "/api/workplaces/1/members",
+        "code" : "WORKPLACE_OUT_OF_SCOPE",
+        "details" : {
+          "workplaceId" : "1"
+        }
+      }
+    },
+    "VISIT_DRAFT_NOT_FOUND" : {
+      "request" : "GET /api/workplaces/visit-drafts/999999",
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "That visit draft is not one of yours, or is no longer there.",
+        "path" : "/api/workplaces/visit-drafts/999999",
+        "code" : "VISIT_DRAFT_NOT_FOUND",
+        "details" : {
+          "draftId" : "999999"
+        }
+      }
+    },
+    "VISIT_DRAFT_STALE" : {
+      "request" : "PUT /api/workplaces/visit-drafts/{draft}",
+      "requestBody" : {
+        "raNumber" : 900001,
+        "version" : 0
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This draft was saved again after you opened it, in another tab or on another device. Nothing was written over it: open it again to see it as it is now.",
+        "path" : "/api/workplaces/visit-drafts/999001",
+        "code" : "VISIT_DRAFT_STALE",
+        "details" : {
+          "version" : "1",
+          "updatedAt" : "2026-09-28T15:00:00Z"
+        }
+      }
+    },
+    "VISIT_ALREADY_SUBMITTED" : {
+      "request" : "PUT /api/workplaces/visit-drafts/{draft}",
+      "requestBody" : {
+        "raNumber" : 900001,
+        "version" : 1
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This visit has been submitted, and a submitted visit cannot be changed.",
+        "path" : "/api/workplaces/visit-drafts/999001",
+        "code" : "VISIT_ALREADY_SUBMITTED",
+        "details" : {
+          "visitId" : "2",
+          "submittedAt" : "2026-08-20T14:00:00Z"
         }
       }
     },
@@ -2822,7 +4682,7 @@
         "path" : "/api/members/summary",
         "code" : "SUMMARY_GROUPING_UNKNOWN",
         "details" : {
-          "known" : "group,employer,tableCode,area,region,committee"
+          "known" : "group,employer,tableCode,area,region,committee,tier"
         }
       }
     },
@@ -3100,7 +4960,8 @@
     "MONTH_TAKEN_SINCE" : {
       "request" : "POST /api/month-end/2026-08/take",
       "requestBody" : {
-        "replaces" : 999999
+        "replaces" : 999999,
+        "reason" : "Invented: corrected"
       },
       "status" : 409,
       "body" : {
@@ -3149,21 +5010,6 @@
         }
       }
     },
-    "IDENTITY_REQUIRED" : {
-      "request" : "POST /api/month-end/2026-07/take",
-      "status" : 403,
-      "body" : {
-        "timestamp" : "2026-09-29T08:00:00",
-        "status" : 403,
-        "error" : "Forbidden",
-        "message" : "Taking a month freezes its figures for good, so it waits until administrators sign in to this system. Nothing has been taken.",
-        "path" : "/api/month-end/2026-07/take",
-        "code" : "IDENTITY_REQUIRED",
-        "details" : {
-          "month" : "2026-07"
-        }
-      }
-    },
     "PACK_BUSY" : {
       "request" : "POST /api/month-end/2026-08/pack",
       "status" : 409,
@@ -3193,6 +5039,722 @@
         "code" : "PACK_NOT_FOUND",
         "details" : {
           "pack" : "999999"
+        }
+      }
+    },
+    "REGISTER_PAGE_INVALID" : {
+      "request" : "POST /api/members/register/search",
+      "requestBody" : {
+        "size" : 500
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That page of the register cannot be shown. A page holds from 1 to 100 members.",
+        "path" : "/api/members/register/search",
+        "code" : "REGISTER_PAGE_INVALID",
+        "details" : {
+          "page" : "0",
+          "size" : "500",
+          "maxSize" : "100"
+        }
+      }
+    },
+    "REGISTER_SORT_UNKNOWN" : {
+      "request" : "POST /api/members/register/search",
+      "requestBody" : {
+        "sort" : "identityNumber,asc"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "The register cannot be put in that order. It can be sorted by membership number, member, bank, branch or status.",
+        "path" : "/api/members/register/search",
+        "code" : "REGISTER_SORT_UNKNOWN",
+        "details" : {
+          "sorts" : "surname,membershipNumber,bank,branch,status",
+          "directions" : "asc,desc"
+        }
+      }
+    },
+    "MEMBER_CHANGED_SINCE" : {
+      "request" : "PUT /api/members/{id}",
+      "requestBody" : {
+        "version" : 7,
+        "phone" : "+27 60 555 0009"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Someone else saved changes to this member after you opened the record, so your changes were not saved. Reload the record to see theirs, then make your changes again.",
+        "path" : "/api/members/{id}",
+        "code" : "MEMBER_CHANGED_SINCE",
+        "details" : {
+          "memberId" : "1",
+          "versionOnRecord" : "0",
+          "savedAt" : "2026-09-29T08:00"
+        }
+      }
+    },
+    "PACK_SET_NOT_FOUND" : {
+      "request" : "PUT /api/month-end/settings/recipients/NOWHERE",
+      "requestBody" : {
+        "version" : 0
+      },
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "There is no such recipient of a region's pack here.",
+        "path" : "/api/month-end/settings/recipients/NOWHERE",
+        "code" : "PACK_SET_NOT_FOUND",
+        "details" : {
+          "set" : "NOWHERE"
+        }
+      }
+    },
+    "PACK_SET_INVALID" : {
+      "request" : "POST /api/month-end/settings/recipients",
+      "requestBody" : {
+        "code" : "bad code!"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "A recipient's code is one to eight capital letters or digits -- JHB2, say. Nothing was saved.",
+        "path" : "/api/month-end/settings/recipients",
+        "code" : "PACK_SET_INVALID",
+        "details" : {
+          "field" : "code"
+        }
+      }
+    },
+    "PACK_SET_TAKEN" : {
+      "request" : "POST /api/month-end/settings/recipients",
+      "requestBody" : {
+        "code" : "NORTH",
+        "label" : "Again",
+        "regionCode" : "NORTH",
+        "position" : "Regional Secretary",
+        "active" : false
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Another recipient has that code. Nothing was saved.",
+        "path" : "/api/month-end/settings/recipients",
+        "code" : "PACK_SET_TAKEN",
+        "details" : {
+          "code" : "NORTH"
+        }
+      }
+    },
+    "PACK_SET_OVERLAP" : {
+      "request" : "POST /api/month-end/settings/recipients",
+      "requestBody" : {
+        "code" : "NORTH2",
+        "label" : "Invented North (second set)",
+        "regionCode" : "NORTH",
+        "areaLetters" : [
+          "A"
+        ],
+        "position" : "Regional Secretary",
+        "active" : true
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Recipient NORTH already receives the whole of region NORTH, and a member is in one pack only. Change that recipient first, or switch it off. Nothing was saved.",
+        "path" : "/api/month-end/settings/recipients",
+        "code" : "PACK_SET_OVERLAP",
+        "details" : {
+          "area" : "A",
+          "set" : "NORTH"
+        }
+      }
+    },
+    "SETTING_CHANGED_SINCE" : {
+      "request" : "PUT /api/month-end/settings/recipients/NORTH",
+      "requestBody" : {
+        "label" : "Lost",
+        "regionCode" : "NORTH",
+        "position" : "Regional Secretary",
+        "version" : 7
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Someone saved this since your screen read it. Nothing was changed: look again, then save.",
+        "path" : "/api/month-end/settings/recipients/NORTH",
+        "code" : "SETTING_CHANGED_SINCE",
+        "details" : {
+          "version" : "0",
+          "updatedBy" : "seed",
+          "updatedAt" : "2026-09-01T08:00:00Z"
+        }
+      }
+    },
+    "BANK_NOT_FOUND" : {
+      "request" : "PUT /api/month-end/settings/banks/NOWHERE",
+      "requestBody" : {
+        "version" : 0
+      },
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "There is no such bank's file here.",
+        "path" : "/api/month-end/settings/banks/NOWHERE",
+        "code" : "BANK_NOT_FOUND",
+        "details" : {
+          "bank" : "NOWHERE"
+        }
+      }
+    },
+    "BANK_SETTING_INVALID" : {
+      "request" : "POST /api/month-end/settings/banks",
+      "requestBody" : {
+        "code" : "OTHER",
+        "name" : "Other",
+        "tableCodes" : [
+          999
+        ],
+        "layout" : "SHEET"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Table code 999 is not on SASBO's list here.",
+        "path" : "/api/month-end/settings/banks",
+        "code" : "BANK_SETTING_INVALID",
+        "details" : {
+          "field" : "tableCodes",
+          "tableCode" : "999"
+        }
+      }
+    },
+    "BANK_TAKEN" : {
+      "request" : "POST /api/month-end/settings/banks",
+      "requestBody" : {
+        "code" : "INVENTED_BANK",
+        "name" : "Again",
+        "tableCodes" : [
+          904
+        ],
+        "fullList" : false,
+        "layout" : "SHEET"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Another bank's file has that code. Nothing was saved.",
+        "path" : "/api/month-end/settings/banks",
+        "code" : "BANK_TAKEN",
+        "details" : {
+          "code" : "INVENTED_BANK"
+        }
+      }
+    },
+    "TABLE_CODE_TAKEN" : {
+      "request" : "POST /api/month-end/settings/banks",
+      "requestBody" : {
+        "code" : "OTHER",
+        "name" : "Other",
+        "tableCodes" : [
+          901
+        ],
+        "fullList" : false,
+        "layout" : "SHEET"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Table code 901 is in INVENTED_BANK's file already, and a member is sent to one bank only. Nothing was saved.",
+        "path" : "/api/month-end/settings/banks",
+        "code" : "TABLE_CODE_TAKEN",
+        "details" : {
+          "tableCode" : "901",
+          "bank" : "INVENTED_BANK"
+        }
+      }
+    },
+    "PROVIDER_NOT_FOUND" : {
+      "request" : "PUT /api/month-end/settings/providers/NOWHERE",
+      "requestBody" : {
+        "active" : true,
+        "version" : 0
+      },
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "There is no such provider here.",
+        "path" : "/api/month-end/settings/providers/NOWHERE",
+        "code" : "PROVIDER_NOT_FOUND",
+        "details" : {
+          "provider" : "NOWHERE"
+        }
+      }
+    },
+    "RECIPIENT_INACTIVE" : {
+      "request" : "POST /api/month-end/2026-08/files/providers/CRITICARE",
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "That provider's file is switched off. Switch it on in the settings to make it.",
+        "path" : "/api/month-end/2026-08/files/providers/CRITICARE",
+        "code" : "RECIPIENT_INACTIVE",
+        "details" : {
+          "provider" : "CRITICARE"
+        }
+      }
+    },
+    "REGION_PACKS_UNAVAILABLE" : {
+      "request" : "POST /api/month-end/2026-08/region-packs/NORTH",
+      "setting" : "BELOW_ALL",
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This server does not hold SASBO's workplaces in full, so no member can be placed in a region and no region's pack can be made.",
+        "path" : "/api/month-end/2026-08/region-packs/NORTH",
+        "code" : "REGION_PACKS_UNAVAILABLE"
+      }
+    },
+    "REGION_PACK_NOT_FOUND" : {
+      "request" : "GET /api/month-end/region-packs/999999/pdf",
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "There is no such region's pack here.",
+        "path" : "/api/month-end/region-packs/999999/pdf",
+        "code" : "REGION_PACK_NOT_FOUND",
+        "details" : {
+          "pack" : "999999"
+        }
+      }
+    },
+    "PACK_NOT_PRODUCED" : {
+      "request" : "POST /api/month-end/2026-08/region-packs/send",
+      "requestBody" : {
+        "formats" : [
+          "PDF"
+        ]
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "None of these recipients' packs has been made yet, so nothing was sent. Make the packs first.",
+        "path" : "/api/month-end/2026-08/region-packs/send",
+        "code" : "PACK_NOT_PRODUCED",
+        "details" : {
+          "month" : "2026-08"
+        }
+      }
+    },
+    "FILE_NOT_FOUND" : {
+      "request" : "GET /api/month-end/files/999999",
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "There is no such file here.",
+        "path" : "/api/month-end/files/999999",
+        "code" : "FILE_NOT_FOUND",
+        "details" : {
+          "file" : "999999"
+        }
+      }
+    },
+    "SCOPE_TOO_NARROW" : {
+      "request" : "GET /api/month-end/2026-08/files",
+      "setting" : "REGION_USER",
+      "status" : 403,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 403,
+        "error" : "Forbidden",
+        "message" : "A bank's or a provider's file reaches members of every region, so it needs a user who sees every region. Ask head office.",
+        "path" : "/api/month-end/2026-08/files",
+        "code" : "SCOPE_TOO_NARROW"
+      }
+    },
+    "MAIL_NOT_CONFIGURED" : {
+      "request" : "POST /api/month-end/region-packs/{id}/email",
+      "requestBody" : {
+        "formats" : [
+          "PDF"
+        ]
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This server has no mail set up, so nothing was sent. Download the pack and e-mail it yourself.",
+        "path" : "/api/month-end/region-packs/1/email",
+        "code" : "MAIL_NOT_CONFIGURED",
+        "details" : {
+          "set" : "NORTH"
+        }
+      }
+    },
+    "RECIPIENT_HAS_NO_ADDRESS" : {
+      "request" : "POST /api/month-end/region-packs/{id}/email",
+      "setting" : "MAIL_ON",
+      "requestBody" : {
+        "formats" : [
+          "PDF"
+        ]
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This recipient has no e-mail address, so nothing was sent. Add one in the settings, or download the pack.",
+        "path" : "/api/month-end/region-packs/1/email",
+        "code" : "RECIPIENT_HAS_NO_ADDRESS",
+        "details" : {
+          "set" : "SOUTH"
+        }
+      }
+    },
+    "MAIL_FAILED" : {
+      "request" : "POST /api/month-end/region-packs/{id}/email",
+      "setting" : "MAIL_FAILS",
+      "requestBody" : {
+        "formats" : [
+          "XLSX"
+        ]
+      },
+      "status" : 502,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 502,
+        "error" : "Bad Gateway",
+        "message" : "The mail server did not take the message, so it was not sent. Try again later, or download the pack.",
+        "path" : "/api/month-end/region-packs/1/email",
+        "code" : "MAIL_FAILED",
+        "details" : {
+          "set" : "NORTH"
+        }
+      }
+    },
+    "SFTP_NOT_CONFIGURED" : {
+      "request" : "POST /api/month-end/files/{id}/sftp",
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "No SFTP server is set up on this server, so nothing was sent. Download the file and send it the way it went before.",
+        "path" : "/api/month-end/files/1/sftp",
+        "code" : "SFTP_NOT_CONFIGURED",
+        "details" : {
+          "file" : "1"
+        }
+      }
+    },
+    "SFTP_NOT_FOR_THIS_RECIPIENT" : {
+      "request" : "POST /api/month-end/files/{id}/sftp",
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This file is not sent by SFTP: download it instead.",
+        "path" : "/api/month-end/files/1/sftp",
+        "code" : "SFTP_NOT_FOR_THIS_RECIPIENT",
+        "details" : {
+          "file" : "1"
+        }
+      }
+    },
+    "SFTP_FAILED" : {
+      "request" : "POST /api/month-end/files/{id}/sftp",
+      "setting" : "SFTP_FAILS",
+      "status" : 502,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 502,
+        "error" : "Bad Gateway",
+        "message" : "The SFTP server did not take the file, so it was not sent. Try again later, or download it.",
+        "path" : "/api/month-end/files/1/sftp",
+        "code" : "SFTP_FAILED",
+        "details" : {
+          "file" : "1"
+        }
+      }
+    },
+    "TAKE_REASON_REQUIRED" : {
+      "request" : "POST /api/month-end/2026-08/take",
+      "requestBody" : {
+        "replaces" : 999999
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Say why the month is being taken again: it will stand beside the take it replaces. Nothing has been taken.",
+        "path" : "/api/month-end/2026-08/take",
+        "code" : "TAKE_REASON_REQUIRED",
+        "details" : {
+          "month" : "2026-08"
+        }
+      }
+    },
+    "TAKE_REASON_INVALID" : {
+      "request" : "POST /api/month-end/2026-08/take",
+      "requestBody" : {
+        "replaces" : 999999,
+        "reason" : "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "A reason may be at most 500 characters of ordinary text. Nothing has been taken.",
+        "path" : "/api/month-end/2026-08/take",
+        "code" : "TAKE_REASON_INVALID",
+        "details" : {
+          "field" : "reason",
+          "limit" : "500"
+        }
+      }
+    },
+    "MEMBER_ALREADY_CAPTURED" : {
+      "request" : "POST /api/members",
+      "requestBody" : {
+        "firstNames" : "Invented",
+        "surname" : "Again",
+        "identityType" : "I.D. Number",
+        "identityNumber" : "<an invented identity number>",
+        "paymentType" : "Payroll"
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "This person is already on record as member M-900001 (the same ID number). Open that record instead of capturing them again. Nothing was saved.",
+        "path" : "/api/members",
+        "code" : "MEMBER_ALREADY_CAPTURED",
+        "details" : {
+          "membershipNumber" : "M-900001",
+          "memberId" : "1",
+          "matched" : "IDENTITY_NUMBER",
+          "status" : "Active",
+          "canReinstate" : "false"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_REQUIRED" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Suspended",
+        "reason" : "SUSPENSION_CODE",
+        "suspensionCode" : 11
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Choose the reason for no payroll deduction from the list, or type it in the note. Nothing was changed.",
+        "path" : "/api/members/{id}/status",
+        "code" : "NO_DEDUCTION_REASON_REQUIRED",
+        "details" : {
+          "code" : "11",
+          "reasons" : "1,3,4"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_UNKNOWN" : {
+      "request" : "POST /api/members/{id}/status",
+      "requestBody" : {
+        "toStatus" : "Suspended",
+        "reason" : "SUSPENSION_CODE",
+        "noDeductionReasonId" : 999999
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "That reason for no payroll deduction is not on the list. Choose another, or type the reason.",
+        "path" : "/api/members/{id}/status",
+        "code" : "NO_DEDUCTION_REASON_UNKNOWN",
+        "details" : {
+          "noDeductionReasonId" : "999999"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_INVALID" : {
+      "request" : "POST /api/reference/no-deduction-reasons",
+      "requestBody" : {
+        "name" : " ",
+        "suspensionCode" : 11
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "Give the reason a name of up to 60 characters. Nothing was changed.",
+        "path" : "/api/reference/no-deduction-reasons",
+        "code" : "NO_DEDUCTION_REASON_INVALID",
+        "details" : {
+          "field" : "name",
+          "limit" : "60"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_TAKEN" : {
+      "request" : "POST /api/reference/no-deduction-reasons",
+      "requestBody" : {
+        "name" : "unpaid LEAVE",
+        "suspensionCode" : 11
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Another reason has that name already. Nothing was changed.",
+        "path" : "/api/reference/no-deduction-reasons",
+        "code" : "NO_DEDUCTION_REASON_TAKEN",
+        "details" : {
+          "id" : "1"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_NOT_FOUND" : {
+      "request" : "PUT /api/reference/no-deduction-reasons/999999",
+      "requestBody" : {
+        "name" : "Unpaid leave",
+        "suspensionCode" : 11,
+        "version" : 0
+      },
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "That reason is not on the list.",
+        "path" : "/api/reference/no-deduction-reasons/999999",
+        "code" : "NO_DEDUCTION_REASON_NOT_FOUND",
+        "details" : {
+          "id" : "999999"
+        }
+      }
+    },
+    "NO_DEDUCTION_REASON_CHANGED_SINCE" : {
+      "request" : "PUT /api/reference/no-deduction-reasons/{id}",
+      "requestBody" : {
+        "name" : "Unpaid leave",
+        "suspensionCode" : 11,
+        "version" : 7
+      },
+      "status" : 409,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 409,
+        "error" : "Conflict",
+        "message" : "Someone else changed this reason since you opened it. Nothing was changed: look at theirs, then edit it again.",
+        "path" : "/api/reference/no-deduction-reasons/1",
+        "code" : "NO_DEDUCTION_REASON_CHANGED_SINCE",
+        "details" : {
+          "version" : "0",
+          "updatedBy" : "migration",
+          "updatedAt" : "2026-10-05T22:00:00Z"
+        }
+      }
+    },
+    "SUSPENDED_PAGE_INVALID" : {
+      "request" : "GET /api/month-end/suspensions/members?size=500",
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "A page of the suspended members is from page 0, of 1 to 100 members.",
+        "path" : "/api/month-end/suspensions/members",
+        "code" : "SUSPENDED_PAGE_INVALID",
+        "details" : {
+          "page" : "0",
+          "size" : "500",
+          "ceiling" : "100"
+        }
+      }
+    },
+    "CORE_TIER_UNKNOWN" : {
+      "request" : "PUT /api/reference/table-codes/901/core-tier",
+      "requestBody" : {
+        "tier" : "D"
+      },
+      "status" : 400,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 400,
+        "error" : "Bad Request",
+        "message" : "A table code stands in Core A, B or C, or in none. Nothing was changed.",
+        "path" : "/api/reference/table-codes/901/core-tier",
+        "code" : "CORE_TIER_UNKNOWN",
+        "details" : {
+          "tier" : "D",
+          "known" : "A,B,C"
+        }
+      }
+    },
+    "TABLE_CODE_UNKNOWN" : {
+      "request" : "PUT /api/reference/table-codes/999/core-tier",
+      "requestBody" : {
+        "tier" : "A"
+      },
+      "status" : 404,
+      "body" : {
+        "timestamp" : "2026-09-29T08:00:00",
+        "status" : 404,
+        "error" : "Not Found",
+        "message" : "No table code has that number here.",
+        "path" : "/api/reference/table-codes/999/core-tier",
+        "code" : "TABLE_CODE_UNKNOWN",
+        "details" : {
+          "code" : "999"
         }
       }
     }

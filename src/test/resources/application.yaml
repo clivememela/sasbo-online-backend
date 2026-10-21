@@ -24,3 +24,16 @@ acb:
 month-end:
   packs:
     synchronous: true
+
+# The login throttle (SignInThrottle) counts in this JVM's memory for the life of a cached context, and some contexts
+# run on a clock that never moves: a test lane signing in more than the real limit would be refused for reasons no test
+# asked about. Out of the way here; SignInThrottleTest builds its own with the real limits' shape.
+sasbo:
+  signin:
+    throttle:
+      per-address-per-minute: 1000000
+      per-minute: 1000000
+# Payroll's retention job off in every test lane: no job runs beside a test. Its own tests call it directly.
+payroll:
+  retention:
+    enabled: false

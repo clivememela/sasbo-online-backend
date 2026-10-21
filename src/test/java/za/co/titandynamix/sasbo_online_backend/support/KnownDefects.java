@@ -60,14 +60,9 @@ public final class KnownDefects {
                     + "written, silently. This test asserts every multi-write method is "
                     + "transactional and names the ones that are not.";
 
-    /**
-     * Nothing paginates. Every list endpoint returns the whole table, so the
-     * response grows with the database and the first symptom is a timeout.
-     */
-    public static final String COLLECTION_ENDPOINTS_ARE_UNBOUNDED =
-            "KNOWN DEFECT: no list endpoint paginates or caps its result, so each returns the "
-                    + "whole table and the response grows with the data. This test asserts a "
-                    + "bound exists, and fails until one does.";
+    // COLLECTION_ENDPOINTS_ARE_UNBOUNDED was here (register row A10): its test,
+    // UnboundedCollectionTest.everyCollectionEndpointIsBounded, runs since the register
+    // reads a page -- every endpoint it finds still unbounded is named there with its reason.
 
     /**
      * {@code handleValidationFailures} casts every element of
@@ -327,14 +322,4 @@ public final class KnownDefects {
                     + "a member whose name holds one (a Tshivenda letter, say) reads '?' in place of it "
                     + "-- silently, since 848db29 substitutes rather than throws. This test asserts the "
                     + "name is written as spelled.";
-
-    /**
-     * {@code MemberServiceImpl.applyBankDebitDay} replaces the member's debit day with
-     * the bank's subscription day whenever the bank's day is inside 20-31 -- on create,
-     * update and updateBanking -- so a day the administrator chose is lost without a
-     * word. SASBO, 2026-09-21 (Q42): the day must be flexible. Register row A67.
-     */
-    public static final String MEMBER_DEBIT_DAY_OVERWRITTEN_BY_THE_BANKS =
-            "KNOWN DEFECT: a member's chosen debit day is replaced by the bank's subscription day "
-                    + "whenever the bank's day is in range. This test asserts the member's choice stands.";
 }

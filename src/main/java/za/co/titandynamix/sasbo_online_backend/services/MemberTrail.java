@@ -113,6 +113,9 @@ public class MemberTrail {
         f.put("isCosatuRegional", Member::getIsCosatuRegional);
         f.put("cosatuPositions", Member::getCosatuPositions);
         f.put("remarks", Member::getRemarks);
+        // RC15: the Recruiters screen changes a member's recruitment channel through its own route now -- recorded, by
+        // the channel's name, as the record shows it (Recruiter Type).
+        f.put("recruitedHow", m -> m.getRecruitmentChannel() == null ? null : m.getRecruitmentChannel().getName());
         return f;
     }
 
@@ -123,10 +126,19 @@ public class MemberTrail {
         return values;
     }
 
-    /** A capture: one row, {@code captured}. */
+    /**
+     * Stamps a member about to be captured with the instant of the capture -- the clock this history keeps, so the
+     * member's {@code capturedAt} and the history's "captured" row are one moment (V79, MEN-14). Take it before the save.
+     */
+    public void stampCapture(Member member) {
+        member.setCapturedAt(clock.instant());
+    }
+
+    /** A capture: one row, {@code captured}, at the instant the member was stamped with. */
     public void captured(Member saved) {
         changes.save(new MemberChange(saved.getId(), UUID.randomUUID().toString(), CAPTURED, null,
-                saved.getMembershipNumber(), AcbActor.current(), clock.instant()));
+                saved.getMembershipNumber(), AcbActor.current(),
+                saved.getCapturedAt() != null ? saved.getCapturedAt() : clock.instant()));
     }
 
     /**

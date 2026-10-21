@@ -164,6 +164,26 @@ class SubscriptionsServiceImplTest {
     }
 
     @Test
+    @DisplayName("🔴 A23's route: a bank that already has its row is refused SUBSCRIPTION_BANK_TAKEN, and nothing is saved")
+    void aSecondRowForABankIsRefused() {
+        // Every reader takes a bank's row as THE row: capture takes the first, and a debit order run refuses a bank
+        // with two (BANK_SUBSCRIPTION_AMBIGUOUS). Before this the second row was saved, and the bank's next run stopped.
+        Bank absa = BankFixture.withId(1, "Absa");
+        when(this.bankRepository.findByNameIgnoreCase("Absa")).thenReturn(Optional.of(absa));
+        when(this.subscriptionRepository.existsByBank_Id(1)).thenReturn(true);
+        when(this.subscriptionsMapper.toEntity(any(SubscriptionsDto.class))).thenReturn(new Subscriptions());
+
+        assertThatThrownBy(() -> this.service.create(dto("Absa")))
+                .isInstanceOf(za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusal.class)
+                .hasMessage("Absa already has its subscription row. Change that row instead of adding another.")
+                .satisfies(thrown -> assertThat(
+                        ((za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusal) thrown).code())
+                        .isEqualTo(za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusalCode
+                                .SUBSCRIPTION_BANK_TAKEN));
+        verify(this.subscriptionRepository, org.mockito.Mockito.never()).save(any(Subscriptions.class));
+    }
+
+    @Test
     @DisplayName("delete reports whether it deleted anything")
     void deleteReportsTheOutcome() {
         when(this.subscriptionRepository.existsById(1L)).thenReturn(true);

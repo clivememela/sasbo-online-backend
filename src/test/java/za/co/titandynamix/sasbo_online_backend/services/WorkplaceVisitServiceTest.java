@@ -1,5 +1,6 @@
 package za.co.titandynamix.sasbo_online_backend.services;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,13 +10,20 @@ import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceVisitPageD
 import za.co.titandynamix.sasbo_online_backend.dto.workplace.WorkplaceVisitRequest;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusal;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.repository.WorkplaceLookupRepository;
 import za.co.titandynamix.sasbo_online_backend.repository.WorkplaceVisitRepository;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
+import za.co.titandynamix.sasbo_online_backend.security.ScopedPrincipal;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,6 +49,7 @@ class WorkplaceVisitServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-15T08:00:00Z"), AcbTime.ZONE);
 
     private WorkplaceVisitRepository visits;
+    private WorkplaceLookupRepository places;
     private WorkplaceSwitch workplaceSwitch;
     private WorkplaceVisitService service;
 
@@ -50,8 +59,59 @@ class WorkplaceVisitServiceTest {
         workplaceSwitch = mock(WorkplaceSwitch.class);
         when(workplaceSwitch.workplacesOnRecord()).thenReturn(true);
         when(visits.complementOf(7L)).thenReturn(Optional.of(new Integer[] {20}));
+        when(visits.lockComplementOf(7L)).thenReturn(Optional.of(new Integer[] {20}));
         when(visits.insert(anyLong(), any(), any(), any(), any(), any(), any())).thenReturn(99L);
-        service = new WorkplaceVisitService(visits, workplaceSwitch, CLOCK);
+        places = mock(WorkplaceLookupRepository.class);
+        when(places.byId(7L)).thenReturn(Optional.of(new WorkplaceLookupRepository.Place(7, 900001,
+                "INVENTED MAIN STREET", "L", "DBN")));
+        service = new WorkplaceVisitService(visits, places, workplaceSwitch, CLOCK);
+    }
+
+    @AfterEach
+    void nobodySignedIn() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private static void signedInOfArea(String area) {
+        ScopedPrincipal principal = new ScopedPrincipal() {
+            @Override
+            public String username() {
+                return "invented.organiser";
+            }
+
+            @Override
+            public String displayName() {
+                return "Invented Organiser";
+            }
+
+            @Override
+            public CallerScope scope() {
+                return CallerScope.areas(Set.of(area));
+            }
+        };
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null,
+                AuthorityUtils.createAuthorityList("VISITS_CAPTURE")));
+    }
+
+    @Test
+    @DisplayName("🔒 review: an organiser of area W cannot record a visit to (and write the complement of) a workplace that is not in W -- by any route")
+    void anOrganiserOfAnotherAreaIsRefused() {
+        signedInOfArea("W");
+
+        assertCode(() -> service.record(7L, visit(LocalDate.of(2026, 9, 10), 55)),
+                MonthEndRefusalCode.WORKPLACE_OUT_OF_SCOPE);
+        verify(visits, never()).setComplement(anyLong(), anyInt());
+        verify(visits, never()).insert(anyLong(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("must-pass: the workplace's own area records it -- read FOR UPDATE, so two visits at once are written one after the other")
+    void theWorkplacesOwnAreaRecordsIt() {
+        signedInOfArea("L");
+
+        assertThat(service.record(7L, visit(LocalDate.of(2026, 9, 10), 55)).complementBefore()).isEqualTo(20);
+        verify(visits).lockComplementOf(7L);
+        verify(visits).setComplement(7L, 55);
     }
 
     private static WorkplaceVisitRequest visit(LocalDate on, Integer complement) {
@@ -96,6 +156,9 @@ class WorkplaceVisitServiceTest {
                 "visitedOn");
         assertInvalid(new WorkplaceVisitRequest("2026-09-10", "nine", null, null, 23, null, null, null, null),
                 "timeIn");
+        // October build: a count has a ceiling -- a staff of a hundred thousand is a typing slip.
+        assertInvalid(new WorkplaceVisitRequest("2026-09-10", null, null, null, 100_000, null, null, null, null),
+                "complementFound");
 
         verify(visits, never()).setComplement(anyLong(), anyInt());
         verify(visits, never()).insert(anyLong(), any(), any(), any(), any(), any(), any());

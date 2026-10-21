@@ -77,13 +77,35 @@ public class MonthEndFactsRepository {
     /**
      * A taken month's record -- its NEWEST take, the one nothing replaces (04.11, MD70). Where the month was taken again,
      * {@code takeNumber} is above 1 and its first take's who and when stand beside it; otherwise they are {@code null}.
+     * October build: {@code reason}, why the take replaced the one before (MEN-11), and the window it counted --
+     * {@code countsFrom} to {@code countsUntil} (MEN-14) -- each {@code null} on a take made before V79.
      */
     public record TakenMonth(long id, LocalDate monthStart, String takenBy, Instant takenAt, Instant changesFrom,
-                             int takeNumber, String firstTakenBy, Instant firstTakenAt) {
+                             int takeNumber, String firstTakenBy, Instant firstTakenAt, String reason,
+                             Instant countsFrom, Instant countsUntil) {
 
         /** A month's first take, which nothing has replaced. */
         public TakenMonth(long id, LocalDate monthStart, String takenBy, Instant takenAt, Instant changesFrom) {
-            this(id, monthStart, takenBy, takenAt, changesFrom, 1, null, null);
+            this(id, monthStart, takenBy, takenAt, changesFrom, 1, null, null, null, null, null);
+        }
+
+        /** A take as V64 knew it: no reason, no window of its own. */
+        public TakenMonth(long id, LocalDate monthStart, String takenBy, Instant takenAt, Instant changesFrom,
+                          int takeNumber, String firstTakenBy, Instant firstTakenAt) {
+            this(id, monthStart, takenBy, takenAt, changesFrom, takeNumber, firstTakenBy, firstTakenAt, null, null,
+                    null);
+        }
+
+        /**
+         * Where the month's counting stops (MEN-14): the end of the window this take counted -- or, for a take made
+         * before the window was kept, what it froze: the calendar month up to the moment it was taken.
+         */
+        public Instant cutOff() {
+            if (countsUntil != null) {
+                return countsUntil;
+            }
+            Instant monthEnd = MonthRange.of(java.time.YearMonth.from(monthStart)).next();
+            return takenAt.isBefore(monthEnd) ? takenAt : monthEnd;
         }
     }
 
@@ -96,7 +118,7 @@ public class MonthEndFactsRepository {
     /** A taken month's record: its newest take, beside its first. */
     private static final String TAKEN = """
             SELECT m.id, m.month_start, m.taken_by, m.taken_at, m.changes_from, m.take_number,
-              f.taken_by AS first_taken_by, f.taken_at AS first_taken_at
+              f.taken_by AS first_taken_by, f.taken_at AS first_taken_at, m.reason, m.counts_from, m.counts_until
             FROM month_end_months m
             JOIN month_end_months f ON f.month_start = m.month_start AND f.replaces_id IS NULL
             WHERE\s""" + NEWEST_TAKE.formatted("m");
@@ -107,22 +129,29 @@ public class MonthEndFactsRepository {
      * The month's record -- the take's first statement. A month's first take is refused a second time by the partial
      * unique index {@code month_end_months_taken_once}; a take that replaces another names it, and is refused a second
      * time by {@code month_end_months_replaced_once}, and anywhere but its own month by foreign key (04.11, MD46). The
-     * earliest status change on record is read in the same statement.
+     * earliest status change on record is read in the same statement. October build: why the take was made (MEN-11 --
+     * required of a take again, by {@code month_end_months_again_says_why}), and the window it counts (MEN-14).
      *
      * @param replaces the take this one replaces -- the month's newest -- or {@code null} for the month's first take
      * @return the record's id
      */
-    public long insertMonth(LocalDate monthStart, String takenBy, Instant takenAt, TakenMonth replaces) {
+    public long insertMonth(LocalDate monthStart, String takenBy, Instant takenAt, TakenMonth replaces, String reason,
+                            MonthRange window) {
         KeyHolder key = new GeneratedKeyHolder();
         jdbc.update("""
-                INSERT INTO month_end_months (month_start, taken_by, taken_at, changes_from, replaces_id, take_number)
-                SELECT :monthStart, :takenBy, :takenAt, MIN(changed_at), :replaces, :takeNumber FROM member_status_changes
+                INSERT INTO month_end_months (month_start, taken_by, taken_at, changes_from, replaces_id, take_number,
+                  reason, counts_from, counts_until)
+                SELECT :monthStart, :takenBy, :takenAt, MIN(changed_at), :replaces, :takeNumber, :reason, :countsFrom,
+                  :countsUntil FROM member_status_changes
                 """, new MapSqlParameterSource()
                 .addValue("monthStart", monthStart)
                 .addValue("takenBy", takenBy)
                 .addValue("takenAt", utc(takenAt))
                 .addValue("replaces", replaces == null ? null : replaces.id(), java.sql.Types.BIGINT)
-                .addValue("takeNumber", replaces == null ? 1 : replaces.takeNumber() + 1), key, new String[] {"id"});
+                .addValue("takeNumber", replaces == null ? 1 : replaces.takeNumber() + 1)
+                .addValue("reason", reason, java.sql.Types.VARCHAR)
+                .addValue("countsFrom", utc(window.start()))
+                .addValue("countsUntil", utc(window.next())), key, new String[] {"id"});
         Number id = key.getKey();
         if (id == null) {
             throw new IllegalStateException("the month's record was written and no id came back");
@@ -135,16 +164,16 @@ public class MonthEndFactsRepository {
         return jdbc.update("""
                 INSERT INTO month_end_workplaces (month_id, month_start, workplace_key, workplace_id, ra_number,
                   table_code, table_code_name, employer_ordinal, employer_name, group_name, group_ordinal, group_core,
-                  area_letter, region_code, region_name, committee_code, committee_name, complement,
+                  core_tier, area_letter, region_code, region_name, committee_code, committee_name, complement,
                   on_record, suspended, paying, opening, joined, left_count, reinstated,
                   by_debit_order, by_deduction, by_other, debit_order_rand, deduction_rand, other_rand,
                   representatives, committee_members, memnet_members, seeded, members_from)
                 SELECT :monthId, :firstDay, f.workplace_key, f.workplace_id, f.ra_number,
                   f.table_code, f.table_code_name, f.employer_ordinal, f.employer_name, f.group_name, f.group_ordinal,
-                  f.group_core, f.area_letter, f.region_code, f.region_name, f.committee_code, f.committee_name,
-                  f.complement, f.on_record, f.suspended, f.paying, f.opening, f.joined, f.left_count, f.reinstated,
-                  f.by_debit_order, f.by_deduction, f.by_other, f.debit_order_rand, f.deduction_rand, f.other_rand,
-                  f.representatives, f.committee_members, f.memnet_members, f.seeded, f.members_from
+                  f.group_core, f.core_tier, f.area_letter, f.region_code, f.region_name, f.committee_code,
+                  f.committee_name, f.complement, f.on_record, f.suspended, f.paying, f.opening, f.joined, f.left_count,
+                  f.reinstated, f.by_debit_order, f.by_deduction, f.by_other, f.debit_order_rand, f.deduction_rand,
+                  f.other_rand, f.representatives, f.committee_members, f.memnet_members, f.seeded, f.members_from
                 FROM (""" + factsStatement() + ") f", arguments(month, seeded).addValue("monthId", monthId));
     }
 
@@ -182,10 +211,11 @@ public class MonthEndFactsRepository {
      *   <li>{@code LEFT_BY_CODE}: the month's changes INTO a leaving status (rule L), by SASBO's number -- the code's
      *       own, or the one it is a reason under -- with the reason under it as the detail. A.C.B.'s
      *       {@code SUBS_IN_ARREARS} is read as code 5 (MO23, {@link #ARREARS_DELETION_CODE}); any other leaver with no
-     *       code is counted under the reason as stored;</li>
+     *       code is counted under the reason as stored. A leaving undone in the same window is none (MEN-23);</li>
      *   <li>{@code SUSPENDED_BY_CODE}: the suspended at the month's end, by the code of the last change into a
      *       suspended status before it ended -- A.C.B.'s {@code UNPAID_SUSPENDED} read as code 13 (MO23,
-     *       {@link #DEBIT_RETURNED_SUSPENSION_CODE}). Suspended with no change on record (captured so): no code;</li>
+     *       {@link #DEBIT_RETURNED_SUSPENSION_CODE}) -- with that change's reason for no payroll deduction as the
+     *       detail (MEN-17). Suspended with no change on record (captured so): no code;</li>
      *   <li>{@code RECRUITED_BY}: a Date Joined in the month, whatever the status now (rule N), by recruiter and
      *       channel;</li>
      *   <li>{@code UNKNOWN_STATUS}: a status at the month's end nobody knows (rule X), as stored.</li>
@@ -216,17 +246,19 @@ public class MonthEndFactsRepository {
                         AND %1$s
                     ) l
                     GROUP BY l.workplace_key, l.code, l.name, l.detail
-                    """.formatted(MemberSummaryRepository.intoLeaving(toKind, fromKind), ARREARS_DELETION_CODE);
+                    """.formatted(MemberSummaryRepository.leaving("c", "start"), ARREARS_DELETION_CODE);
             case SUSPENDED_BY_CODE -> """
                     SELECT s.workplace_key AS workplace_key, CAST('SUSPENDED_BY_CODE' AS VARCHAR(20)) AS measure,
-                      s.code AS code, s.name AS name, CAST(NULL AS VARCHAR(255)) AS detail, COUNT(*) AS members
+                      s.code AS code, s.name AS name, s.detail AS detail, COUNT(*) AS members
                     FROM (
                       SELECT COALESCE(k.workplace_id, 0) AS workplace_key, sc.code AS code,
                         CASE WHEN sc.id IS NOT NULL THEN CAST(sc.name AS VARCHAR(255))
-                             ELSE CAST(last_in.reason AS VARCHAR(255)) END AS name
+                             ELSE CAST(last_in.reason AS VARCHAR(255)) END AS name,
+                        CAST(ndr.name AS VARCHAR(255)) AS detail
                       FROM (%1$s) k
                       LEFT JOIN (
-                        SELECT c.member_id, c.suspension_code_id, c.reason FROM member_status_changes c
+                        SELECT c.member_id, c.suspension_code_id, c.reason, c.no_deduction_reason_id
+                        FROM member_status_changes c
                         WHERE c.changed_at < :next AND %2$s = 'S'
                           AND NOT EXISTS (SELECT 1 FROM member_status_changes y WHERE y.member_id = c.member_id
                             AND y.changed_at < :next AND %3$s = 'S'
@@ -235,9 +267,10 @@ public class MonthEndFactsRepository {
                       LEFT JOIN suspension_codes sc ON sc.id = last_in.suspension_code_id
                         OR (last_in.suspension_code_id IS NULL
                             AND CAST(last_in.reason AS VARCHAR(32)) = 'UNPAID_SUSPENDED' AND sc.code = %4$d)
+                      LEFT JOIN no_deduction_reasons ndr ON ndr.id = last_in.no_deduction_reason_id
                       WHERE k.end_kind = 'S'
                     ) s
-                    GROUP BY s.workplace_key, s.code, s.name
+                    GROUP BY s.workplace_key, s.code, s.name, s.detail
                     """.formatted(kinds(), toKind, MemberSummaryRepository.kind("y.to_status"),
                     DEBIT_RETURNED_SUSPENSION_CODE);
             case RECRUITED_BY -> """
@@ -252,7 +285,7 @@ public class MonthEndFactsRepository {
                       WHERE %s
                     ) r
                     GROUP BY r.workplace_key, r.code, r.name, r.detail
-                    """.formatted(MemberSummaryRepository.joined("m", "firstDay"));
+                    """.formatted(MemberSummaryRepository.joined("m", "start", "firstDay"));
             case UNKNOWN_STATUS -> """
                     SELECT u.workplace_key AS workplace_key, CAST('UNKNOWN_STATUS' AS VARCHAR(20)) AS measure,
                       CAST(NULL AS INTEGER) AS code, u.name AS name, CAST(NULL AS VARCHAR(255)) AS detail,
@@ -344,10 +377,15 @@ public class MonthEndFactsRepository {
                         rs.getString("table_code_name"), rs.getLong("members")));
     }
 
-    /** How many members were captured with a Date Joined in the month -- as the records stand now. */
-    public long joinedNow(MonthRange month) {
-        Long n = bounded.queryForObject("SELECT COUNT(*) FROM members m WHERE "
-                + MemberSummaryRepository.joined("m", "firstDay"), arguments(month, List.of()), Long.class);
+    /**
+     * How many members with a Date Joined in the month were captured at or after {@code cutOff} -- the month's take --
+     * and so count in the next month's figures (Stephne, MEN-14: "After month end is done - all capturing and changes
+     * move to the next month"). Read by the instant each was saved; a member with none on record cannot be placed.
+     */
+    public long joinedAfter(MonthRange month, Instant cutOff) {
+        Long n = bounded.queryForObject("SELECT COUNT(*) FROM members m WHERE m.join_date >= :firstDay"
+                + " AND m.join_date < :firstDayOfNext AND m.captured_at >= :cutOff",
+                arguments(month, List.of()).addValue("cutOff", utc(cutOff)), Long.class);
         return n == null ? 0 : n;
     }
 
@@ -400,6 +438,17 @@ public class MonthEndFactsRepository {
                 .stream().findFirst();
     }
 
+    /** The newest take of each of these months that has one, by its first day -- one statement (MEN-14's windows). */
+    public Map<LocalDate, TakenMonth> taken(Collection<LocalDate> monthStarts) {
+        Map<LocalDate, TakenMonth> found = new HashMap<>();
+        jdbc.query(TAKEN + " AND m.month_start IN (:monthStarts)",
+                new MapSqlParameterSource("monthStarts", monthStarts), (ResultSet rs) -> {
+                    TakenMonth taken = takenMonth(rs, 0);
+                    found.put(taken.monthStart(), taken);
+                });
+        return found;
+    }
+
     /** Every month taken, the newest month first -- each by its newest take (04.11). */
     public List<TakenMonth> takenMonths() {
         return jdbc.query(TAKEN + " ORDER BY m.month_start DESC", new MapSqlParameterSource(),
@@ -412,7 +461,10 @@ public class MonthEndFactsRepository {
         return n == null ? 0 : n;
     }
 
-    /** One workplace's row of a month -- frozen, or the open month's worked out now. */
+    /**
+     * One workplace's row of a month -- frozen, or the open month's worked out now. {@code coreTier} (V79, MEN-31) is
+     * the tier its table code stood in: {@code A}, {@code B}, {@code C}, or {@code null} for all other.
+     */
     public record Fact(long workplaceKey, Long workplaceId, Integer raNumber, Integer tableCode, String tableCodeName,
                        Integer employerOrdinal, String employerName, String groupName, Integer groupOrdinal,
                        Boolean groupCore, String areaLetter, String regionCode, String regionName,
@@ -420,7 +472,7 @@ public class MonthEndFactsRepository {
                        long paying, long opening, long joined, long left, long reinstated, long byDebitOrder,
                        long byDeduction, long byOther, BigDecimal debitOrderRand, BigDecimal deductionRand,
                        BigDecimal otherRand, long representatives, long committeeMembers, long memnetMembers, long seeded,
-                       LocalDate membersFrom) {
+                       LocalDate membersFrom, String coreTier) {
     }
 
     /** One count of a month, at its own grain. */
@@ -435,7 +487,7 @@ public class MonthEndFactsRepository {
                   employer_name, group_name, group_ordinal, group_core, area_letter, region_code, region_name,
                   committee_code, committee_name, complement, on_record, suspended, paying, opening, joined, left_count,
                   reinstated, by_debit_order, by_deduction, by_other, debit_order_rand, deduction_rand, other_rand,
-                  representatives, committee_members, memnet_members, seeded, members_from
+                  representatives, committee_members, memnet_members, seeded, members_from, core_tier
                 FROM month_end_workplaces WHERE month_id = :monthId ORDER BY workplace_key
                 """, new MapSqlParameterSource("monthId", monthId), MonthEndFactsRepository::fact);
     }
@@ -461,8 +513,9 @@ public class MonthEndFactsRepository {
                 SELECT COALESCE(p.workplace_id, 0) AS workplace_key, p.workplace_id AS workplace_id,
                   w.ra_number AS ra_number, t.code AS table_code, t.name AS table_code_name,
                   e.ordinal AS employer_ordinal, e.name AS employer_name, g.name AS group_name,
-                  g.ordinal AS group_ordinal, g.core AS group_core, a.letter AS area_letter, r.code AS region_code,
-                  r.name AS region_name, w.committee_code AS committee_code, cm.name AS committee_name,
+                  g.ordinal AS group_ordinal, g.core AS group_core, ct.code AS core_tier, a.letter AS area_letter,
+                  r.code AS region_code, r.name AS region_name, w.committee_code AS committee_code,
+                  cm.name AS committee_name,
                   CASE WHEN w.id IS NULL THEN CAST(NULL AS INTEGER) WHEN w.closed_on IS NULL THEN w.staff_complement
                        ELSE 0 END AS complement,
                   SUM(p.on_record) AS on_record, SUM(p.suspended) AS suspended, SUM(p.paying) AS paying,
@@ -504,13 +557,14 @@ public class MonthEndFactsRepository {
                 ) p
                 LEFT JOIN workplaces w ON w.id = p.workplace_id
                 LEFT JOIN table_codes t ON t.id = w.table_code_id
+                LEFT JOIN core_tiers ct ON ct.id = t.core_tier_id
                 LEFT JOIN employers e ON e.id = t.employer_id
                 LEFT JOIN employer_groups g ON g.id = e.group_id
                 LEFT JOIN sasbo_areas a ON a.id = w.area_id
                 LEFT JOIN sasbo_regions r ON r.id = a.region_id
                 LEFT JOIN committees cm ON cm.id = w.committee_id
                 GROUP BY p.workplace_id, w.id, w.ra_number, t.code, t.name, e.ordinal, e.name, g.name, g.ordinal,
-                  g.core, a.letter, r.code, r.name, w.committee_code, cm.name, w.closed_on, w.staff_complement
+                  g.core, ct.code, a.letter, r.code, r.name, w.committee_code, cm.name, w.closed_on, w.staff_complement
                 """.formatted(DEBIT_ORDER, PAYROLL_DEDUCTION, kinds());
     }
 
@@ -532,11 +586,10 @@ public class MonthEndFactsRepository {
 
     /**
      * Each member's status at the month's end and at its start, as {@link MemberSummaryRepository#statusAt} writes
-     * it for rule S, and the month's changes counted.
+     * it for rule S, and the month's changes counted -- a leaving and the reinstatement that undoes it in the same
+     * window counted as neither (MEN-23).
      */
     private static String statuses() {
-        String toKind = MemberSummaryRepository.kind("c.to_status");
-        String fromKind = MemberSummaryRepository.kind("c.from_status");
         return """
                 SELECT m.id AS member_id, m.workplace_id AS workplace_id,
                   %6$s AS end_status,
@@ -563,11 +616,11 @@ public class MonthEndFactsRepository {
                   WHERE c.changed_at >= :start AND c.changed_at < :next
                   GROUP BY c.member_id
                 ) mv ON mv.member_id = m.id
-                """.formatted(MemberSummaryRepository.intoLeaving(toKind, fromKind),
-                MemberSummaryRepository.outOfLeaving(toKind, fromKind), MemberSummaryRepository.joined("m", "firstDay"),
+                """.formatted(MemberSummaryRepository.leaving("c", "start"),
+                MemberSummaryRepository.reinstating("c", "start"), MemberSummaryRepository.joined("m", "start", "firstDay"),
                 MemberSummaryRepository.firstChangeFrom("next"), MemberSummaryRepository.firstChangeFrom("start"),
-                MemberSummaryRepository.statusAt("m", "ae", "firstDayOfNext"),
-                MemberSummaryRepository.statusAt("m", "ast", "firstDay"));
+                MemberSummaryRepository.statusAt("m", "ae", "next", "firstDayOfNext"),
+                MemberSummaryRepository.statusAt("m", "ast", "start", "firstDay"));
     }
 
     private static MapSqlParameterSource arguments(MonthRange month, Collection<String> seeded) {
@@ -587,9 +640,13 @@ public class MonthEndFactsRepository {
         OffsetDateTime from = rs.getObject("changes_from", OffsetDateTime.class);
         int number = rs.getInt("take_number");
         OffsetDateTime first = number > 1 ? rs.getObject("first_taken_at", OffsetDateTime.class) : null;
+        OffsetDateTime countsFrom = rs.getObject("counts_from", OffsetDateTime.class);
+        OffsetDateTime countsUntil = rs.getObject("counts_until", OffsetDateTime.class);
         return new TakenMonth(rs.getLong("id"), rs.getDate("month_start").toLocalDate(), rs.getString("taken_by"),
                 rs.getObject("taken_at", OffsetDateTime.class).toInstant(), from == null ? null : from.toInstant(),
-                number, number > 1 ? rs.getString("first_taken_by") : null, first == null ? null : first.toInstant());
+                number, number > 1 ? rs.getString("first_taken_by") : null, first == null ? null : first.toInstant(),
+                rs.getString("reason"), countsFrom == null ? null : countsFrom.toInstant(),
+                countsUntil == null ? null : countsUntil.toInstant());
     }
 
     static Fact fact(ResultSet rs, int n) throws SQLException {
@@ -605,7 +662,8 @@ public class MonthEndFactsRepository {
                 rs.getLong("reinstated"), rs.getLong("by_debit_order"), rs.getLong("by_deduction"),
                 rs.getLong("by_other"), rs.getBigDecimal("debit_order_rand"), rs.getBigDecimal("deduction_rand"),
                 rs.getBigDecimal("other_rand"), rs.getLong("representatives"), rs.getLong("committee_members"),
-                rs.getLong("memnet_members"), rs.getLong("seeded"), from == null ? null : from.toLocalDate());
+                rs.getLong("memnet_members"), rs.getLong("seeded"), from == null ? null : from.toLocalDate(),
+                rs.getString("core_tier"));
     }
 
     /**

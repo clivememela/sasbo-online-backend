@@ -8,8 +8,10 @@ import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
 import za.co.titandynamix.sasbo_online_backend.support.ApiSurface;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory;
 import za.co.titandynamix.sasbo_online_backend.support.MainSourceInventory.MainClassSource;
+import za.co.titandynamix.sasbo_online_backend.support.MigrationSeed;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -59,7 +61,27 @@ class MonthEndGuardsTest {
             "MemberHistoryPageDto", "MemberTrail", "MonthEndController", "MonthEndTakes", "MonthEndFactsRepository",
             "MonthEndTakeSeeder", "MonthEndStatistics", "MonthEndStatisticsController", "MonthEndPacks",
             "MonthEndPackController", "MonthEndPackRepository", "MonthEndWorkbooks", "MonthEndPackLauncher",
-            "MonthEndPackConfig", "SpreadsheetText");
+            "MonthEndPackConfig", "SpreadsheetText", "MonthEndListings", "MonthEndListingRepository",
+            // Register row A10: the register a page at a time, under the arc's handler and guards.
+            "MemberRegisterController", "MemberRegisterService", "MemberRegisterServiceImpl", "MemberRegisterRepository",
+            "MemberRegisterQuery", "MemberRegisterPageDto", "MemberRegisterOverviewDto",
+            // October build, reports-visits: the Location Listing's reads and the visit drafts.
+            "WorkplaceListingController", "WorkplaceListingService", "WorkplaceLookupRepository",
+            "WorkplaceMemberRepository", "VisitDraftController", "WorkplaceVisitDraftService",
+            "WorkplaceVisitDraftRepository", "VisitDraftSeeder",
+            // October build, the files that leave SASBO (monthend-packs).
+            "MonthEndSendSettingsController", "MonthEndRegionPackController", "MonthEndFilesController",
+            "MonthEndSendSettings", "MonthEndRegionPacks", "MonthEndSentFiles", "MonthEndRegionPackWriter",
+            "MonthEndSendSeeding", "MonthEndSendSettingsRepository", "MonthEndListingsRepository",
+            "MonthEndSentRepository", "MonthEndSendSeeder", "MonthEndFileProtection", "MonthEndFileLayouts",
+            "MonthEndPackPdf", "MonthEndSftp", "MonthEndMailer",
+            // October build, month end's rules: free text and the penetration flag; the reasons for no deduction; the
+            // core tiers; the suspended and their lapse; the seed that shows them.
+            "FreeText", "Penetration",
+            "NoDeductionReasonController", "NoDeductionReasons", "NoDeductionReasonRepository",
+            "CoreTierController", "CoreTiers",
+            "SuspendedMembersController", "SuspendedMembers", "SuspendedMembersRepository", "SuspensionLapse",
+            "MonthEndRulesSeeder");
 
     // ------------------------------------------------------------------------------------------------ MV-33
 
@@ -334,19 +356,21 @@ class MonthEndGuardsTest {
     @DisplayName("🔒 MR-ROB-21, MR-ROB-34: every migration of the arc begins with the lock timeout, and none gives a column the database's time")
     void everyMigrationIsBounded() throws IOException {
         List<String> offenders = new ArrayList<>();
-        int found = 0;
+        List<String> found = new ArrayList<>();
         try (var files = Files.list(Paths.get("src", "main", "resources", "db", "migration"))) {
             for (var file : files.toList()) {
                 String name = file.getFileName().toString();
-                if (!name.matches("V\\d+__.*\\.sql") || Integer.parseInt(name.substring(1, name.indexOf("__")))
-                        < FIRST_MONTH_END_VERSION) {
+                // A fractional version (V69_1) is read by MigrationSeed's one rule, never passed over in silence.
+                if (!name.matches("V\\d+(_\\d+)?__.*\\.sql") || new BigDecimal(MigrationSeed.versionOf(name))
+                        .compareTo(BigDecimal.valueOf(FIRST_MONTH_END_VERSION)) < 0) {
                     continue;
                 }
-                found++;
+                found.add(name);
                 offenders.addAll(unbounded(name, Files.readString(file, StandardCharsets.UTF_8)));
             }
         }
-        assertThat(found).as("month end's migrations").isPositive();
+        assertThat(found).as("month end's migrations, a fractional version among them")
+                .contains("V53__sasbo_reference_lists.sql", "V69_1__workplace_visit_drafts.sql");
         assertThat(offenders).isEmpty();
     }
 
@@ -388,12 +412,14 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/reference/committees", "a list of committees: organisations"),
             Map.entry("GET /api/reference/suspension-codes", "a list of SASBO's suspension codes"),
             Map.entry("GET /api/reference/deletion-codes", "a list of SASBO's deletion codes, by their numbers"),
+            Map.entry("GET /api/reference/no-deduction-reasons", "a list of the reasons for no payroll deduction: words "
+                    + "and SASBO's codes, and nobody (MEN-17)"),
+            Map.entry("GET /api/reference/core-tiers", "SASBO's core tiers and the table codes standing in each: "
+                    + "organisations and codes (MEN-31)"),
             Map.entry("GET /api/reference/status", "how many rows each list holds, and why none where none"),
             Map.entry("GET /api/workplaces", "workplaces: organisations, answered as the switch allows (MD62)"),
             Map.entry("GET /api/workplaces/{id}/visits", "a workplace's visits: the day and the complement found; who "
                     + "visited and the counts of members are withheld (MD61, B1)"),
-            Map.entry("POST /api/workplaces/{id}/visits", "a visit recorded: as open as every write today, and named in "
-                    + "B1's list (MR-SEC-1)"),
             Map.entry("POST /api/members/{id}/status", "as open as the PUT it replaces (MD13); named in B1's list, "
                     + "and refusing from the day sign-in exists"),
             Map.entry("GET /api/members/summary", "counts, under rule C: a membership below five at a named employer "
@@ -409,6 +435,8 @@ class MonthEndGuardsTest {
             Map.entry("GET /api/month-end/{month}/branches", STATISTIC),
             Map.entry("GET /api/month-end/{month}/recruitment", STATISTIC),
             Map.entry("GET /api/month-end/{month}/representatives", STATISTIC),
+            Map.entry("GET /api/month-end/{month}/suspensions", STATISTIC + "; the suspended within each bank and by code "
+                    + "(MEN-18) -- the members themselves are a listing, held"),
             Map.entry("GET /api/month-end/{month}/visits", "a statistic: counts, by branch, rule C applied; the "
                     + "manager's name and telephone are not answered until sign-in (B1)"),
             Map.entry("POST /api/month-end/{month}/pack", "the statistics as two workbooks: counts only, the sheets the "

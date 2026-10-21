@@ -1,6 +1,11 @@
 spring:
   application:
     name: sasbo-online-backend
+  # Sign-in (October build): staff sign in through /api/auth with a bearer token; nothing signs in with an in-memory user.
+  # Left on, this auto-configuration made one and wrote its generated password to the log at every start -- and no
+  # password is ever logged (contracts/signin.md). SignInConfigGuardTest holds it off.
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
@@ -44,6 +49,13 @@ spring:
   thymeleaf:
     check-template-location: false
     enabled: false
+  # Payroll files are up to 10 MB (PayrollLimits.MAX_BYTES). The multipart ceiling sits a little above it, so a file
+  # just over 10 MB reaches the payroll service and is refused FILE_TOO_LARGE with the limit; anything larger is refused
+  # while the request is parsed, with the same code (GlobalExceptionHandler).
+  servlet:
+    multipart:
+      max-file-size: 12MB
+      max-request-size: 13MB
   mvc:
     static-path-pattern: /static/**
     throw-exception-if-no-handler-found: true
@@ -62,6 +74,11 @@ spring:
           auth: true
           starttls:
             enable: true
+          # Bounded (October build): month end e-mails the regions' packs on the request that asks, and an SMTP server
+          # that never answers would otherwise hold that request -- and its thread -- for good. Milliseconds.
+          connectiontimeout: 10000
+          timeout: 15000
+          writetimeout: 30000
 
 # 🔴 THE MAIL HEALTH INDICATOR IS OFF, AND WITHOUT THIS THE APPLICATION IS UNDEPLOYABLE.
 #
@@ -88,6 +105,10 @@ management:
 
 server:
   port: ${SERVER_PORT:8080}
+  # The caller's address, not the host's proxy's: Tomcat's RemoteIpValve reads X-Forwarded-For from the right, past
+  # the internal proxies, so a client cannot choose it by sending the header. The login throttle keys on it, and a
+  # session records it (the sign-in review, 7 Oct). `native`, not `framework`: the valve, not a filter that trusts all.
+  forward-headers-strategy: native
   error:
     include-message: always
     include-binding-errors: always
@@ -116,6 +137,20 @@ front:
 mail:
   from: ${MAIL_FROM:noreply@sasbo.co.za}
 
+# Month end's files that leave SASBO (October build). Law Call's list goes straight onto the provider's SFTP server
+# (Stephne, MEN-35: "Azoza List goes directly onto their STFP"). OFF UNLESS ALL FOUR OF host, username, private-key-path
+# AND known-hosts ARE SET on a host, by the owner -- until then the screen says "not configured" and the list is
+# downloaded. The key is named by its PATH (a secret file the host mounts), never written here; known-hosts is the
+# server's public host key line, so the server is checked, never trusted blind. No credential is ever committed.
+month-end:
+  sftp:
+    host: ${MONTH_END_SFTP_HOST:}
+    port: ${MONTH_END_SFTP_PORT:22}
+    username: ${MONTH_END_SFTP_USERNAME:}
+    private-key-path: ${MONTH_END_SFTP_PRIVATE_KEY_PATH:}
+    known-hosts: ${MONTH_END_SFTP_KNOWN_HOSTS:}
+    directory: ${MONTH_END_SFTP_DIRECTORY:}
+
 # The ACB bureau file's four collection identifiers: SASBO's user code, user branch, the account the
 # debits are credited to, and its bank identifiers. From the environment only -- never committed.
 # Unset, a file refuses to render (FILE_SETTINGS_MISSING) and names what is missing; nothing else
@@ -126,6 +161,11 @@ acb:
     user-branch: ${ACB_FILE_USER_BRANCH:}
     nominated-account: ${ACB_FILE_NOMINATED_ACCOUNT:}
     bank-identifiers: ${ACB_FILE_BANK_IDENTIFIERS:}
+  letters:
+    # The debit order letters come from, and members reply to, the address Stephne named (DOD-34). The mail
+    # server must be allowed to send as it. Sending itself stays off until SASBO agree the letters
+    # (acb.letters.send-enabled, false by default).
+    from: ${ACB_LETTERS_FROM:members@sasbo.org.za}
 
 # THE PRODUCTION MARKER. Set SASBO_ENVIRONMENT=production on the production service, once, the day it
 # is created -- and nowhere else: not on dev.sasbo.online, not in CI, not in the E2E stack. Where it says
@@ -138,3 +178,37 @@ sasbo:
   # `all`; unset is `none`, and any other word stops the start. Off unless it is set: set it on a hosted stack only
   # on SASBO's word (MM79). The suite's compose sets it for the local run.
   workplaces: ${SASBO_WORKPLACES:}
+  # SIGN-IN (October build, contracts/signin.md). Each binding is written out, so the variable's name is the one
+  # documented (relaxed binding would otherwise want SASBO_SIGNIN_DEMOUSERS).
+  signin:
+    # `open` (the default) keeps every route answering as it did, and gates only what names a permission; `required`
+    # needs a session for every /api route but signing in, the mode and the health check. Anything else stops the
+    # start. The owner switches it before go-live (6 Oct).
+    mode: ${SASBO_SIGNIN:open}
+    # One demonstration user per provisional position -- only where this is true AND SASBO_SIGNIN_DEMO_PASSWORD is
+    # set, and never under the production marker. No hosted stack sets either: the link is public. The suite's
+    # compose and a local run set both. The password has no default anywhere.
+    demo-users: ${SASBO_SIGNIN_DEMO_USERS:false}
+    demo-password: ${SASBO_SIGNIN_DEMO_PASSWORD:}
+    # The first System Administrator, created at a start where there are no users at all and both are set -- and,
+    # break-glass, at any start where no active System Administrator who sees all of SASBO is left (the named user is
+    # created, or made one again). Set on a host by the owner; the password must be changed at the next sign-in.
+    bootstrap-admin:
+      username: ${SASBO_BOOTSTRAP_ADMIN_USERNAME:}
+      password: ${SASBO_BOOTSTRAP_ADMIN_PASSWORD:}
+    # POST /api/auth/login, a minute at a time, before any password is checked: 429 SIGN_IN_THROTTLED past either.
+    throttle:
+      per-address-per-minute: ${SASBO_SIGNIN_THROTTLE_PER_ADDRESS:30}
+      per-minute: ${SASBO_SIGNIN_THROTTLE_PER_MINUTE:120}
+  letters:
+    # THE LETTERS' TYPEFACE, one setting (the owner's decision, 6 Oct 2026): TeX Gyre Adventor, the free look of
+    # SASBO's Avant Garde, until a licensed Avant Garde is in hand. A folder of regular.ttf (bold.ttf, italic.ttf
+    # optional), classpath: or file: -- config/fonts/README.md. A font that cannot be used stops the start-up.
+    font: ${SASBO_LETTERS_FONT:classpath:fonts/letters/adventor/}
+
+# Payroll files are kept for one year (Stephne, PAY-39): every night at 02:30 in SASBO's zone, and once at start-up, a
+# file past its year has its bytes and lines deleted; what was found and done is kept (PayrollConfig, PayrollRetention).
+payroll:
+  retention:
+    enabled: ${PAYROLL_RETENTION_ENABLED:true}
+    cron: "0 30 2 * * *"

@@ -2,8 +2,13 @@ package za.co.titandynamix.sasbo_online_backend.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusKind;
+import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
+import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 import za.co.titandynamix.sasbo_online_backend.entity.location.PhysicalAddress;
 import za.co.titandynamix.sasbo_online_backend.entity.member.JobGrade;
 import za.co.titandynamix.sasbo_online_backend.dto.member.MemberStatusChangeRequest;
@@ -120,10 +125,32 @@ public class MemberServiceImpl implements MemberService {
             row.setNote(change.note());
             row.setChangedBy(change.actor());
             row.setChangedAt(change.at());
+            row.setNoDeductionReasonId(change.noDeductionReasonId());
+            row.setUndoesId(undoes(member, change));
             MemberStatusChange written = this.statusChanges.save(row);
             member.setStatus(change.toStatus());
             return new StatusChangeOutcome(this.memberRepository.save(member), written, false);
         });
+    }
+
+    /**
+     * Stephne, MEN-23 -- "We would like to retain current membership as it happened in the same month": the leaving a
+     * reinstatement undoes -- the member's latest change INTO a leaving status (rule L), where it is at or after
+     * {@code undoesSince}, so not yet in any month taken. Read under the member's lock, with the status it moves from.
+     */
+    private Long undoes(Member member, StatusChange change) {
+        if (change.reason() != MemberStatusReason.REINSTATED || change.undoesSince() == null
+                || MemberStatuses.kindOf(member.getStatus()) != MemberStatusKind.LEAVING) {
+            return null;
+        }
+        MemberStatusChange latest = null;
+        for (MemberStatusChange c : this.statusChanges.findByMemberIdOrderByChangedAtAscIdAsc(member.getId())) {
+            if (MemberStatuses.kindOf(c.getToStatus()) == MemberStatusKind.LEAVING
+                    && MemberStatuses.kindOf(c.getFromStatus()) != MemberStatusKind.LEAVING) {
+                latest = c;
+            }
+        }
+        return latest != null && !latest.getChangedAt().isBefore(change.undoesSince()) ? latest.getId() : null;
     }
 
     @Override
@@ -162,8 +189,15 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Member create(Member member) {
         member.setId(null);
+        // V68: a new member starts at its first save; a version a request sent is not the caller's to set.
+        member.setVersion(null);
         // Month end 01.3, FIRST: a workplace not on record is refused before anything is resolved or written (ME-12).
         this.workplaces.resolve(member.getWorkplaceId(), member);
+        // October build: a suspension or a leaving is given with Change status, which asks for SASBO's code and reason.
+        refuseACapturedStatusChange(member);
+        // MEN-19, before anything is resolved or written -- a job grade typed at capture is a write -- and before a
+        // membership number is spent.
+        refuseADuplicate(member);
         resolveStructureAndRole(member);
         resolveRecruiter(member.getRecruitmentRep(), member);
         resolveAreaRecruited(member.getAreaRecruited(), member);
@@ -181,10 +215,122 @@ public class MemberServiceImpl implements MemberService {
         MemberValidator.validateSeats(member, false, false);
         MemberValidator.validateBecRoles(member);
         MemberValidator.validateCosatuPositions(member, null);
-        Member saved = this.memberRepository.save(member);
+        // MEN-14: the instant of the capture, on the member and on its history row alike.
+        this.trail.stampCapture(member);
+        Member saved;
+        try {
+            saved = this.memberRepository.save(member);
+        } catch (DataIntegrityViolationException collided) {
+            // Two captures of one person at once: the database's index refused the second (V26, V79).
+            throw capturedMeanwhile(collided).orElseThrow(() -> collided);
+        }
         // 03.5: one row, "captured" -- inside the capture's transaction.
         this.trail.captured(saved);
         return saved;
+    }
+
+    /**
+     * October build: a member is captured Active or Pending. A suspended or a leaving status is given with Change
+     * status ({@code POST /api/members/{id}/status}), which asks for SASBO's code -- and, for no payroll deduction, the
+     * reason (Stephne, MEN-17) -- so a capture is not a way round it. A status nobody knows is left as it always was.
+     *
+     * @throws MonthEndRefusal {@code STATUS_VIA_CHANGE_STATUS} -- nothing written
+     */
+    private static void refuseACapturedStatusChange(Member member) {
+        MemberStatusKind kind = MemberStatuses.kindOf(member.getStatus());
+        if (kind == MemberStatusKind.SUSPENDED || kind == MemberStatusKind.LEAVING) {
+            throw new MonthEndRefusal(MonthEndRefusalCode.STATUS_VIA_CHANGE_STATUS,
+                    "A member is captured as Active. Suspend them, or record their leaving, with \"Change status\" once "
+                            + "they are captured: it asks for SASBO's code and the reason. Nothing was saved.",
+                    MonthEndRefusal.details("status", MonthEndRefusal.echo(member.getStatus()),
+                            "endpoint", "/api/members/{id}/status"));
+        }
+    }
+
+    /** What a duplicate matched, as the refusal says it (MEN-19). */
+    static final String BY_IDENTITY = "IDENTITY_NUMBER";
+    static final String BY_PASSPORT = "PASSPORT_NUMBER";
+    static final String BY_EMPLOYEE = "EMPLOYEE_NUMBER";
+
+    /** The database's index for each match -- what a capture that lost a race is told it collided with. */
+    private static final Map<String, String> INDEXES = Map.of(
+            "ux_members_identity_number", BY_IDENTITY,
+            "members_passport_unique", BY_PASSPORT,
+            "members_employee_at_employer_unique", BY_EMPLOYEE);
+
+    /**
+     * Stephne, MEN-19 -- "Going forward can we avoid capturing duplicates": the same person is captured once. By their
+     * identity number, against every member; where none is given, by passport number, then by employee number at the
+     * same "Bank Where Employed", among the members who have none either -- the rules V26's and V79's indexes hold.
+     * The refusal names the existing membership number and never the person; where that member has left, it says they
+     * are reinstated with Change status, not captured again (MEN-23: in the same month they keep their membership).
+     *
+     * @throws MonthEndRefusal {@code MEMBER_ALREADY_CAPTURED} -- nothing written, no membership number spent
+     */
+    private void refuseADuplicate(Member member) {
+        String identity = trimmed(member.getIdentityNumber());
+        Optional<MemberRepository.CapturedAlready> found;
+        String matched;
+        if (identity != null) {
+            found = this.memberRepository.findCapturedByIdentityNumber(identity);
+            matched = BY_IDENTITY;
+        } else {
+            String passport = trimmed(member.getPassportNumber());
+            String employee = trimmed(member.getEmployeeNumber());
+            String employer = trimmed(member.getBankName());
+            found = passport == null ? Optional.empty() : this.memberRepository.findCapturedByPassportNumber(passport);
+            matched = BY_PASSPORT;
+            if (found.isEmpty() && employee != null && employer != null) {
+                found = this.memberRepository.findCapturedByEmployeeNumber(employer, employee);
+                matched = BY_EMPLOYEE;
+            }
+        }
+        if (found.isPresent()) {
+            throw alreadyCaptured(found.get(), matched);
+        }
+    }
+
+    private static MonthEndRefusal alreadyCaptured(MemberRepository.CapturedAlready existing, String matched) {
+        boolean left = MemberStatuses.kindOf(existing.getStatus()) == MemberStatusKind.LEAVING;
+        // "ID number", never the global handler's sentence about identity numbers (ME-12, MV-33).
+        String by = switch (matched) {
+            case BY_IDENTITY -> "the same ID number";
+            case BY_PASSPORT -> "the same passport number";
+            default -> "the same employee number at the same employer";
+        };
+        return new MonthEndRefusal(MonthEndRefusalCode.MEMBER_ALREADY_CAPTURED,
+                "This person is already on record as member " + existing.getNumber() + " (" + by + ")"
+                        + (left ? ", who has left. Reinstate them with \"Change status\" on that record rather than "
+                        + "capturing them again." : ". Open that record instead of capturing them again.")
+                        + " Nothing was saved.",
+                MonthEndRefusal.details("membershipNumber", existing.getNumber(),
+                        "memberId", String.valueOf(existing.getId()), "matched", matched,
+                        "status", existing.getStatus(), "canReinstate", String.valueOf(left)));
+    }
+
+    /**
+     * A capture refused by one of the person's indexes, as MEN-19's refusal -- naming what matched; the member the
+     * other capture wrote cannot be read in a transaction the database has refused, so no number is given.
+     */
+    private static Optional<MonthEndRefusal> capturedMeanwhile(DataIntegrityViolationException collided) {
+        for (Throwable cause = collided; cause != null; cause = cause.getCause()) {
+            String named = cause instanceof org.hibernate.exception.ConstraintViolationException violation
+                    ? violation.getConstraintName() : null;
+            for (Map.Entry<String, String> index : INDEXES.entrySet()) {
+                boolean hit = index.getKey().equals(named)
+                        || (cause.getMessage() != null && cause.getMessage().contains("\"" + index.getKey() + "\""));
+                if (hit) {
+                    return Optional.of(new MonthEndRefusal(MonthEndRefusalCode.MEMBER_ALREADY_CAPTURED,
+                            "This person was captured by someone else a moment ago. Search for them before capturing "
+                                    + "again. Nothing was saved.", Map.of("matched", index.getValue())));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static String trimmed(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     /**
@@ -216,6 +362,9 @@ public class MemberServiceImpl implements MemberService {
     @Transactional
     public Optional<Member> update(Integer id, Member updated) {
         return this.memberRepository.findById(id).map(existing -> {
+            // V68, FIRST: an edit made on a record somebody has saved since is refused, before anything is merged or
+            // written -- the later of two edits silently undid the earlier one.
+            refuseAStaleEdit(existing, updated);
             // Month end 03.4, before ANYTHING is merged or written: an edit never changes the status (ME-2).
             refuseAChangeOfStatus(existing, updated);
             // 03.5, before ANYTHING changes the member: the history's picture of them as they were.
@@ -261,10 +410,40 @@ public class MemberServiceImpl implements MemberService {
             MemberValidator.validateSeats(existing, legacyShopSteward, legacyBec);
             MemberValidator.validateBecRoles(existing);
             MemberValidator.validateCosatuPositions(existing, previousCosatuPositions);
-            Member saved = this.memberRepository.save(existing);
+            // V68: flushed here, not at the commit -- so the database compares the version now, a save that lost a race
+            // to another is told so before its history is written, and the answer carries the version this one wrote.
+            Member saved;
+            try {
+                saved = this.memberRepository.saveAndFlush(existing);
+            } catch (ObjectOptimisticLockingFailureException lostTheRace) {
+                throw changedSince(existing.getId(), Map.of("memberId", String.valueOf(existing.getId())));
+            }
             this.trail.changed(saved.getId(), before, this.trail.snapshot(saved));
             return saved;
         });
+    }
+
+    /**
+     * V68: an edit names the version of the record it read; one made on a record saved since is refused WHOLE, before
+     * anything is merged or written, with the version on record and when it was saved. An edit that names no version is
+     * not checked -- a caller that never read one -- and the database still compares the version at the save.
+     *
+     * @throws MonthEndRefusal {@code MEMBER_CHANGED_SINCE} -- nothing written
+     */
+    private static void refuseAStaleEdit(Member existing, Member updated) {
+        Long read = updated.getVersion();
+        if (read != null && !read.equals(existing.getVersion())) {
+            throw changedSince(existing.getId(), MonthEndRefusal.details(
+                    "memberId", String.valueOf(existing.getId()),
+                    "versionOnRecord", String.valueOf(existing.getVersion()),
+                    "savedAt", existing.getUpdatedAt() == null ? null : existing.getUpdatedAt().toString()));
+        }
+    }
+
+    private static MonthEndRefusal changedSince(Integer id, Map<String, String> details) {
+        return new MonthEndRefusal(MonthEndRefusalCode.MEMBER_CHANGED_SINCE,
+                "Someone else saved changes to this member after you opened the record, so your changes were not "
+                        + "saved. Reload the record to see theirs, then make your changes again.", details);
     }
 
     /**
@@ -629,7 +808,7 @@ public class MemberServiceImpl implements MemberService {
     /**
      * Auto-populates all bank-derived fields on a member:
      * - monthlySubscription (read-only — overwrites user value)
-     * - debitDay (pre-selected by bank)
+     * - debitDay (the bank's, only where the member has none -- A67)
      * - bankAddress (auto-generated from BankBranch)
      */
     /**
@@ -690,21 +869,31 @@ public class MemberServiceImpl implements MemberService {
     }
 
     /**
-     * Applies the bank's ACB day ONLY when this API would accept it.
+     * The bank's ACB day as a DEFAULT: given only to a member with no debit day of their own, and only when this
+     * API would accept it.
      *
-     * <p>⚠️ It is NOT silent. When the bank's day cannot be used the fact is
-     * logged, because a derivation that quietly declines to derive is the shape
-     * {@code autoPopulateBankAddress} spent this whole arc being caught by.
+     * <p>🔴 A67. This assigned the bank's day whenever it was in range -- on create, update and updateBanking -- so
+     * a day the administrator chose was replaced without a word. SASBO, 2026-09-21 (Q42): the day must be flexible,
+     * "as banks debit days change". So a day on the member stands: one chosen at capture, one sent with an edit, or
+     * the stored one an edit did not mention (the merge ignores a null, decision ⑨). Only a member with none is
+     * given the bank's.
+     *
+     * <p>⚠️ It is NOT silent. When the default is needed and the bank's day cannot be used the fact is logged,
+     * because a derivation that quietly declines to derive is the shape {@code autoPopulateBankAddress} spent this
+     * whole arc being caught by.
      */
     private void applyBankDebitDay(Member member, Subscriptions subscription) {
+        if (member.getDebitDay() != null) {
+            return;
+        }
         Integer bankDay = subscription.getAcbDebitDay();
         if (bankDay != null && DebitDay.isInRange(bankDay)) {
             member.setDebitDay(bankDay);
         } else {
-            log.warn("{} has an ACB debit day of {}, outside {} - the member's own "
-                            + "choice of {} stands. The bank's subscription record and the "
-                            + "permitted range disagree; the range is authoritative.",
-                    member.getBankName(), bankDay, DebitDay.message(), member.getDebitDay());
+            log.warn("{} has an ACB debit day of {}, outside {} - the member has no debit day of their own and is "
+                            + "given none. The bank's subscription record and the permitted range disagree; the "
+                            + "range is authoritative.",
+                    member.getBankName(), bankDay, DebitDay.message());
         }
     }
 

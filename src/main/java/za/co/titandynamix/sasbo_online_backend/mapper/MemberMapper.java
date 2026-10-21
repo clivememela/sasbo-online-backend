@@ -95,6 +95,8 @@ public abstract class MemberMapper {
     @Mapping(target = "membershipNumber", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
+    // V79, MEN-14: when the member was captured -- provenance, written by the capture, never by an edit.
+    @Mapping(target = "capturedAt", ignore = true)
     @Mapping(target = "structure", ignore = true)
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "recruitmentRepresentative", ignore = true)
@@ -125,6 +127,9 @@ public abstract class MemberMapper {
     // `updatedAt` is stamped by the entity's own lifecycle callback.
     @Mapping(target = "joinDate", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    // V68: which save of the record this is -- Hibernate's to move, compared by the service before the merge and by the
+    // database at the save. Copied from the request it would be the caller's to set.
+    @Mapping(target = "version", ignore = true)
     // ── 🗣️ DECISION ⑨(b), owner 2026-09-10: ABSENT KEEPS, BLANK CLEARS ────────
     //
     // Without this the merge copies NULLS, so a field a PUT never mentioned is

@@ -27,6 +27,7 @@ import static za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason.N
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason.NO_SUBSCRIPTION_ROW;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason.SNAPSHOT_INCOMPLETE;
 import static za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason.STATUS_NOT_ACTIVE;
+import static za.co.titandynamix.sasbo_online_backend.enums.AcbExclusionReason.UNPAID_LIMIT_REACHED;
 
 /**
  * The population, date and amount rules, as a table.
@@ -54,9 +55,12 @@ class RunPreparerTest {
                 "Alpha Bank", "1234567890", 25, "Cheque");
     }
 
+    /** A member the unpaid count has at three (Stephne, DOD-03) -- the one id the table's limit row gives. */
+    static final int AT_THREE = 70;
+
     static Preparation prepare(List<MemberDebitRow> members, List<RePresentationCandidate> candidates) {
         RunPreparer preparer = new RunPreparer(JULY, new DebitWindow(HolidayCalendar.WEEKENDS_ONLY),
-                BANKS, RATE, candidates);
+                BANKS, RATE, candidates, java.util.Set.of(AT_THREE));
         members.forEach(preparer::accept);
         return preparer.finish();
     }
@@ -79,6 +83,8 @@ class RunPreparerTest {
 
     static MemberDebitRow with(MemberDebitRow m, String field, Object value) {
         return switch (field) {
+            case "id" -> new MemberDebitRow((Integer) value, m.membershipNumber(), m.surname(), m.initials(),
+                    m.status(), m.paymentType(), m.bankName(), m.bankAccountNumber(), m.debitDay(), m.accountType());
             case "paymentType" -> new MemberDebitRow(m.id(), m.membershipNumber(), m.surname(), m.initials(),
                     m.status(), (String) value, m.bankName(), m.bankAccountNumber(), m.debitDay(), m.accountType());
             case "status" -> new MemberDebitRow(m.id(), m.membershipNumber(), m.surname(), m.initials(),
@@ -119,6 +125,9 @@ class RunPreparerTest {
                 row("status", null, STATUS_NOT_ACTIVE, RunPreparer.BLANK),
                 row("status", " active ", null, null),
                 row("status", "ACTIVE", null, null),
+                // 3 -- fewer than three unpaids: "Cannot present more then 3 unpaid debits" (Stephne, DOD-03).
+                row("id", AT_THREE, UNPAID_LIMIT_REACHED, "three unpaids"),
+                row("id", AT_THREE + 1, null, null),
                 // 3 -- the bank on record, by name, trimmed and case-insensitive.
                 row("bankName", "Nobody Bank", NO_BANK_ON_RECORD, "Nobody Bank"),
                 row("bankName", null, NO_BANK_ON_RECORD, RunPreparer.BLANK),
@@ -160,9 +169,10 @@ class RunPreparerTest {
             assertThat(prepared.lines()).as(row.toString()).isEmpty();
             assertThat(prepared.excludedFor(row.reason())).as(row.toString()).isEqualTo(1);
             if (row.reason().listed()) {
+                int memberId = row.edit().apply(qualifying()).id();
                 assertThat(prepared.exclusions()).singleElement()
                         .satisfies(e -> {
-                            assertThat(e.memberId()).isEqualTo(7);
+                            assertThat(e.memberId()).isEqualTo(memberId);
                             assertThat(e.reason()).isEqualTo(row.reason());
                             assertThat(e.detail()).isEqualTo(row.detail());
                         });
@@ -192,8 +202,8 @@ class RunPreparerTest {
         @DisplayName("the declared order is the order the rules apply")
         void theOrderIsTheContract() {
             assertThat(Arrays.stream(AcbExclusionReason.values()).map(Enum::name)).containsExactly(
-                    "NOT_DEBIT_ORDER", "STATUS_NOT_ACTIVE", "NO_BANK_ON_RECORD", "NO_SUBSCRIPTION_ROW",
-                    "DAY_OUT_OF_WINDOW", "ACCOUNT_SHAPE_INVALID", "SNAPSHOT_INCOMPLETE");
+                    "NOT_DEBIT_ORDER", "STATUS_NOT_ACTIVE", "UNPAID_LIMIT_REACHED", "NO_BANK_ON_RECORD",
+                    "NO_SUBSCRIPTION_ROW", "DAY_OUT_OF_WINDOW", "ACCOUNT_SHAPE_INVALID", "SNAPSHOT_INCOMPLETE");
         }
 
         @Test

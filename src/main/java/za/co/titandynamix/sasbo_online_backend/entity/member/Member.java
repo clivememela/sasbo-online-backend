@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import za.co.titandynamix.sasbo_online_backend.entity.location.Area;
@@ -59,6 +60,16 @@ public class Member {
     private String race;
     private String status;
     private LocalDate joinDate;
+
+    /**
+     * The instant the member was captured -- the injected clock's, written by the capture with its history row (V79).
+     * Stephne, MEN-14: "After month end is done - all capturing and changes move to the next month" -- a member captured
+     * after the cut-off counts in the next month, even on the day of the take; Date Joined alone cannot say which side
+     * of the take they fell on. Empty for every member captured before it was kept. Never bound from a request.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "captured_at")
+    private java.time.Instant capturedAt;
 
     // Contact
     private String personalEmail;
@@ -357,6 +368,21 @@ public class Member {
     @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    /**
+     * Which save of the record this is (V68): 0 for a member never saved since, one more for every save. An edit sends
+     * back the version it read, and is refused {@code MEMBER_CHANGED_SINCE} where the record has been saved since --
+     * before this, two people editing one member each saved, and the later save silently undid the earlier one.
+     *
+     * <p>Hibernate's own ({@code @Version}): it is compared again at the database by every save, so a save racing
+     * another loses there rather than overwriting it. Bound from a request body for the edit's check only -- the merge
+     * never copies it ({@code MemberMapper.updateFromMember}) and a capture never keeps it. The default is the
+     * schema's on both databases, so a row written by JDBC -- a seed, a test -- starts at 0 too.
+     */
+    @Version
+    @ColumnDefault("0")
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @PrePersist
     protected void onCreate() {

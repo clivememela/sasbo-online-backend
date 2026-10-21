@@ -54,6 +54,11 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	implementation 'org.apache.poi:poi-ooxml:5.3.0'
 	implementation 'org.apache.pdfbox:pdfbox:3.0.3'
+	// Month end's files that leave SASBO (October build). zip4j: the AES-256 ZIP a fixed-width or CSV file for a bank
+	// or a provider travels in -- password-protected, as POPIA asks (Stephne, MEN-05). JSch (the maintained fork):
+	// Law Call's list goes onto the provider's SFTP server (MEN-35), off unless a host, user, key and known host are set.
+	implementation 'net.lingala.zip4j:zip4j:2.11.6'
+	implementation 'com.github.mwiede:jsch:2.28.7'
 
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql:10.22.0'
 
@@ -248,6 +253,12 @@ tasks.register('generateApiSurface', Test) {
 		// data/demonstration_members.json: the invented members who stand at SASBO's workplaces (01.4), generated
 		// with a fixed random seed from the workplaces and nine proportions, and checked byte for byte (BR69).
 		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.DemonstrationMemberGeneratorTest'
+		// data/month_end_rules_members.json: month end's rules shown working -- invented members suspended within six
+		// banks, a rejoin in the same month, a workplace over its complement -- written by rule and checked byte for byte.
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.MonthEndRulesSeedGeneratorTest'
+		// data/payroll_members.json: the payroll demonstration's invented members and the strangers on its files
+		// (October build), generated with a fixed random seed and checked byte for byte.
+		includeTestsMatching 'za.co.titandynamix.sasbo_online_backend.utils.PayrollSeedGeneratorTest'
 	}
 
 	systemProperty 'apiSurface.write', 'true'

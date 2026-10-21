@@ -100,7 +100,12 @@ class AcbFileServiceImplIT extends AbstractAcbIT {
         AcbRunDto run = approvedRun(false);
         // Before the file is made the run says when it must be made by, and that it has not been.
         assertThat(run.creationDate()).isNull();
-        assertThat(run.makeBy()).isEqualTo(LocalDate.parse(run.firstDueDate()).minusDays(3).toString());
+        // Three WORKING days before the first debit (Stephne, DOD-16): a business day, with exactly three before it.
+        LocalDate makeBy = LocalDate.parse(run.makeBy());
+        assertThat(za.co.titandynamix.sasbo_online_backend.acb.AcbCalendars.ZA_STATUTORY.isBusinessDay(makeBy)).isTrue();
+        assertThat(makeBy.datesUntil(LocalDate.parse(run.firstDueDate()))
+                .filter(za.co.titandynamix.sasbo_online_backend.acb.AcbCalendars.ZA_STATUTORY::isBusinessDay).count())
+                .isEqualTo(3);
         assertThat(run.makeByPassed()).as("18 September is well before the October file's day").isFalse();
 
         RenderedFile file = files.render(run.id(), "approver");

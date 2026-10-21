@@ -28,6 +28,12 @@ import za.co.titandynamix.sasbo_online_backend.config.WorkplaceSwitch;
 import za.co.titandynamix.sasbo_online_backend.enums.ListEmptyReason;
 import za.co.titandynamix.sasbo_online_backend.enums.SeedFailure;
 import za.co.titandynamix.sasbo_online_backend.exception.MonthEndRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.exception.ReferenceRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.exception.SignInRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.security.CallerScope;
+import za.co.titandynamix.sasbo_online_backend.security.Permission;
+import za.co.titandynamix.sasbo_online_backend.security.SignInMode;
+import za.co.titandynamix.sasbo_online_backend.services.MemberRegisterService;
 import za.co.titandynamix.sasbo_online_backend.services.WorkplaceService;
 import za.co.titandynamix.sasbo_online_backend.services.SummaryGate;
 import za.co.titandynamix.sasbo_online_backend.enums.SummaryGrouping;
@@ -35,6 +41,19 @@ import za.co.titandynamix.sasbo_online_backend.repository.MemberSummaryRepositor
 import za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason;
 import za.co.titandynamix.sasbo_online_backend.utils.MemberStatuses;
 import za.co.titandynamix.sasbo_online_backend.utils.ReferenceListSeeder;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollAmountStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollConfidence;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollDiscrepancyStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollDiscrepancyType;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollEntry;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollFileStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollMatchRule;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollOutcome;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollPaymentStatus;
+import za.co.titandynamix.sasbo_online_backend.enums.PayrollQueryAction;
+import za.co.titandynamix.sasbo_online_backend.exception.PayrollRefusalCode;
+import za.co.titandynamix.sasbo_online_backend.payroll.PayrollLimits;
+import za.co.titandynamix.sasbo_online_backend.services.PayrollFiles;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -46,6 +65,8 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
@@ -240,29 +261,37 @@ public final class ApiSurface {
                 .map(ApiSurface::quote)
                 .collect(Collectors.joining(", "));
 
-        return """
+        // October build (integration): the vocabulary is a MAP OF SECTIONS, one entry a section in a fixed order, so a
+        // stream adds one entry instead of a placeholder in a shared template and an argument at a shared tail -- a
+        // union of those in the wrong order still compiled and put one section's JSON in another's slot. The output is
+        // byte for byte what the single template made; ApiSurfaceSnapshotTest holds it.
+        Map<String, String> sections = new LinkedHashMap<>();
+        sections.put("_generated", "\"%s -- do not edit by hand\"".formatted(regenerateCommand()));
+        sections.put("paymentTypes", "[\n%s\n  ]".formatted(types));
+        sections.put("accountTypes", "[%s]".formatted(accountTypeNames()));
+        sections.put("memberStructures", """
                 {
-                  "_generated": "%s -- do not edit by hand",
-                  "paymentTypes": [
-                %s
-                  ],
-                  "accountTypes": [%s],
-                  "memberStructures": {
                     "becStructures": [%s],
                     "becExecutivePositions": [%s],
                     "cosatuPositions": [%s]
-                  },
-                  "errorEnvelopeKeys": [%s],
-                  "jobGradeMatching": {
+                  }""".formatted(
+                displayNames(BecStructure.values(), BecStructure::getDisplayName),
+                displayNames(BecExecutivePosition.values(), BecExecutivePosition::getDisplayName),
+                displayNames(CosatuPosition.values(), CosatuPosition::getDisplayName)));
+        sections.put("errorEnvelopeKeys", "[%s]".formatted(keys));
+        sections.put("jobGradeMatching", """
+                {
                     "outcomes": [%s],
                     "cases": [
                 %s
                     ]
-                  },
-                  "welcomeLetter": {
+                  }""".formatted(jobGradeOutcomeNames(), jobGradeMatchingCases()));
+        sections.put("welcomeLetter", """
+                {
                     "outcomes": [%s]
-                  },
-                  "acb": {
+                  }""".formatted(names(WelcomeLetterOutcome.values())));
+        sections.put("acb", """
+                {
                     "runStatuses": [%s],
                     "lineOutcomes": [%s],
                     "unpaidDecisions": [%s],
@@ -276,13 +305,19 @@ public final class ApiSurface {
                     "refusalCodes": [
                 %s
                     ]
-                  },
-                  "monthEnd": {
+                  }""".formatted(names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
+                names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
+                names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),
+                acbRefusalCodes()));
+        sections.put("monthEnd", """
+                {
                     "workplaceSwitch": [%s],
                     "listEmptyReasons": [%s],
                     "seedFailures": [%s],
                     "workplacePageMaxSize": %d,
                     "searchMaxLength": %d,
+                    "registerPageMaxSize": %d,
+                    "registerSorts": [%s],
                     "summaryGroupings": [%s],
                     "summaryTimeoutSeconds": %d,
                     "summaryAtOnce": %d,
@@ -303,26 +338,111 @@ public final class ApiSurface {
                     "refusalCodes": [
                 %s
                     ]
-                  }
-                }
-                """.formatted(regenerateCommand(), types, accountTypeNames(),
-                displayNames(BecStructure.values(), BecStructure::getDisplayName),
-                displayNames(BecExecutivePosition.values(), BecExecutivePosition::getDisplayName),
-                displayNames(CosatuPosition.values(), CosatuPosition::getDisplayName),
-                keys, jobGradeOutcomeNames(),
-                jobGradeMatchingCases(), names(WelcomeLetterOutcome.values()),
-                names(AcbRunStatus.values()), names(AcbLineOutcome.values()),
-                names(UnpaidDecision.values()), names(UnpaidReason.values()), names(LetterTemplate.values()),
-                names(LetterStatus.values()), names(AcbDeclineReason.values()), acbExclusionReasons(),
-                acbRefusalCodes(),
-                names(WorkplaceSwitch.Mode.values()), names(ListEmptyReason.values()), names(SeedFailure.values()),
-                WorkplaceService.MAX_PAGE_SIZE, WorkplaceService.MAX_SEARCH_LENGTH,
+                  }""".formatted(names(WorkplaceSwitch.Mode.values()), names(ListEmptyReason.values()),
+                names(SeedFailure.values()), WorkplaceService.MAX_PAGE_SIZE, WorkplaceService.MAX_SEARCH_LENGTH,
+                MemberRegisterService.MAX_PAGE_SIZE,
+                MemberRegisterService.SORTS.stream().map(ApiSurface::quote).collect(Collectors.joining(", ")),
                 Arrays.stream(SummaryGrouping.values()).map(g -> quote(g.wire())).collect(Collectors.joining(", ")),
                 MemberSummaryRepository.TIMEOUT_SECONDS, SummaryGate.AT_ONCE,
                 memberStatuses(), names(MemberStatusReason.values()), seededCodes("deletionCodes"),
-                seededCodes("suspensionCodes"),
-                monthEndRefusalCodes());
+                seededCodes("suspensionCodes"), monthEndRefusalCodes()));
+        sections.put("auth", """
+                {
+                    "modes": [%s],
+                    "scopeTypes": [%s],
+                    "permissions": [%s],
+                    "refusalCodes": [
+                %s
+                    ]
+                  }""".formatted(
+                Arrays.stream(SignInMode.values()).map(m -> quote(m.word())).collect(Collectors.joining(", ")),
+                names(CallerScope.Type.values()), names(Permission.values()), signInRefusalCodes()));
+        sections.put("reference", """
+                {
+                    "refusalCodes": [
+                %s
+                    ]
+                  }""".formatted(referenceRefusalCodes()));
+        sections.put("payroll", payrollVocabulary());
+        return sections.entrySet().stream()
+                .map(section -> "  " + quote(section.getKey()) + ": " + section.getValue())
+                .collect(Collectors.joining(",\n", "{\n", "\n}\n"));
     }
+
+    /**
+     * Sign-in's refusal codes, each with the status it answers (October build, contracts/signin.md) -- read off the
+     * enum the sign-in routes and the security chain answer with, never typed out.
+     */
+    private static String signInRefusalCodes() {
+        return Arrays.stream(SignInRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
+    }
+
+    /**
+     * The reference lists' refusal codes -- branches, subscription rows, recruitment channels and their members -- with
+     * the status each answers, read off the enum the server throws (the October build, A29 / A23 / RC15).
+     */
+    private static String referenceRefusalCodes() {
+        return Arrays.stream(ReferenceRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
+    }
+
+    /**
+     * Payroll's vocabulary (October build): every kind of discrepancy with its label, Stephne's rule, the employer
+     * query it asks for and the outcomes that fit; every outcome with its label; the words its lists and answers use;
+     * its limits; and every refusal code with its status -- read off the enums the module answers with, never typed
+     * out, for the client's parity tests.
+     */
+    static String payrollVocabulary() {
+        String types = Arrays.stream(PayrollDiscrepancyType.values())
+                .map(t -> "      {\"type\": %s, \"label\": %s, \"rule\": %s, \"queryAction\": %s, \"outcomes\": [%s]}"
+                        .formatted(quote(t.name()), quote(t.label()), t.rule().isEmpty() ? "null" : quote(t.rule()),
+                                t.queryAction() == null ? "null" : quote(t.queryAction().name()),
+                                names(t.outcomes().toArray(PayrollOutcome[]::new))))
+                .collect(Collectors.joining(",\n"));
+        String outcomes = Arrays.stream(PayrollOutcome.values())
+                .map(o -> "      {\"outcome\": %s, \"label\": %s, \"systemOnly\": %s}".formatted(quote(o.name()),
+                        quote(o.label()), o.systemOnly()))
+                .collect(Collectors.joining(",\n"));
+        String refusals = Arrays.stream(PayrollRefusalCode.values())
+                .map(c -> "      {\"code\": %s, \"status\": %d}".formatted(quote(c.name()), c.status().value()))
+                .collect(Collectors.joining(",\n"));
+        return """
+                {
+                    "discrepancyTypes": [
+                %s
+                    ],
+                    "outcomes": [
+                %s
+                    ],
+                    "systemOutcomes": [%s],
+                    "statuses": [%s],
+                    "matchRules": [%s],
+                    "confidences": [%s],
+                    "amountStatuses": [%s],
+                    "fileStatuses": [%s],
+                    "entries": [%s],
+                    "paymentStatuses": [%s],
+                    "queryActions": [%s],
+                    "rowFilters": [%s],
+                    "limits": {"maxBytes": %d, "maxRows": %d, "maxTypedRows": %d, "noteMaxLength": %d, "pageMaxSize": %d},
+                    "refusalCodes": [
+                %s
+                    ]
+                  }""".formatted(types, outcomes,
+                names(Arrays.stream(PayrollOutcome.values()).filter(PayrollOutcome::systemOnly).toArray(PayrollOutcome[]::new)),
+                names(PayrollDiscrepancyStatus.values()),
+                names(Arrays.stream(PayrollMatchRule.values()).filter(r -> r != PayrollMatchRule.NONE)
+                        .toArray(PayrollMatchRule[]::new)),
+                names(PayrollConfidence.values()), names(PayrollAmountStatus.values()),
+                names(PayrollFileStatus.values()), names(PayrollEntry.values()), names(PayrollPaymentStatus.values()),
+                names(PayrollQueryAction.values()), names(PayrollFiles.RowFilter.values()),
+                PayrollLimits.MAX_BYTES, PayrollLimits.MAX_ROWS, PayrollLimits.MAX_TYPED_ROWS,
+                PayrollLimits.NOTE_MAX_LENGTH, PayrollLimits.PAGE_MAX_SIZE, refusals);
+    }
+
 
     /**
      * Every status the member record takes, with its KIND -- the one thing a figure reads of a status (03.2, PA-4).

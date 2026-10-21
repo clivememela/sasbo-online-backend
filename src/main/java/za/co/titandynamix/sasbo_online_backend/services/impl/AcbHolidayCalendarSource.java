@@ -26,8 +26,15 @@ import java.util.Set;
 @Component
 public class AcbHolidayCalendarSource implements HolidayCalendarSource {
 
+    /**
+     * The calendar's row and its non-working days. A day the bank is closed counts while the calendar's setting says
+     * so -- DOD-17's open choice, on by default (V70); a public holiday always does. NULLs read as V70's defaults, for
+     * the fast lane's tables built from the entities.
+     */
     private static final String LOAD = "SELECT c.name, c.known_until, h.holiday_date "
-            + "FROM acb_calendar c LEFT JOIN acb_holidays h ON 1 = 1 WHERE c.id = ?1 ORDER BY h.holiday_date";
+            + "FROM acb_calendar c LEFT JOIN acb_holidays h ON (h.kind IS NULL OR h.kind <> 'BANK_CLOSED' "
+            + "OR c.bank_closures_count IS NULL OR c.bank_closures_count = TRUE) "
+            + "WHERE c.id = ?1 ORDER BY h.holiday_date";
 
     private final EntityManager entityManager;
 

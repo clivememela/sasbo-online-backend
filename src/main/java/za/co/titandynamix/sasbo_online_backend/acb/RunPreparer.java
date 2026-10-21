@@ -35,6 +35,9 @@ import java.util.regex.Pattern;
  *   <li>payment type is Debit Order -- payroll collection is a different world entirely;</li>
  *   <li>status is one the run debits -- Active only, until SASBO says otherwise; case and stray
  *       spaces do not matter, and the raw value is what the report counts;</li>
+ *   <li>the member has fewer than three unpaids -- "Cannot present more then 3 unpaid debits" (Stephne,
+ *       DOD-03): at three nothing is presented, and the member is named so a staff member confirms the
+ *       ending (DOD-22) or captures a new count;</li>
  *   <li>the bank name matches exactly one bank on record;</li>
  *   <li>that bank has exactly one ACTIVE subscription row -- none excludes its members by name,
  *       two refuse the whole run before any member is read;</li>
@@ -75,6 +78,7 @@ public final class RunPreparer {
     private final BankIndex banks;
     private final BigDecimal rate;
     private final Map<Integer, List<RePresentationCandidate>> candidatesByMember;
+    private final Set<Integer> atTheLimit;
 
     private final List<PreparedLine> lines = new ArrayList<>();
     private final List<Exclusion> exclusions = new ArrayList<>();
@@ -83,10 +87,20 @@ public final class RunPreparer {
 
     public RunPreparer(YearMonth month, DebitWindow window, BankIndex banks, BigDecimal rate,
                        Collection<RePresentationCandidate> candidates) {
+        this(month, window, banks, rate, candidates, Set.of());
+    }
+
+    /**
+     * @param atTheLimit the members with three unpaids already (DOD-03), counted by the same rule as the
+     *                   termination report -- left out, named
+     */
+    public RunPreparer(YearMonth month, DebitWindow window, BankIndex banks, BigDecimal rate,
+                       Collection<RePresentationCandidate> candidates, Set<Integer> atTheLimit) {
         this.month = month;
         this.window = window;
         this.banks = banks;
         this.rate = rate;
+        this.atTheLimit = Set.copyOf(atTheLimit);
         this.candidatesByMember = new HashMap<>();
         for (RePresentationCandidate candidate : candidates) {
             this.candidatesByMember
@@ -140,6 +154,9 @@ public final class RunPreparer {
         }
         if (!isDebitedStatus(member.status())) {
             return exclude(member, AcbExclusionReason.STATUS_NOT_ACTIVE, raw(member.status()));
+        }
+        if (member.id() != null && atTheLimit.contains(member.id())) {
+            return exclude(member, AcbExclusionReason.UNPAID_LIMIT_REACHED, "three unpaids");
         }
         Optional<BankRow> bank = banks.find(member.bankName());
         if (bank.isEmpty()) {

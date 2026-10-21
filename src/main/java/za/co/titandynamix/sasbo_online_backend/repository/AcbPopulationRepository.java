@@ -36,6 +36,32 @@ public interface AcbPopulationRepository extends Repository<Member, Integer> {
     List<za.co.titandynamix.sasbo_online_backend.acb.MemberStatusRow> findStatuses(
             @Param("ids") java.util.Collection<Integer> ids);
 
+    /**
+     * What the unpaid count needs of the members it counts -- number, surname, status and join date (DOD-27: a member
+     * who rejoins starts again from the new join date). One query for a list of ids.
+     */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.MemberCountRow("
+            + "m.id, m.membershipNumber, m.surname, m.status, m.joinDate) FROM Member m WHERE m.id IN :ids")
+    List<za.co.titandynamix.sasbo_online_backend.acb.MemberCountRow> findCountRows(
+            @Param("ids") java.util.Collection<Integer> ids);
+
+    /** The members a list of membership numbers names -- one query, for the unpaid counts typed in (DOD-28). */
+    @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.MemberCountRow("
+            + "m.id, m.membershipNumber, m.surname, m.status, m.joinDate) FROM Member m "
+            + "WHERE m.membershipNumber IN :numbers")
+    List<za.co.titandynamix.sasbo_online_backend.acb.MemberCountRow> findCountRowsByNumbers(
+            @Param("numbers") java.util.Collection<String> numbers);
+
+    /**
+     * {@code [memberId, changedAt]}: each member's latest change back to an active status -- a reinstatement, from a
+     * suspension or a membership that had ended -- for the re-debits a member's return withdraws (DOD-26). One query.
+     */
+    @Query("SELECT c.memberId, max(c.changedAt) FROM MemberStatusChange c "
+            + "WHERE c.reason = :reinstated AND c.memberId IN :ids GROUP BY c.memberId")
+    List<Object[]> findLastReinstatements(
+            @Param("reinstated") za.co.titandynamix.sasbo_online_backend.enums.MemberStatusReason reinstated,
+            @Param("ids") java.util.Collection<Integer> ids);
+
     /** The members an opening-position sheet names -- one query, whatever the sheet's length (D24). */
     @Query("SELECT new za.co.titandynamix.sasbo_online_backend.acb.opening.OpeningMemberRow("
             + "m.id, m.membershipNumber, m.paymentType, m.arrearsBalance) "

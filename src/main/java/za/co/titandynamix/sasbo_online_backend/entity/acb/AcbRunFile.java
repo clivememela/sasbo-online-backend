@@ -78,4 +78,17 @@ public class AcbRunFile {
 
     @Column(name = "purged_at")
     private Instant purgedAt;
+
+    /**
+     * How many times the file has been downloaded for the bank (DOD-11, V72), each one audited. Nullable here only
+     * because the fast lane builds the table from this entity; V72 makes it NOT NULL DEFAULT 0.
+     */
+    @Column(name = "downloads")
+    private Integer downloads;
+
+    @Column(name = "last_downloaded_by", length = 100)
+    private String lastDownloadedBy;
+
+    @Column(name = "last_downloaded_at")
+    private Instant lastDownloadedAt;
 }

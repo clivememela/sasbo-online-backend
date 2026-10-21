@@ -21,6 +21,11 @@ public enum AcbExclusionReason {
     NOT_DEBIT_ORDER(false),
     /** Not in a status the run debits -- Active, until SASBO says otherwise. Counted by status. */
     STATUS_NOT_ACTIVE(false),
+    /**
+     * Three unpaids already: "Cannot present more then 3 unpaid debits" (Stephne, DOD-03). Listed by name, so a
+     * staff member confirms each ending (DOD-22) or captures the member's count again.
+     */
+    UNPAID_LIMIT_REACHED(true),
     /** The bank name on the member record matches no bank on record. */
     NO_BANK_ON_RECORD(true),
     /** The member's bank has no ACTIVE subscription row: SASBO does not collect there. */

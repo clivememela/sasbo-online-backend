@@ -19,6 +19,12 @@ import java.util.Optional;
 public interface BankBranchRepository extends JpaRepository<BankBranch, Integer> {
     boolean existsByBank_NameAndBranchName(String bankName, String branchName);
 
+    // A29: whether another branch of the bank holds this code, asked before a save -- served by the unique key
+    // (bank_id, branch_code) that would otherwise refuse it inside the database.
+    boolean existsByBank_IdAndBranchCode(Integer bankId, String branchCode);
+
+    boolean existsByBank_IdAndBranchCodeAndIdNot(Integer bankId, String branchCode, Integer id);
+
     // Find a specific branch by bank and its unique 6-digit code
     Optional<BankBranch> findByBank_NameAndBranchCode(String bankName, String branchCode);
 

@@ -42,4 +42,11 @@ public class AcbRate {
     /** Where the amount came from, in words -- this row is the answer to "why R174?". */
     @Column(name = "source", nullable = false)
     private String source;
+
+    /**
+     * Whether something about the row is assumed rather than known -- R166.65's start, 1 January 2025 (V70).
+     * Nullable here only because the fast lane builds the table from this entity; V70 makes it NOT NULL.
+     */
+    @Column(name = "provisional")
+    private Boolean provisional;
 }

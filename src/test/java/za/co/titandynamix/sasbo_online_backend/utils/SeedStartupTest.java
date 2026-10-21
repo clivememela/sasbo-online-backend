@@ -70,9 +70,10 @@ class SeedStartupTest {
         ApplicationRunner whatFlywayWouldHaveSeeded(JdbcTemplate jdbc) {
             return args -> {
                 AcbRunFixture.insertRate(jdbc, LocalDate.of(2026, 1, 1), new BigDecimal("174.00"));
-                jdbc.update("INSERT INTO acb_unpaid_codes (code, reason, wording, inferred, source) VALUES "
-                        + "('2', 'NOT_PROVIDED_FOR', 'Not Provided For', FALSE, 'V45, on H2'), "
-                        + "('4', 'PAYMENT_STOPPED', 'Payment Stopped', FALSE, 'V45, on H2')");
+                // With V70's re-debit rules: 2 may be presented again, 4 never (Stephne, DOD-03).
+                jdbc.update("INSERT INTO acb_unpaid_codes (code, reason, wording, inferred, source, re_debit_allowed) "
+                        + "VALUES ('2', 'NOT_PROVIDED_FOR', 'Not Provided For', FALSE, 'V45 and V70, on H2', TRUE), "
+                        + "('4', 'PAYMENT_STOPPED', 'Payment Stopped', FALSE, 'V45 and V70, on H2', FALSE)");
                 AcbRunFixture.insertCalendar(jdbc);
             };
         }
@@ -156,7 +157,9 @@ class SeedStartupTest {
                     .getInputStream()) {
                 original = DataSeeder.readSeedMembers(stream).size();
             }
-            long expected = original + DebitOrderMemberSeeder.readSeedFile().members().size();
+            // The payroll demonstration's own members are seeded whatever the switch says, as the debit-order ones are.
+            long expected = original + DebitOrderMemberSeeder.readSeedFile().members().size()
+                    + PayrollSeeder.readSeedFile().members().size();
             assertThat(members.count()).isEqualTo(expected);
             seeder.run(new DefaultApplicationArguments());
             assertThat(members.count()).as("after a second start").isEqualTo(expected);

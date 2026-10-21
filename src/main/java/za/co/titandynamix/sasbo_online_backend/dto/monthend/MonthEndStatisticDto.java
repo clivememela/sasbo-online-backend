@@ -70,12 +70,21 @@ public record MonthEndStatisticDto(String statistic, List<String> legacy, String
      * @param withheld      withheld so that no answer gives a row of fewer than five back
      * @param cells         one a column, in the columns' order; {@code null} where the row answers none, or where the
      *                      cell has no meaning -- a penetration with no complement, core and other with no workplace
+     * @param complementOutOfDate October build, Stephne MEN-26: the row prints members and a staff complement, and
+     *                      more members pay than the complement counts -- the complement is out of date. The number is
+     *                      shown as it is; the statistic's notes say why it is flagged
      */
     public record Row(String key, String label, String level, boolean fewerThanFive, boolean withheld,
-                      List<BigDecimal> cells) {
+                      List<BigDecimal> cells, boolean complementOutOfDate) {
 
         public static final String ROW = "ROW";
         public static final String GROUP = "GROUP";
         public static final String TOTAL = "TOTAL";
+
+        /** A row no complement is compared on. */
+        public Row(String key, String label, String level, boolean fewerThanFive, boolean withheld,
+                   List<BigDecimal> cells) {
+            this(key, label, level, fewerThanFive, withheld, cells, false);
+        }
     }
 }

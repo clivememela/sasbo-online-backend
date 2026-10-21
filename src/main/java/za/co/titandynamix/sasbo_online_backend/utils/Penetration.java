@@ -10,6 +10,13 @@ import java.math.RoundingMode;
  */
 public final class Penetration {
 
+    /**
+     * Stephne, MEN-26 -- "This usually happens when the compliment is not updated or correct. This should be flagged so
+     * we can fix it." The sentence beside a flagged figure, which is shown as it is, never in place of the number.
+     */
+    public static final String OUT_OF_DATE_NOTE = "Where more members pay than the staff complement on record, the "
+            + "penetration is shown as it is and flagged: the complement is out of date and should be updated.";
+
     private Penetration() {
     }
 
@@ -20,5 +27,13 @@ public final class Penetration {
     public static BigDecimal of(long paying, Long complement) {
         return complement == null || complement <= 0 ? null
                 : BigDecimal.valueOf(paying).divide(BigDecimal.valueOf(complement), 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Whether the complement on record is out of date (MEN-26): more members pay at the place than its complement
+     * counts. Never where no complement is on record -- nothing is compared with nothing.
+     */
+    public static boolean complementOutOfDate(long paying, Long complement) {
+        return complement != null && complement > 0 && paying > complement;
     }
 }

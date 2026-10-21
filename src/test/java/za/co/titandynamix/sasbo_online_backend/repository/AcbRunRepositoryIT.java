@@ -70,13 +70,14 @@ class AcbRunRepositoryIT extends AbstractAcbIT {
     // ── the schema V41 to V43 build ─────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("exactly twelve ACB tables -- which is what takes the chain from 25 tables to 37")
+    @DisplayName("exactly fourteen ACB tables -- V72 adds the returns reports and the unpaid counts (Stephne, DOD-06, DOD-28)")
     void theNineTables() {
         assertThat(jdbc.queryForList("SELECT table_name FROM information_schema.tables "
                 + "WHERE table_schema = 'public' AND table_name LIKE 'acb\\_%' ORDER BY table_name", String.class))
                 .containsExactly("acb_audit_events", "acb_calendar", "acb_holidays", "acb_letters",
-                        "acb_opening_position", "acb_rates", "acb_run_exclusion_counts", "acb_run_exclusions",
-                        "acb_run_files", "acb_run_lines", "acb_runs", "acb_unpaid_codes");
+                        "acb_opening_position", "acb_rates", "acb_returns_batches", "acb_run_exclusion_counts",
+                        "acb_run_exclusions", "acb_run_files", "acb_run_lines", "acb_runs", "acb_unpaid_codes",
+                        "acb_unpaid_counts");
     }
 
     @Test
@@ -94,14 +95,21 @@ class AcbRunRepositoryIT extends AbstractAcbIT {
     }
 
     @Test
-    @DisplayName("V41 seeds the flat rate, and a month before it has none")
+    @DisplayName("V41 seeds the flat rate and V70 the one before it, provisional -- and a month before both has none")
     void theRateIsSeeded() {
         assertThat(rates.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDesc(NEXT_MONTH))
                 .hasValueSatisfying(rate -> {
                     assertThat(rate.getAmount()).isEqualByComparingTo("174.00");
                     assertThat(rate.getEffectiveFrom()).isEqualTo(LocalDate.of(2026, 1, 1));
+                    assertThat(rate.getProvisional()).isFalse();
                 });
+        // December 2025 stays at R166.65 (SASBO's letter of 26 Nov 2025); its start in January 2025 is assumed.
         assertThat(rates.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDesc(LocalDate.of(2025, 12, 1)))
+                .hasValueSatisfying(rate -> {
+                    assertThat(rate.getAmount()).isEqualByComparingTo("166.65");
+                    assertThat(rate.getProvisional()).isTrue();
+                });
+        assertThat(rates.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDesc(LocalDate.of(2024, 12, 1)))
                 .isEmpty();
     }
 
